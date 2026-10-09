@@ -17,6 +17,9 @@ Existing settings/downloads are preserved. Run one installer at a time and
 close Blaze before rerunning setup. Optional mpv, aria2c and FFprobe are not
 bundled. Blaze uses native downloading and bundled FFmpeg.
 
-The shell syntax and archive were checked on Linux. End-to-end installation
-on macOS has not been tested here. The installer uses uv 0.12.19 and verifies
-its archive's published SHA-256 before execution.
+Release publication requires actual installation and upgrade tests on Apple
+Silicon and Intel macOS runners, followed by local download/conversion/resume
+tests using this private runtime. This does not cover every older macOS version
+or every public website. The installer uses uv 0.12.19 and verifies its archive's
+published SHA-256 before execution. New app code is validated before replacement.
+

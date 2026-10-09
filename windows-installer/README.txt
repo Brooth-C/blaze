@@ -27,5 +27,8 @@ To update the app: extract a newer package and rerun Install-Blaze.bat.
 To remove this installation: close Blaze and delete its folder. Back up your
 Audio, Video, Config and Reports first if you want to keep them.
 
-This package has been statically checked and its bundled Blaze regression
-suite passed on Linux. End-to-end Windows setup has not been tested here.
+Release publication requires actual installation and upgrade tests on an x64
+Windows runner, followed by local download/conversion/resume tests using this
+private runtime. This does not cover every Windows version or every public
+website. New app code is validated before replacing the installed app.
+

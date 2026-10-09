@@ -4,11 +4,15 @@ PyInstaller spec for Blaze
 Usage: pyinstaller blaze.spec
 """
 
+from PyInstaller.utils.hooks import collect_all
+
+ffmpeg_data, ffmpeg_bins, ffmpeg_imports = collect_all('imageio_ffmpeg')
+
 a = Analysis(
     ['blaze.py'],
     pathex=[],
-    binaries=[],
-    datas=[],
+    binaries=ffmpeg_bins,
+    datas=ffmpeg_data,
     hiddenimports=[
         'rich.console',
         'rich.live',
@@ -18,7 +22,8 @@ a = Analysis(
         'rich.progress',
         'rich.text',
         'rich.align',
-    ],
+        'mutagen',
+    ] + ffmpeg_imports,
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
@@ -49,3 +54,4 @@ exe = EXE(
     codesign_identity=None,
     entitlements_file=None,
 )
+

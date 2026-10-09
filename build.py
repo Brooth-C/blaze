@@ -18,10 +18,12 @@ import sys
 import shutil
 import subprocess
 import platform
+import re
 from pathlib import Path
 
 APP_NAME = "blaze"
-VERSION = "4.0.0"
+PROJECT_DIR = Path(__file__).resolve().parent
+VERSION = re.search(r'^VERSION = "([^"]+)"', (PROJECT_DIR / 'blaze.py').read_text(encoding='utf-8'), re.MULTILINE).group(1)
 
 
 def get_output_name():
@@ -40,21 +42,12 @@ def get_output_name():
 
 def check_pyinstaller():
     """Ensure PyInstaller is available."""
-    if shutil.which("pyinstaller"):
-        return "pyinstaller"
-
-    # Try via Python module
     try:
         subprocess.run([sys.executable, "-m", "PyInstaller", "--version"],
                        capture_output=True, check=True, timeout=10)
-        return f"{sys.executable} -m PyInstaller"
-    except Exception:
-        pass
-
-    print("PyInstaller not found. Installing...")
-    subprocess.run([sys.executable, "-m", "pip", "install", "pyinstaller"],
-                   check=True)
-    return "pyinstaller"
+        return [sys.executable, "-m", "PyInstaller"]
+    except (OSError, subprocess.SubprocessError) as exc:
+        raise SystemExit('Install PyInstaller, rich, mutagen and imageio-ffmpeg in your build environment first.') from exc
 
 
 def build():
@@ -69,47 +62,46 @@ def build():
 
     # Clean previous builds
     for folder in ["build", "dist"]:
-        if Path(folder).exists():
-            shutil.rmtree(folder)
+        build_folder = PROJECT_DIR / folder
+        if build_folder.exists():
+            shutil.rmtree(build_folder)
 
     # Build command
-    cmd = pyinstaller.split() + [
-        "--onefile",
-        "--name", APP_NAME,
+    cmd = pyinstaller + [
         "--clean",
         "--noconfirm",
-        # Hide console window on Windows (optional, comment out for CLI tool)
-        # "--noconsole",
-        "blaze.py"
+        str(PROJECT_DIR / "blaze.spec")
     ]
 
     print(f"Running: {' '.join(cmd)}\n")
-    subprocess.run(cmd, check=True)
+    subprocess.run(cmd, check=True, cwd=PROJECT_DIR)
 
     # Rename to platform-specific name
-    src = Path("dist") / APP_NAME
+    src = PROJECT_DIR / "dist" / APP_NAME
     if sys.platform == "win32":
         src = src.with_suffix(".exe")
 
-    dst = Path("dist") / output_name
+    dst = PROJECT_DIR / "dist" / output_name
     if sys.platform == "win32":
         dst = dst.with_suffix(".exe")
 
-    shutil.move(str(src), str(dst))
+    if src != dst:
+        shutil.move(str(src), str(dst))
 
     # Make executable on Unix
     if sys.platform != "win32":
         os.chmod(dst, 0o755)
 
     print(f"\n{'='*60}")
-    print(f"  BUILD SUCCESSFUL!")
+    print("  BUILD SUCCESSFUL!")
     print(f"  Binary: {dst.absolute()}")
     print(f"  Size:   {dst.stat().st_size / 1024 / 1024:.1f} MB")
     print(f"{'='*60}\n")
 
-    print("Your friends can now run this binary directly — no Python needed!")
+    print("Python is bundled. First use still needs internet to obtain yt-dlp if it is unavailable.")
     print(f"\n  ./{output_name} \"https://youtube.com/watch?v=...\" --tui\n")
 
 
 if __name__ == "__main__":
     build()
+

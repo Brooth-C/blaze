@@ -1,89 +1,23 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Blaze v4.1.20 — Universal Terminal Downloader (Audio + Video)
-Reliability revision: 2026-10-09 (version number retained by request).
+Blaze — private audio/video downloader with a responsive terminal dashboard.
+Requires Python 3.10+ for source use; installers provide a managed Python runtime.
 
-Run with Python 3.10 or newer:
-    python3 Blaze-Universal-4.1.20.py
-    python3 Blaze-Universal-4.1.20.py --mode audio -F mp3 --playlist "URL"
-    python3 Blaze-Universal-4.1.20.py --mode audio -F wav "URL"
-    python3 Blaze-Universal-4.1.20.py --mode video --video-resolution 1080p "URL"
-    python3 Blaze-Universal-4.1.20.py --doctor
+Usage:
+    python blaze.py
+    python blaze.py --mode audio -F mp3 "URL"
+    python blaze.py --mode video --video-resolution 1080p "URL"
+    python blaze.py --doctor
 
-Downloads: ~/Blaze/Audio and ~/Blaze/Video.
-Job reports and full downloader logs: ~/Blaze/Reports (or OUTPUT/Reports).
-Rerun the same command to resume partial downloads and consult download history.
-History is now scoped to the destination and requested format/quality. Old global
-history is retained but not imported: it cannot establish which format exists.
-Existing files remain protected by no-overwrite. Different quality profiles and
-output directories intentionally have independent histories. Final paths are
-recorded for new downloads; missing recorded files are retried automatically.
-For missing files from older runs, use --ignore-history with the original URL.
-This bypasses old skip records while retaining no-overwrite protection.
-Jobs sharing a media folder queue behind
-an OS file lock to prevent overlapping writes, including across Blaze processes.
-Fragment downloads remain parallel inside each job.
+Owned dependencies and configuration stay under ~/Blaze. Media downloads go
+under OUTPUT/Audio or OUTPUT/Video; reports are URL-job results, not independent
+playlist-completeness audits. Rerun a command to resume interrupted downloads.
+WAV/FLAC conversion cannot restore detail absent from a lossy source.
 
-WAV conversion does not restore detail missing from a lossy source. A successful
-report describes a URL job's process result, not a reconciled count of every
-original playlist entry. Errors emitted with an otherwise successful exit code
-are treated as failures. Spotify links are not supported.
-
-October 9 revision: downloader output-reader failures now fail the job; thread
-startup failures terminate and reap the child; failed config saves remove temporary
-files. Auto mode recognizes direct audio/video links and no longer assumes all
-Archive.org pages are audio. Saved cookie paths expand ~, and the dashboard
-preserves downloader error details. Dependency downloads publish complete files
-atomically and clean partial files on failure or interruption. Installer temporary
-paths are unique, replacement preserves existing directories, macOS reuses stored
-standalone yt-dlp, and pip-installed commands are checked before use. Sixteen
-focused regression tests, Python compilation and CLI help passed.
-Dashboard startup now precedes download thread startup; render failures stop
-queued work before process cleanup, and all exits restore the prior tracker.
-Four additional dashboard lifecycle tests passed using simulated Rich widgets
-(20 focused regression tests total). Native Rich rendering was not exercised.
-Config editor launch handles quoted Windows paths, invalid EDITOR values and
-nonzero editor exits. Interrupted reports include an explicit error reason.
-Five further focused tests passed in this revision, plus compilation and CLI
-help. The earlier 20 temporary test scripts were unavailable for rerunning;
-their results above describe earlier revisions, not verification of this one.
-Latest revision: standalone yt-dlp cleanup also covers chmod failures and
-interruptions during verification. Eight focused installer/editor tests passed,
-plus compilation and CLI help. See Blaze-Regression-Tests.py for rerunnable tests.
-Terminal dashboard revision: responsive queue, bounded rows, visible failure
-details, literal titles, compact footer and interactive dashboard integration.
-Thirteen current tests passed, including actual Rich rendering at five terminal
-sizes, dashboard startup failure and interactive --no-tui fallback. Compilation
-and CLI help passed. Public-service downloads remain untested.
-Research-informed dashboard revision: elapsed time, finished-job summary,
-reported per-download ETA and explicit preparing/download/postprocessing stages.
-Refresh is manual at the configured rate, without a second refresh thread.
-Sixteen current tests passed, including ETA/stage parsing and real Rich rendering.
-Queue navigation revision: N/P pages, F failed-only view, A all jobs and empty
-view messages. Nonblocking keyboard handling restores terminal state on exit.
-Twenty-two current regression tests passed, plus compilation and CLI help;
-POSIX input/restoration was verified on a real pseudoterminal. Native Windows keyboard
-input and live public-service downloads remain untested.
-Live service downloads were not tested in this revision.
-
-Prior September revision validation: 40 regression tests and 8 real yt-dlp/FFmpeg integration tests
-passed. Integration checks used locally served media and covered MP3 conversion,
-video with audio, repeat downloads, concurrent overlapping URLs, interrupted
-download resume, deleted-file recovery and legacy-history bypass. OS file locking was also checked across separate Linux
-processes. Public services, account authentication and macOS/Windows installation
-were not exercised in this validation environment.
-
-Private-install revision: new dependency installs use only ~/Blaze/.runtime;
-config uses ~/Blaze/Config. System package managers and Python bootstrapping are
-disabled. Existing external tools may be used but are not installed or updated.
-Old config is read as a fallback; old installations are not deleted. Optional
-mpv/ffprobe/aria2c use graceful fallback if no private installer is available.
-Twenty-eight tests passed, including a real offline private-venv installation.
-The .py launcher still requires an existing Python 3.10+ interpreter.
-
-Reference CLI documentation checked during this revision:
-https://github.com/yt-dlp/yt-dlp#usage-and-options
+Regression and local-media integration tests live beside this file. Target-OS
+installer tests run separately in GitHub Actions. Passing checks are evidence
+for those scenarios, not a guarantee about every public-service extractor.
 """
 
 import os
@@ -107,18 +41,19 @@ import queue
 from pathlib import Path
 from datetime import datetime
 from dataclasses import dataclass, asdict, fields, replace
-from typing import List, Optional, Tuple, Dict, Union
+from typing import List, Optional, Tuple, Dict
 from collections import deque
 from functools import wraps
 from contextlib import contextmanager
 import errno
+import math
 
 # ═══════════════════════════════════════════════════════════════════════
 # METADATA
 # ═══════════════════════════════════════════════════════════════════════
 
 APP_NAME = "Blaze"
-VERSION = "4.1.20"
+VERSION = "4.1.21"
 DEFAULT_WORKERS = 4
 DEFAULT_FRAGMENTS = 8
 DEFAULT_OUTPUT = Path.home() / "Blaze"
@@ -184,10 +119,24 @@ class Style:
 class Logger:
     QUIET = False
     NO_COLOR = False
+    _dashboard_tracker = None
+
+    @classmethod
+    @contextmanager
+    def dashboard(cls, tracker):
+        previous = cls._dashboard_tracker
+        cls._dashboard_tracker = tracker
+        try:
+            yield
+        finally:
+            cls._dashboard_tracker = previous
 
     @classmethod
     def _out(cls, symbol: str, color: str, title: str, message: str):
         if cls.QUIET:
+            return
+        if cls._dashboard_tracker is not None:
+            cls._dashboard_tracker.add_log(f"{title.lower()}: {message}")
             return
         ts = datetime.now().strftime("%H:%M:%S")
         if cls.NO_COLOR:
@@ -209,6 +158,9 @@ class Logger:
 
     @classmethod
     def error(cls, msg: str):
+        if cls._dashboard_tracker is not None:
+            cls._dashboard_tracker.add_log(f"error: {msg}")
+            return
         print(f"FAIL: {msg}", file=sys.stderr, flush=True)
 
     @classmethod
@@ -218,11 +170,14 @@ class Logger:
         if cls.NO_COLOR:
             print(f"Blaze v{VERSION}")
             return
-        width = 58
+        width = min(58, shutil.get_terminal_size((80, 24)).columns - 4)
+        if width < 48:
+            print(f"Blaze v{VERSION} — Audio & Video\n")
+            return
         bc = Style.CYAN + Style.BOLD
         rst = Style.RESET
         text1 = f"{Style.BOLD}Blaze{rst} v{VERSION}{Style.DIM} - Universal Terminal Downloader{rst}"
-        text2 = f"{Style.DIM}Zero-config. Auto-installs deps. Maximum speed.{rst}"
+        text2 = f"{Style.DIM}Audio & video · Private installation · Resume support{rst}"
 
         def _pad(s, w):
             clean = re.sub(r"\x1B\[[0-9;]*m", "", s)
@@ -252,7 +207,7 @@ class Config:
     write_thumbnails: bool = True
     write_subtitles: bool = False
     create_subdirs: bool = True
-    tui_refresh_rate: int = 4
+    tui_refresh_rate: int = 8
     insecure: bool = False
     speed: str = "fast"
     cookies_file: str = ""
@@ -338,6 +293,9 @@ class Config:
                     filtered.pop("retries")
                 if "tui_refresh_rate" in filtered and filtered["tui_refresh_rate"] <= 0:
                     filtered.pop("tui_refresh_rate")
+                for key, limit in (("workers", 32), ("fragments", 64), ("retries", 100), ("tui_refresh_rate", 12)):
+                    if key in filtered:
+                        filtered[key] = min(filtered[key], limit)
 
                 if "format" in filtered:
                     filtered["format"] = str(filtered["format"]).lower()
@@ -774,19 +732,18 @@ class DependencyInstaller:
                     bundled = imageio_ffmpeg.get_ffmpeg_exe()
                     if bundled and Path(bundled).exists():
                         dest = LOCAL_BIN_DIR / ("ffmpeg.exe" if sys.platform == "win32" else "ffmpeg")
-                        if dest.is_symlink() or dest.exists():
-                            dest.unlink()
-                        if sys.platform == "win32":
-                            shutil.copy2(bundled, dest)
-                        else:
-                            try:
-                                os.symlink(bundled, dest)
-                            except OSError:
-                                shutil.copy2(bundled, dest)
-                            try:
-                                os.chmod(dest, 0o755)
-                            except OSError:
-                                pass
+                        temporary = dest.with_name(f".{dest.name}.{uuid.uuid4().hex}.tmp")
+                        try:
+                            shutil.copy2(bundled, temporary)
+                            if sys.platform != "win32":
+                                temporary.chmod(0o755)
+                            verified = subprocess.run([str(temporary), "-version"],
+                                                      capture_output=True, stdin=subprocess.DEVNULL, timeout=10)
+                            if verified.returncode != 0:
+                                raise OSError("Bundled FFmpeg could not run")
+                            temporary.replace(dest)
+                        finally:
+                            temporary.unlink(missing_ok=True)
                         cls._invalidate_cache("ffmpeg")
                         if cls._command_runs("ffmpeg", ["-version"]):
                             Logger.success("ffmpeg installed (bundled)")
@@ -856,8 +813,9 @@ class DependencyInstaller:
         cls._ensure_local_bin_in_path()
         ytdlp = cls._ensure_ytdlp()
         cls._ensure_ffmpeg()
-        cls._ensure_ffprobe()
-        has_aria2c = cls._ensure_aria2c() if use_aria2c else False
+        # These tools are optional. Never stall first launch trying to fetch
+        # platform archives that are not part of the supported installer.
+        has_aria2c = cls._command_runs("aria2c", ["--version"]) if use_aria2c else False
         return ytdlp, has_aria2c
 
     @classmethod
@@ -873,7 +831,7 @@ class DependencyInstaller:
             return False
         cls._refresh_user_site()
         try:
-            import rich
+            import rich  # noqa: F401 -- confirm the installed module imports
             Logger.success("Rich installed")
             return True
         except ImportError:
@@ -894,7 +852,7 @@ class DependencyInstaller:
             return False
         cls._refresh_user_site()
         try:
-            import mutagen
+            import mutagen  # noqa: F401 -- confirm the installed module imports
             Logger.success("mutagen installed")
             return True
         except ImportError:
@@ -965,6 +923,8 @@ class Job:
     mode: str = "auto"
     phase: str = "Preparing"
     eta: str = ""
+    item_index: int = 0
+    item_count: int = 0
 
 
 class DownloadTracker:
@@ -973,12 +933,14 @@ class DownloadTracker:
         self.logs: deque = deque(maxlen=100)
         self.lock = threading.RLock()
         self._counter = 0
+        self.revision = 0
 
     def add_job(self, url: str, mode: str = "auto") -> int:
         with self.lock:
             self._counter += 1
             job = Job(id=self._counter, url=url, mode=mode)
             self.jobs[self._counter] = job
+            self.revision += 1
             return self._counter
 
     def update_job(self, job_id: int, **kwargs):
@@ -987,15 +949,24 @@ class DownloadTracker:
                 for k, v in kwargs.items():
                     if k == "progress":
                         try:
-                            v = max(0.0, min(100.0, float(v)))
-                        except (TypeError, ValueError):
+                            v = float(v)
+                            if not math.isfinite(v):
+                                continue
+                            v = max(0.0, min(100.0, v))
+                        except (TypeError, ValueError, OverflowError):
                             continue
-                    setattr(self.jobs[job_id], k, v)
+                    if k in Job.__dataclass_fields__ and k not in ("id", "url"):
+                        setattr(self.jobs[job_id], k, v)
+                if self.jobs[job_id].status in ("done", "failed"):
+                    self.jobs[job_id].speed = ""
+                    self.jobs[job_id].eta = ""
+                self.revision += 1
 
     def add_log(self, message: str):
         with self.lock:
             ts = datetime.now().strftime("%H:%M:%S")
             self.logs.append(f"[{ts}] {message}")
+            self.revision += 1
 
     def get_stats(self) -> Tuple[int, int, int, int]:
         with self.lock:
@@ -1265,6 +1236,13 @@ class DownloadEngine:
     def _get_speed_config(self) -> Dict:
         return SPEED_CONFIG.get(self.speed, SPEED_CONFIG["fast"])
 
+    def _dashboard_flags(self) -> List[str]:
+        if self.tracker is None:
+            return []
+        return ["--progress", "--progress-delta", "0.1",
+                "--progress-template", "download:BLAZE_PROGRESS:%(progress)j",
+                "--print", "before_dl:BLAZE_MEDIA:%(.{title,id,playlist_index,playlist_count})j"]
+
     def _build_audio_output_template(self, output_dir: Path, playlist: bool = False) -> str:
         base = str(output_dir).replace("%", "%%")
         ext = "%(ext)s"
@@ -1428,7 +1406,7 @@ class DownloadEngine:
         if self.config.cookies_browser:
             flags += ["--cookies-from-browser", self.config.cookies_browser]
 
-        return flags
+        return flags + self._dashboard_flags()
 
     def _build_video_flags(self, playlist: bool = False, show_progress: bool = True,
                            resolution: str = "", output_format: str = "mp4") -> List[str]:
@@ -1509,7 +1487,7 @@ class DownloadEngine:
         if self.config.cookies_browser:
             flags += ["--cookies-from-browser", self.config.cookies_browser]
 
-        return flags
+        return flags + self._dashboard_flags()
 
     def _extract_site(self, url: str) -> str:
         return ModeDetector.extract_site(url)
@@ -1519,6 +1497,52 @@ class DownloadEngine:
             return
         line = line.strip()
         if not line:
+            return
+
+        if line.startswith("BLAZE_MEDIA:"):
+            try:
+                item = json.loads(line.partition(":")[2])
+                if not isinstance(item, dict):
+                    return
+                def item_number(name):
+                    value = item.get(name)
+                    return value if isinstance(value, int) and not isinstance(value, bool) and value >= 0 else 0
+                title = item.get("title") or item.get("id")
+                if not isinstance(title, str):
+                    title = ""
+                tracker.update_job(job_id, title=title, progress=0.0, phase="Preparing", speed="", eta="",
+                                   item_index=item_number("playlist_index"), item_count=item_number("playlist_count"))
+            except (ValueError, TypeError):
+                pass
+            return
+        if line.startswith("BLAZE_PROGRESS:"):
+            try:
+                progress = json.loads(line.partition(":")[2])
+                if not isinstance(progress, dict):
+                    return
+                status = progress.get("status")
+                if status not in ("downloading", "finished"):
+                    return
+                def number(name):
+                    value = progress.get(name)
+                    if isinstance(value, bool):
+                        return 0.0
+                    value = float(value or 0)
+                    return value if math.isfinite(value) and value >= 0 else 0.0
+                total = number("total_bytes") or number("total_bytes_estimate")
+                downloaded = number("downloaded_bytes")
+                rate = number("speed")
+                eta = number("eta")
+                eta_text = f"{int(eta) // 60:02}:{int(eta) % 60:02}" if eta else ""
+                scale, unit = (1024 ** 3, "GiB/s") if rate >= 1024 ** 3 else (1024 ** 2, "MiB/s") if rate >= 1024 ** 2 else (1024, "KiB/s") if rate >= 1024 else (1, "B/s")
+                values = dict(phase="Finishing" if status == "finished" else "Downloading",
+                              speed=f"{rate / scale:.1f} {unit}" if rate and status == "downloading" else "",
+                              eta=eta_text if status == "downloading" else "")
+                if status == "finished" or total:
+                    values["progress"] = 100.0 if status == "finished" else 100 * downloaded / total
+                tracker.update_job(job_id, **values)
+            except (ValueError, TypeError, OverflowError):
+                pass
             return
 
         phase_match = re.match(r"^\[(ExtractAudio|Merger|VideoRemuxer|VideoConvertor|EmbedThumbnail|EmbedSubtitle|Metadata|Fixup\w*)\]", line)
@@ -1532,8 +1556,10 @@ class DownloadEngine:
             tracker.update_job(job_id, phase="Downloading",
                                eta=eta_match.group(1) if eta_match else "")
 
-        # Title parsing - avoid broken split("Downloading")[-1]
-        if "[info]" in line and "Downloading" in line:
+        # Structured titles keep their Unicode text throughout postprocessing.
+        with tracker.lock:
+            has_title = bool(tracker.jobs.get(job_id) and tracker.jobs[job_id].title)
+        if not has_title and "[info]" in line and "Downloading" in line:
             try:
                 m = re.match(r"\[info\]\s+(.+?):\s*Downloading", line)
                 if m:
@@ -1543,7 +1569,7 @@ class DownloadEngine:
             except Exception:
                 pass
 
-        if "Destination:" in line:
+        if not has_title and "Destination:" in line:
             try:
                 dest = line.split("Destination:")[-1].strip()
                 fname = os.path.basename(dest)
@@ -1582,11 +1608,9 @@ class DownloadEngine:
                 pass
 
         lower = line.lower()
-        error_keywords = ("error:", "failed", "unable to", "not available", "blocked")
-        warn_keywords = ("warning:", "deprecated", "unavailable")
-        if any(k in lower for k in error_keywords):
+        if lower.startswith("error:"):
             tracker.add_log(f"error: {line[:80]}")
-        elif any(k in lower for k in warn_keywords):
+        elif lower.startswith("warning:"):
             tracker.add_log(f"warn: {line[:80]}")
 
 
@@ -1690,6 +1714,8 @@ class DownloadEngine:
             worker._report_path = reports / (datetime.now().strftime("%Y%m%d-%H%M%S-") + uuid.uuid4().hex[:10] + ".json")
             target_mode = mode if mode in ("audio", "video") else ModeDetector.detect_mode(url)
             worker._effective_mode = target_mode
+            if self.tracker and job_id:
+                self.tracker.update_job(job_id, mode=target_mode, phase="Waiting")
             with _destination_lock(worker._archive_root, target_mode):
                 success = worker._download_impl(url, worker._archive_root, mode, playlist, job_id,
                                                 show_progress, print_debug, retry_with_update, _retry_done)
@@ -1715,6 +1741,7 @@ class DownloadEngine:
                 report = dict(url=url, started=started, finished=datetime.now().astimezone().isoformat(),
                               status="interrupted" if _shutdown_requested else ("succeeded" if success else "failed"),
                               mode=getattr(worker, "_effective_mode", mode), audio_format=worker.config.format,
+                              video_format=worker.config.video_format, video_resolution=worker.config.video_resolution,
                               error=error, exit_code=worker._exit_code,
                               playlist=playlist, log=str(worker._report_path.with_suffix(".log")),
                               scope="URL job result; not an independent per-track completeness audit")
@@ -1753,7 +1780,7 @@ class DownloadEngine:
             self.config.cookies_browser = "safari"
 
         if tracker and job_id:
-            tracker.update_job(job_id, site=site, mode=effective_mode, status="downloading")
+            tracker.update_job(job_id, site=site, mode=effective_mode, status="downloading", phase="Preparing", progress=0, error="", eta="", speed="")
             tracker.add_log(f"started ({effective_mode}): {url[:60]}...")
 
         try:
@@ -1774,11 +1801,11 @@ class DownloadEngine:
                 cmd_str = " ".join(shlex.quote(c) for c in cmd)
                 Logger.info(f"Command: {cmd_str}")
 
-            start = time.time()
+            start = time.monotonic()
             result_code = self._run_command(cmd, job_id)
             self._exit_code = result_code
 
-            elapsed = time.time() - start
+            elapsed = time.monotonic() - start
 
             if result_code == 0:
                 if tracker and job_id:
@@ -1939,13 +1966,38 @@ def dashboard_keys():
                 pass
 
 
+def terminal_text(value) -> str:
+    """Keep untrusted titles/diagnostics literal and on one safe terminal line."""
+    value = str(value)
+    value = re.sub(r"\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)", "", value)
+    value = re.sub(r"\x1b\[[0-?]*[ -/]*[@-~]", "", value)
+    value = re.sub(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\x9f]", "", value)
+    return re.sub(r"\s+", " ", value).strip()
+
+
+def dashboard_page_size(width: int, height: int) -> int:
+    if height < 12 or width < 24:
+        return max(1, height - 3)
+    return max(1, height - (12 if height < 20 else 17))
+
+
+def dashboard_selected_jobs(jobs, view: str):
+    if view == "failed":
+        jobs = [job for job in jobs if job.status == "failed"]
+    elif view == "active":
+        jobs = [job for job in jobs if job.status in ("queued", "downloading")]
+    return sorted(jobs, key=lambda job: job.id)
+
+
 def build_terminal_dashboard(tracker: DownloadTracker, config: Config, output_dir: Path,
-                             mode: str, has_aria2c: bool, width: int, height: int, elapsed_seconds: float = 0.0, page: int = 0, view: str = "all"):
-    """Build a bounded, responsive view from one consistent tracker snapshot."""
+                             mode: str, has_aria2c: bool, width: int, height: int,
+                             elapsed_seconds: float = 0.0, page: int = 0, view: str = "all"):
+    """Stable rows, smooth progress and an exact height budget at any terminal size."""
     from rich.console import Group
     from rich.panel import Panel
     from rich.table import Table
     from rich.text import Text
+    width, height = max(1, int(width)), max(1, int(height))
     with tracker.lock:
         jobs = [replace(job) for job in tracker.jobs.values()]
         logs = list(tracker.logs)
@@ -1953,26 +2005,42 @@ def build_terminal_dashboard(tracker: DownloadTracker, config: Config, output_di
               for status in ("queued", "downloading", "done", "failed")}
     elapsed = max(0, int(elapsed_seconds))
     clock = f"{elapsed // 3600:02}:{elapsed // 60 % 60:02}:{elapsed % 60:02}"
-    header = Text(f"BLAZE  •  {mode.upper()}  •  {clock}\n", style="bold cyan")
-    for label, status, style in (("Queued", "queued", "dim"), ("Active", "downloading", "cyan"),
-                                  ("Done", "done", "green"), ("Failed", "failed", "red")):
-        header.append(f"{label} {counts[status]}  ", style=style)
     settled = counts["done"] + counts["failed"]
-    header.append(f"\nJobs finished {settled}/{len(jobs)}", style="bold")
-    if width >= 65:
-        done_pct = int(100 * settled / len(jobs)) if jobs else 0
-        header.append("  " + "━" * (done_pct // 5) + "─" * (20 - done_pct // 5), style="cyan")
-    # Cropping each line avoids pushing the queue off a narrow terminal.
-    header.no_wrap = True
-    header.overflow = "ellipsis"
-    compact = height < 20
-    row_limit = max(1, height - (12 if compact else 17))
-    priority = {"downloading": 0, "queued": 1, "failed": 2, "done": 3}
-    jobs.sort(key=lambda job: (priority.get(job.status, 4), job.id))
-    selected = [job for job in jobs if job.status == "failed"] if view == "failed" else jobs
+    selected = dashboard_selected_jobs(jobs, view)
+    row_limit = dashboard_page_size(width, height)
     pages = max(1, (len(selected) + row_limit - 1) // row_limit)
     page %= pages
     visible = selected[page * row_limit:(page + 1) * row_limit]
+    empty = "No failed downloads" if view == "failed" else "No active downloads" if view == "active" else "Queue is empty"
+    # Very small windows remain usable, rather than letting Rich crop the footer.
+    if height < 12 or width < 24:
+        lines = [f"BLAZE {clock} | {settled}/{len(jobs)}"]
+        pagination = [f"Page {page + 1}/{pages} | N/P"] if pages > 1 and height > 2 else []
+        available = max(0, height - 2 - len(pagination))
+        for job in visible[:available]:
+            stage = job.phase if job.status == "downloading" else job.status.title()
+            lines.append(f"#{job.id} {terminal_text(job.title or job.url)} | {stage}")
+        if not visible and available:
+            lines.append(empty)
+        lines.extend(pagination)
+        if height > 1:
+            lines.append("Q stop | A all | F failed")
+        cropped = []
+        for line in lines:
+            text = Text(line, no_wrap=True, overflow="ellipsis")
+            text.truncate(width, overflow="ellipsis")
+            cropped.append(text)
+        return Group(*cropped)
+
+    header = Text(f"BLAZE  •  {mode.upper()}  •  {clock}\n", style="bold cyan", no_wrap=True, overflow="ellipsis")
+    for label, status, style in (("Queued", "queued", "dim"), ("Active", "downloading", "cyan"),
+                                  ("Done", "done", "green"), ("Failed", "failed", "red")):
+        header.append(f"{label} {counts[status]}  ", style=style)
+    header.append(f"\nJobs finished {settled}/{len(jobs)}", style="bold")
+    if width >= 65:
+        steps = int(20 * settled / len(jobs)) if jobs else 0
+        header.append("  " + "━" * steps + "─" * (20 - steps), style="cyan")
+    compact = height < 20
     table = Table(box=None, padding=(0, 1), expand=True, show_header=True)
     if width >= 48:
         table.add_column("#", width=3, style="dim")
@@ -1991,188 +2059,167 @@ def build_terminal_dashboard(tracker: DownloadTracker, config: Config, output_di
         cells = []
         if width >= 48:
             cells.append(Text(str(job.id), style="dim"))
-        cells.append(Text(re.sub(r"\s+", " ", job.title or job.url), overflow="ellipsis", no_wrap=True))
+        title = terminal_text(job.title or job.url)
+        if job.item_index and job.item_count:
+            title = f"{job.item_index}/{job.item_count}  {title}"
+        cells.append(Text(title, overflow="ellipsis", no_wrap=True))
         if width >= 85:
             cells.append(Text(job.mode.title(), style="dim"))
-        pct = int(job.progress)
-        progress = "   —" if job.status == "queued" or (job.status == "downloading" and job.phase == "Preparing") else f"{pct:3}%"
-        if width >= 65 and progress != "   —":
-            progress = "━" * (pct // 10) + "─" * (10 - pct // 10) + f" {pct:3}%"
+        pct = max(0, min(100, job.progress))
+        waiting = job.status == "queued" or (job.status == "downloading" and job.phase == "Preparing")
+        progress = "   —" if waiting else f"{pct:3.0f}%"
+        if width >= 65 and not waiting:
+            eighths = int(pct * 80 / 100)
+            whole, part = divmod(eighths, 8)
+            bar = "█" * whole + ("▏▎▍▌▋▊▉"[part - 1] if part else "")
+            progress = bar + "░" * (10 - len(bar)) + f" {pct:3.0f}%"
         cells.append(Text(progress, style=styles.get(job.status, "white")))
         if width >= 65:
-            cells.append(Text(job.speed or "—", style="dim"))
+            cells.append(Text(terminal_text(job.speed) or "—", style="dim"))
         if width >= 100:
-            cells.append(Text(job.eta if job.status == "downloading" and job.phase == "Downloading" and job.eta else "—", style="dim"))
-        stage = job.phase if job.status == "downloading" else labels.get(job.status, job.status.title())
+            cells.append(Text(terminal_text(job.eta) if job.status == "downloading" and job.phase == "Downloading" and job.eta else "—", style="dim"))
+        stage = job.phase if job.status == "downloading" else "Waiting" if job.status == "queued" and job.phase == "Waiting" else labels.get(job.status, job.status.title())
         if width < 48 and stage == "Downloading":
             stage = "Active"
-        cells.append(Text(stage, style=styles.get(job.status, "white")))
+        cells.append(Text(terminal_text(stage), style=styles.get(job.status, "white")))
         table.add_row(*cells)
     if not visible:
-        cells = [Text("—")] * len(table.columns)
-        cells[1 if width >= 48 else 0] = Text("No failed downloads" if view == "failed" else "Queue is empty", style="dim")
+        cells = [Text("—") for _ in table.columns]
+        cells[1 if width >= 48 else 0] = Text(empty, style="dim")
         table.add_row(*cells)
     hidden = len(selected) - len(visible)
-    queue_title = ("Failed downloads" if view == "failed" else "Downloads")
+    queue_title = "Failed downloads" if view == "failed" else "Active downloads" if view == "active" else "Downloads"
     if pages > 1:
         queue_title += f" • {hidden} more • " + ("Page " if width >= 65 else "") + f"{page + 1}/{pages}"
     parts = [Panel(header, border_style="cyan", padding=(0, 1)),
              Panel(table, title=Text(queue_title), border_style="dim", padding=(0, 0))]
     if not compact:
-        failures = ["#" + str(job.id) + ": " + re.sub(r"\s+", " ", job.error) for job in jobs if job.status == "failed" and job.error]
-        activity = failures[:2] if failures else [re.sub(r"\s+", " ", line) for line in logs[-2:]]
-        activity_text = Text("\n".join(activity or ["Waiting for activity…"]), no_wrap=True, overflow="ellipsis")
-        # Fixed two-line content gives the queue a predictable height.
-        if len(activity or []) < 2:
+        failures = [f"#{job.id}: {terminal_text(job.error)}" for job in selected if job.status == "failed" and job.error]
+        activity = failures[-2:] if failures else [terminal_text(line) for line in logs[-2:]]
+        activity_text = Text("\n".join(activity or ["Preparing downloads…"]), no_wrap=True, overflow="ellipsis")
+        if len(activity) < 2:
             activity_text.append("\n")
         parts.append(Panel(activity_text, title=Text("Errors" if failures else "Activity"),
                            border_style="red" if failures else "dim", padding=(0, 1)))
-    footer = Text("N/P pages • F failed • A all • Ctrl+C stop", style="dim", no_wrap=True, overflow="ellipsis")
+    footer = Text("N/P pages • F failed • A all • D active • Q stop", style="dim", no_wrap=True, overflow="ellipsis")
     if not compact:
-        footer.append("\n" + (f"{config.format.upper()}  •  " if mode == "audio" else "") + "Output: ")
-        footer.append(re.sub(r"\s+", " ", str(output_dir)), style="cyan")
+        profile = config.format.upper() if mode == "audio" else config.video_format.upper() if mode == "video" else "AUTO"
+        footer.append(f"\n{profile} • Output: ")
+        footer.append(terminal_text(output_dir), style="cyan")
     parts.append(Panel(footer, border_style="dim", padding=(0, 1)))
     return Group(*parts)
 
 
 def run_tui(urls: List[str], output_dir: Path, engine: DownloadEngine, config: Config,
             mode: str = "auto", playlist: bool = False, print_debug: bool = False,
-            explicit_mode: bool = False,
-            retry_with_update: bool = False) -> Optional[bool]:
-    """Returns True if all downloads succeeded, False if any failed, None if rich unavailable."""
+            explicit_mode: bool = False, retry_with_update: bool = False) -> Optional[bool]:
+    """One renderer; bounded refresh and responsive input independent of download speed."""
     global _shutdown_requested
     if not DependencyInstaller.ensure_rich():
         return None
-
     try:
         from rich.console import Console
         from rich.live import Live
-        from rich.panel import Panel
         from rich.text import Text
         from rich.prompt import Prompt
     except ImportError:
-        Logger.error("Rich is not available after auto-install attempt")
-        Logger.info("Falling back to standard mode...")
         return None
-
     console = Console(no_color=Logger.NO_COLOR)
-
+    urls = list(urls)
     if not urls:
-        console.print(Panel(Text("Blaze — Universal Terminal Downloader\nPaste one or more URLs to start downloading.", style="cyan"), border_style="cyan"))
         try:
             mode = choose_download_mode(mode, explicit_mode, rich_prompt=Prompt)
-            entered = Prompt.ask("URL")
+            entered = Prompt.ask("URL", default="", console=console).strip()
+            if not entered:
+                return True
+            urls = parse_url_input(entered)
         except (KeyboardInterrupt, EOFError):
-            console.print("\nCancelled.")
-            return True
-        entered = entered.strip()
-        if not entered:
-            console.print("No URL entered. Exiting.")
-            return True
-        urls.extend(shlex.split(entered))
-
+            return False
+        except ValueError as exc:
+            console.print(Text(str(exc), style="red"))
+            return False
+    try:
+        urls = list(dict.fromkeys(validate_download_url(url) for url in urls))
+    except ValueError as exc:
+        console.print(Text(str(exc), style="red"))
+        return False
     tracker = DownloadTracker()
     previous_tracker = engine.tracker
     engine.tracker = tracker
-
-    urls = list(dict.fromkeys(urls))
-    pre_allocated_jobs = {}
-    for url in urls:
-        jid = tracker.add_job(url, mode=mode)
-        pre_allocated_jobs[url] = jid
-
-    def _tui_worker():
+    jobs = {url: tracker.add_job(url, mode=ModeDetector.detect_mode(url) if mode == "auto" else mode) for url in urls}
+    def worker():
         try:
             engine.batch_parallel(urls, output_dir, config.workers, mode, playlist,
-                                  pre_allocated_jobs=pre_allocated_jobs,
-                                  print_debug=print_debug,
+                                  pre_allocated_jobs=jobs, print_debug=print_debug,
                                   retry_with_update=retry_with_update)
-        except BaseException as e:
-            tracker.add_log(f"fatal: {str(e)[:80]}")
-            import traceback
-            tracker.add_log(traceback.format_exc()[-200:].replace("\n", " "))
+        except BaseException as exc:
+            detail = terminal_text(exc) or type(exc).__name__
+            tracker.add_log(f"error: {detail}")
+            with tracker.lock:
+                for job in tracker.jobs.values():
+                    if job.status not in ("done", "failed"):
+                        tracker.update_job(job.id, status="failed", error=detail)
         finally:
             with tracker.lock:
-                for jid, job in tracker.jobs.items():
+                for job in tracker.jobs.values():
                     if job.status not in ("done", "failed"):
-                        tracker.update_job(jid, status="failed", error="interrupted" if _shutdown_requested else "worker stopped")
-
-    download_thread = threading.Thread(target=_tui_worker, daemon=True)
-
+                        tracker.update_job(job.id, status="failed", error="interrupted" if _shutdown_requested else "worker stopped")
+    download_thread = threading.Thread(target=worker, daemon=True, name="Blaze downloads")
     session_started = time.monotonic()
-    page = 0
-    view = "all"
-    hang_detected_at = None
-    HANG_TIMEOUT = 30.0
+    page, view = 0, "all"
+    last_frame, last_refresh = None, 0.0
+    refresh_rate = max(1, min(12, int(config.tui_refresh_rate)))
     try:
-        layout = build_terminal_dashboard(tracker, config, output_dir, mode, engine.has_aria2c, console.width, console.height, time.monotonic() - session_started, page=page, view=view)
-        refresh_rate = max(1, int(config.tui_refresh_rate))
-        with dashboard_keys() as poll_key, Live(layout, console=console, refresh_per_second=refresh_rate, auto_refresh=False, screen=False, transient=False) as live:
+        layout = build_terminal_dashboard(tracker, config, output_dir, mode, engine.has_aria2c, console.width, console.height)
+        with Logger.dashboard(tracker), dashboard_keys() as poll_key, Live(
+                layout, console=console, refresh_per_second=refresh_rate, auto_refresh=False,
+                screen=console.is_terminal, transient=console.is_terminal, vertical_overflow="crop") as live:
             download_thread.start()
             while True:
                 key = poll_key()
-                if key == "\x03":
+                if key in ("\x03", "q"):
                     _shutdown_requested = True
                     raise KeyboardInterrupt
                 if key == "n":
                     page += 1
                 elif key == "p":
                     page -= 1
-                elif key in ("f", "a"):
-                    view = "failed" if key == "f" else "all"
+                elif key in ("f", "a", "d"):
+                    view = {"f": "failed", "a": "all", "d": "active"}[key]
                     page = 0
-                layout = build_terminal_dashboard(tracker, config, output_dir, mode, engine.has_aria2c, console.width, console.height, time.monotonic() - session_started, page=page, view=view)
-                live.update(layout, refresh=True)
-                thread_alive = download_thread.is_alive()
-                with tracker.lock:
-                    all_done = tracker.all_terminal()
-                if not thread_alive and all_done:
+                now = time.monotonic()
+                dimensions = (console.width, console.height)
+                frame = (tracker.revision, dimensions, int(now - session_started), page, view)
+                finished = not download_thread.is_alive()
+                if frame != last_frame and (key or finished or now - last_refresh >= 1.0 / refresh_rate):
+                    layout = build_terminal_dashboard(tracker, config, output_dir, mode, engine.has_aria2c,
+                                                      *dimensions, now - session_started, page=page, view=view)
+                    live.update(layout, refresh=True)
+                    last_frame, last_refresh = frame, now
+                if finished:
                     break
-                if not thread_alive and not all_done:
-                    if hang_detected_at is None:
-                        hang_detected_at = time.monotonic()
-                    elif time.monotonic() - hang_detected_at > HANG_TIMEOUT:
-                        tracker.add_log("warn: download thread died unexpectedly — forcing exit")
-                        with tracker.lock:
-                            for jid, job in tracker.jobs.items():
-                                if job.status in ("downloading", "queued"):
-                                    tracker.update_job(jid, status="failed", error="thread died")
-                        break
-                else:
-                    hang_detected_at = None
-                time.sleep(1.0 / refresh_rate)
-            layout = build_terminal_dashboard(tracker, config, output_dir, mode, engine.has_aria2c, console.width, console.height, time.monotonic() - session_started, page=page, view=view)
-            live.update(layout, refresh=True)
-            time.sleep(0.25)
+                time.sleep(0.05)
     finally:
-        # Stop queued work before killing children when display/rendering fails.
         if download_thread.is_alive():
             _shutdown_requested = True
-        _kill_all_active_processes()
-        if download_thread.ident is not None:
-            download_thread.join(timeout=60.0)
-        if download_thread.is_alive():
-            tracker.add_log("warn: forced exit — downloads may be incomplete")
             _kill_all_active_processes()
+        if download_thread.ident is not None:
+            download_thread.join(timeout=10.0)
         engine.tracker = previous_tracker
-
     queued, active, done, failed = tracker.get_stats()
     if not Logger.QUIET:
         summary = Text("\nComplete: ")
         summary.append(f"{done} succeeded", style="green")
-        summary.append(", ")
-        summary.append(f"{failed} failed", style="red" if failed > 0 else "dim")
+        summary.append(f", {failed} failed", style="red" if failed else "dim")
         console.print(summary)
         with tracker.lock:
-            failed_jobs = [replace(job) for job in tracker.jobs.values() if job.status == "failed"]
-        for job in failed_jobs[:5]:
-            console.print(Text(f"#{job.id}: {job.error or 'Download failed; see Reports'}", style="red"))
-        if len(failed_jobs) > 5:
-            console.print(Text(f"{len(failed_jobs) - 5} additional failures; see Reports.", style="dim"))
-        saved = Text("Files saved to: ")
-        saved.append(str(output_dir), style="dim")
-        console.print(saved)
-    return failed == 0 and queued == 0 and active == 0 and not _shutdown_requested
+            failures = [replace(job) for job in tracker.jobs.values() if job.status == "failed"]
+        for job in failures[:5]:
+            console.print(Text(f"#{job.id}: {terminal_text(job.error) or 'Download failed; see Reports'}", style="red"))
+        if len(failures) > 5:
+            console.print(Text(f"{len(failures) - 5} additional failures; see Reports.", style="dim"))
+        console.print(Text(f"Files saved to: {output_dir}"))
+    return not (failed or queued or active or _shutdown_requested)
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -2211,13 +2258,24 @@ class URLParser:
 # INTERACTIVE PROMPTS
 # ═══════════════════════════════════════════════════════════════════════
 
+def parse_url_input(entered: str) -> List[str]:
+    """Parse pasted URLs without interpreting backslashes as shell escapes."""
+    tokens = shlex.split(entered, posix=False)
+    urls = []
+    for token in tokens:
+        if len(token) >= 2 and token[0] == token[-1] and token[0] in ("'", '"'):
+            token = token[1:-1]
+        urls.append(validate_download_url(token))
+    return list(dict.fromkeys(urls))
+
+
 def choose_download_mode(current_mode: str, explicit_mode: bool, rich_prompt=None) -> str:
-    if explicit_mode or current_mode in ("audio", "video"):
+    if explicit_mode:
         return current_mode
 
     prompt = "Download type [1 Audio / 2 Video / 3 Auto]"
     choices = {
-        "": "auto",
+        "": current_mode if current_mode in ("audio", "video", "auto") else "auto",
         "1": "audio",
         "a": "audio",
         "audio": "audio",
@@ -2231,9 +2289,10 @@ def choose_download_mode(current_mode: str, explicit_mode: bool, rich_prompt=Non
     while True:
         try:
             if rich_prompt is not None:
-                raw = rich_prompt.ask(prompt, default="3").strip().lower()
+                default = {"audio": "1", "video": "2"}.get(current_mode, "3")
+                raw = rich_prompt.ask(prompt, default=default).strip().lower()
             else:
-                raw = input(f"{Style.BOLD}{Style.CYAN}{prompt}{Style.RESET} {Style.DIM}(Enter = Auto){Style.RESET}\n> ").strip().lower()
+                raw = input(f"{prompt} (Enter = {choices[''].title()})\n> ").strip().lower()
         except (KeyboardInterrupt, EOFError):
             raise
         if raw in choices:
@@ -2354,7 +2413,7 @@ def interactive_download_loop(engine: DownloadEngine, runtime_config: Config, ba
             return 1 if any_failed else 0
 
         try:
-            urls = shlex.split(entered)
+            urls = parse_url_input(entered)
         except ValueError as e:
             Logger.error(f"Bad URL input: {e}")
             any_failed = True
@@ -2370,14 +2429,18 @@ def interactive_download_loop(engine: DownloadEngine, runtime_config: Config, ba
             any_failed = True
             continue
         effective_mode_for_folder = mode if mode in ("audio", "video") else ModeDetector.detect_mode(urls[0])
-        if effective_mode_for_folder == "audio" and not getattr(runtime_config, "_explicit_format", False):
+        has_audio = mode == "audio" or (mode == "auto" and any(ModeDetector.detect_mode(url) == "audio" for url in urls))
+        if has_audio and not getattr(runtime_config, "_explicit_format", False):
             try:
                 while True:
-                    choice = input("Audio format [1 MP3 with artwork / 2 WAV] (Enter = MP3): ").strip().lower()
-                    if choice in ("", "1", "mp3", "2", "wav"):
-                        runtime_config.format = "wav" if choice in ("2", "wav") else "mp3"
+                    prompt = "Audio format [1 MP3 / 2 WAV / 3 FLAC / 4 OPUS / 5 M4A / 6 OGG]"
+                    choice = (rich_prompt.ask(prompt, default="1") if rich_prompt is not None else input(prompt + " (Enter = MP3): ")).strip().lower()
+                    options = {"": "mp3", "1": "mp3", "2": "wav", "3": "flac", "4": "opus", "5": "m4a", "6": "ogg"}
+                    choice = options.get(choice, choice)
+                    if choice in ALLOWED_AUDIO_FORMATS:
+                        runtime_config.format = choice
                         break
-                    print("Choose 1 or 2.")
+                    print("Choose 1–6 or enter a format name.")
             except (EOFError, KeyboardInterrupt):
                 return 130
         video_dir = output_dir_for_mode(base_output_dir, "video")
@@ -2408,13 +2471,14 @@ def interactive_download_loop(engine: DownloadEngine, runtime_config: Config, ba
             video_file = newest_video_after(video_dir, before_videos)
             if video_file:
                 play_prompt = f"Should Blaze play the video? ({video_file.name})"
-                wants_play = ask_yes_no_rich(rich_confirm, play_prompt, default=False) if rich_confirm is not None else ask_yes_no(play_prompt, default=False)
+                wants_play = ask_yes_no_rich(rich_confirm, Text(play_prompt), default=False) if rich_confirm is not None else ask_yes_no(play_prompt, default=False)
                 if wants_play:
                     play_video_with_mpv(video_file)
 
         again = ask_yes_no_rich(rich_confirm, "Download another?", default=True) if rich_confirm is not None else ask_yes_no("Download another?", default=True)
         if not again:
             return 1 if any_failed else 0
+        initial_mode = mode
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -2440,7 +2504,7 @@ def run_doctor() -> int:
             return str(e), False
 
     add("Blaze", VERSION, True)
-    python_private = sys.executable.startswith("/usr/local/lib/blaze/python/")
+    python_private = Path(sys.prefix).resolve().is_relative_to(BLAZE_RUNTIME_DIR.resolve())
     py_ok = sys.version_info >= (3, 10)
     py_note = "manual Python install" if not python_private else "private runtime"
     if not py_ok:
@@ -2450,7 +2514,7 @@ def run_doctor() -> int:
     for name, args, required, note in (
         ("yt-dlp", ["--version"], True, ""),
         ("ffmpeg", ["-version"], True, ""),
-        ("ffprobe", ["-version"], True, ""),
+        ("ffprobe", ["-version"], False, "optional media inspection; FFmpeg remains available"),
         ("aria2c", ["--version"], False, "optional faster HTTP downloads"),
         ("mpv", ["--version"], False, "optional video playback prompt"),
     ):
@@ -2578,14 +2642,14 @@ EXAMPLES:
   blaze --config                                   # edit settings
 
 INSTALL:
-  chmod +x blaze.py
-  mv blaze.py /usr/local/bin/blaze
+  Download and extract the Windows or Mac installer ZIP.
+  Run Install-Blaze.bat or Install-Blaze.command.
 
 TUI MODE:
   Blaze opens the live dashboard automatically in Terminal.
   Rich auto-installs the first time TUI mode is used.
 
-CONFIG:  ~/.config/blaze/config.json
+CONFIG:  ~/Blaze/Config/config.json
 SITES:   YouTube, SoundCloud, Bandcamp, Vimeo, Twitter/X, TikTok,
         Reddit, Instagram, Facebook, and 1000+ more.
 """
@@ -2606,14 +2670,14 @@ SITES:   YouTube, SoundCloud, Bandcamp, Vimeo, Twitter/X, TikTok,
   {Style.CYAN}blaze{Style.RESET} --config                                   # edit settings
 
 {Style.BOLD}INSTALL:{Style.RESET}
-  chmod +x blaze.py
-  mv blaze.py /usr/local/bin/blaze
+  Download and extract the Windows or Mac installer ZIP.
+  Run Install-Blaze.bat or Install-Blaze.command.
 
 {Style.BOLD}TUI MODE:{Style.RESET}
   Blaze opens the live dashboard automatically in Terminal.
   Rich auto-installs the first time TUI mode is used.
 
-{Style.BOLD}CONFIG:{Style.RESET}  ~/.config/blaze/config.json
+{Style.BOLD}CONFIG:{Style.RESET}  ~/Blaze/Config/config.json
 {Style.BOLD}SITES:{Style.RESET}   YouTube, SoundCloud, Bandcamp, Vimeo, Twitter/X, TikTok,
         Reddit, Instagram, Facebook, and 1000+ more.
 """
@@ -2730,13 +2794,13 @@ def main():
             sys.exit(1)
         runtime_config.output_dir = os.path.expanduser(args.output.strip())
     if args.workers is not None:
-        if args.workers < 1:
-            Logger.error("Workers must be at least 1")
+        if not 1 <= args.workers <= 32:
+            Logger.error("Workers must be between 1 and 32")
             sys.exit(1)
         runtime_config.workers = args.workers
     if args.fragments is not None:
-        if args.fragments < 1:
-            Logger.error("Fragments must be at least 1")
+        if not 1 <= args.fragments <= 64:
+            Logger.error("Fragments must be between 1 and 64")
             sys.exit(1)
         runtime_config.fragments = args.fragments
     runtime_config._explicit_format = bool(args.format)
@@ -2801,7 +2865,7 @@ def main():
 
     explicit_mode = any(arg == "--mode" or arg.startswith("--mode=") for arg in sys.argv[1:])
     mode = args.mode if args.mode is not None else runtime_config.mode
-    use_tui = (args.tui or (sys.stdout.isatty() and not Logger.QUIET)) and not args.no_tui
+    use_tui = (args.tui or sys.stdout.isatty()) and not (args.no_tui or Logger.QUIET)
 
     if not urls:
         if sys.stdin.isatty():
@@ -2861,3 +2925,4 @@ if __name__ == "__main__":
     except KeyboardInterrupt:
         _kill_all_active_processes()
         sys.exit(130)
+

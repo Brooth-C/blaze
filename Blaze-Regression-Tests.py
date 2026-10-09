@@ -1,4 +1,4 @@
-"""Run beside Blaze-Universal-4.1.20.py: python3 Blaze-Regression-Tests.py"""
+"""Run beside blaze.py: python3 Blaze-Regression-Tests.py"""
 import importlib.util
 import sys
 import tempfile
@@ -7,7 +7,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 if sys.platform != "win32":
-    import tty  # Load real termios aliases before terminal mocks.
+    import tty  # noqa: F401 -- load real termios aliases before terminal mocks.
 spec = importlib.util.spec_from_file_location('blaze_under_test', Path(__file__).with_name('blaze.py'))
 b = importlib.util.module_from_spec(spec)
 sys.modules[spec.name] = b
@@ -301,3 +301,4 @@ class PrivateInstallIntegrationTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+

@@ -14,15 +14,18 @@ Activate it with `source .venv/bin/activate` on macOS/Linux, or
 `.venv\Scripts\Activate.ps1` in Windows PowerShell. Then:
 
 ```sh
-python -m pip install rich
-python -m py_compile blaze.py build.py Blaze-Regression-Tests.py
+python -m pip install rich yt-dlp mutagen imageio-ffmpeg ruff
+python -m ruff check --select F,E9 blaze.py build.py package_installers.py Blaze-*-Tests.py
 python Blaze-Regression-Tests.py
+python Blaze-Reliability-Tests.py
+python Blaze-Integration-Tests.py
 ```
 
 The regression suite uses mocks and a locally generated wheel; it does not
 require downloading media. The POSIX terminal tests are skipped on Windows.
-The suite creates a temporary Python environment, so Python's venv/ensurepip
-support must be available.
+The suites create a temporary Python environment, so Python's venv/ensurepip
+support must be available. Integration tests also need FFmpeg on PATH; they
+serve generated media on localhost and do not contact public download services.
 
 ## Project conventions
 
@@ -37,9 +40,16 @@ support must be available.
 ## Installer changes
 
 The application also exists in both installer source folders. When changing
-`blaze.py`, synchronize those copies and rebuild the downloadable ZIP packages.
-Verify archive contents and script syntax. Do not claim end-to-end Windows or
+`blaze.py`, run `python package_installers.py` to synchronize those copies and
+rebuild the downloadable ZIPs. Run `python package_installers.py --check` to
+detect stale source or package contents. Verify archive contents and script syntax. Do not claim end-to-end Windows or
 macOS validation unless the installer was actually run on that platform.
+The quality workflow checks source behavior on Python 3.10/3.13 and installs
+the ZIPs on Windows x64, Apple Silicon macOS and Intel macOS runners. It checks
+upgrades and runs download suites with the installed private runtime. Automatic
+publication runs only after all checks pass, and never replaces an existing
+version's release assets. Increment VERSION and update RELEASE-NOTES.md for a
+new release. Run Blaze-Installer-Tests.py only on a disposable clean runner.
 
 ## Pull requests
 

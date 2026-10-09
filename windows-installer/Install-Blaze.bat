@@ -6,3 +6,4 @@ echo.
 if not "%BLAZE_RESULT%"=="0" echo Installation failed. Read the error above, then rerun this installer.
 pause
 exit /b %BLAZE_RESULT%
+

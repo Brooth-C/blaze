@@ -5,13 +5,20 @@ $root = Join-Path $env:USERPROFILE 'Blaze'
 $runtime = Join-Path $root '.runtime'
 $bin = Join-Path $runtime 'bin'
 $staging = Join-Path $runtime ('setup-' + [guid]::NewGuid().ToString('N'))
-$source = Join-Path $PSScriptRoot 'Blaze-Universal-4.1.20.py'
+$source = Join-Path $PSScriptRoot 'Blaze-Universal-4.1.21.py'
 $uv = Join-Path $bin 'uv.exe'
 $python = Join-Path $runtime 'venv\Scripts\python.exe'
 $lock = $null
 function Run-Checked([string]$exe, [string[]]$arguments) {
     & $exe @arguments
     if ($LASTEXITCODE -ne 0) { throw "Command failed ($LASTEXITCODE): $exe" }
+}
+function Publish-File([string]$candidate, [string]$destination) {
+    if (Test-Path -LiteralPath $destination -PathType Leaf) {
+        [IO.File]::Replace($candidate, $destination, $null)
+    } else {
+        [IO.File]::Move($candidate, $destination)
+    }
 }
 try {
     if (-not (Test-Path -LiteralPath $source -PathType Leaf)) { throw 'Extract the complete ZIP before running Install-Blaze.bat.' }
@@ -53,7 +60,7 @@ try {
     Expand-Archive -LiteralPath $zip -DestinationPath (Join-Path $staging 'uv')
     $executables = @(Get-ChildItem -LiteralPath (Join-Path $staging 'uv') -Recurse -Filter 'uv.exe' -File)
     if ($executables.Count -ne 1) { throw 'Unexpected uv archive contents.' }
-    Copy-Item -LiteralPath $executables[0].FullName -Destination $uv -Force
+    Publish-File $executables[0].FullName $uv
     Run-Checked $uv @('--version')
     Write-Host '[2/5] Installing private Python 3.13...'
     Run-Checked $uv @('python', 'install', '3.13', '--no-bin', '--no-registry', '--no-config')
@@ -66,13 +73,18 @@ try {
     Run-Checked $uv @('pip', 'install', '--python', $python, '--no-config', '--no-cache', 'yt-dlp', 'rich', 'mutagen', 'imageio-ffmpeg')
     $ffmpeg = & $python -c 'import imageio_ffmpeg; print(imageio_ffmpeg.get_ffmpeg_exe())'
     if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $ffmpeg -PathType Leaf)) { throw 'Bundled FFmpeg was not found.' }
-    Copy-Item -LiteralPath $ffmpeg -Destination (Join-Path $bin 'ffmpeg.exe') -Force
-    Run-Checked (Join-Path $bin 'ffmpeg.exe') @('-version')
+    $ffmpegCandidate = Join-Path $staging 'ffmpeg.exe'
+    Copy-Item -LiteralPath $ffmpeg -Destination $ffmpegCandidate
+    Run-Checked $ffmpegCandidate @('-version')
+    Publish-File $ffmpegCandidate (Join-Path $bin 'ffmpeg.exe')
     Write-Host '[5/5] Installing Blaze and creating its launcher...'
     $app = Join-Path $root 'App'
     New-Item -ItemType Directory -Force -Path $app | Out-Null
-    Copy-Item -LiteralPath $source -Destination (Join-Path $app 'Blaze-Universal-4.1.20.py') -Force
-    Run-Checked $python @('-m', 'py_compile', (Join-Path $app 'Blaze-Universal-4.1.20.py'))
+    $candidate = Join-Path $staging 'blaze.py'
+    Copy-Item -LiteralPath $source -Destination $candidate
+    Run-Checked $python @('-m', 'py_compile', $candidate)
+    Run-Checked $python @($candidate, '--help')
+    Publish-File $candidate (Join-Path $app 'blaze.py')
     $launcher = @'
 @echo off
 setlocal
@@ -83,13 +95,14 @@ set "PYTHONPATH="
 set "PYTHONHOME="
 set "TEMP=%BLAZE_ROOT%.runtime\tmp"
 set "TMP=%TEMP%"
-"%BLAZE_ROOT%.runtime\venv\Scripts\python.exe" "%BLAZE_ROOT%App\Blaze-Universal-4.1.20.py" %*
+"%BLAZE_ROOT%.runtime\venv\Scripts\python.exe" "%BLAZE_ROOT%App\blaze.py" %*
 set "BLAZE_RESULT=%ERRORLEVEL%"
 if not "%BLAZE_RESULT%"=="0" pause
 exit /b %BLAZE_RESULT%
 '@
-    Set-Content -LiteralPath (Join-Path $root 'Start-Blaze.bat') -Value $launcher -Encoding ASCII
-    Run-Checked $python @((Join-Path $app 'Blaze-Universal-4.1.20.py'), '--help')
+    $launcherCandidate = Join-Path $staging 'Start-Blaze.bat'
+    Set-Content -LiteralPath $launcherCandidate -Value $launcher -Encoding ASCII
+    Publish-File $launcherCandidate (Join-Path $root 'Start-Blaze.bat')
     Write-Host "`nInstalled successfully. Run: $root\Start-Blaze.bat" -ForegroundColor Green
     Write-Host 'Python, packages, tools, cache and installer temporary files stay in Blaze.'
     Write-Host 'Existing downloads and settings are preserved. No admin rights or global PATH changes.'
@@ -100,3 +113,4 @@ exit /b %BLAZE_RESULT%
     if ($null -ne $lock) { $lock.Dispose() }
     if (Test-Path -LiteralPath $staging) { Remove-Item -LiteralPath $staging -Recurse -Force -ErrorAction SilentlyContinue }
 }
+
