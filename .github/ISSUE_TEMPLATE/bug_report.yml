@@ -1,0 +1,55 @@
+name: Bug report
+description: Report a reproducible problem with Blaze.
+title: "[Bug]: "
+body:
+  - type: markdown
+    attributes:
+      value: "Please remove cookies, tokens, private URLs, usernames, and other personal data before posting."
+  - type: input
+    id: version
+    attributes:
+      label: Blaze version
+      placeholder: "4.1.20"
+    validations:
+      required: true
+  - type: input
+    id: platform
+    attributes:
+      label: Operating system and architecture
+      placeholder: "Windows 11 x64 / macOS Apple Silicon / Linux x64"
+    validations:
+      required: true
+  - type: dropdown
+    id: installation
+    attributes:
+      label: Installation method
+      options:
+        - Windows installer ZIP
+        - macOS installer ZIP
+        - Python source
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      description: Include the command or dashboard actions you used.
+    validations:
+      required: true
+  - type: textarea
+    id: expected_actual
+    attributes:
+      label: Expected and actual behavior
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Sanitized error output
+      render: text
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context
+      description: Screenshots, terminal size, or whether the problem occurs with --no-tui.
