@@ -15,7 +15,10 @@ function Run-Checked([string]$exe, [string[]]$arguments) {
 }
 function Publish-File([string]$candidate, [string]$destination) {
     if (Test-Path -LiteralPath $destination -PathType Leaf) {
-        [IO.File]::Replace($candidate, $destination, $null)
+        # Windows PowerShell 5.1 may bind $null as an empty string here.
+        # Give .NET a real backup path; the setup cleanup removes it later.
+        $backup = Join-Path $staging ('previous-' + [guid]::NewGuid().ToString('N'))
+        [IO.File]::Replace($candidate, $destination, $backup)
     } else {
         [IO.File]::Move($candidate, $destination)
     }

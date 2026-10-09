@@ -33,8 +33,13 @@ class InstallerTests(unittest.TestCase):
             def install(expect_success=True):
                 command = (['powershell.exe', '-NoLogo', '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', str(directory / 'Install-Blaze.ps1')]
                            if sys.platform == 'win32' else ['bash', str(directory / 'Install-Blaze.command')])
-                result = subprocess.run(command, stdin=subprocess.DEVNULL, timeout=360)
+                result = subprocess.run(command, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
+                                        stderr=subprocess.STDOUT, timeout=360)
+                sys.stdout.buffer.write(result.stdout)
+                sys.stdout.buffer.flush()
                 self.assertEqual(result.returncode == 0, expect_success)
+                if not expect_success:
+                    self.assertIn(b'SyntaxError', result.stdout, 'Failure did not reach app validation')
             install()
             application = root / 'App' / 'blaze.py'
             python = root / '.runtime' / 'venv' / ('Scripts/python.exe' if sys.platform == 'win32' else 'bin/python')
