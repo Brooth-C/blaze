@@ -1,8 +1,30 @@
-# Blaze
+<div align="center">
 
-Blaze 4.1.20 is a terminal audio/video downloader with a responsive dashboard,
-queue paging, per-download ETA, conversion/merging stages, resume support and
-job reports. Spotify/spotDL support has been removed.
+# 🔥 Blaze
+
+**Audio and video downloads. A live terminal dashboard. One private installation folder.**
+
+[Download for Windows](https://github.com/Brooth-C/blaze/raw/refs/heads/main/downloads/Blaze-Windows-Installer.zip) · [Download for macOS](https://github.com/Brooth-C/blaze/raw/refs/heads/main/downloads/Blaze-Mac-Installer.zip) · [Report a bug](https://github.com/Brooth-C/blaze/issues/new?template=bug_report.yml)
+
+**4.1.20** · Windows 10/11 x64 · macOS Apple Silicon / Intel · Python 3.10+ from source
+
+</div>
+
+---
+
+## What Blaze does
+
+- Downloads audio or video through yt-dlp.
+- Shows progress, speed, ETA, and conversion or merging stages.
+- Handles download queues with paging and a failed-job filter.
+- Supports resuming interrupted downloads and produces job reports.
+- Keeps its managed runtime, settings, and downloads inside your Blaze folder.
+
+Blaze uses a keyboard-controlled **terminal dashboard**. Spotify/spotDL support has been removed.
+
+> **Start here:** use the Windows or macOS installer links above for the current
+> 4.1.20 packages. The older v4.0.0 GitHub release has no installer attachments.
+> Setup requires internet access; Python does not need to be installed beforehand.
 
 ## Windows setup — no Python needed beforehand
 
@@ -92,3 +114,21 @@ python Blaze-Regression-Tests.py
 
 Installer sources are in `windows-installer/` and `macos-installer/`. Download only media you are
 permitted to download.
+
+## Help and contributions
+
+Found a problem? [Open a bug report](https://github.com/Brooth-C/blaze/issues/new?template=bug_report.yml) with your platform, Blaze version, steps, and sanitized error output.
+For changes to the project, read [CONTRIBUTING.md](CONTRIBUTING.md).
+
+## Project map
+
+| Path | Purpose |
+| --- | --- |
+| `blaze.py` | Main application |
+| `Blaze-Regression-Tests.py` | Offline regression suite |
+| `windows-installer/` | Windows installer sources |
+| `macos-installer/` | macOS installer sources |
+| `downloads/` | Ready-to-download installer ZIPs |
+| `build.py`, `blaze.spec` | Legacy standalone build tools |
+
+No project license has been added yet. Public source availability alone does not grant a general license to redistribute or modify it.
