@@ -56,8 +56,13 @@ try {
     Invoke-WebRequest -UseBasicParsing -Uri "$base/$asset.sha256" -OutFile $checksum -TimeoutSec 60
     $match = [regex]::Match((Get-Content -LiteralPath $checksum -Raw), '(?i)\b[a-f0-9]{64}\b')
     if (-not $match.Success) { throw 'Invalid uv checksum file.' }
-    if ((Get-FileHash -LiteralPath $zip -Algorithm SHA256).Hash -ne $match.Value) { throw 'uv checksum mismatch. Nothing from the download was executed.' }
-    Expand-Archive -LiteralPath $zip -DestinationPath (Join-Path $staging 'uv')
+    $hasher = [Security.Cryptography.SHA256]::Create()
+    $stream = [IO.File]::OpenRead($zip)
+    try { $actualHash = [BitConverter]::ToString($hasher.ComputeHash($stream)).Replace('-', '') }
+    finally { $stream.Dispose(); $hasher.Dispose() }
+    if ($actualHash -ne $match.Value) { throw 'uv checksum mismatch. Nothing from the download was executed.' }
+    Add-Type -AssemblyName System.IO.Compression.FileSystem
+    [IO.Compression.ZipFile]::ExtractToDirectory($zip, (Join-Path $staging 'uv'))
     $executables = @(Get-ChildItem -LiteralPath (Join-Path $staging 'uv') -Recurse -Filter 'uv.exe' -File)
     if ($executables.Count -ne 1) { throw 'Unexpected uv archive contents.' }
     Publish-File $executables[0].FullName $uv

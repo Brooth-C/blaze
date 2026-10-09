@@ -237,7 +237,19 @@ class NativeTerminalTests(unittest.TestCase):
                     self.assertTrue(select.select([slave], [], [], 1)[0])
                     self.assertEqual(poll(), 'n')
                     self.assertEqual(poll(), '')
-            self.assertEqual(termios.tcgetattr(slave), original)
+            restored = termios.tcgetattr(slave)
+            if sys.platform == 'darwin':
+                # Darwin sets PENDIN itself when restoring canonical input.
+                # It is queue bookkeeping, not an unrestored user setting.
+                restored[3] &= ~termios.PENDIN
+                expected = list(original)
+                expected[3] &= ~termios.PENDIN
+            else:
+                expected = original
+            self.assertEqual(restored, expected)
+            os.write(master, b'next\n')
+            self.assertTrue(select.select([slave], [], [], 1)[0])
+            self.assertEqual(os.read(slave, 5), b'next\n')
         finally:
             os.close(master)
             os.close(slave)
