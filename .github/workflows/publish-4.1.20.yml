@@ -1,0 +1,59 @@
+name: Publish Blaze 4.1.20
+on:
+  push:
+    branches: [main]
+    paths: [.github/workflows/publish-4.1.20.yml]
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: release-v4.1.20
+  cancel-in-progress: false
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      SOURCE_SHA: ${{ github.sha }}
+    steps:
+      - name: Verify installer archives
+        shell: bash
+        run: |
+          set -euo pipefail
+          for name in Blaze-Windows-Installer.zip Blaze-Mac-Installer.zip; do
+            gh api "repos/$GH_REPO/contents/downloads/$name?ref=$SOURCE_SHA" --jq .content | base64 --decode > "$name"
+            unzip -t "$name"
+          done
+          sha256sum Blaze-Windows-Installer.zip Blaze-Mac-Installer.zip > SHA256SUMS.txt
+      - name: Publish release
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > release-notes.md <<'NOTES'
+          ## Install Blaze
+          Download the Windows or Mac installer ZIP from Assets, extract the entire archive, and run:
+          - Windows 10/11 x64: Install-Blaze.bat
+          - macOS Apple Silicon or Intel: Install-Blaze.command
+          
+          Setup needs internet. Python, dependencies and FFmpeg install privately inside your Blaze folder without administrator access, Homebrew or permanent PATH changes.
+          
+          ## Highlights
+          - Responsive terminal dashboard, queue paging and failed-job filtering.
+          - Progress, speed, ETA and conversion/merging stages.
+          - Resume support and job reports.
+          - Managed runtime and settings kept inside Blaze.
+          - Spotify/spotDL support removed.
+          - Improved documentation and issue templates.
+          
+          ## Validation and limitations
+          The project reports 28 Linux regression tests passed, plus Python compilation and CLI help checks. Windows static checks and Mac shell syntax/ZIP checks passed. Target-OS end-to-end installation and live public-service downloads have not been tested in this revision.
+          
+          Both archives are integrity-checked before publishing. SHA256SUMS.txt contains checksums for these exact installers. Optional mpv, aria2c and FFprobe are not bundled. Download only media you are permitted to download.
+          NOTES
+          if gh release view v4.1.20 >/dev/null 2>&1; then
+            echo "Release exists; leaving it unchanged."
+            exit 0
+          fi
+          gh release create v4.1.20 Blaze-Windows-Installer.zip Blaze-Mac-Installer.zip SHA256SUMS.txt --target "$SOURCE_SHA" --title "Blaze v4.1.20 — Windows & macOS installers" --notes-file release-notes.md --latest
