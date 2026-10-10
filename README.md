@@ -4,9 +4,9 @@
 
 **Audio and video downloads. A live terminal dashboard. One private installation folder.**
 
-[Download for Windows](https://github.com/Brooth-C/blaze/releases/download/v4.1.23/Blaze-Windows-Installer.zip) · [Download for macOS](https://github.com/Brooth-C/blaze/releases/download/v4.1.23/Blaze-Mac-Installer.zip) · [Report a bug](https://github.com/Brooth-C/blaze/issues/new?template=bug_report.yml)
+[Download for Windows](https://github.com/Brooth-C/blaze/releases/download/v4.1.24/Blaze-Windows-Installer.zip) · [Download for macOS](https://github.com/Brooth-C/blaze/releases/download/v4.1.24/Blaze-Mac-Installer.zip) · [Download for Linux](https://github.com/Brooth-C/blaze/releases/download/v4.1.24/Blaze-Linux-Installer.zip) · [Report a bug](https://github.com/Brooth-C/blaze/issues/new?template=bug_report.yml)
 
-**4.1.23** · Windows 10/11 x64 · macOS Apple Silicon / Intel · Python 3.10+ from source
+**4.1.24** · Windows 10/11 x64 · macOS Apple Silicon / Intel · Linux x86_64 / ARM64 (glibc) · Python 3.10+ from source
 
 </div>
 
@@ -23,14 +23,14 @@
 
 Blaze uses a keyboard-controlled **terminal dashboard**. Spotify/spotDL support has been removed.
 
-> **Start here:** download the Windows or macOS installer from the
-> [v4.1.23 release](https://github.com/Brooth-C/blaze/releases/tag/v4.1.23).
-> Both installers and SHA-256 checksums are attached to the release.
+> **Start here:** download the Windows, macOS or Linux installer from the
+> [v4.1.24 release](https://github.com/Brooth-C/blaze/releases/tag/v4.1.24).
+> All three installers and SHA-256 checksums are attached to the release.
 > Setup requires internet access; Python does not need to be installed beforehand.
 
 ## Windows setup — no Python needed beforehand
 
-**[Download the Windows installer ZIP](https://github.com/Brooth-C/blaze/releases/download/v4.1.23/Blaze-Windows-Installer.zip)**
+**[Download the Windows installer ZIP](https://github.com/Brooth-C/blaze/releases/download/v4.1.24/Blaze-Windows-Installer.zip)**
 
 1. Extract the entire ZIP.
 2. Double-click `Install-Blaze.bat`. Internet is required during setup.
@@ -57,7 +57,7 @@ are not bundled. aria2c is installed automatically; use `--no-aria2c` to opt out
 
 ## Mac setup — Apple Silicon and Intel
 
-**[Download the Mac installer ZIP](https://github.com/Brooth-C/blaze/releases/download/v4.1.23/Blaze-Mac-Installer.zip)**
+**[Download the Mac installer ZIP](https://github.com/Brooth-C/blaze/releases/download/v4.1.24/Blaze-Mac-Installer.zip)**
 
 1. Extract the entire ZIP.
 2. Double-click `Install-Blaze.command`. Internet is required during setup.
@@ -73,6 +73,20 @@ included README for the Terminal fallback.
 For updates, close Blaze and rerun the newer installer. Setup checks the new
 program before replacing the installed app and preserves settings and downloads.
 Setup verifies that Rich imports and aria2c runs before reporting success.
+
+## Linux setup — x86_64 and ARM64
+
+**[Download the Linux installer ZIP](https://github.com/Brooth-C/blaze/releases/download/v4.1.24/Blaze-Linux-Installer.zip)**
+
+1. Extract the entire ZIP and open a terminal in the extracted folder.
+2. Run `bash Install-Blaze.sh` with internet access.
+3. Run `bash ~/Blaze/Start-Blaze.sh` after setup completes.
+
+Requires glibc Linux, Bash, curl, tar, sha256sum, awk and mktemp.
+Alpine/musl and 32-bit systems are not supported by this installer.
+Python 3.13, dependencies, FFmpeg and aria2c install privately under `~/Blaze`.
+No sudo or shell-profile edits are required. Close Blaze and rerun the newer
+installer to upgrade while preserving settings and downloads.
 
 ## Run from source
 
@@ -114,7 +128,7 @@ Playlist reports describe the URL job result, not a per-track completeness audit
 
 The [quality workflow](https://github.com/Brooth-C/blaze/actions/workflows/quality-and-release.yml)
 gates release publication on source checks with Python 3.10/3.13 and actual ZIP
-installation on Windows x64, Apple Silicon macOS and Intel macOS runners.
+installation on Windows x64, Apple Silicon macOS Intel macOS, Ubuntu x86_64 and Ubuntu ARM64 runners.
 
 The application tests cover regression cases, terminal rendering across
 216 size/filter combinations, keyboard restoration, cancellation, config
@@ -137,7 +151,7 @@ python Blaze-Integration-Tests.py
 python package_installers.py --check
 ```
 
-Installer sources are in `windows-installer/` and `macos-installer/`. Download only media you are
+Installer sources are in `windows-installer/`, `macos-installer/` and `linux-installer/`. Download only media you are
 permitted to download.
 
 ## Help and contributions
@@ -157,6 +171,7 @@ For changes to the project, read [CONTRIBUTING.md](CONTRIBUTING.md).
 | `package_installers.py` | Rebuild/check packages from the canonical source |
 | `windows-installer/` | Windows installer sources |
 | `macos-installer/` | macOS installer sources |
+| `linux-installer/` | Linux installer sources |
 | `downloads/` | Ready-to-download installer ZIPs |
 | `build.py`, `blaze.spec` | Legacy standalone build tools |
 

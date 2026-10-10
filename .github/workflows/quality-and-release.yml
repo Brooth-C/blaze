@@ -46,6 +46,7 @@ jobs:
           python -m ruff check --select F,E9 blaze.py build.py package_installers.py Blaze-*-Tests.py
           python -m compileall -q blaze.py build.py package_installers.py Blaze-*-Tests.py
           bash -n macos-installer/Install-Blaze.command
+          bash -n linux-installer/Install-Blaze.sh
           python package_installers.py --check
       - name: Regression and real local-media tests
         run: |
@@ -60,7 +61,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [windows-latest, macos-15, macos-15-intel]
+        os: [windows-latest, macos-15, macos-15-intel, ubuntu-22.04, ubuntu-24.04-arm]
     steps:
       - uses: actions/checkout@v7.0.1
       - uses: actions/setup-python@v7.0.0
@@ -96,5 +97,5 @@ jobs:
             exit 0
           fi
           python package_installers.py --check
-          sha256sum downloads/Blaze-Windows-Installer.zip downloads/Blaze-Mac-Installer.zip | sed 's@downloads/@@' > SHA256SUMS.txt
-          gh release create "v$VERSION" downloads/Blaze-Windows-Installer.zip downloads/Blaze-Mac-Installer.zip SHA256SUMS.txt --target "$GITHUB_SHA" --title "Blaze v$VERSION" --notes-file RELEASE-NOTES.md --latest
+          sha256sum downloads/Blaze-Windows-Installer.zip downloads/Blaze-Mac-Installer.zip downloads/Blaze-Linux-Installer.zip | sed 's@downloads/@@' > SHA256SUMS.txt
+          gh release create "v$VERSION" downloads/Blaze-Windows-Installer.zip downloads/Blaze-Mac-Installer.zip downloads/Blaze-Linux-Installer.zip SHA256SUMS.txt --target "$GITHUB_SHA" --title "Blaze v$VERSION" --notes-file RELEASE-NOTES.md --latest

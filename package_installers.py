@@ -16,8 +16,10 @@ def package(check=False):
     if not check:
         downloads.mkdir(exist_ok=True)
     for platform, scripts in (('Windows', ['Install-Blaze.bat', 'Install-Blaze.ps1']),
-                              ('Mac', ['Install-Blaze.command'])):
-        directory = ROOT / ('windows-installer' if platform == 'Windows' else 'macos-installer')
+                              ('Mac', ['Install-Blaze.command']),
+                              ('Linux', ['Install-Blaze.sh'])):
+        directory = ROOT / {'Windows': 'windows-installer', 'Mac': 'macos-installer',
+                            'Linux': 'linux-installer'}[platform]
         copy = directory / app_name
         if check:
             if copy.read_bytes() != source:
@@ -29,7 +31,7 @@ def package(check=False):
             for name in [app_name, 'README.txt'] + scripts:
                 info = zipfile.ZipInfo(f'Blaze-{platform}-Installer/{name}', date_time=(2020, 1, 1, 0, 0, 0))
                 info.create_system = 3
-                permissions = 0o755 if name.endswith('.command') else 0o644
+                permissions = 0o755 if name.endswith(('.command', '.sh')) else 0o644
                 info.external_attr = (stat.S_IFREG | permissions) << 16
                 info.compress_type = zipfile.ZIP_DEFLATED
                 archive.writestr(info, (directory / name).read_bytes(), compresslevel=9)
