@@ -6,7 +6,7 @@ import stat
 import zipfile
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent
+ROOT = Path(__file__).resolve().parents[1]
 
 
 def source_bytes(path):
@@ -23,8 +23,8 @@ def package(check=False):
     for platform, scripts in (('Windows', ['Install-Blaze.bat', 'Install-Blaze.ps1']),
                               ('Mac', ['Install-Blaze.command']),
                               ('Linux', ['Install-Blaze.sh'])):
-        directory = ROOT / {'Windows': 'windows-installer', 'Mac': 'macos-installer',
-                            'Linux': 'linux-installer'}[platform]
+        directory = ROOT / {'Windows': 'installers/windows-installer', 'Mac': 'installers/macos-installer',
+                            'Linux': 'installers/linux-installer'}[platform]
         copy = directory / app_name
         if check:
             if source_bytes(copy) != source:
@@ -45,7 +45,7 @@ def package(check=False):
         output = downloads / f'Blaze-{platform}-Installer.zip'
         if check:
             if output.read_bytes() != content:
-                raise SystemExit(f'{output.name} is out of date; run python package_installers.py')
+                raise SystemExit(f'{output.name} is out of date; run python tools/package_installers.py')
         else:
             output.write_bytes(content)
         with zipfile.ZipFile(io.BytesIO(content)) as archive:

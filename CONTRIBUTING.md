@@ -15,10 +15,10 @@ Activate it with `source .venv/bin/activate` on macOS/Linux, or
 
 ```sh
 python -m pip install rich yt-dlp mutagen imageio-ffmpeg ruff
-python -m ruff check --select F,E9 blaze.py build.py package_installers.py Blaze-*-Tests.py
-python Blaze-Regression-Tests.py
-python Blaze-Reliability-Tests.py
-python Blaze-Integration-Tests.py
+python -m ruff check --select F,E9 blaze.py tools/build.py tools/package_installers.py tests/Blaze-*-Tests.py
+python tests/Blaze-Regression-Tests.py
+python tests/Blaze-Reliability-Tests.py
+python tests/Blaze-Integration-Tests.py
 ```
 
 The regression suite uses mocks and a locally generated wheel; it does not
@@ -40,16 +40,16 @@ serve generated media on localhost and do not contact public download services.
 ## Installer changes
 
 The application also exists in all three installer source folders. When changing
-`blaze.py`, run `python package_installers.py` to synchronize those copies and
-rebuild the downloadable ZIPs. Run `python package_installers.py --check` to
+`blaze.py`, run `python tools/package_installers.py` to synchronize those copies and
+rebuild the downloadable ZIPs. Run `python tools/package_installers.py --check` to
 detect stale source or package contents. Verify archive contents and script syntax. Do not claim end-to-end Windows or
 macOS or Linux validation unless the installer was actually run on that platform.
 The quality workflow checks source behavior on Python 3.10/3.13 and installs
 the ZIPs on Windows x64, Apple Silicon macOS Intel macOS, Ubuntu x86_64 and Ubuntu ARM64 runners. It checks
 upgrades and runs download suites with the installed private runtime. Automatic
 publication runs only after all checks pass, and never replaces an existing
-version's release assets. Increment VERSION and update RELEASE-NOTES.md for a
-new release. Run Blaze-Installer-Tests.py only on a disposable clean runner.
+version's release assets. Increment VERSION and update docs/RELEASE-NOTES.md for a
+new release. Run tests/Blaze-Installer-Tests.py only on a disposable clean runner.
 
 ## Pull requests
 

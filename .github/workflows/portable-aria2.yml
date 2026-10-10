@@ -2,7 +2,7 @@ name: Build portable Mac aria2
 on:
   push:
     branches: [main]
-    paths: [build_private_aria2.sh, .github/workflows/portable-aria2.yml]
+    paths: [tools/build_private_aria2.sh, .github/workflows/portable-aria2.yml]
   workflow_dispatch:
 permissions:
   contents: read
@@ -18,7 +18,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7.0.1
       - name: Build upstream aria2 with only macOS libraries
-        run: bash build_private_aria2.sh
+        run: bash tools/build_private_aria2.sh
       - uses: actions/upload-artifact@v4
         with:
           name: aria2-${{ matrix.os }}

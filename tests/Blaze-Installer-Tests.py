@@ -10,7 +10,7 @@ import unittest
 import zipfile
 from pathlib import Path
 
-PROJECT = Path(__file__).resolve().parent
+PROJECT = Path(__file__).resolve().parents[1]
 
 
 @unittest.skipUnless(sys.platform in ('darwin', 'win32', 'linux'), 'Windows/macOS/Linux installer test')
@@ -92,7 +92,7 @@ class InstallerTests(unittest.TestCase):
                 self.assertEqual(path.read_text(encoding='utf-8'), content)
             self.assertFalse([path for path in (root / '.runtime').glob('setup*') if path.is_dir()])
             self.assertFalse((root / '.runtime' / 'setup.lock.d').exists())
-            for suite in ('Blaze-Regression-Tests.py', 'Blaze-Reliability-Tests.py', 'Blaze-Integration-Tests.py'):
+            for suite in ('tests/Blaze-Regression-Tests.py', 'tests/Blaze-Reliability-Tests.py', 'tests/Blaze-Integration-Tests.py'):
                 subprocess.run([str(python), str(PROJECT / suite)], check=True, timeout=180, env=environment)
             # Retain the verified installation for subsequent CI diagnostics.
 

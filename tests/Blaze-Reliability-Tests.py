@@ -14,7 +14,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
-spec = importlib.util.spec_from_file_location('blaze_reliability', Path(__file__).with_name('blaze.py'))
+spec = importlib.util.spec_from_file_location('blaze_reliability', Path(__file__).resolve().parents[1] / 'blaze.py')
 b = importlib.util.module_from_spec(spec)
 sys.modules[spec.name] = b
 spec.loader.exec_module(b)

@@ -1,7 +1,7 @@
 # -*- mode: python ; coding: utf-8 -*-
 """
 PyInstaller spec for Blaze
-Usage: pyinstaller blaze.spec
+Usage: pyinstaller tools/blaze.spec
 """
 
 from PyInstaller.utils.hooks import collect_all
