@@ -750,7 +750,7 @@ class DependencyInstaller:
             return
         if is_android_runtime():
             Logger.error("FFmpeg missing in Termux. Run: pkg install ffmpeg")
-            return False
+            raise SystemExit(1)
         Logger.info("ffmpeg not found — auto-installing...")
         if not cls._is_frozen():
             try:
@@ -817,7 +817,7 @@ class DependencyInstaller:
         if dest.is_file() and cls._aria2_binary_works(dest):
             cls._invalidate_cache("aria2c")
             return True
-        if not private_only and cls._command_runs("aria2c", ["--version"]):
+        if (not private_only or is_android_runtime()) and cls._command_runs("aria2c", ["--version"]):
             return True
         if is_android_runtime():
             Logger.warn("Use Termux aria2: pkg install aria2; using native downloading for now")

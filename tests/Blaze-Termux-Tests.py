@@ -27,7 +27,9 @@ class TermuxTests(unittest.TestCase):
                 patch.object(b.urllib.request, 'urlopen') as download:
             self.assertTrue(b.is_android_runtime())
             self.assertFalse(b.DependencyInstaller._ensure_aria2c())
-            self.assertFalse(b.DependencyInstaller._ensure_ffmpeg())
+            with self.assertRaises(SystemExit) as stopped:
+                b.DependencyInstaller._ensure_ffmpeg()
+            self.assertEqual(stopped.exception.code, 1)
             pip.assert_not_called()
             download.assert_not_called()
 
@@ -37,6 +39,17 @@ class TermuxTests(unittest.TestCase):
                 patch.object(b, 'LOCAL_BIN_DIR', Path(folder)), \
                 patch.object(b.DependencyInstaller, '_command_runs', return_value=True):
             self.assertTrue(b.DependencyInstaller._ensure_aria2c())
+            self.assertTrue(b.DependencyInstaller._ensure_aria2c(private_only=True))
+
+    def test_missing_ffmpeg_stops_startup(self):
+        with patch.dict(os.environ, {'TERMUX_VERSION': 'test'}), \
+                patch.object(b.DependencyInstaller, '_command_runs', return_value=False), \
+                patch.object(b.DependencyInstaller, '_ensure_local_bin_in_path'), \
+                patch.object(b.DependencyInstaller, '_ensure_ytdlp'), \
+                patch.object(b.DependencyInstaller, '_ensure_aria2c') as aria:
+            with self.assertRaises(SystemExit):
+                b.DependencyInstaller.ensure_all()
+            aria.assert_not_called()
 
     def test_archive_has_canonical_source_and_license(self):
         with zipfile.ZipFile(ROOT / 'downloads/Blaze-Termux-Installer.zip') as archive:
