@@ -1434,9 +1434,9 @@ class DownloadEngine:
         if ffmpeg_path:
             flags += ["--ffmpeg-location", ffmpeg_path]
 
-        # aria2c scoped only to HTTP/HTTPS/FTP
+        # yt-dlp groups both HTTP and HTTPS under the "http" selector.
         if self.config.use_aria2c and self.has_aria2c:
-            flags += ["--downloader", "http,https,ftp:aria2c"]
+            flags += ["--downloader", "http,ftp:aria2c"]
             flags += ["--downloader-args",
                       f"aria2c:-x {sc['aria_connections']} -s {sc['aria_segments']} -k 1M -c --file-allocation=none --optimize-concurrent-downloads=true"]
 
@@ -1515,9 +1515,9 @@ class DownloadEngine:
         if ffmpeg_path:
             flags += ["--ffmpeg-location", ffmpeg_path]
 
-        # aria2c scoped only to HTTP/HTTPS/FTP for video too
+        # yt-dlp groups both HTTP and HTTPS under the "http" selector.
         if self.config.use_aria2c and self.has_aria2c:
-            flags += ["--downloader", "http,https,ftp:aria2c"]
+            flags += ["--downloader", "http,ftp:aria2c"]
             flags += ["--downloader-args",
                       f"aria2c:-x {sc['aria_connections']} -s {sc['aria_segments']} -k 1M -c --file-allocation=none --optimize-concurrent-downloads=true"]
 

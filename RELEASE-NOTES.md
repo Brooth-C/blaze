@@ -12,6 +12,8 @@ ZIP and rerun its installer. Settings, existing downloads and reports are preser
   dependency stops setup before replacing the installed app.
 - Startup can restore missing aria2c. `--no-aria2c` opts out; `--install-deps`
   checks/repairs dependencies without opening the download menu.
+- Fixed the downloader protocol rule so HTTP and HTTPS transfers actually use
+  aria2c when enabled, instead of silently falling back to native downloading.
 - Working private aria2 binaries are reused during upgrades. Failed downloads,
   mismatched checksums or unusable replacements preserve the existing binary.
 

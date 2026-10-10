@@ -253,6 +253,23 @@ class ReliabilityTests(unittest.TestCase):
             with self.subTest(output=output, code=code), patch.object(b.subprocess, 'run', return_value=SimpleNamespace(returncode=code, stdout=output)):
                 self.assertEqual(b.DependencyInstaller._aria2_binary_works(Path('aria2c')), expected)
 
+    def test_aria_routes_http_and_https_for_audio_and_video(self):
+        from yt_dlp import parse_options
+        from yt_dlp.downloader import get_suitable_downloader
+        from yt_dlp.downloader.external import Aria2cFD
+        with tempfile.TemporaryDirectory() as folder, patch.object(Aria2cFD, 'available', return_value=True):
+            engine = b.DownloadEngine(['yt-dlp'], b.Config(output_dir=folder), True)
+            engine._archive_root = Path(folder)
+            for build_flags in (engine._build_audio_flags, engine._build_video_flags):
+                params = parse_options(build_flags()).ydl_opts
+                for scheme in ('http', 'https'):
+                    info = {'url': scheme + '://example.org/clip.mp4', 'protocol': scheme,
+                            'ext': 'mp4', 'to_stdout': False}
+                    self.assertIs(get_suitable_downloader(info, params), Aria2cFD)
+            engine.config.use_aria2c = False
+            params = parse_options(engine._build_audio_flags()).ydl_opts
+            self.assertIsNot(get_suitable_downloader(info, params), Aria2cFD)
+
     def test_error_diagnostic_fails_even_on_zero_exit(self):
         with tempfile.TemporaryDirectory() as root:
             engine = b.DownloadEngine([sys.executable], b.Config(), False)
