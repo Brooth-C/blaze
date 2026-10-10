@@ -33,13 +33,14 @@ def package(check=False):
             copy.write_bytes(source)
         buffer = io.BytesIO()
         with zipfile.ZipFile(buffer, 'w', compression=zipfile.ZIP_DEFLATED, compresslevel=9) as archive:
-            for name in [app_name, 'README.txt'] + scripts:
+            for name in [app_name, 'README.txt', 'LICENSE.txt', 'THIRD-PARTY-NOTICES.md'] + scripts:
                 info = zipfile.ZipInfo(f'Blaze-{platform}-Installer/{name}', date_time=(2020, 1, 1, 0, 0, 0))
                 info.create_system = 3
                 permissions = 0o755 if name.endswith(('.command', '.sh')) else 0o644
                 info.external_attr = (stat.S_IFREG | permissions) << 16
                 info.compress_type = zipfile.ZIP_DEFLATED
-                archive.writestr(info, source_bytes(directory / name), compresslevel=9)
+                origin = ROOT if name in ('LICENSE.txt', 'THIRD-PARTY-NOTICES.md') else directory
+                archive.writestr(info, source_bytes(origin / name), compresslevel=9)
         content = buffer.getvalue()
         output = downloads / f'Blaze-{platform}-Installer.zip'
         if check:

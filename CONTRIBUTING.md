@@ -58,5 +58,8 @@ Keep unrelated changes separate. Discuss new dependencies before introducing the
 
 ## License
 
-This repository currently has no project license. Contributions do not establish
-a new license; licensing decisions belong to the repository owner.
+Blaze uses the [Blaze Free-Use License](LICENSE.txt). Running unmodified Blaze
+is free; modification and redistribution require permission from Brooth-C.
+Discuss proposed code contributions and obtain permission before preparing
+modified code. An issue or pull request does not transfer your copyright or
+establish a contributor agreement. Third-party components keep their own licenses.

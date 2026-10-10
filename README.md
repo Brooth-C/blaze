@@ -177,5 +177,12 @@ For troubleshooting, read [SUPPORT.md](SUPPORT.md). For changes to the project, 
 | `downloads/` | Ready-to-download installer ZIPs |
 | `build.py`, `blaze.spec` | Legacy standalone build tools |
 
-No project license has been added yet. Public source availability alone does not grant a general license to redistribute or modify it.
+## License
+
+Copyright © 2026 Brooth-C. Blaze is **free to download, install and run**,
+including for commercial use, under the [Blaze Free-Use License](LICENSE.txt).
+Brooth-C retains ownership. Modification and redistribution require separate
+permission. This is a source-available project, not an open-source license.
+Third-party components retain their own licenses; see
+[THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).
 
