@@ -22,9 +22,11 @@ def package(check=False):
         downloads.mkdir(exist_ok=True)
     for platform, scripts in (('Windows', ['Install-Blaze.bat', 'Install-Blaze.ps1']),
                               ('Mac', ['Install-Blaze.command']),
-                              ('Linux', ['Install-Blaze.sh'])):
+                              ('Linux', ['Install-Blaze.sh']),
+                              ('Termux', ['Install-Blaze.sh'])):
         directory = ROOT / {'Windows': 'installers/windows-installer', 'Mac': 'installers/macos-installer',
-                            'Linux': 'installers/linux-installer'}[platform]
+                            'Linux': 'installers/linux-installer',
+                            'Termux': 'installers/termux-installer'}[platform]
         copy = directory / app_name
         if check:
             if source_bytes(copy) != source:

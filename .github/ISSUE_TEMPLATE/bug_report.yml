@@ -27,6 +27,7 @@ body:
         - Windows installer ZIP
         - macOS installer ZIP
         - Linux installer ZIP
+        - Android / Termux installer ZIP
         - Python source
         - Other
     validations:

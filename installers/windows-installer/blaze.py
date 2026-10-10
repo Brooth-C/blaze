@@ -55,7 +55,7 @@ import zipfile
 # ═══════════════════════════════════════════════════════════════════════
 
 APP_NAME = "Blaze"
-VERSION = "4.1.24"
+VERSION = "4.1.25"
 DEFAULT_WORKERS = 4
 DEFAULT_FRAGMENTS = 8
 DEFAULT_OUTPUT = Path.home() / "Blaze"
@@ -390,6 +390,12 @@ def _serialized_dependency(method):
         with _dependency_install_lock:
             return method(*args, **kwargs)
     return wrapped
+
+
+def is_android_runtime() -> bool:
+    """Android/Termux cannot execute desktop Linux dependency builds."""
+    return (sys.platform == "android" or hasattr(sys, "getandroidapilevel")
+            or bool(os.environ.get("TERMUX_VERSION")))
 
 
 class DependencyInstaller:
@@ -742,6 +748,9 @@ class DependencyInstaller:
         cls._ensure_local_bin_in_path()
         if cls._command_runs("ffmpeg", ["-version"]):
             return
+        if is_android_runtime():
+            Logger.error("FFmpeg missing in Termux. Run: pkg install ffmpeg")
+            return False
         Logger.info("ffmpeg not found — auto-installing...")
         if not cls._is_frozen():
             try:
@@ -810,6 +819,9 @@ class DependencyInstaller:
             return True
         if not private_only and cls._command_runs("aria2c", ["--version"]):
             return True
+        if is_android_runtime():
+            Logger.warn("Use Termux aria2: pkg install aria2; using native downloading for now")
+            return False
         machine = platform.machine().lower()
         arch = {"arm64": "arm64", "aarch64": "arm64", "x86_64": "x64", "amd64": "x64"}.get(machine)
         artifact = ARIA2_ARTIFACTS.get((sys.platform, arch))
