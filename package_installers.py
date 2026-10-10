@@ -9,8 +9,13 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent
 
 
+def source_bytes(path):
+    """Keep text archive contents identical across Git checkout line endings."""
+    return path.read_bytes().replace(b'\r\n', b'\n')
+
+
 def package(check=False):
-    source = (ROOT / 'blaze.py').read_bytes()
+    source = source_bytes(ROOT / 'blaze.py')
     app_name = 'blaze.py'
     downloads = ROOT / 'downloads'
     if not check:
@@ -22,7 +27,7 @@ def package(check=False):
                             'Linux': 'linux-installer'}[platform]
         copy = directory / app_name
         if check:
-            if copy.read_bytes() != source:
+            if source_bytes(copy) != source:
                 raise SystemExit(f'{copy.name} differs from blaze.py')
         else:
             copy.write_bytes(source)
@@ -34,7 +39,7 @@ def package(check=False):
                 permissions = 0o755 if name.endswith(('.command', '.sh')) else 0o644
                 info.external_attr = (stat.S_IFREG | permissions) << 16
                 info.compress_type = zipfile.ZIP_DEFLATED
-                archive.writestr(info, (directory / name).read_bytes(), compresslevel=9)
+                archive.writestr(info, source_bytes(directory / name), compresslevel=9)
         content = buffer.getvalue()
         output = downloads / f'Blaze-{platform}-Installer.zip'
         if check:
