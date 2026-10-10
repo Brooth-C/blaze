@@ -1,12 +1,14 @@
 <div align="center">
 
-# 🔥 Blaze
+# ðŸ”¥ Blaze
 
 **Audio and video downloads. A live terminal dashboard. One private installation folder.**
 
-[Download for Windows](https://github.com/Brooth-C/blaze/releases/download/v4.1.24/Blaze-Windows-Installer.zip) · [Download for macOS](https://github.com/Brooth-C/blaze/releases/download/v4.1.24/Blaze-Mac-Installer.zip) · [Download for Linux](https://github.com/Brooth-C/blaze/releases/download/v4.1.24/Blaze-Linux-Installer.zip) · [Report a bug](https://github.com/Brooth-C/blaze/issues/new?template=bug_report.yml)
+[![Quality checks](https://github.com/Brooth-C/blaze/actions/workflows/quality-and-release.yml/badge.svg?branch=main)](https://github.com/Brooth-C/blaze/actions/workflows/quality-and-release.yml)
 
-**4.1.24** · Windows 10/11 x64 · macOS Apple Silicon / Intel · Linux x86_64 / ARM64 (glibc) · Python 3.10+ from source
+[Download for Windows](https://github.com/Brooth-C/blaze/releases/latest/download/Blaze-Windows-Installer.zip) Â· [Download for macOS](https://github.com/Brooth-C/blaze/releases/latest/download/Blaze-Mac-Installer.zip) Â· [Download for Linux](https://github.com/Brooth-C/blaze/releases/latest/download/Blaze-Linux-Installer.zip) Â· [Report a bug](https://github.com/Brooth-C/blaze/issues/new?template=bug_report.yml)
+
+**4.1.24** Â· Windows 10/11 x64 Â· macOS Apple Silicon / Intel Â· Linux x86_64 / ARM64 (glibc) Â· Python 3.10+ from source
 
 </div>
 
@@ -28,9 +30,9 @@ Blaze uses a keyboard-controlled **terminal dashboard**. Spotify/spotDL support 
 > All three installers and SHA-256 checksums are attached to the release.
 > Setup requires internet access; Python does not need to be installed beforehand.
 
-## Windows setup — no Python needed beforehand
+## Windows setup â€” no Python needed beforehand
 
-**[Download the Windows installer ZIP](https://github.com/Brooth-C/blaze/releases/download/v4.1.24/Blaze-Windows-Installer.zip)**
+**[Download the Windows installer ZIP](https://github.com/Brooth-C/blaze/releases/latest/download/Blaze-Windows-Installer.zip)**
 
 1. Extract the entire ZIP.
 2. Double-click `Install-Blaze.bat`. Internet is required during setup.
@@ -55,9 +57,9 @@ New installed files stay inside `%USERPROFILE%\Blaze`:
 Existing installations elsewhere are left untouched. Optional mpv and FFprobe
 are not bundled. aria2c is installed automatically; use `--no-aria2c` to opt out.
 
-## Mac setup — Apple Silicon and Intel
+## Mac setup â€” Apple Silicon and Intel
 
-**[Download the Mac installer ZIP](https://github.com/Brooth-C/blaze/releases/download/v4.1.24/Blaze-Mac-Installer.zip)**
+**[Download the Mac installer ZIP](https://github.com/Brooth-C/blaze/releases/latest/download/Blaze-Mac-Installer.zip)**
 
 1. Extract the entire ZIP.
 2. Double-click `Install-Blaze.command`. Internet is required during setup.
@@ -74,9 +76,9 @@ For updates, close Blaze and rerun the newer installer. Setup checks the new
 program before replacing the installed app and preserves settings and downloads.
 Setup verifies that Rich imports and aria2c runs before reporting success.
 
-## Linux setup — x86_64 and ARM64
+## Linux setup â€” x86_64 and ARM64
 
-**[Download the Linux installer ZIP](https://github.com/Brooth-C/blaze/releases/download/v4.1.24/Blaze-Linux-Installer.zip)**
+**[Download the Linux installer ZIP](https://github.com/Brooth-C/blaze/releases/latest/download/Blaze-Linux-Installer.zip)**
 
 1. Extract the entire ZIP and open a terminal in the extracted folder.
 2. Run `bash Install-Blaze.sh` with internet access.
@@ -157,7 +159,7 @@ permitted to download.
 ## Help and contributions
 
 Found a problem? [Open a bug report](https://github.com/Brooth-C/blaze/issues/new?template=bug_report.yml) with your platform, Blaze version, steps, and sanitized error output.
-For changes to the project, read [CONTRIBUTING.md](CONTRIBUTING.md).
+For troubleshooting, read [SUPPORT.md](SUPPORT.md). For changes to the project, read [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Project map
 
