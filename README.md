@@ -1,5 +1,7 @@
 <div align="center">
 
+<img src="docs/assets/blaze-logo.png" alt="Blaze flame and download logo" width="128">
+
 # Blaze
 
 **Audio and video downloads, with a live terminal dashboard.**
