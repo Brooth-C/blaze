@@ -1,0 +1,49 @@
+name: Build portable Mac aria2
+on:
+  push:
+    branches: [main]
+    paths: [build_private_aria2.sh, .github/workflows/portable-aria2.yml]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    name: Portable aria2 / ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-15, macos-15-intel]
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - name: Build upstream aria2 with only macOS libraries
+        run: bash build_private_aria2.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: aria2-${{ matrix.os }}
+          path: ${{ runner.temp }}/blaze-aria2-build/assets/*
+          if-no-files-found: error
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: aria2-*
+          merge-multiple: true
+          path: assets
+      - name: Publish immutable runtime binaries
+        run: |
+          set -euo pipefail
+          TAG=aria2-macos-1.37.0-1
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo 'Runtime already published; existing binaries are preserved.'
+            exit 0
+          fi
+          gh release create "$TAG" assets/* --target "$GITHUB_SHA" --prerelease --latest=false --title 'Portable aria2 1.37.0 for Blaze' --notes 'Unmodified upstream aria2 1.37.0, built for Apple Silicon and Intel with native AppleTLS and macOS system libraries. No Homebrew dependencies. Source archive and GPL license are included. Both builds passed dependency inspection and an HTTPS download test.'
