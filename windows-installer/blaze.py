@@ -47,13 +47,15 @@ from functools import wraps
 from contextlib import contextmanager
 import errno
 import math
+import hashlib
+import zipfile
 
 # ═══════════════════════════════════════════════════════════════════════
 # METADATA
 # ═══════════════════════════════════════════════════════════════════════
 
 APP_NAME = "Blaze"
-VERSION = "4.1.22"
+VERSION = "4.1.23"
 DEFAULT_WORKERS = 4
 DEFAULT_FRAGMENTS = 8
 DEFAULT_OUTPUT = Path.home() / "Blaze"
@@ -67,6 +69,22 @@ CONFIG_FILE = CONFIG_DIR / "config.json"
 LOCAL_BIN_DIR = BLAZE_RUNTIME_DIR / "bin"
 BLAZE_VENV_DIR = BLAZE_RUNTIME_DIR / "venv"
 BLAZE_STATE_DIR = BLAZE_RUNTIME_DIR / "state"
+
+# Pinned portable binaries; verify SHA-256 before extraction or execution.
+ARIA2_MAC_BASE = "https://github.com/Brooth-C/blaze/releases/download/aria2-macos-1.37.0-1"
+ARIA2_ARTIFACTS = {
+    ("darwin", "arm64"): (f"{ARIA2_MAC_BASE}/aria2c-1.37.0-macos-arm64", "f17b4e835968484a1fa25bb3c6b589bb22c4b74f08deb9b4fb93bd81eb1dc70f", False),
+    ("darwin", "x64"): (f"{ARIA2_MAC_BASE}/aria2c-1.37.0-macos-x64", "8243d9d999dcb4b0898015b326203f916663571f0cc5802c01d39db0d781ab87", False),
+    ("win32", "x64"): (
+        "https://github.com/aria2/aria2/releases/download/release-1.37.0/aria2-1.37.0-win-64bit-build1.zip",
+        "67d015301eef0b612191212d564c5bb0a14b5b9c4796b76454276a4d28d9b288", True),
+    ("linux", "x64"): (
+        "https://github.com/abcfy2/aria2-static-build/releases/download/1.37.0/aria2-x86_64-linux-musl_static.zip",
+        "e0a09b12ef67f35f8a8e4fdddbec851d235b7c31da549d0578bff459032b499a", True),
+    ("linux", "arm64"): (
+        "https://github.com/abcfy2/aria2-static-build/releases/download/1.37.0/aria2-aarch64-linux-musl_static.zip",
+        "0c681a89a40e0f82d1f5137608e86257eb0af201459c002941ea098f2b8c26b6", True),
+}
 
 ALLOWED_AUDIO_FORMATS = {"wav", "flac", "mp3", "opus", "m4a", "ogg"}
 ALLOWED_VIDEO_FORMATS = {"mp4", "mkv", "best"}
@@ -772,50 +790,72 @@ class DependencyInstaller:
         return False
 
     @classmethod
-    def _ensure_aria2c(cls) -> bool:
-        if cls._command_runs("aria2c", ["--version"]):
-            return True
-        Logger.info("aria2c not found — auto-installing...")
-        if cls._install_via_package_manager("aria2"):
+    def _aria2_binary_works(cls, path: Path) -> bool:
+        try:
+            check = subprocess.run([str(path), "--version"], capture_output=True,
+                                   text=True, stdin=subprocess.DEVNULL, timeout=10)
+            return (check.returncode == 0 and "aria2 version 1.37.0" in check.stdout
+                    and "HTTPS" in check.stdout)
+        except (OSError, subprocess.SubprocessError):
+            return False
+
+    @classmethod
+    @_serialized_dependency
+    def _ensure_aria2c(cls, private_only: bool = False) -> bool:
+        cls._ensure_local_bin_in_path()
+        target = "aria2c.exe" if sys.platform == "win32" else "aria2c"
+        dest = LOCAL_BIN_DIR / target
+        if dest.is_file() and cls._aria2_binary_works(dest):
             cls._invalidate_cache("aria2c")
-            if cls._command_runs("aria2c", ["--version"]):
-                Logger.success("aria2c installed via package manager")
-                return True
-        plat = sys.platform
-        machine = platform.machine().lower()
-        version = "1.37.0"
-        base = f"https://github.com/aria2/aria2/releases/download/release-{version}"
-        if plat == "darwin":
-            if "arm" in machine:
-                Logger.warn("Private aria2c build unavailable for Apple Silicon — using native downloading")
-                return False
-            url = f"{base}/aria2-{version}-osx-darwin.tar.bz2"
-            success = cls._download_and_extract(url, "aria2c")
-        elif plat.startswith("linux") and "x86_64" in machine:
-            url = f"{base}/aria2-{version}-x86_64-linux-gnu.tar.bz2"
-            success = cls._download_and_extract(url, "aria2c")
-        elif plat == "win32":
-            if cls._is_frozen():
-                Logger.warn("aria2c auto-install unavailable in frozen binary")
-                return False
-            Logger.warn("Private aria2c installation unavailable on Windows — using native downloading")
-            success = False
-        else:
-            success = False
-        if success:
-            Logger.success("aria2c installed (static binary)")
             return True
-        Logger.warn("aria2c auto-install failed — falling back to native downloader")
-        return False
+        if not private_only and cls._command_runs("aria2c", ["--version"]):
+            return True
+        machine = platform.machine().lower()
+        arch = {"arm64": "arm64", "aarch64": "arm64", "x86_64": "x64", "amd64": "x64"}.get(machine)
+        artifact = ARIA2_ARTIFACTS.get((sys.platform, arch))
+        if artifact is None:
+            Logger.warn("No private aria2c binary for this platform — using native downloading")
+            return False
+        url, expected_hash, is_zip = artifact
+        Logger.info("Installing aria2c inside Blaze...")
+        try:
+            with tempfile.TemporaryDirectory(prefix="aria2-", dir=BLAZE_RUNTIME_DIR) as folder:
+                staging = Path(folder)
+                archive = staging / "download"
+                if not cls._download_file(url, archive):
+                    return False
+                if hashlib.sha256(archive.read_bytes()).hexdigest() != expected_hash:
+                    Logger.warn("aria2c checksum mismatch — download was not executed")
+                    return False
+                candidate = staging / target
+                if is_zip:
+                    with zipfile.ZipFile(archive) as source:
+                        entries = [entry for entry in source.infolist()
+                                   if not entry.is_dir() and entry.filename.replace("\\", "/").split("/")[-1] == target]
+                        if len(entries) != 1:
+                            raise OSError(f"Archive must contain exactly one {target}")
+                        with source.open(entries[0]) as input_file, candidate.open("wb") as output_file:
+                            shutil.copyfileobj(input_file, output_file)
+                else:
+                    archive.replace(candidate)
+                if sys.platform != "win32":
+                    candidate.chmod(0o755)
+                if not cls._aria2_binary_works(candidate):
+                    raise OSError("aria2c did not pass its version and HTTPS capability check")
+                candidate.replace(dest)
+            cls._invalidate_cache("aria2c")
+            Logger.success("aria2c installed in Blaze private runtime")
+            return True
+        except (OSError, ValueError, zipfile.BadZipFile) as exc:
+            Logger.warn(f"Private aria2c installation failed: {exc}")
+            return False
 
     @classmethod
     def ensure_all(cls, use_aria2c: bool = True) -> Tuple[List[str], bool]:
         cls._ensure_local_bin_in_path()
         ytdlp = cls._ensure_ytdlp()
         cls._ensure_ffmpeg()
-        # These tools are optional. Never stall first launch trying to fetch
-        # platform archives that are not part of the supported installer.
-        has_aria2c = cls._command_runs("aria2c", ["--version"]) if use_aria2c else False
+        has_aria2c = cls._ensure_aria2c() if use_aria2c else False
         return ytdlp, has_aria2c
 
     @classmethod
@@ -2515,7 +2555,7 @@ def run_doctor() -> int:
         ("yt-dlp", ["--version"], True, ""),
         ("ffmpeg", ["-version"], True, ""),
         ("ffprobe", ["-version"], False, "optional media inspection; FFmpeg remains available"),
-        ("aria2c", ["--version"], False, "optional faster HTTP downloads"),
+        ("aria2c", ["--version"], False, "automatic private installation; --no-aria2c opts out"),
         ("mpv", ["--version"], False, "optional video playback prompt"),
     ):
         version, ok = command_version(name, args)
@@ -2704,6 +2744,7 @@ def create_parser() -> argparse.ArgumentParser:
     parser.add_argument("--video-format", choices=["mp4", "mkv", "best"], default=None, help="Video output container")
     parser.add_argument("--video-resolution", choices=["any", "1080p", "4k", "8k"], default=None, help="Video resolution limit")
     parser.add_argument("--no-aria2c", action="store_true", help="Disable aria2c downloader")
+    parser.add_argument("--install-deps", action="store_true", help="Install and verify Blaze dependencies in its private runtime")
     parser.add_argument("--insecure", action="store_true", help="Disable SSL certificate verification")
     parser.add_argument("--speed", choices=["safe", "fast", "max"], default=None, help="Speed preset")
     parser.add_argument("--no-tui", action="store_true", help="Force plain output instead of the automatic TUI dashboard")
@@ -2774,6 +2815,19 @@ def main():
 
     if args.doctor:
         sys.exit(run_doctor())
+
+    if args.install_deps:
+        Logger.banner()
+        DependencyInstaller._ensure_local_bin_in_path()
+        DependencyInstaller._ensure_ytdlp()
+        DependencyInstaller._ensure_ffmpeg()
+        # Setup fails visibly if either requested dependency is unavailable.
+        checks = [("aria2c", DependencyInstaller._ensure_aria2c(private_only=True)),
+                  ("Rich", DependencyInstaller.ensure_rich()),
+                  ("Mutagen", DependencyInstaller.ensure_mutagen())]
+        for name, ready in checks:
+            (Logger.success if ready else Logger.error)(f"{name}: {'ready' if ready else 'unavailable'}")
+        sys.exit(0 if all(ready for _, ready in checks) else 1)
 
     Logger.banner()
     config = Config.load()
@@ -2859,7 +2913,7 @@ def main():
 
     ytdlp_cmd, has_aria2c = DependencyInstaller.ensure_all(use_aria2c=runtime_config.use_aria2c)
     if has_aria2c:
-        Logger.success("aria2c ready — ultra-fast mode enabled")
+        Logger.success("aria2c ready — parallel HTTP downloading enabled")
     elif runtime_config.use_aria2c:
         Logger.warn("aria2c unavailable — using native downloader")
 

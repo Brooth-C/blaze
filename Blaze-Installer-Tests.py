@@ -48,6 +48,20 @@ class InstallerTests(unittest.TestCase):
             environment['PATH'] = str(bin_dir) + os.pathsep + str(python.parent) + os.pathsep + environment.get('PATH', '')
             check = subprocess.run([str(python), '-c', 'import sys, yt_dlp, rich, mutagen, imageio_ffmpeg; print(sys.prefix)'], check=True, capture_output=True, text=True, env=environment)
             self.assertTrue(Path(check.stdout.strip()).resolve().is_relative_to((root / '.runtime').resolve()))
+            aria2 = bin_dir / ('aria2c.exe' if sys.platform == 'win32' else 'aria2c')
+            self.assertTrue(aria2.is_file(), 'Installer must supply private aria2c')
+            aria_version = subprocess.run([str(aria2), '--version'], check=True, capture_output=True, text=True, env=environment, timeout=15)
+            self.assertIn('aria2 version 1.37.0', aria_version.stdout)
+            self.assertIn('HTTPS', aria_version.stdout)
+            if sys.platform == 'darwin':
+                libraries = subprocess.run(['otool', '-L', str(aria2)], check=True, capture_output=True, text=True)
+                for line in libraries.stdout.splitlines()[1:]:
+                    self.assertTrue(line.strip().startswith(('/usr/lib/', '/System/Library/Frameworks/')), line)
+            subprocess.run([str(python), '-c', 'import io; from rich.console import Console; from rich.panel import Panel; output=io.StringIO(); Console(file=output).print(Panel("Blaze ready")); assert "Blaze ready" in output.getvalue()'], check=True, env=environment, timeout=15)
+            # HTTPS must work using the OS trust store, without an insecure flag.
+            subprocess.run([str(aria2), '--no-conf=true', '--enable-rpc=false', '--max-tries=1', '--connect-timeout=30', '--timeout=30', '--dir=' + str(extracted), '--out=tls-check.html', 'https://aria2.github.io/'], check=True, env=environment, timeout=90)
+            self.assertTrue((extracted / 'tls-check.html').stat().st_size > 0)
+            aria_hash = hashlib.sha256(aria2.read_bytes()).hexdigest()
             self.assertEqual(application.read_bytes(), original)
             launcher = root / ('Start-Blaze.bat' if sys.platform == 'win32' else 'Start-Blaze.command')
             command = (['cmd.exe', '/d', '/c', str(launcher), '--help'] if sys.platform == 'win32'
@@ -72,6 +86,7 @@ class InstallerTests(unittest.TestCase):
             self.assertEqual(hashlib.sha256(launcher.read_bytes()).hexdigest(), old_launcher)
             source.write_bytes(original)
             install()
+            self.assertEqual(hashlib.sha256(aria2.read_bytes()).hexdigest(), aria_hash, 'Upgrade needlessly replaced working aria2')
             for path, content in sentinels.items():
                 self.assertEqual(path.read_text(encoding='utf-8'), content)
             self.assertFalse([path for path in (root / '.runtime').glob('setup*') if path.is_dir()])

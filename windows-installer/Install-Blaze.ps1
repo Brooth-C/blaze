@@ -92,6 +92,7 @@ try {
     Copy-Item -LiteralPath $source -Destination $candidate
     Run-Checked $python @('-m', 'py_compile', $candidate)
     Run-Checked $python @($candidate, '--help')
+    Run-Checked $python @($candidate, '--install-deps')
     Publish-File $candidate (Join-Path $app 'blaze.py')
     $launcher = @'
 @echo off

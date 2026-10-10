@@ -49,6 +49,7 @@ jobs:
           python package_installers.py --check
       - name: Regression and real local-media tests
         run: |
+          python blaze.py --install-deps
           python Blaze-Regression-Tests.py
           python Blaze-Reliability-Tests.py
           python Blaze-Integration-Tests.py

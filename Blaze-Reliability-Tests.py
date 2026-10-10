@@ -1,5 +1,6 @@
 """Offline reliability and UI checks; run beside blaze.py."""
 import importlib.util
+import hashlib
 import io
 import json
 import sys
@@ -7,6 +8,8 @@ import tempfile
 import threading
 import time
 import unittest
+import zipfile
+import os
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
@@ -174,11 +177,81 @@ class ReliabilityTests(unittest.TestCase):
             b.Config().save()
             self.assertEqual(list(Path(root).iterdir()), [])
 
-    def test_optional_tools_do_not_trigger_installation(self):
-        with patch.object(b.DependencyInstaller, '_ensure_local_bin_in_path'), patch.object(b.DependencyInstaller, '_ensure_ytdlp', return_value=['yt-dlp']), patch.object(b.DependencyInstaller, '_ensure_ffmpeg'), patch.object(b.DependencyInstaller, '_command_runs', return_value=False), patch.object(b.DependencyInstaller, '_ensure_aria2c') as aria, patch.object(b.DependencyInstaller, '_ensure_ffprobe') as probe:
-            self.assertEqual(b.DependencyInstaller.ensure_all(), (['yt-dlp'], False))
+    def test_aria_installs_by_default_but_respects_opt_out(self):
+        with patch.object(b.DependencyInstaller, '_ensure_local_bin_in_path'), patch.object(b.DependencyInstaller, '_ensure_ytdlp', return_value=['yt-dlp']), patch.object(b.DependencyInstaller, '_ensure_ffmpeg'), patch.object(b.DependencyInstaller, '_ensure_aria2c', return_value=True) as aria, patch.object(b.DependencyInstaller, '_ensure_ffprobe') as probe:
+            self.assertEqual(b.DependencyInstaller.ensure_all(), (['yt-dlp'], True))
+            aria.assert_called_once_with()
+            aria.reset_mock()
+            self.assertEqual(b.DependencyInstaller.ensure_all(use_aria2c=False), (['yt-dlp'], False))
             aria.assert_not_called()
             probe.assert_not_called()
+
+    def test_aria_checksum_rejected_before_execution(self):
+        with tempfile.TemporaryDirectory() as folder, patch.dict(os.environ):
+            root = Path(folder)
+            bin_dir = root / 'bin'
+            bin_dir.mkdir()
+            old = bin_dir / 'aria2c'
+            old.write_bytes(b'existing executable')
+            def download(url, destination):
+                destination.write_bytes(b'tampered download')
+                return True
+            artifact = ('https://example.org/aria2c', '0' * 64, False)
+            with patch.object(b, 'BLAZE_RUNTIME_DIR', root), patch.object(b, 'LOCAL_BIN_DIR', bin_dir), patch.object(b.sys, 'platform', 'darwin'), patch.object(b.platform, 'machine', return_value='arm64'), patch.dict(b.ARIA2_ARTIFACTS, {('darwin', 'arm64'): artifact}), patch.object(b.DependencyInstaller, '_aria2_binary_works', return_value=False) as verify, patch.object(b.DependencyInstaller, '_download_file', side_effect=download):
+                self.assertFalse(b.DependencyInstaller._ensure_aria2c(private_only=True))
+                verify.assert_called_once_with(old)
+            self.assertEqual(old.read_bytes(), b'existing executable')
+            self.assertEqual(list(root.iterdir()), [bin_dir])
+
+    def test_aria_unrunnable_candidate_preserves_existing_binary(self):
+        body = b'verified but incompatible executable'
+        with tempfile.TemporaryDirectory() as folder, patch.dict(os.environ):
+            root = Path(folder)
+            bin_dir = root / 'bin'
+            bin_dir.mkdir()
+            old = bin_dir / 'aria2c'
+            old.write_bytes(b'old executable')
+            def download(url, destination):
+                destination.write_bytes(body)
+                return True
+            artifact = ('https://example.org/aria2c', hashlib.sha256(body).hexdigest(), False)
+            with patch.object(b, 'BLAZE_RUNTIME_DIR', root), patch.object(b, 'LOCAL_BIN_DIR', bin_dir), patch.object(b.sys, 'platform', 'darwin'), patch.object(b.platform, 'machine', return_value='arm64'), patch.dict(b.ARIA2_ARTIFACTS, {('darwin', 'arm64'): artifact}), patch.object(b.DependencyInstaller, '_aria2_binary_works', return_value=False), patch.object(b.DependencyInstaller, '_download_file', side_effect=download):
+                self.assertFalse(b.DependencyInstaller._ensure_aria2c(private_only=True))
+            self.assertEqual(old.read_bytes(), b'old executable')
+            self.assertEqual(list(root.iterdir()), [bin_dir])
+
+    def test_aria_verified_mac_and_windows_publish_privately(self):
+        for platform, target, is_zip in (('darwin', 'aria2c', False), ('win32', 'aria2c.exe', True)):
+            with self.subTest(platform=platform), tempfile.TemporaryDirectory() as folder, patch.dict(os.environ):
+                root = Path(folder)
+                bin_dir = root / 'bin'
+                body = b'portable executable'
+                if is_zip:
+                    buffer = io.BytesIO()
+                    with zipfile.ZipFile(buffer, 'w') as archive:
+                        archive.writestr('aria2/' + target, body)
+                        archive.writestr('../escape.txt', b'never extracted')
+                    payload = buffer.getvalue()
+                else:
+                    payload = body
+                def download(url, destination):
+                    destination.write_bytes(payload)
+                    return True
+                artifact = ('https://example.org/aria2c', hashlib.sha256(payload).hexdigest(), is_zip)
+                with patch.object(b, 'BLAZE_RUNTIME_DIR', root), patch.object(b, 'LOCAL_BIN_DIR', bin_dir), patch.object(b.sys, 'platform', platform), patch.object(b.platform, 'machine', return_value='AMD64'), patch.dict(b.ARIA2_ARTIFACTS, {(platform, 'x64'): artifact}), patch.object(b.DependencyInstaller, '_aria2_binary_works', return_value=True), patch.object(b.DependencyInstaller, '_download_file', side_effect=download) as fetch:
+                    self.assertTrue(b.DependencyInstaller._ensure_aria2c(private_only=True))
+                    self.assertEqual((bin_dir / target).read_bytes(), body)
+                    self.assertEqual(list(root.iterdir()), [bin_dir])
+                    self.assertTrue(b.DependencyInstaller._ensure_aria2c(private_only=True))
+                    fetch.assert_called_once()
+
+    def test_aria_requires_expected_version_and_https(self):
+        for code, output, expected in ((0, 'aria2 version 1.37.0\nEnabled Features: HTTPS', True),
+                                       (0, 'aria2 version 1.37.0', False),
+                                       (0, 'aria2 version 1.36.0\nHTTPS', False),
+                                       (1, 'aria2 version 1.37.0\nHTTPS', False)):
+            with self.subTest(output=output, code=code), patch.object(b.subprocess, 'run', return_value=SimpleNamespace(returncode=code, stdout=output)):
+                self.assertEqual(b.DependencyInstaller._aria2_binary_works(Path('aria2c')), expected)
 
     def test_error_diagnostic_fails_even_on_zero_exit(self):
         with tempfile.TemporaryDirectory() as root:

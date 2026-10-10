@@ -4,9 +4,9 @@
 
 **Audio and video downloads. A live terminal dashboard. One private installation folder.**
 
-[Download for Windows](https://github.com/Brooth-C/blaze/releases/download/v4.1.22/Blaze-Windows-Installer.zip) · [Download for macOS](https://github.com/Brooth-C/blaze/releases/download/v4.1.22/Blaze-Mac-Installer.zip) · [Report a bug](https://github.com/Brooth-C/blaze/issues/new?template=bug_report.yml)
+[Download for Windows](https://github.com/Brooth-C/blaze/releases/download/v4.1.23/Blaze-Windows-Installer.zip) · [Download for macOS](https://github.com/Brooth-C/blaze/releases/download/v4.1.23/Blaze-Mac-Installer.zip) · [Report a bug](https://github.com/Brooth-C/blaze/issues/new?template=bug_report.yml)
 
-**4.1.22** · Windows 10/11 x64 · macOS Apple Silicon / Intel · Python 3.10+ from source
+**4.1.23** · Windows 10/11 x64 · macOS Apple Silicon / Intel · Python 3.10+ from source
 
 </div>
 
@@ -24,21 +24,21 @@
 Blaze uses a keyboard-controlled **terminal dashboard**. Spotify/spotDL support has been removed.
 
 > **Start here:** download the Windows or macOS installer from the
-> [v4.1.22 release](https://github.com/Brooth-C/blaze/releases/tag/v4.1.22).
+> [v4.1.23 release](https://github.com/Brooth-C/blaze/releases/tag/v4.1.23).
 > Both installers and SHA-256 checksums are attached to the release.
 > Setup requires internet access; Python does not need to be installed beforehand.
 
 ## Windows setup — no Python needed beforehand
 
-**[Download the Windows installer ZIP](https://github.com/Brooth-C/blaze/releases/download/v4.1.22/Blaze-Windows-Installer.zip)**
+**[Download the Windows installer ZIP](https://github.com/Brooth-C/blaze/releases/download/v4.1.23/Blaze-Windows-Installer.zip)**
 
 1. Extract the entire ZIP.
 2. Double-click `Install-Blaze.bat`. Internet is required during setup.
 3. Run `%USERPROFILE%\Blaze\Start-Blaze.bat` after setup completes.
 
 The package targets **x64 Windows 10/11**. It installs managed Python 3.13,
-yt-dlp, Rich, Mutagen and bundled FFmpeg privately using uv 0.12.19.
-It verifies the uv archive against its published SHA-256 before executing it.
+yt-dlp, Rich, Mutagen, bundled FFmpeg and portable aria2c privately using uv 0.12.19.
+It verifies downloaded uv and aria2 archives using SHA-256 before execution.
 No administrator access, permanent PATH edits, registry registration or system
 package-manager installation is requested.
 
@@ -52,24 +52,27 @@ New installed files stay inside `%USERPROFILE%\Blaze`:
 | `Audio`, `Video` | Downloads |
 | `Reports` | Job results and downloader logs |
 
-Existing installations elsewhere are left untouched. Optional mpv, aria2c and
-FFprobe are not bundled; native downloading and bundled FFmpeg are used.
+Existing installations elsewhere are left untouched. Optional mpv and FFprobe
+are not bundled. aria2c is installed automatically; use `--no-aria2c` to opt out.
 
 ## Mac setup — Apple Silicon and Intel
 
-**[Download the Mac installer ZIP](https://github.com/Brooth-C/blaze/releases/download/v4.1.22/Blaze-Mac-Installer.zip)**
+**[Download the Mac installer ZIP](https://github.com/Brooth-C/blaze/releases/download/v4.1.23/Blaze-Mac-Installer.zip)**
 
 1. Extract the entire ZIP.
 2. Double-click `Install-Blaze.command`. Internet is required during setup.
 3. Double-click `~/Blaze/Start-Blaze.command` after setup completes.
 
-Python, dependencies and bundled FFmpeg install privately under `~/Blaze`.
+Python, Rich, the other dependencies, bundled FFmpeg and aria2c install privately under `~/Blaze`.
+The Mac aria2 binaries are built from upstream 1.37.0 with native AppleTLS and
+macOS system libraries, and their SHA-256 hashes are checked before execution.
 No Homebrew, administrator access or shell-profile edits are required.
 If macOS blocks opening the script, Control-click it and choose Open. See the
 included README for the Terminal fallback.
 
 For updates, close Blaze and rerun the newer installer. Setup checks the new
 program before replacing the installed app and preserves settings and downloads.
+Setup verifies that Rich imports and aria2c runs before reporting success.
 
 ## Run from source
 
@@ -80,9 +83,13 @@ python blaze.py
 python blaze.py --mode audio -F mp3 "https://example.org/audio"
 python blaze.py --mode video --video-resolution 1080p "https://example.org/video"
 python blaze.py --help
+python blaze.py --install-deps
 ```
 
 Missing Python packages are installed into `~/Blaze/.runtime/venv`.
+Missing aria2c installs automatically into `~/Blaze/.runtime/bin` on supported
+64-bit Mac, Windows and Linux platforms. `--install-deps` checks/repairs dependencies
+without opening the download menu. A failed installer dependency check stops setup.
 Automatic system installers are disabled. Old configuration is read as a
 fallback and settings are saved under `~/Blaze/Config`.
 The legacy `build.py` / `blaze.spec` files are developer build tools, not the
@@ -109,12 +116,14 @@ The [quality workflow](https://github.com/Brooth-C/blaze/actions/workflows/quali
 gates release publication on source checks with Python 3.10/3.13 and actual ZIP
 installation on Windows x64, Apple Silicon macOS and Intel macOS runners.
 
-The 54 application tests cover regression cases, terminal rendering across
+The application tests cover regression cases, terminal rendering across
 216 size/filter combinations, keyboard restoration, cancellation, config
 recovery and private dependency installation. Real local HTTP fixtures test
 FFmpeg conversion, mixed audio/video downloads, history recovery, HTTP errors
 and resuming a cancelled download. Installer tests also check paths containing
 spaces, successful upgrades, preservation of user files and invalid-source rejection.
+They require private aria2c, verify Rich rendering and HTTPS downloads, reject
+non-system Mac libraries, and exercise actual audio/video downloads through aria2c.
 
 Public-service downloads and every older OS version are not covered. Website
 extractors can change independently; passing tests is not a promise of zero bugs.

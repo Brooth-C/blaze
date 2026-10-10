@@ -91,6 +91,7 @@ mkdir -p "$ROOT/App"
 cp "$SOURCE" "$STAGING/blaze.py"
 "$PYTHON" -m py_compile "$STAGING/blaze.py"
 "$PYTHON" "$STAGING/blaze.py" --help
+"$PYTHON" "$STAGING/blaze.py" --install-deps
 mv -f "$STAGING/blaze.py" "$ROOT/App/blaze.py"
 cat > "$STAGING/Start-Blaze.command" <<'LAUNCH'
 #!/bin/bash

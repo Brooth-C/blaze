@@ -142,6 +142,24 @@ class MediaTests(unittest.TestCase):
         self.assertEqual(self.reports()[0]['status'], 'failed')
         self.assertEqual(b._active_processes, set())
 
+    @unittest.skipUnless(shutil.which('aria2c'), 'Portable aria2 is exercised in installer CI')
+    def test_aria2_audio_conversion_and_video_download(self):
+        self.config.use_aria2c = True
+        self.engine.has_aria2c = True
+        self.engine.ytdlp_cmd.append('--verbose')
+        success, job = self.download('song.wav')
+        self.assertTrue(success, job.error)
+        audio = next((self.root / 'Audio').glob('*.mp3'))
+        check = subprocess.run([self.ffmpeg, '-hide_banner', '-i', str(audio), '-f', 'null', '-'], capture_output=True, text=True, timeout=15)
+        self.assertEqual(check.returncode, 0, check.stderr)
+        success, job = self.download('clip.mp4', mode='video')
+        self.assertTrue(success, job.error)
+        video = next((self.root / 'Video').glob('*.mp4'))
+        self.assertEqual(video.read_bytes(), (Path(self.fixture_root.name) / 'clip.mp4').read_bytes())
+        logs = [path.read_text(encoding='utf-8') for path in (self.root / 'Reports').glob('*.log')]
+        self.assertTrue(all('aria2c command line:' in log for log in logs), 'Download did not invoke aria2c')
+        self.assertEqual(b._active_processes, set())
+
     def test_partial_download_resumes_after_cancel(self):
         self.config.format = 'wav'
         self.ranges.clear()

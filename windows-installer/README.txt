@@ -9,7 +9,7 @@ rights are needed beforehand. Windows PowerShell 5.1 is used for setup.
 
 Everything newly installed stays inside %USERPROFILE%\Blaze:
   App           Blaze program
-  .runtime      managed Python, virtual environment, uv, FFmpeg, cache and temp
+  .runtime      managed Python, Rich/packages, uv, FFmpeg, aria2c, cache and temp
   Config        settings
   Audio/Video   downloaded media
   Reports       job results and logs
@@ -19,9 +19,14 @@ and installs managed Python 3.13 without registry registration or global
 Python launchers. Neither system PATH nor machine execution policy is changed.
 The BAT permits the included PowerShell script only for its setup process.
 
-Optional mpv and aria2c are not installed by this package. Blaze uses native
-downloading; automatic playback needs a separately supplied portable mpv.
+aria2c is installed automatically from its upstream portable x64 archive.
+Its pinned SHA-256 is verified before execution. Rich and aria2c must pass their
+setup checks before the installer reports success.
+Automatic playback needs a separately supplied portable mpv.
 FFprobe is optional and is not included. The bundled FFmpeg handles conversion.
+
+To check/repair dependencies without opening the download menu:
+  %USERPROFILE%\Blaze\Start-Blaze.bat --install-deps
 
 To update the app: extract a newer package and rerun Install-Blaze.bat.
 To remove this installation: close Blaze and delete its folder. Back up your
