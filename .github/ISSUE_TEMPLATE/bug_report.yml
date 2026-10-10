@@ -9,7 +9,7 @@ body:
     id: version
     attributes:
       label: Blaze version
-      placeholder: "4.1.20"
+      placeholder: "Output of --version"
     validations:
       required: true
   - type: input
@@ -26,6 +26,7 @@ body:
       options:
         - Windows installer ZIP
         - macOS installer ZIP
+        - Linux installer ZIP
         - Python source
         - Other
     validations:

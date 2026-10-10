@@ -1,4 +1,4 @@
-"""Install and upgrade the committed ZIP on a disposable Windows/macOS CI runner."""
+"""Install and upgrade the committed ZIP on a disposable Windows/macOS/Linux CI runner."""
 import hashlib
 import json
 import os
@@ -13,10 +13,11 @@ from pathlib import Path
 PROJECT = Path(__file__).resolve().parent
 
 
-@unittest.skipUnless(sys.platform in ('darwin', 'win32'), 'Windows/macOS installer test')
+@unittest.skipUnless(sys.platform in ('darwin', 'win32', 'linux'), 'Windows/macOS/Linux installer test')
 class InstallerTests(unittest.TestCase):
     def test_install_launch_upgrade_and_reject_invalid_source(self):
-        platform = 'Windows' if sys.platform == 'win32' else 'Mac'
+        platform = {'win32': 'Windows', 'darwin': 'Mac', 'linux': 'Linux'}[sys.platform]
+        installer = 'Install-Blaze.sh' if sys.platform == 'linux' else 'Install-Blaze.command'
         root = Path.home() / 'Blaze'
         self.assertFalse(root.exists(), 'Run this test on a disposable clean CI runner')
         with tempfile.TemporaryDirectory(prefix='Blaze setup ') as temporary:
@@ -24,7 +25,7 @@ class InstallerTests(unittest.TestCase):
             with zipfile.ZipFile(PROJECT / 'downloads' / f'Blaze-{platform}-Installer.zip') as archive:
                 archive.extractall(extracted)
                 for member in archive.infolist():
-                    if member.filename.endswith('.command'):
+                    if member.filename.endswith(('.command', '.sh')):
                         (extracted / member.filename).chmod(0o755)
             directory = extracted / f'Blaze-{platform}-Installer'
             source = directory / 'blaze.py'
@@ -32,7 +33,7 @@ class InstallerTests(unittest.TestCase):
             version = re.search(rb'^VERSION = "([^"]+)"', original, re.MULTILINE).group(1).decode()
             def install(expect_success=True):
                 command = (['powershell.exe', '-NoLogo', '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', str(directory / 'Install-Blaze.ps1')]
-                           if sys.platform == 'win32' else ['bash', str(directory / 'Install-Blaze.command')])
+                           if sys.platform == 'win32' else ['bash', str(directory / installer)])
                 result = subprocess.run(command, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
                                         stderr=subprocess.STDOUT, timeout=360)
                 sys.stdout.buffer.write(result.stdout)
@@ -63,7 +64,7 @@ class InstallerTests(unittest.TestCase):
             self.assertTrue((extracted / 'tls-check.html').stat().st_size > 0)
             aria_hash = hashlib.sha256(aria2.read_bytes()).hexdigest()
             self.assertEqual(application.read_bytes(), original)
-            launcher = root / ('Start-Blaze.bat' if sys.platform == 'win32' else 'Start-Blaze.command')
+            launcher = root / ('Start-Blaze.bat' if sys.platform == 'win32' else ('Start-Blaze.sh' if sys.platform == 'linux' else 'Start-Blaze.command'))
             command = (['cmd.exe', '/d', '/c', str(launcher), '--help'] if sys.platform == 'win32'
                        else ['bash', str(launcher), '--help'])
             help_result = subprocess.run(command, stdin=subprocess.DEVNULL, capture_output=True, text=True, env=environment, timeout=30)

@@ -39,13 +39,13 @@ serve generated media on localhost and do not contact public download services.
 
 ## Installer changes
 
-The application also exists in both installer source folders. When changing
+The application also exists in all three installer source folders. When changing
 `blaze.py`, run `python package_installers.py` to synchronize those copies and
 rebuild the downloadable ZIPs. Run `python package_installers.py --check` to
 detect stale source or package contents. Verify archive contents and script syntax. Do not claim end-to-end Windows or
-macOS validation unless the installer was actually run on that platform.
+macOS or Linux validation unless the installer was actually run on that platform.
 The quality workflow checks source behavior on Python 3.10/3.13 and installs
-the ZIPs on Windows x64, Apple Silicon macOS and Intel macOS runners. It checks
+the ZIPs on Windows x64, Apple Silicon macOS Intel macOS, Ubuntu x86_64 and Ubuntu ARM64 runners. It checks
 upgrades and runs download suites with the installed private runtime. Automatic
 publication runs only after all checks pass, and never replaces an existing
 version's release assets. Increment VERSION and update RELEASE-NOTES.md for a
@@ -58,5 +58,8 @@ Keep unrelated changes separate. Discuss new dependencies before introducing the
 
 ## License
 
-This repository currently has no project license. Contributions do not establish
-a new license; licensing decisions belong to the repository owner.
+Blaze uses the [Blaze Free-Use License](LICENSE.txt). Running unmodified Blaze
+is free; modification and redistribution require permission from Brooth-C.
+Discuss proposed code contributions and obtain permission before preparing
+modified code. An issue or pull request does not transfer your copyright or
+establish a contributor agreement. Third-party components keep their own licenses.
