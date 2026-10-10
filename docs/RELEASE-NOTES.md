@@ -1,3 +1,9 @@
+# Blaze 4.1.25
+
+- Add an experimental Android / Termux installer with a private Blaze venv and Termux-native Python, FFmpeg and aria2.
+- Prevent Android dependency fallback from downloading desktop Linux executables.
+- Add Android setup and shared-storage instructions. Android device validation remains outstanding.
+
 # Blaze 4.1.24
 
 - Add a private Linux installer and terminal launcher for glibc x86_64 and ARM64.

@@ -6,7 +6,7 @@
 
 **Audio and video downloads, with a live terminal dashboard.**
 
-Windows · macOS · Linux
+Windows · macOS · Linux · Android (Termux, experimental)
 
 [![Quality checks](https://github.com/Brooth-C/blaze/actions/workflows/quality-and-release.yml/badge.svg?branch=main)](https://github.com/Brooth-C/blaze/actions/workflows/quality-and-release.yml)
 
@@ -24,6 +24,8 @@ Setup needs internet access and installs Python for you.
 | Windows 10/11 (x64) | [Windows ZIP](https://github.com/Brooth-C/blaze/releases/latest/download/Blaze-Windows-Installer.zip) | Double-click `Install-Blaze.bat` | `%USERPROFILE%\Blaze\Start-Blaze.bat` |
 | macOS (Apple Silicon / Intel) | [macOS ZIP](https://github.com/Brooth-C/blaze/releases/latest/download/Blaze-Mac-Installer.zip) | Double-click `Install-Blaze.command` | `~/Blaze/Start-Blaze.command` |
 | Linux (x86_64 / ARM64, glibc) | [Linux ZIP](https://github.com/Brooth-C/blaze/releases/latest/download/Blaze-Linux-Installer.zip) | `bash Install-Blaze.sh` | `bash ~/Blaze/Start-Blaze.sh` |
+
+Android users: see the [Termux setup guide](docs/ANDROID.md). Android support is experimental and has not yet been verified on a physical device.
 
 [Release notes and checksums](https://github.com/Brooth-C/blaze/releases/latest) · [Detailed setup and requirements](docs/INSTALLATION.md)
 

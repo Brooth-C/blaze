@@ -47,6 +47,7 @@ jobs:
           python -m compileall -q blaze.py tools/build.py tools/package_installers.py tests/Blaze-*-Tests.py
           bash -n installers/macos-installer/Install-Blaze.command
           bash -n installers/linux-installer/Install-Blaze.sh
+          bash -n installers/termux-installer/Install-Blaze.sh
           python tools/package_installers.py --check
       - name: Regression and real local-media tests
         run: |
@@ -54,6 +55,7 @@ jobs:
           python tests/Blaze-Regression-Tests.py
           python tests/Blaze-Reliability-Tests.py
           python tests/Blaze-Integration-Tests.py
+          python tests/Blaze-Termux-Tests.py
   installer-tests:
     name: Installer / ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
@@ -97,5 +99,5 @@ jobs:
             exit 0
           fi
           python tools/package_installers.py --check
-          sha256sum downloads/Blaze-Windows-Installer.zip downloads/Blaze-Mac-Installer.zip downloads/Blaze-Linux-Installer.zip | sed 's@downloads/@@' > SHA256SUMS.txt
-          gh release create "v$VERSION" downloads/Blaze-Windows-Installer.zip downloads/Blaze-Mac-Installer.zip downloads/Blaze-Linux-Installer.zip SHA256SUMS.txt --target "$GITHUB_SHA" --title "Blaze v$VERSION" --notes-file docs/RELEASE-NOTES.md --latest
+          sha256sum downloads/Blaze-Windows-Installer.zip downloads/Blaze-Mac-Installer.zip downloads/Blaze-Linux-Installer.zip downloads/Blaze-Termux-Installer.zip | sed 's@downloads/@@' > SHA256SUMS.txt
+          gh release create "v$VERSION" downloads/Blaze-Windows-Installer.zip downloads/Blaze-Mac-Installer.zip downloads/Blaze-Linux-Installer.zip downloads/Blaze-Termux-Installer.zip SHA256SUMS.txt --target "$GITHUB_SHA" --title "Blaze v$VERSION" --notes-file docs/RELEASE-NOTES.md --latest
