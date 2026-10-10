@@ -26,8 +26,21 @@ jobs:
       - name: Install test dependencies
         run: |
           python -m pip install yt-dlp rich mutagen imageio-ffmpeg ruff
-          sudo apt-get update -qq
-          sudo apt-get install -y ffmpeg
+          python - <<'PY'
+          import os
+          import shutil
+          import subprocess
+          from pathlib import Path
+          import imageio_ffmpeg
+          bin_dir = Path(os.environ['RUNNER_TEMP']) / 'blaze-test-bin'
+          bin_dir.mkdir(exist_ok=True)
+          ffmpeg = bin_dir / 'ffmpeg'
+          shutil.copy2(imageio_ffmpeg.get_ffmpeg_exe(), ffmpeg)
+          ffmpeg.chmod(0o755)
+          subprocess.run([str(ffmpeg), '-version'], check=True)
+          with open(os.environ['GITHUB_PATH'], 'a', encoding='utf-8') as stream:
+              stream.write(str(bin_dir) + '\n')
+          PY
       - name: Lint, compile and verify packages
         run: |
           python -m ruff check --select F,E9 blaze.py build.py package_installers.py Blaze-*-Tests.py
@@ -71,6 +84,11 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          CURRENT_SHA=$(gh api "repos/$GH_REPO/git/ref/heads/main" --jq .object.sha)
+          if [ "$CURRENT_SHA" != "$GITHUB_SHA" ]; then
+            echo "A newer commit is awaiting validation; this run will not publish."
+            exit 0
+          fi
           VERSION=$(python -c 'import re,pathlib; print(re.search(r"^VERSION = \"([^\"]+)\"", pathlib.Path("blaze.py").read_text(), re.M).group(1))')
           if gh release view "v$VERSION" >/dev/null 2>&1; then
             echo "Version already published; checks completed without replacing assets."

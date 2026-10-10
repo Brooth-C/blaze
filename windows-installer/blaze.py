@@ -53,7 +53,7 @@ import math
 # ═══════════════════════════════════════════════════════════════════════
 
 APP_NAME = "Blaze"
-VERSION = "4.1.21"
+VERSION = "4.1.22"
 DEFAULT_WORKERS = 4
 DEFAULT_FRAGMENTS = 8
 DEFAULT_OUTPUT = Path.home() / "Blaze"
@@ -167,17 +167,17 @@ class Logger:
     def banner(cls):
         if cls.QUIET:
             return
-        if cls.NO_COLOR:
-            print(f"Blaze v{VERSION}")
-            return
-        width = min(58, shutil.get_terminal_size((80, 24)).columns - 4)
-        if width < 48:
-            print(f"Blaze v{VERSION} — Audio & Video\n")
+        columns = max(1, shutil.get_terminal_size((80, 24)).columns)
+        width = min(58, columns - 4)
+        if cls.NO_COLOR or width < 48:
+            print(f"Blaze v{VERSION}"[:columns] + "\n")
             return
         bc = Style.CYAN + Style.BOLD
         rst = Style.RESET
         text1 = f"{Style.BOLD}Blaze{rst} v{VERSION}{Style.DIM} - Universal Terminal Downloader{rst}"
-        text2 = f"{Style.DIM}Audio & video · Private installation · Resume support{rst}"
+        subtitle = ("Audio & video · Private installation · Resume support" if width >= 55
+                    else "Audio · Video · Private runtime · Resume")
+        text2 = f"{Style.DIM}{subtitle}{rst}"
 
         def _pad(s, w):
             clean = re.sub(r"\x1B\[[0-9;]*m", "", s)

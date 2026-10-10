@@ -111,6 +111,16 @@ class ReliabilityTests(unittest.TestCase):
                         self.assertTrue(all(cell_len(line) <= width for line in lines))
                         self.assertNotIn('\x1b', stream.getvalue())
 
+    def test_startup_banner_fits_narrow_windows(self):
+        from rich.cells import cell_len
+        for width in (1, 10, 18, 24, 30, 48, 50, 52, 56, 60, 80):
+            for no_color in (False, True):
+                with self.subTest(width=width, no_color=no_color):
+                    with patch.object(b.Logger, 'QUIET', False), patch.object(b.Logger, 'NO_COLOR', no_color), patch.object(b.shutil, 'get_terminal_size', return_value=SimpleNamespace(columns=width)), patch('sys.stdout', new_callable=io.StringIO) as stream:
+                        b.Logger.banner()
+                    plain = b.re.sub(r'\x1b\[[0-9;]*m', '', stream.getvalue())
+                    self.assertTrue(all(cell_len(line) <= width for line in plain.splitlines()))
+
     def test_logs_stay_inside_dashboard_and_restore(self):
         tracker = b.DownloadTracker()
         with patch.object(b.Logger, 'QUIET', False), patch('sys.stdout', new_callable=io.StringIO) as out, patch('sys.stderr', new_callable=io.StringIO) as err:

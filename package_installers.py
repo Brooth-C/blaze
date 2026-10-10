@@ -2,7 +2,6 @@
 import argparse
 import hashlib
 import io
-import re
 import stat
 import zipfile
 from pathlib import Path
@@ -12,8 +11,7 @@ ROOT = Path(__file__).resolve().parent
 
 def package(check=False):
     source = (ROOT / 'blaze.py').read_bytes()
-    version = re.search(rb'^VERSION = "([^"]+)"', source, re.MULTILINE).group(1).decode('ascii')
-    app_name = f'Blaze-Universal-{version}.py'
+    app_name = 'blaze.py'
     downloads = ROOT / 'downloads'
     if not check:
         downloads.mkdir(exist_ok=True)

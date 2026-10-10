@@ -1,7 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 BASE="$(cd "$(dirname "$0")" && pwd)"
-SOURCE="$BASE/Blaze-Universal-4.1.21.py"
+SOURCE="$BASE/blaze.py"
 if [ "$(uname -s)" != 'Darwin' ]; then
     printf 'This installer is for macOS. On other systems, run blaze.py from source.\n'
     exit 1

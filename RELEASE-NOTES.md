@@ -1,11 +1,11 @@
-## Blaze 4.1.21
+## Blaze 4.1.22
 
 Download the Windows or Mac ZIP, extract it, then run Install-Blaze.bat or Install-Blaze.command. Rerun the newer installer to upgrade; existing downloads and settings are preserved.
 
 ### Interface
 - Stable queue ordering, smoother progress bars and structured Unicode titles.
 - Responsive paging and filters: N/P pages, F failed, A all, D active, Q or Ctrl+C stop.
-- Layout adapts to small windows and terminal resizing; activity stays inside the dashboard.
+- Layout and startup banner adapt to small windows and terminal resizing; activity stays inside the dashboard.
 - Less idle redrawing, clear waiting/conversion stages and readable failure summaries.
 - Interactive audio format choices and remembered download type between downloads.
 

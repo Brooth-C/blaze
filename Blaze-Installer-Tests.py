@@ -27,7 +27,7 @@ class InstallerTests(unittest.TestCase):
                     if member.filename.endswith('.command'):
                         (extracted / member.filename).chmod(0o755)
             directory = extracted / f'Blaze-{platform}-Installer'
-            source = next(directory.glob('Blaze-Universal-*.py'))
+            source = directory / 'blaze.py'
             original = source.read_bytes()
             version = re.search(rb'^VERSION = "([^"]+)"', original, re.MULTILINE).group(1).decode()
             def install(expect_success=True):

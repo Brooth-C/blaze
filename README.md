@@ -4,9 +4,9 @@
 
 **Audio and video downloads. A live terminal dashboard. One private installation folder.**
 
-[Download for Windows](https://github.com/Brooth-C/blaze/releases/download/v4.1.21/Blaze-Windows-Installer.zip) · [Download for macOS](https://github.com/Brooth-C/blaze/releases/download/v4.1.21/Blaze-Mac-Installer.zip) · [Report a bug](https://github.com/Brooth-C/blaze/issues/new?template=bug_report.yml)
+[Download for Windows](https://github.com/Brooth-C/blaze/releases/download/v4.1.22/Blaze-Windows-Installer.zip) · [Download for macOS](https://github.com/Brooth-C/blaze/releases/download/v4.1.22/Blaze-Mac-Installer.zip) · [Report a bug](https://github.com/Brooth-C/blaze/issues/new?template=bug_report.yml)
 
-**4.1.21** · Windows 10/11 x64 · macOS Apple Silicon / Intel · Python 3.10+ from source
+**4.1.22** · Windows 10/11 x64 · macOS Apple Silicon / Intel · Python 3.10+ from source
 
 </div>
 
@@ -24,13 +24,13 @@
 Blaze uses a keyboard-controlled **terminal dashboard**. Spotify/spotDL support has been removed.
 
 > **Start here:** download the Windows or macOS installer from the
-> [v4.1.21 release](https://github.com/Brooth-C/blaze/releases/tag/v4.1.21).
+> [v4.1.22 release](https://github.com/Brooth-C/blaze/releases/tag/v4.1.22).
 > Both installers and SHA-256 checksums are attached to the release.
 > Setup requires internet access; Python does not need to be installed beforehand.
 
 ## Windows setup — no Python needed beforehand
 
-**[Download the Windows installer ZIP](https://github.com/Brooth-C/blaze/releases/download/v4.1.21/Blaze-Windows-Installer.zip)**
+**[Download the Windows installer ZIP](https://github.com/Brooth-C/blaze/releases/download/v4.1.22/Blaze-Windows-Installer.zip)**
 
 1. Extract the entire ZIP.
 2. Double-click `Install-Blaze.bat`. Internet is required during setup.
@@ -57,7 +57,7 @@ FFprobe are not bundled; native downloading and bundled FFmpeg are used.
 
 ## Mac setup — Apple Silicon and Intel
 
-**[Download the Mac installer ZIP](https://github.com/Brooth-C/blaze/releases/download/v4.1.21/Blaze-Mac-Installer.zip)**
+**[Download the Mac installer ZIP](https://github.com/Brooth-C/blaze/releases/download/v4.1.22/Blaze-Mac-Installer.zip)**
 
 1. Extract the entire ZIP.
 2. Double-click `Install-Blaze.command`. Internet is required during setup.
@@ -109,7 +109,7 @@ The [quality workflow](https://github.com/Brooth-C/blaze/actions/workflows/quali
 gates release publication on source checks with Python 3.10/3.13 and actual ZIP
 installation on Windows x64, Apple Silicon macOS and Intel macOS runners.
 
-The 53 application tests cover regression cases, terminal rendering across
+The 54 application tests cover regression cases, terminal rendering across
 216 size/filter combinations, keyboard restoration, cancellation, config
 recovery and private dependency installation. Real local HTTP fixtures test
 FFmpeg conversion, mixed audio/video downloads, history recovery, HTTP errors
