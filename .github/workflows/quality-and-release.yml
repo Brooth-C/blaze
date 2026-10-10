@@ -43,17 +43,17 @@ jobs:
           PY
       - name: Lint, compile and verify packages
         run: |
-          python -m ruff check --select F,E9 blaze.py build.py package_installers.py Blaze-*-Tests.py
-          python -m compileall -q blaze.py build.py package_installers.py Blaze-*-Tests.py
-          bash -n macos-installer/Install-Blaze.command
-          bash -n linux-installer/Install-Blaze.sh
-          python package_installers.py --check
+          python -m ruff check --select F,E9 blaze.py tools/build.py tools/package_installers.py tests/Blaze-*-Tests.py
+          python -m compileall -q blaze.py tools/build.py tools/package_installers.py tests/Blaze-*-Tests.py
+          bash -n installers/macos-installer/Install-Blaze.command
+          bash -n installers/linux-installer/Install-Blaze.sh
+          python tools/package_installers.py --check
       - name: Regression and real local-media tests
         run: |
           python blaze.py --install-deps
-          python Blaze-Regression-Tests.py
-          python Blaze-Reliability-Tests.py
-          python Blaze-Integration-Tests.py
+          python tests/Blaze-Regression-Tests.py
+          python tests/Blaze-Reliability-Tests.py
+          python tests/Blaze-Integration-Tests.py
   installer-tests:
     name: Installer / ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
@@ -68,7 +68,7 @@ jobs:
         with:
           python-version: '3.13'
       - name: Install the ZIP, launch, test upgrade and downloads
-        run: python Blaze-Installer-Tests.py
+        run: python tests/Blaze-Installer-Tests.py
   publish:
     name: Publish verified installers
     needs: [source-tests, installer-tests]
@@ -96,6 +96,6 @@ jobs:
             echo "Version already published; checks completed without replacing assets."
             exit 0
           fi
-          python package_installers.py --check
+          python tools/package_installers.py --check
           sha256sum downloads/Blaze-Windows-Installer.zip downloads/Blaze-Mac-Installer.zip downloads/Blaze-Linux-Installer.zip | sed 's@downloads/@@' > SHA256SUMS.txt
-          gh release create "v$VERSION" downloads/Blaze-Windows-Installer.zip downloads/Blaze-Mac-Installer.zip downloads/Blaze-Linux-Installer.zip SHA256SUMS.txt --target "$GITHUB_SHA" --title "Blaze v$VERSION" --notes-file RELEASE-NOTES.md --latest
+          gh release create "v$VERSION" downloads/Blaze-Windows-Installer.zip downloads/Blaze-Mac-Installer.zip downloads/Blaze-Linux-Installer.zip SHA256SUMS.txt --target "$GITHUB_SHA" --title "Blaze v$VERSION" --notes-file docs/RELEASE-NOTES.md --latest

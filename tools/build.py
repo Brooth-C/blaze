@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Blaze Build Script — Cross-platform standalone executable builder
-Usage: python build.py
+Usage: python tools/build.py
 
 Builds a single-file executable that includes Python + Blaze + all logic.
 Your friends don't need Python installed — just download and run.
@@ -22,7 +22,7 @@ import re
 from pathlib import Path
 
 APP_NAME = "blaze"
-PROJECT_DIR = Path(__file__).resolve().parent
+PROJECT_DIR = Path(__file__).resolve().parents[1]
 VERSION = re.search(r'^VERSION = "([^"]+)"', (PROJECT_DIR / 'blaze.py').read_text(encoding='utf-8'), re.MULTILINE).group(1)
 
 
@@ -70,7 +70,7 @@ def build():
     cmd = pyinstaller + [
         "--clean",
         "--noconfirm",
-        str(PROJECT_DIR / "blaze.spec")
+        str(PROJECT_DIR / "tools/blaze.spec")
     ]
 
     print(f"Running: {' '.join(cmd)}\n")

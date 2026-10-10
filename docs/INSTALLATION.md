@@ -80,5 +80,5 @@ Missing aria2c installs automatically into `~/Blaze/.runtime/bin` on supported
 without opening the download menu. A failed installer dependency check stops setup.
 Automatic system installers are disabled. Old configuration is read as a
 fallback and settings are saved under `~/Blaze/Config`.
-The legacy `build.py` / `blaze.spec` files are developer build tools, not the
+The legacy `tools/build.py` / `tools/blaze.spec` files are developer build tools, not the
 recommended private installation path.
