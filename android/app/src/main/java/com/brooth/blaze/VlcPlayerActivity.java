@@ -22,8 +22,8 @@ import java.util.concurrent.*;
 public class VlcPlayerActivity extends Activity {
     MediaPlayer player;
     private LibVLC engine;
-    private PlaybackSource source;
-    private Uri document;
+    protected PlaybackSource source;
+    protected Uri document;
     private String mediaId, mediaTitle;
     private ParcelFileDescriptor descriptor;
     private final ExecutorService documents=Executors.newSingleThreadExecutor();
@@ -32,7 +32,8 @@ public class VlcPlayerActivity extends Activity {
     private boolean opening;
     VLCVideoLayout video;
     private TextView status, clock;
-    private LinearLayout root, header;
+    protected LinearLayout root;
+    private LinearLayout header;
     Button toggle;
     private SeekBar seek;
     private final Handler handler=new Handler(Looper.getMainLooper());
@@ -49,6 +50,7 @@ public class VlcPlayerActivity extends Activity {
         if(player!=null){long length=player.getLength(), time=Math.max(0,player.getTime());
             if(!seek.isPressed())seek.setProgress(length>0?(int)(time*1000/length):0);
             clock.setText(time(time)+" / "+time(length));toggle.setText(player.isPlaying()?"Pause":"Play");
+            onPlaybackTime(time);
         }handler.postDelayed(this,500);
     }};
 
@@ -81,7 +83,7 @@ public class VlcPlayerActivity extends Activity {
         button(extra,"Tracks",this::tracks);button(extra,"Repeat",()->{repeat=!repeat;Toast.makeText(this,repeat?"Repeat on":"Repeat off",Toast.LENGTH_SHORT).show();});
         button(root,"Decoder: automatic / software",()->new AlertDialog.Builder(this).setTitle("Video decoding").setItems(new String[]{"Automatic (recommended)","Software (for unsupported hardware codecs)"},(d,i)->{remember();software=i==1;release();resume=true;start();}).show());
         button(root,"Try again",()->{remember();release();resume=true;start();});
-        if(source!=null)button(root,"Use Android playback engine",()->{startActivity(new Intent(this,PlayerActivity.class).putExtra("job",source.id));finish();});
+        if(source!=null && !(this instanceof ChordActivity))button(root,"Use Android playback engine",()->{startActivity(new Intent(this,PlayerActivity.class).putExtra("job",source.id));finish();});
         setContentView(root);
         video.setOnClickListener(v->{if(fullscreen)fullscreen(false);});
         fullscreen(fullscreen);
@@ -153,4 +155,5 @@ public class VlcPlayerActivity extends Activity {
     @Override protected void onDestroy(){release();documents.shutdownNow();super.onDestroy();}
     @Override protected void onSaveInstanceState(Bundle saved){remember();saved.putLong("position",position);saved.putFloat("speed",speed);saved.putBoolean("playing",resume);saved.putBoolean("software",software);saved.putBoolean("repeat",repeat);saved.putBoolean("fullscreen",fullscreen);super.onSaveInstanceState(saved);}
     private static String time(long millis){long seconds=Math.max(0,millis)/1000;return String.format(Locale.ROOT,"%d:%02d",seconds/60,seconds%60);}
+    protected void onPlaybackTime(long millis) { }
 }

@@ -1,4 +1,19 @@
-# Blaze Android 0.4 preview
+# Blaze Android 0.5 preview
+
+Find chords offline in local audio/video and completed Blaze downloads.
+
+- Local FFmpeg audio extraction and streaming Java harmonic analysis; no upload, server, microphone, or model download.
+- Current/next chords follow embedded playback, with a seekable timeline and estimated song key.
+- Save results by media content and reuse them offline; changed media is analysed again.
+- Transpose chord labels and locally drawn guitar/piano diagrams without changing playback pitch.
+- Cancel analysis; leaving the screen releases processing and removes temporary document copies.
+- Major/minor triads only. Ambiguous passages are marked N; complex chords and beat/BPM detection are not implemented.
+
+This is an initial harmonic baseline. Synthetic tests do not establish accuracy
+on full music mixes or equivalence to Chord AI. Listen and correct uncertain
+passages by ear. See the [chord finder guide](https://github.com/Brooth-C/blaze/blob/main/docs/ANDROID-APK.md).
+
+## Previous: 0.4 preview
 
 Play original downloads inside Blaze with embedded LibVLC and broader codec support.
 

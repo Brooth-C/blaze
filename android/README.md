@@ -1,4 +1,4 @@
-# Blaze Android 0.3
+# Blaze Android 0.5 preview
 
 A native touch interface with embedded Python/yt-dlp, verified native FFmpeg/LAME,
 and QuickJS. Android 7+ on ARM64 phones or x86_64 emulators; no Termux required.
@@ -7,6 +7,13 @@ The app supports persistent queue/history, quality selection, MP3/M4A/WAV/FLAC
 and original audio, video/audio merging, bounded playlists, pause/resume/retry,
 notifications, player opening, sharing, foreground export and guarded removal.
 See [the user guide](../docs/ANDROID-APK.md).
+
+The offline chord finder accepts completed downloads and locally selected audio
+or video. Bundled FFmpeg streams mono audio to an original Java harmonic-analysis
+engine, without a server, model download, or microphone permission. Results are
+saved by media content, with timed playback, label transposition, and locally
+drawn piano/guitar triad diagrams. This is a major/minor baseline, not an evaluated
+neural recognizer; dense recordings can be inaccurate. See the guide for limits.
 
 ## Build and test
 
@@ -19,6 +26,7 @@ Native binaries and generated license assets are ignored by Git.
 python -m pip install yt-dlp==2026.8.19 cryptography imageio-ffmpeg
 python tests/Blaze-Mobile-Tests.py
 python tests/Blaze-Mobile-Integration-Tests.py
+python tests/Blaze-Mobile-Chord-Tests.py
 cd android
 ./gradlew lintDebug assembleDebug assembleDebugAndroidTest
 ```

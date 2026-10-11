@@ -1,10 +1,10 @@
 name: Android APK preview
 on:
   pull_request:
-    paths: ['android/**', 'tests/Blaze-Mobile*-Tests.py', 'tools/*android_libvlc*', '.github/workflows/android-apk.yml', '.github/workflows/android-native-tools.yml', '.github/workflows/android-libvlc.yml']
+    paths: ['android/**', 'tests/Blaze-Mobile*-Tests.py', 'tests/java/**', 'tools/*android_libvlc*', '.github/workflows/android-apk.yml', '.github/workflows/android-native-tools.yml', '.github/workflows/android-libvlc.yml']
   push:
     branches: [main]
-    paths: ['android/**', 'tests/Blaze-Mobile*-Tests.py', 'tools/*android_libvlc*', '.github/workflows/android-apk.yml', '.github/workflows/android-native-tools.yml', '.github/workflows/android-libvlc.yml']
+    paths: ['android/**', 'tests/Blaze-Mobile*-Tests.py', 'tests/java/**', 'tools/*android_libvlc*', '.github/workflows/android-apk.yml', '.github/workflows/android-native-tools.yml', '.github/workflows/android-libvlc.yml']
   workflow_dispatch:
 permissions:
   contents: read
@@ -60,6 +60,12 @@ jobs:
           python -m ruff check --select F,E9 android/app/src/main/python/ tests/Blaze-Mobile*-Tests.py
           python -m ruff check --select F,E9 tools/prepare_android_libvlc.py
           bash -n tools/build_android_libvlc.sh
+      - name: Offline chord engine checks
+        run: |
+          mkdir -p build/chord-tests
+          javac -d build/chord-tests android/app/src/main/java/com/brooth/blaze/ChordEngine.java tests/java/com/brooth/blaze/ChordEngineTest.java
+          java -cp build/chord-tests com.brooth.blaze.ChordEngineTest
+          python tests/Blaze-Mobile-Chord-Tests.py
       - name: Build and lint
         working-directory: android
         run: |
