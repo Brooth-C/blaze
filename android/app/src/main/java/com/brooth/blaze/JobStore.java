@@ -78,6 +78,18 @@ public final class JobStore extends SQLiteOpenHelper {
     public synchronized List<Job> list() {
         List<Job> out=new ArrayList<>();try(Cursor c=getReadableDatabase().query("jobs",null,null,null,null,null,"CASE state WHEN 'running' THEN 0 WHEN 'queued' THEN 1 ELSE 2 END,CASE WHEN state IN ('queued','running') THEN created ELSE -updated END ASC,rowid ASC","250")) { while(c.moveToNext())out.add(read(c)); }return out;
     }
+    private String filterWhere(int filter){return filter==2?"state='complete'":filter==1?"state NOT IN ('queued','running','paused','interrupted')":"state IN ('queued','running','paused','interrupted')";}
+    public synchronized int count(int filter){try(Cursor c=getReadableDatabase().rawQuery("SELECT COUNT(*) FROM jobs WHERE "+filterWhere(filter),null)){c.moveToFirst();return c.getInt(0);}}
+    public synchronized List<Job> page(int filter,int offset){List<Job> out=new ArrayList<>();String order=filter==0?"CASE state WHEN 'running' THEN 0 ELSE 1 END,created ASC,rowid ASC":"updated DESC,rowid DESC";try(Cursor c=getReadableDatabase().query("jobs",null,filterWhere(filter),null,null,null,order,Math.max(0,offset)+",50")){while(c.moveToNext())out.add(read(c));}return out;}
+    public synchronized void importLegacyFiles(File root)throws java.io.IOException{
+        File canonical=root.getCanonicalFile();File[] files=canonical.listFiles(File::isFile);if(files==null)return;
+        SQLiteDatabase db=getWritableDatabase();db.beginTransaction();try{
+            for(File file:files){File resolved=file.getCanonicalFile();String name=file.getName();int dot=name.lastIndexOf('.');if(dot<0||file.length()==0||!resolved.getParentFile().equals(canonical))continue;String ext=name.substring(dot+1).toLowerCase(Locale.ROOT);if(!Arrays.asList("mp4","mkv","webm","mp3","m4a","aac","wav","flac","ogg","opus").contains(ext))continue;
+                try(Cursor c=db.query("jobs",new String[]{"id"},"path=?",new String[]{resolved.getAbsolutePath()},null,null,null,"1")){if(c.moveToFirst())continue;}
+                ContentValues v=new ContentValues();v.put("id",UUID.randomUUID().toString());v.put("url","");v.put("mode",Arrays.asList("mp4","mkv","webm").contains(ext)?"video":"audio");v.put("options","{}");v.put("state","complete");v.put("title",name);v.put("path",resolved.getAbsolutePath());v.put("progress",100);v.put("created",file.lastModified());v.put("updated",file.lastModified());db.insertOrThrow("jobs",null,v);
+            }db.setTransactionSuccessful();
+        }finally{db.endTransaction();}
+    }
     public synchronized boolean hasQueued() { try(Cursor c=getReadableDatabase().rawQuery("SELECT 1 FROM jobs WHERE state='queued' LIMIT 1",null)) { return c.moveToFirst(); } }
     public synchronized boolean deleteCompleted(String id,File root) throws java.io.IOException {
         try(Cursor c=getReadableDatabase().query("jobs",null,"id=? AND state='complete'",new String[]{id},null,null,null,"1")) {

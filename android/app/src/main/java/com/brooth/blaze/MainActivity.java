@@ -24,12 +24,13 @@ public class MainActivity extends Activity {
     private TextView state;
     private ProgressBar bar;
     private LinearLayout items;
-    private Button stop,pause;
+    private Button stop,pause,previousPage,nextPage;
+    private TextView pageLabel;
     private JobStore store;
     private final Handler handler=new Handler(Looper.getMainLooper());
     private String rendered="",exportPath="",exportToken="";
     private boolean copyRequested;
-    private int filter;
+    private int filter,page;
     private final int orange=Color.rgb(255,140,66),background=Color.rgb(16,19,28);
     private final String[] qualityKeys={"best","2160","1440","1080","720","480","360"};
     private final String[] audioKeys={"original","mp3","m4a","wav","flac"};
@@ -45,6 +46,7 @@ public class MainActivity extends Activity {
     @Override public void onCreate(Bundle saved) {
         super.onCreate(saved);store=new JobStore(this);
         if(!DownloadService.busy)store.recoverInterrupted();
+        if(!getPreferences(MODE_PRIVATE).getBoolean("legacyImported",false)){try{store.importLegacyFiles(DownloadService.folder(this));getPreferences(MODE_PRIVATE).edit().putBoolean("legacyImported",true).apply();}catch(IOException ignored){/* Retry after storage becomes available. */}}
         ScrollView scroll=new ScrollView(this);scroll.setBackgroundColor(background);
         LinearLayout root=new LinearLayout(this);root.setOrientation(LinearLayout.VERTICAL);root.setPadding(dp(20),dp(20),dp(20),dp(28));scroll.addView(root);setContentView(scroll);
         if(Build.VERSION.SDK_INT>=35)scroll.setOnApplyWindowInsetsListener((view,insets)->{android.graphics.Insets safe=insets.getInsets(WindowInsets.Type.systemBars());view.setPadding(safe.left,safe.top,safe.right,safe.bottom);return insets;});
@@ -64,11 +66,13 @@ public class MainActivity extends Activity {
         gap(root,12);state=text(DownloadService.status,15);root.addView(state);
         bar=new ProgressBar(this,null,android.R.attr.progressBarStyleHorizontal);bar.setMax(100);root.addView(bar);
         LinearLayout controls=new LinearLayout(this);controls.setOrientation(LinearLayout.HORIZONTAL);root.addView(controls);
-        stop=smallButton("Stop item",controls);stop.setOnClickListener(v->control("CANCEL_CURRENT"));
+        stop=smallButton("Stop item",controls);stop.setOnClickListener(v->{try{startService(new Intent(this,DownloadService.class).setAction("CANCEL_CURRENT").putExtra("job",DownloadService.activeId));}catch(RuntimeException error){message("Open Blaze again to manage the queue.");}});
         pause=smallButton("Pause queue",controls);pause.setOnClickListener(v->control("PAUSE"));
         Button resume=button("Resume queue",root);resume.setOnClickListener(v->resume());
         gap(root,18);LinearLayout tabs=new LinearLayout(this);root.addView(tabs);
-        String[] names={"Queue","History","Files"};for(int i=0;i<3;i++){final int chosen=i;Button tab=smallButton(names[i],tabs);tab.setOnClickListener(v->{filter=chosen;rendered="";renderJobs();});}
+        String[] names={"Queue","History","Files"};for(int i=0;i<3;i++){final int chosen=i;Button tab=smallButton(names[i],tabs);tab.setOnClickListener(v->{filter=chosen;page=0;rendered="";renderJobs();});}
+        LinearLayout paging=new LinearLayout(this);root.addView(paging);previousPage=smallButton("Previous",paging);nextPage=smallButton("Next",paging);pageLabel=text("",12);root.addView(pageLabel);
+        previousPage.setOnClickListener(v->{page=Math.max(0,page-1);rendered="";renderJobs();});nextPage.setOnClickListener(v->{page++;rendered="";renderJobs();});
         items=new LinearLayout(this);items.setOrientation(LinearLayout.VERTICAL);root.addView(items);
         gap(root,18);root.addView(text("Save a copy to keep files outside Blaze. Uninstalling removes app files. Android may pause background jobs; retry interrupted items.",12));
         Button about=button("About & help",root);about.setOnClickListener(v->about());
@@ -96,7 +100,8 @@ public class MainActivity extends Activity {
     }
     private void control(String action){try{startService(new Intent(this,DownloadService.class).setAction(action));}catch(RuntimeException error){message("Open Blaze again to manage the queue.");}}
     private void renderJobs() {
-        List<JobStore.Job> jobs=store.list();StringBuilder key=new StringBuilder().append(filter);
+        int total=store.count(filter);page=Math.max(0,Math.min(page,Math.max(0,(total-1)/50)));previousPage.setEnabled(page>0);nextPage.setEnabled((page+1)*50<total);pageLabel.setText(total==0?"":"Page "+(page+1)+" · "+total+" items");
+        List<JobStore.Job> jobs=store.page(filter,page*50);StringBuilder key=new StringBuilder().append(filter).append(page).append(total);
         for(JobStore.Job job:jobs)key.append(job.id).append(job.state).append(job.title).append(job.path).append(job.error);
         if(key.toString().equals(rendered))return;rendered=key.toString();items.removeAllViews();int count=0;
         for(JobStore.Job job:jobs){boolean pending=Arrays.asList("queued","running","paused","interrupted").contains(job.state);if(filter==0&&!pending||filter==1&&pending||filter==2&&!"complete".equals(job.state))continue;count++;

@@ -45,4 +45,9 @@ public class QueueStoreTest {
     @Test public void exportAdmissionSurvivesWrongOwnerCleanup(){
         String token=ExportService.reserve();assertFalse(token.isEmpty());assertEquals("",ExportService.reserve());ExportService.abandon("wrong-owner");assertTrue(ExportService.owns(token));ExportService.abandon(token);assertFalse(ExportService.owns(token));
     }
+    @Test public void olderSavedFilesRemainAccessibleAcrossPages(){
+        for(int i=0;i<120;i++){String id=store.enqueue("https://example.test/file/"+i,"video","{}","File "+i);assertEquals(id,store.claimNext().id);store.finish(id,"complete","File "+i,"/saved/"+i+".mp4","");}
+        assertEquals(120,store.count(2));assertEquals(50,store.page(2,0).size());assertEquals(50,store.page(2,50).size());assertEquals(20,store.page(2,100).size());
+        Set<String> ids=new HashSet<>();for(int page=0;page<3;page++)for(JobStore.Job job:store.page(2,page*50))assertTrue(ids.add(job.id));assertEquals(120,ids.size());
+    }
 }

@@ -45,6 +45,7 @@ public class DownloadService extends Service {
         if(startId>0)latestStartId=startId;
         if(intent==null) { stopSelf();return START_NOT_STICKY; }
         String action=intent.getAction();
+        if("CANCEL_CURRENT".equals(action)&&intent.hasExtra("job")&&!activeId.equals(intent.getStringExtra("job")))return START_NOT_STICKY;
         if("PAUSE".equals(action)||"CANCEL_CURRENT".equals(action)) {
             if("PAUSE".equals(action)){paused=true;pauseCancellation=true;getSharedPreferences("queue",MODE_PRIVATE).edit().putBoolean("paused",true).apply();}
             cancelActive();

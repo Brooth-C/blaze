@@ -23,11 +23,11 @@ public class NativeMediaTest {
         String script;try(InputStream in=tests.getAssets().open("native_test.py");ByteArrayOutputStream out=new ByteArrayOutputStream()){byte[] b=new byte[4096];int n;while((n=in.read(b))!=-1)out.write(b,0,n);script=out.toString("UTF-8");}
         if(!Python.isStarted())Python.start(new AndroidPlatform(app));
         PyObject globals=Python.getInstance().getModule("builtins").callAttr("dict");
-        globals.put("fixture_directory",folder.getAbsolutePath());
+        globals.callAttr("__setitem__","fixture_directory",folder.getAbsolutePath());
         File libs=new File(app.getApplicationInfo().nativeLibraryDir);
-        globals.put("ffmpeg_path",new File(libs,"libblaze_ffmpeg.so").getAbsolutePath());
-        globals.put("ffprobe_path",new File(libs,"libblaze_ffprobe.so").getAbsolutePath());
-        globals.put("quickjs_path",new File(libs,"libblaze_qjs.so").getAbsolutePath());
+        globals.callAttr("__setitem__","ffmpeg_path",new File(libs,"libblaze_ffmpeg.so").getAbsolutePath());
+        globals.callAttr("__setitem__","ffprobe_path",new File(libs,"libblaze_ffprobe.so").getAbsolutePath());
+        globals.callAttr("__setitem__","quickjs_path",new File(libs,"libblaze_qjs.so").getAbsolutePath());
         Python.getInstance().getModule("builtins").callAttr("exec",script,globals);
         assertTrue(new File(folder,"merged.mkv").length()>0);
     }
