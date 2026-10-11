@@ -22,3 +22,9 @@ Installers download these tools separately. Exact versions and builds may
 have different obligations; consult the notices supplied with each installed
 component before redistributing it. Blaze's portable Mac aria2 release
 includes the upstream source archive and GPL license with its binary assets.
+
+The standalone Android APK embeds Python and yt-dlp using Chaquopy (MIT), and
+uses AndroidX Core (Apache 2.0). These components are covered by their own
+licenses, not Blaze's reserved rights. Complete notice files are included in
+the APK's assets and in the [Android project](https://github.com/Brooth-C/blaze/tree/main/android/app/src/main/assets); the app's About dialog summarizes them.
+The APK preview does not bundle FFmpeg or aria2.

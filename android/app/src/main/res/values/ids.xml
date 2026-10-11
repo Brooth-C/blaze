@@ -1,0 +1,7 @@
+<resources>
+    <item name="url_input" type="id" />
+    <item name="download_mode" type="id" />
+    <item name="video_mode" type="id" />
+    <item name="audio_mode" type="id" />
+</resources>
+

@@ -1,0 +1,10 @@
+<resources>
+    <style name="BlazeTheme" parent="android:style/Theme.Material.NoActionBar">
+        <item name="android:fontFamily">sans</item>
+        <item name="android:colorAccent">#FF8C42</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:statusBarColor">#10131C</item>
+        <item name="android:navigationBarColor">#10131C</item>
+        <item name="android:windowActionModeOverlay">true</item>
+    </style>
+</resources>

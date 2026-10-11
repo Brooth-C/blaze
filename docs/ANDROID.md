@@ -2,6 +2,8 @@
 
 [Back to Blaze](../README.md)
 
+Prefer an app with buttons? See the separate [Android APK preview](ANDROID-APK.md).
+
 Use a current [Termux release from the official installation instructions](https://github.com/termux/termux-app#installation). Full package support requires Android 7 or newer.
 
 Blaze runs inside Termux with its usual terminal dashboard. Python, FFmpeg and aria2 come from Termux packages; desktop Linux installers do not work on Android.

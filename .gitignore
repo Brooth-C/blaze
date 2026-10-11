@@ -26,6 +26,13 @@ Thumbs.db
 cookies.txt
 cookies*.txt
 
+# Android local tools, signing material and build output
+android/.gradle/
+android/**/build/
+android/local.properties
+*.jks
+*.keystore
+
 # Private runtime and local download output
 /.runtime/
 /Config/

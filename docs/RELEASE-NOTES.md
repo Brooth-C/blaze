@@ -1,3 +1,10 @@
+# Blaze 4.1.26
+
+- Add the separate Android APK preview to the repository's download page, setup, support and development guides.
+- Update Android/Termux issue-report choices and third-party notices.
+- Keep the full desktop/Termux runtime unchanged apart from the version and notices.
+- Publish Android previews as separate prereleases; stable desktop/Termux downloads remain the Latest release.
+
 # Blaze 4.1.25
 
 - Add an experimental Android / Termux installer with a private Blaze venv and Termux-native Python, FFmpeg and aria2.

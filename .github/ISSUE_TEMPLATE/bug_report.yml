@@ -9,14 +9,14 @@ body:
     id: version
     attributes:
       label: Blaze version
-      placeholder: "Output of --version"
+      placeholder: "CLI: output of --version; APK: version shown in About Blaze"
     validations:
       required: true
   - type: input
     id: platform
     attributes:
       label: Operating system and architecture
-      placeholder: "Windows 11 x64 / macOS Apple Silicon / Linux x64"
+      placeholder: "Windows 11 x64 / macOS Apple Silicon / Linux x64 / Android 14 ARM64"
     validations:
       required: true
   - type: dropdown
@@ -28,6 +28,7 @@ body:
         - macOS installer ZIP
         - Linux installer ZIP
         - Android / Termux installer ZIP
+        - Android APK preview
         - Python source
         - Other
     validations:
@@ -36,7 +37,7 @@ body:
     id: reproduce
     attributes:
       label: Steps to reproduce
-      description: Include the command or dashboard actions you used.
+      description: Include the command, terminal dashboard actions, or Android app taps you used.
     validations:
       required: true
   - type: textarea
