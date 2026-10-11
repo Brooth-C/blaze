@@ -14,6 +14,7 @@ import org.videolan.libvlc.*;
 import org.videolan.libvlc.util.VLCVideoLayout;
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.ArrayList;
 import java.util.Locale;
 import java.util.concurrent.*;
 
@@ -105,7 +106,7 @@ public class VlcPlayerActivity extends Activity {
     private void buildPlayer(){
         try{
             if(source!=null)source=PlaybackSource.load(this,source.id);
-            engine=new LibVLC(this,Arrays.asList("--no-video-title-show","--file-caching=300","--avcodec-threads=2"));
+            engine=new LibVLC(this,new ArrayList<>(Arrays.asList("--no-video-title-show","--file-caching=300","--avcodec-threads=2")));
             player=new MediaPlayer(engine);player.attachViews(video,null,true,false);pendingSeek=true;wantedResume=resume;ended=false;
             MediaPlayer active=player;
             player.setEventListener(event->{if(player!=active)return;
@@ -128,7 +129,7 @@ public class VlcPlayerActivity extends Activity {
             try{media.setHWDecoderEnabled(!software,false);player.setMedia(media);}finally{media.release();}
             status.setText("Opening the original file…");beginPlayback();handler.post(tick);
             ContextCompat.registerReceiver(this,noisy,new IntentFilter(AudioManager.ACTION_AUDIO_BECOMING_NOISY),ContextCompat.RECEIVER_NOT_EXPORTED);noisyRegistered=true;
-        }catch(IOException|RuntimeException|UnsatisfiedLinkError error){release();status.setText("Blaze could not open this file. Try again.");}
+        }catch(IOException|RuntimeException|UnsatisfiedLinkError error){android.util.Log.e("BlazePlayer","Player initialization failed",error);release();status.setText("Blaze could not open this file. Try again.");}
     }
     private void play(){resume=true;wantedResume=true;beginPlayback();}
     @SuppressWarnings("deprecation") private void beginPlayback(){if(player==null)return;if(!resume){player.setVolume(0);player.play();return;}focusGranted=audio.requestAudioFocus(focus,AudioManager.STREAM_MUSIC,AudioManager.AUDIOFOCUS_GAIN)==AudioManager.AUDIOFOCUS_REQUEST_GRANTED;if(focusGranted){player.setVolume(100);player.play();}else status.setText("Audio is in use by another app. Try Play again.");}

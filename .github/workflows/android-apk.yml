@@ -116,6 +116,7 @@ jobs:
             adb install apk-tests/debug/app-debug.apk
             adb install apk-tests/androidTest/debug/app-debug-androidTest.apk
             adb shell am instrument -w -r com.brooth.blaze.test/androidx.test.runner.AndroidJUnitRunner | tee instrumentation.log
+            adb logcat -d > android-logcat.txt
             adb exec-out run-as com.brooth.blaze cat files/Blaze-Player-Audio.png > Blaze-Player-Audio.png
             adb exec-out run-as com.brooth.blaze cat files/Blaze-Player-Video.png > Blaze-Player-Video.png
             adb exec-out run-as com.brooth.blaze cat files/Blaze-VLC-Player.png > Blaze-VLC-Player.png
@@ -135,6 +136,7 @@ jobs:
             Blaze-Player-Audio.png
             Blaze-Player-Video.png
             Blaze-VLC-Player.png
+            android-logcat.txt
   publish:
     name: Publish Android preview
     needs: [apk, emulator]

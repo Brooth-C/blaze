@@ -64,6 +64,7 @@ public class VlcPlaybackTest {
     private void ready(ActivityScenario<VlcPlayerActivity> screen,boolean playing)throws Exception{
         long until=System.currentTimeMillis()+20000;AtomicBoolean ready=new AtomicBoolean();
         while(!ready.get()&&System.currentTimeMillis()<until){screen.onActivity(a->ready.set(a.player!=null&&a.player.getTime()>100&&a.player.getCurrentVideoTrack()!=null&&a.player.isPlaying()==playing));Thread.sleep(50);}
+        if(!ready.get())screen.onActivity(a->System.out.println("Blaze player: "+(a.player==null?"not initialized":"state="+a.player.getPlayerState()+", time="+a.player.getTime()+", playing="+a.player.isPlaying()+", tracks="+a.player.getVideoTracksCount())));
         assertTrue("LibVLC did not decode the original HEVC MKV",ready.get());
     }
 }

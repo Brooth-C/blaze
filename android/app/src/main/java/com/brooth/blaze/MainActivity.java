@@ -27,6 +27,7 @@ public class MainActivity extends Activity {
     private Button stop,pause,previousPage,nextPage,openFile;
     private TextView pageLabel;
     private JobStore store;
+    private ImageView brandLogo;
     private final Handler handler=new Handler(Looper.getMainLooper());
     private String rendered="",exportPath="",exportToken="";
     private boolean copyRequested;
@@ -36,6 +37,7 @@ public class MainActivity extends Activity {
     private final String[] audioKeys={"original","mp3","m4a","wav","flac"};
     private final Runnable refresh=new Runnable() {
         @Override public void run() {
+            updateLogoBackground();
             state.setText(DownloadService.status);
             bar.setIndeterminate(DownloadService.busy&&DownloadService.progress<0);
             if(DownloadService.progress>=0)bar.setProgress((int)DownloadService.progress);
@@ -51,7 +53,7 @@ public class MainActivity extends Activity {
         LinearLayout root=new LinearLayout(this);root.setOrientation(LinearLayout.VERTICAL);root.setPadding(dp(20),dp(20),dp(20),dp(28));scroll.addView(root);setContentView(scroll);
         if(Build.VERSION.SDK_INT>=35)scroll.setOnApplyWindowInsetsListener((view,insets)->{android.graphics.Insets safe=insets.getInsets(WindowInsets.Type.systemBars());view.setPadding(safe.left,safe.top,safe.right,safe.bottom);return insets;});
         LinearLayout brand=new LinearLayout(this);brand.setGravity(Gravity.CENTER_VERTICAL);
-        ImageView logo=new ImageView(this);logo.setId(R.id.brand_logo);logo.setLayerType(View.LAYER_TYPE_SOFTWARE,null);logo.setImageResource(R.drawable.blaze_logo);logo.setBackgroundColor(getColor(R.color.logo_background));logo.setContentDescription("Blaze logo");brand.addView(logo,new LinearLayout.LayoutParams(dp(52),dp(52)));
+        ImageView logo=new ImageView(this);brandLogo=logo;logo.setId(R.id.brand_logo);logo.setLayerType(View.LAYER_TYPE_SOFTWARE,null);logo.setImageResource(R.drawable.blaze_logo);updateLogoBackground();logo.setContentDescription("Blaze logo");brand.addView(logo,new LinearLayout.LayoutParams(dp(52),dp(52)));
         TextView title=text("Blaze",30);title.setTypeface(null,Typeface.BOLD);brand.addView(title);root.addView(brand);
         root.addView(text("Download. Convert. Keep.",16));gap(root,18);
         TextView label=text("Link",13);label.setLabelFor(R.id.url_input);root.addView(label);
@@ -134,6 +136,13 @@ public class MainActivity extends Activity {
     private void play(String id){try{startActivity(new Intent(this,VlcPlayerActivity.class).putExtra("job",id));}catch(RuntimeException error){message("Could not open the Blaze player. Try again.");}}
     private void export(File file,String title){exportToken=ExportService.reserve();if(exportToken.isEmpty()){message("Finish the current copy first.");return;}copyRequested=false;exportPath=file.getAbsolutePath();String name=title.replaceAll("[^\\p{L}\\p{N} ._-]","_");if(name.length()>80)name=name.substring(0,80);String ext=file.getName().substring(file.getName().lastIndexOf('.'));try{startActivityForResult(new Intent(Intent.ACTION_CREATE_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE).setType(mime(file)).putExtra(Intent.EXTRA_TITLE,name+ext),10);}catch(ActivityNotFoundException error){ExportService.abandon(exportToken);exportToken="";message("No folder picker is available on this device.");}}
     @Override protected void onActivityResult(int code,int result,Intent data){super.onActivityResult(code,result,data);if(code==11){if(result==RESULT_OK&&data!=null&&data.getData()!=null){try{startActivity(new Intent(this,VlcPlayerActivity.class).setData(data.getData()).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION));}catch(RuntimeException error){message("Could not open the selected file.");}}return;}if(code!=10)return;if(result==RESULT_OK&&data!=null&&data.getData()!=null&&!exportPath.isEmpty()){if(!ExportService.owns(exportToken))exportToken=ExportService.reserve();if(exportToken.isEmpty()){message("Another copy is running. Remove this empty destination and retry later.");return;}Intent intent=new Intent(this,ExportService.class).putExtra("path",exportPath).putExtra("uri",data.getData().toString()).putExtra("token",exportToken);try{copyRequested=true;if(Build.VERSION.SDK_INT>=26)startForegroundService(intent);else startService(intent);}catch(RuntimeException error){copyRequested=false;ExportService.abandon(exportToken);message("Copy could not start. Try again with Blaze open.");}}else ExportService.abandon(exportToken);exportPath="";exportToken="";}
+    private void updateLogoBackground(){
+        if(brandLogo==null)return;
+        UiModeManager manager=getSystemService(UiModeManager.class);
+        int mode=manager==null?UiModeManager.MODE_NIGHT_AUTO:manager.getNightMode();
+        int color=mode==UiModeManager.MODE_NIGHT_YES?Color.BLACK:mode==UiModeManager.MODE_NIGHT_NO?Color.WHITE:getColor(R.color.logo_background);
+        if(!(brandLogo.getBackground() instanceof android.graphics.drawable.ColorDrawable)||((android.graphics.drawable.ColorDrawable)brandLogo.getBackground()).getColor()!=color)brandLogo.setBackgroundColor(color);
+    }
     private void about(){try{String content=readNotice();new AlertDialog.Builder(this).setTitle("Blaze 0.4.0 · Android preview").setMessage(content).setPositiveButton("Close",null).show();}catch(IOException error){message("Blaze 0.4.0 · © 2026 Brooth-C");}}
     private String readNotice()throws IOException{try(InputStream in=getAssets().open("NOTICES.txt");ByteArrayOutputStream out=new ByteArrayOutputStream()){byte[] buffer=new byte[4096];int count;while((count=in.read(buffer))!=-1)out.write(buffer,0,count);return out.toString("UTF-8");}}
     private Spinner spinner(String[] values,LinearLayout root){Spinner v=new Spinner(this);ArrayAdapter<String> adapter=new ArrayAdapter<>(this,android.R.layout.simple_spinner_item,values);adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);v.setAdapter(adapter);root.addView(v,new LinearLayout.LayoutParams(-1,dp(48)));return v;}
