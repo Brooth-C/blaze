@@ -36,7 +36,7 @@ def download(url, mode, directory, callback):
         callback.onProgress(float(percent), "Saving file…" if data["status"] == "finished" else "Downloading…")
 
     options = {
-        "format": "bestaudio/best" if mode == "audio" else "best[vcodec!=none][acodec!=none]/best",
+        "format": "bestaudio" if mode == "audio" else "best[vcodec!=none][acodec!=none]/best",
         "outtmpl": str(folder / "%(title).120B [%(id)s].%(ext)s"),
         "noplaylist": True,
         "restrictfilenames": True,
@@ -47,6 +47,7 @@ def download(url, mode, directory, callback):
         "progress_hooks": [progress],
         "quiet": True,
         "no_warnings": True,
+        "noprogress": True,
         "ignoreconfig": True,
         "fixup": "never",
         "postprocessors": [],
@@ -66,3 +67,4 @@ def download(url, mode, directory, callback):
         if filename.parent != folder or not filename.is_file():
             raise ValueError("The download did not produce a complete file.")
         return json.dumps({"path": str(filename), "title": info.get("title", filename.name)})
+
