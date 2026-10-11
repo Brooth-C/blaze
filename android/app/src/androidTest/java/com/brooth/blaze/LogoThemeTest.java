@@ -28,7 +28,8 @@ public class LogoThemeTest {
     private void expect(ActivityScenario<MainActivity> screen,int color)throws Exception{
         AtomicBoolean matches=new AtomicBoolean();long until=System.currentTimeMillis()+8000;
         while(!matches.get()&&System.currentTimeMillis()<until){
-            screen.onActivity(a->matches.set(((ColorDrawable)a.findViewById(R.id.brand_logo).getBackground()).getColor()==color));
+            try{screen.onActivity(a->matches.set(((ColorDrawable)a.findViewById(R.id.brand_logo).getBackground()).getColor()==color));}
+            catch(IllegalStateException transition){/* System configuration recreation may be between activities. */}
             Thread.sleep(80);
         }assertTrue("Logo background did not follow system theme",matches.get());
     }

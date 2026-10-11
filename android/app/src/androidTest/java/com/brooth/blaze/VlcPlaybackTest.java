@@ -25,6 +25,8 @@ public class VlcPlaybackTest {
             try(InputStream in=InstrumentationRegistry.getInstrumentation().getContext().getAssets().open("player-hevc.mkv");OutputStream out=new FileOutputStream(file)){byte[] buffer=new byte[4096];int n;while((n=in.read(buffer))!=-1)out.write(buffer,0,n);}
             store.finish(id,"complete","HEVC MKV demo",file.getAbsolutePath(),"");
         }
+        android.net.Uri selected=androidx.core.content.FileProvider.getUriForFile(app,app.getPackageName()+".files",file);
+        try{
         try(ActivityScenario<VlcPlayerActivity> screen=ActivityScenario.launch(new Intent(app,VlcPlayerActivity.class).putExtra("job",id).putExtra("software",true))){
             ready(screen,true);
             screen.onActivity(a->{assertTrue(a.player.isPlaying());assertTrue(a.player.getAudioTracksCount()>0);assertTrue(a.player.getVideoTracksCount()>0);assertEquals(320,a.player.getCurrentVideoTrack().width);a.toggle.performClick();a.player.setTime(1500);});
@@ -41,9 +43,16 @@ public class VlcPlaybackTest {
             try(OutputStream out=new FileOutputStream(new File(app.getFilesDir(),"Blaze-VLC-Player.png"))){assertTrue(image.compress(android.graphics.Bitmap.CompressFormat.PNG,100,out));}finally{image.recycle();}
             screen.moveToState(Lifecycle.State.CREATED);screen.onActivity(a->assertNull(a.player));
             screen.moveToState(Lifecycle.State.RESUMED);ready(screen,false);
+        }
+        try(ActivityScenario<VlcPlayerActivity> selectedFile=ActivityScenario.launch(new Intent(app,VlcPlayerActivity.class).setData(selected).putExtra("software",true))){
+            ready(selectedFile,true);
+            selectedFile.onActivity(a->{assertEquals(320,a.player.getCurrentVideoTrack().width);assertTrue(a.player.getAudioTracksCount()>0);});
+            selectedFile.moveToState(Lifecycle.State.CREATED);selectedFile.onActivity(a->assertNull(a.player));
+            selectedFile.moveToState(Lifecycle.State.RESUMED);ready(selectedFile,true);
+        }
         }finally{
             try(JobStore store=new JobStore(app)){store.getWritableDatabase().delete("jobs","id=?",new String[]{id});}
-            file.delete();directory.delete();app.getSharedPreferences("playback",Context.MODE_PRIVATE).edit().remove(id).apply();
+            file.delete();directory.delete();app.getSharedPreferences("playback",Context.MODE_PRIVATE).edit().remove(id).remove("document:"+selected).apply();
         }
     }
     private void ready(ActivityScenario<VlcPlayerActivity> screen,boolean playing)throws Exception{

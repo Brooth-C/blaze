@@ -4,6 +4,7 @@ Play original downloads inside Blaze with embedded LibVLC and broader codec supp
 
 - Automatic hardware decoding and a Software option for unsupported hardware codecs.
 - Original MKV playback, audio/subtitle track selection, seeking, speed, repeat and fullscreen controls.
+- Files → Open an audio or video file plays an existing file directly through Android's picker.
 - An optional Android playback engine remains available inside the same app.
 - Playback pauses outside the foreground and on headphone disconnection or audio focus loss.
 - Black logo background in system dark mode and white in light mode, including adaptive launcher resources.

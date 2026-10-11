@@ -15,12 +15,20 @@ import org.videolan.libvlc.util.VLCVideoLayout;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.Locale;
+import java.util.concurrent.*;
 
 /** Embedded LibVLC plays the original completed file, without another app or conversion. */
 public class VlcPlayerActivity extends Activity {
     MediaPlayer player;
     private LibVLC engine;
     private PlaybackSource source;
+    private Uri document;
+    private String mediaId, mediaTitle;
+    private ParcelFileDescriptor descriptor;
+    private final ExecutorService documents=Executors.newSingleThreadExecutor();
+    private Future<?> openingTask;
+    private int generation;
+    private boolean opening;
     VLCVideoLayout video;
     private TextView status, clock;
     private LinearLayout root, header;
@@ -45,9 +53,13 @@ public class VlcPlayerActivity extends Activity {
 
     @Override public void onCreate(Bundle saved){
         super.onCreate(saved);setVolumeControlStream(AudioManager.STREAM_MUSIC);
-        try{source=PlaybackSource.load(this,getIntent().getStringExtra("job"));}
-        catch(IOException|RuntimeException error){Toast.makeText(this,"This completed file is unavailable.",Toast.LENGTH_LONG).show();finish();return;}
-        position=Math.max(0,getSharedPreferences("playback",MODE_PRIVATE).getLong(source.id,0));
+        try{
+            String job=getIntent().getStringExtra("job");
+            if(job!=null){source=PlaybackSource.load(this,job);mediaId=source.id;mediaTitle=source.title;}
+            else{document=getIntent().getData();if(document==null||!"content".equals(document.getScheme())||document.getAuthority()==null)throw new IOException();mediaId="document:"+document;mediaTitle="Selected media";}
+        }
+        catch(IOException|RuntimeException error){Toast.makeText(this,"This file is unavailable.",Toast.LENGTH_LONG).show();finish();return;}
+        position=Math.max(0,getSharedPreferences("playback",MODE_PRIVATE).getLong(mediaId,0));
         software=getIntent().getBooleanExtra("software",false);
         if(saved!=null){position=saved.getLong("position",position);speed=saved.getFloat("speed",1);software=saved.getBoolean("software");repeat=saved.getBoolean("repeat");resume=saved.getBoolean("playing",true);fullscreen=saved.getBoolean("fullscreen");}
         if(!Float.isFinite(speed)||speed<0.5f||speed>2)speed=1;
@@ -55,7 +67,7 @@ public class VlcPlayerActivity extends Activity {
         WindowCompat.setDecorFitsSystemWindows(getWindow(),false);
         root=new LinearLayout(this);root.setOrientation(LinearLayout.VERTICAL);root.setBackgroundColor(0xff0d1117);
         header=new LinearLayout(this);root.addView(header);
-        button(header,"Back",this::back);TextView title=new TextView(this);title.setText(source.title);title.setTextColor(0xffeeeeee);header.addView(title,new LinearLayout.LayoutParams(0,-2,1));
+        button(header,"Back",this::back);TextView title=new TextView(this);title.setText(mediaTitle);title.setTextColor(0xffeeeeee);header.addView(title,new LinearLayout.LayoutParams(0,-2,1));
         video=new VLCVideoLayout(this);root.addView(video,new LinearLayout.LayoutParams(-1,0,1));
         status=new TextView(this);status.setTextColor(0xffeeeeee);root.addView(status);
         clock=new TextView(this);clock.setTextColor(0xffeeeeee);root.addView(clock);
@@ -68,7 +80,7 @@ public class VlcPlayerActivity extends Activity {
         button(extra,"Tracks",this::tracks);button(extra,"Repeat",()->{repeat=!repeat;Toast.makeText(this,repeat?"Repeat on":"Repeat off",Toast.LENGTH_SHORT).show();});
         button(root,"Decoder: automatic / software",()->new AlertDialog.Builder(this).setTitle("Video decoding").setItems(new String[]{"Automatic (recommended)","Software (for unsupported hardware codecs)"},(d,i)->{remember();software=i==1;release();resume=true;start();}).show());
         button(root,"Try again",()->{remember();release();resume=true;start();});
-        button(root,"Use Android playback engine",()->{startActivity(new Intent(this,PlayerActivity.class).putExtra("job",source.id));finish();});
+        if(source!=null)button(root,"Use Android playback engine",()->{startActivity(new Intent(this,PlayerActivity.class).putExtra("job",source.id));finish();});
         setContentView(root);
         video.setOnClickListener(v->{if(fullscreen)fullscreen(false);});
         fullscreen(fullscreen);
@@ -77,9 +89,22 @@ public class VlcPlayerActivity extends Activity {
     }
     private Button button(LinearLayout parent,String text,Runnable action){Button b=new Button(this);b.setText(text);b.setTextSize(12);b.setTextAllCaps(false);b.setMinWidth(0);b.setMinimumWidth(0);b.setMinHeight((int)(48*getResources().getDisplayMetrics().density));b.setOnClickListener(v->action.run());parent.addView(b,parent.getOrientation()==LinearLayout.HORIZONTAL?new LinearLayout.LayoutParams(0,-2,1):new LinearLayout.LayoutParams(-1,-2));return b;}
     private void start(){
-        if(source==null||player!=null||isFinishing())return;
+        if((source==null&&document==null)||player!=null||opening||isFinishing())return;
+        if(document!=null){
+            opening=true;int request=++generation;status.setText("Opening the selected file…");
+            openingTask=documents.submit(()->{
+                ParcelFileDescriptor opened=null;
+                try{opened=getContentResolver().openFileDescriptor(document,"r");if(opened==null)throw new IOException();}
+                catch(IOException|RuntimeException error){close(opened);handler.post(()->{if(request==generation){opening=false;status.setText("The selected file is unavailable. Choose it again from Files.");}});return;}
+                ParcelFileDescriptor ready=opened;
+                handler.post(()->{if(request!=generation){close(ready);return;}opening=false;if(!foreground||isFinishing()){close(ready);return;}descriptor=ready;buildPlayer();});
+            });return;
+        }
+        buildPlayer();
+    }
+    private void buildPlayer(){
         try{
-            source=PlaybackSource.load(this,source.id);
+            if(source!=null)source=PlaybackSource.load(this,source.id);
             engine=new LibVLC(this,Arrays.asList("--no-video-title-show","--file-caching=300","--avcodec-threads=2"));
             player=new MediaPlayer(engine);player.attachViews(video,null,true,false);pendingSeek=true;wantedResume=resume;ended=false;
             MediaPlayer active=player;
@@ -88,18 +113,18 @@ public class VlcPlayerActivity extends Activity {
                     case MediaPlayer.Event.Playing:
                         if(pendingSeek){pendingSeek=false;if(position>0)player.setTime(position);player.setRate(speed);}
                         if(!foreground||!resume||!wantedResume){player.pause();status.setText("Paused");video.setKeepScreenOn(false);break;}
-                        status.setText("Playing in Blaze · LibVLC");video.setKeepScreenOn(!"audio".equals(source.mode));break;
+                        status.setText("Playing in Blaze · LibVLC");video.setKeepScreenOn(player.getCurrentVideoTrack()!=null);break;
                     case MediaPlayer.Event.Paused: status.setText("Paused");video.setKeepScreenOn(false);break;
                     case MediaPlayer.Event.EndReached:
                         position=0;ended=!repeat;video.setKeepScreenOn(false);
-                        getSharedPreferences("playback",MODE_PRIVATE).edit().remove(source.id).apply();
+                        getSharedPreferences("playback",MODE_PRIVATE).edit().remove(mediaId).apply();
                         if(repeat){player.stop();player.play();}else{resume=false;status.setText("Playback finished");}break;
                     case MediaPlayer.Event.EncounteredError:
                         video.setKeepScreenOn(false);status.setText("Could not decode this file. Try Software decoding. Damaged or encrypted files may not play.");break;
                     default: break;
                 }
             });
-            Media media=new Media(engine,Uri.fromFile(source.file));
+            Media media=document==null?new Media(engine,Uri.fromFile(source.file)):new Media(engine,descriptor.getFileDescriptor());
             try{media.setHWDecoderEnabled(!software,false);player.setMedia(media);}finally{media.release();}
             status.setText("Opening the original file…");beginPlayback();handler.post(tick);
             ContextCompat.registerReceiver(this,noisy,new IntentFilter(AudioManager.ACTION_AUDIO_BECOMING_NOISY),ContextCompat.RECEIVER_NOT_EXPORTED);noisyRegistered=true;
@@ -115,15 +140,16 @@ public class VlcPlayerActivity extends Activity {
         String[] names=new String[choices.length];for(int n=0;n<names.length;n++)names[n]=choices[n].name;
         new AlertDialog.Builder(this).setTitle(i==0?"Audio track":"Subtitles").setItems(names,(dialog,n)->{if(player!=null){if(i==0)player.setAudioTrack(choices[n].id);else player.setSpuTrack(choices[n].id);}}).show();
     }).show();}
-    private void remember(){if(player!=null&&source!=null){position=ended?0:Math.max(0,player.getTime());getSharedPreferences("playback",MODE_PRIVATE).edit().putLong(source.id,position).apply();}}
-    @SuppressWarnings("deprecation") private void release(){handler.removeCallbacks(tick);if(noisyRegistered){unregisterReceiver(noisy);noisyRegistered=false;}if(player!=null){player.setEventListener(null);player.stop();player.detachViews();player.release();player=null;}if(engine!=null){engine.release();engine=null;}if(video!=null)video.setKeepScreenOn(false);if(focusGranted){audio.abandonAudioFocus(focus);focusGranted=false;}}
+    private void remember(){if(player!=null&&mediaId!=null){position=ended?0:Math.max(0,player.getTime());getSharedPreferences("playback",MODE_PRIVATE).edit().putLong(mediaId,position).apply();}}
+    private static void close(ParcelFileDescriptor value){if(value!=null)try{value.close();}catch(IOException ignored){}}
+    @SuppressWarnings("deprecation") private void release(){generation++;opening=false;if(openingTask!=null){openingTask.cancel(true);openingTask=null;}handler.removeCallbacks(tick);if(noisyRegistered){unregisterReceiver(noisy);noisyRegistered=false;}if(player!=null){player.setEventListener(null);player.stop();player.detachViews();player.release();player=null;}if(engine!=null){engine.release();engine=null;}close(descriptor);descriptor=null;if(video!=null)video.setKeepScreenOn(false);if(focusGranted){audio.abandonAudioFocus(focus);focusGranted=false;}}
     private void fullscreen(boolean value){fullscreen=value;for(int i=0;i<root.getChildCount();i++){View child=root.getChildAt(i);if(child!=video)child.setVisibility(value?View.GONE:View.VISIBLE);}WindowInsetsControllerCompat bars=WindowCompat.getInsetsController(getWindow(),root);bars.setSystemBarsBehavior(WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE);if(value)bars.hide(WindowInsetsCompat.Type.systemBars());else bars.show(WindowInsetsCompat.Type.systemBars());}
     private void back(){if(fullscreen)fullscreen(false);else finish();}
     @Override public void onBackPressed(){back();}
     @Override protected void onResume(){super.onResume();foreground=true;if(player==null)start();else if(!pendingSeek&&resume&&!player.isPlaying())play();}
     @Override protected void onPause(){foreground=false;remember();if(player!=null)player.pause();super.onPause();}
     @Override protected void onStop(){release();super.onStop();}
-    @Override protected void onDestroy(){release();super.onDestroy();}
+    @Override protected void onDestroy(){release();documents.shutdownNow();super.onDestroy();}
     @Override protected void onSaveInstanceState(Bundle saved){remember();saved.putLong("position",position);saved.putFloat("speed",speed);saved.putBoolean("playing",resume);saved.putBoolean("software",software);saved.putBoolean("repeat",repeat);saved.putBoolean("fullscreen",fullscreen);super.onSaveInstanceState(saved);}
     private static String time(long millis){long seconds=Math.max(0,millis)/1000;return String.format(Locale.ROOT,"%d:%02d",seconds/60,seconds%60);}
 }

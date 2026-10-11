@@ -31,6 +31,9 @@ Use Queue, History and Files to filter items. Older records stay accessible with
 Previous/Next pagination. Files appear only after a verified completion.
 Play opens the completed download inside Blaze's own audio/video player;
 Share grants read access to the chosen file.
+**Files → Open an audio or video file** opens an existing local file using
+Android's file picker. Blaze reads the selected file directly without copying,
+converting or downloading it again. The provider must allow read access.
 Save a copy uses Android's document picker and a foreground copy service.
 
 ## Inbuilt player
@@ -51,8 +54,8 @@ engine** switches to the secondary Media3 player inside Blaze.
 Damaged, encrypted or especially demanding files can still fail. Native 8K/16K
 playback on every low-end phone is not possible; resolution, codec, frame rate
 and bitrate must fit the device's processing capacity.
-This player opens completed Blaze downloads,
-not arbitrary links or unfinished partial files.
+The player opens completed Blaze downloads or a file you explicitly choose in
+Android's picker. It does not accept arbitrary network links or unfinished jobs.
 
 The Blaze logo has a white background in the system's light mode and black in
 dark mode. Switching system themes refreshes the in-app logo. The launcher icon

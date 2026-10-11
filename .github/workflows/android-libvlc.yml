@@ -4,6 +4,7 @@ on:
 permissions:
   contents: read
   actions: read
+  pull-requests: read
 jobs:
   libvlc:
     runs-on: ubuntu-24.04
@@ -48,7 +49,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y build-essential autoconf automake libtool-bin autopoint gettext pkg-config cmake ninja-build nasm yasm curl git zip unzip ant python3 flex bison ragel protobuf-compiler subversion gperf python3-mako python3-ply
           sdkmanager 'ndk;29.0.14206865'
-          # Use Ubuntu's Ninja instead of the runner's newer jobserver-sensitive build.
+          # Use Ubuntu host tools consistently for the build bootstrap.
           PATH="/usr/bin:$PATH" ANDROID_NDK="$ANDROID_HOME/ndk/29.0.14206865" bash tools/build_android_libvlc.sh '${{ matrix.abi }}'
       - name: Record decoder build provenance and integrity
         shell: bash
@@ -61,4 +62,4 @@ jobs:
         with:
           name: Blaze-LibVLC-${{ matrix.abi }}
           path: build/libvlc-${{ matrix.abi }}/output/
-          retention-days: 30
+          retention-days: 7
