@@ -69,4 +69,3 @@ if [ ! -f "$PACKAGE/jniLibs/$ABI/libblaze_qjs.so" ]; then
 fi
 "$TOOLCHAIN/bin/llvm-strip" "$PACKAGE/jniLibs/$ABI/"*.so
 printf 'FFmpeg 9.0.2; LAME 3.100; QuickJS-ng 0.17.0; NDK 28.2; API 24; LGPL-only media build\n' > "$PACKAGE/assets/licenses/NATIVE-BUILD.txt"
-

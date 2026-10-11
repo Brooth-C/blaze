@@ -21,7 +21,7 @@ class MobileTests(unittest.TestCase):
     def test_cancelled_request_never_starts(self):
         callback = Mock()
         callback.isCancelled.return_value = True
-        with tempfile.TemporaryDirectory() as folder, patch.object(b, 'YoutubeDL') as engine:
+        with tempfile.TemporaryDirectory() as folder, patch.object(b, 'MobileYDL') as engine:
             with self.assertRaises(b.DownloadCancelled):
                 b.download('https://example.com/video', 'video', folder, callback)
             engine.assert_not_called()
@@ -29,7 +29,7 @@ class MobileTests(unittest.TestCase):
     def test_playlist_rejected_before_download(self):
         callback = Mock()
         callback.isCancelled.return_value = False
-        with tempfile.TemporaryDirectory() as folder, patch.object(b, 'YoutubeDL') as engine:
+        with tempfile.TemporaryDirectory() as folder, patch.object(b, 'MobileYDL') as engine:
             client = engine.return_value.__enter__.return_value
             client.extract_info.return_value = {'_type': 'playlist'}
             with self.assertRaises(ValueError):
@@ -39,7 +39,7 @@ class MobileTests(unittest.TestCase):
     def test_complete_file_returned_and_progress_can_cancel(self):
         callback = Mock()
         callback.isCancelled.return_value = False
-        with tempfile.TemporaryDirectory() as folder, patch.object(b, 'YoutubeDL') as engine:
+        with tempfile.TemporaryDirectory() as folder, patch.object(b, 'MobileYDL') as engine:
             path = Path(folder) / 'example.mp4'
             path.write_bytes(b'test')
             client = engine.return_value.__enter__.return_value
@@ -56,7 +56,7 @@ class MobileTests(unittest.TestCase):
     def test_audio_mode_rejects_video_before_saving(self):
         callback = Mock()
         callback.isCancelled.return_value = False
-        with tempfile.TemporaryDirectory() as folder, patch.object(b, 'YoutubeDL') as engine:
+        with tempfile.TemporaryDirectory() as folder, patch.object(b, 'MobileYDL') as engine:
             client = engine.return_value.__enter__.return_value
             client.extract_info.return_value = {'title': 'Video in Ogg', 'vcodec': 'theora', 'acodec': 'vorbis'}
             with self.assertRaises(ValueError):

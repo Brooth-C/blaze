@@ -20,4 +20,3 @@ not to Blaze's separately licensed UI/backend code.
 FFmpeg release signatures are checked against its published signing-key
 fingerprint. LAME's source archive is SHA-256 pinned. QuickJS-ng is pinned to
 commit 6d46d07d04041b40f4f49eaa7fdebe44c314c699.
-
