@@ -36,7 +36,11 @@ def download(url, mode, directory, callback):
         callback.onProgress(float(percent), "Saving file…" if data["status"] == "finished" else "Downloading…")
 
     options = {
-        "format": "bestaudio" if mode == "audio" else "best[vcodec!=none][acodec!=none]/best",
+        "format": (
+            "bestaudio/best[vcodec=none]/best[ext=mp3]/best[ext=m4a]/best[ext=aac]/"
+            "best[ext=ogg]/best[ext=opus]/best[ext=wav]/best[ext=flac]"
+            if mode == "audio" else "best[vcodec!=none][acodec!=none]/best"
+        ),
         "outtmpl": str(folder / "%(title).120B [%(id)s].%(ext)s"),
         "noplaylist": True,
         "restrictfilenames": True,
@@ -61,6 +65,8 @@ def download(url, mode, directory, callback):
             raise ValueError("Use a link to one video or audio item.")
         if mode == "video" and (info.get("vcodec") == "none" or info.get("acodec") == "none"):
             raise ValueError("No video stream with sound is available. Try audio mode or the Termux version.")
+        if mode == "audio" and info.get("vcodec") not in (None, "none"):
+            raise ValueError("This link has no audio-only stream. Use Termux to extract audio.")
         downloader.process_info(info)
         check_cancel()
         filename = Path(downloader.prepare_filename(info)).resolve()

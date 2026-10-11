@@ -53,6 +53,17 @@ class MobileTests(unittest.TestCase):
             with self.assertRaises(b.DownloadCancelled):
                 options['progress_hooks'][0]({'status': 'downloading'})
 
+    def test_audio_mode_rejects_video_before_saving(self):
+        callback = Mock()
+        callback.isCancelled.return_value = False
+        with tempfile.TemporaryDirectory() as folder, patch.object(b, 'YoutubeDL') as engine:
+            client = engine.return_value.__enter__.return_value
+            client.extract_info.return_value = {'title': 'Video in Ogg', 'vcodec': 'theora', 'acodec': 'vorbis'}
+            with self.assertRaises(ValueError):
+                b.download('https://example.com/video.ogg', 'audio', folder, callback)
+            client.process_info.assert_not_called()
+
 
 if __name__ == '__main__':
     unittest.main()
+
