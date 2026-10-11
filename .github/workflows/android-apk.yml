@@ -146,7 +146,12 @@ jobs:
           TAG="android-v$VERSION"
           if gh release view "$TAG" >/dev/null 2>&1; then
             echo "Android version already published; existing signed assets will be preserved."
+            DESKTOP_VERSION=$(python -c 'import tools.release_page as r; print(r.versions()[0])')
+            python tools/release_page.py --mirror "v$DESKTOP_VERSION"
             exit 0
           fi
           sha256sum --check SHA256SUMS-Android.txt
           gh release create "$TAG" Blaze-Android-Preview.apk SHA256SUMS-Android.txt Blaze-Android-Preview.png Blaze-Android-Native-Sources.tar.gz --target "$GITHUB_SHA" --title "Blaze Android $VERSION" --notes-file docs/ANDROID-RELEASE-NOTES.md --prerelease --latest=false
+          DESKTOP_VERSION=$(python -c 'import tools.release_page as r; print(r.versions()[0])')
+          python tools/release_page.py --mirror "v$DESKTOP_VERSION"
+

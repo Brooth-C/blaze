@@ -1,5 +1,9 @@
 blank_issues_enabled: false
 contact_links:
   - name: Installation and usage
-    url: https://github.com/Brooth-C/blaze#readme
-    about: Read the setup instructions and dashboard controls before opening an issue.
+    url: https://github.com/Brooth-C/blaze/blob/main/docs/README.md
+    about: Find the Windows, Mac, Linux, Android APK and Termux guides.
+  - name: Downloads and checksums
+    url: https://github.com/Brooth-C/blaze/releases/latest
+    about: Download the APK or complete installer ZIP from release Assets.
+
