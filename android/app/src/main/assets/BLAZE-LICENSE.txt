@@ -1,0 +1,45 @@
+Blaze Free-Use License
+Version 1.0
+
+Copyright (c) 2026 Brooth-C. All rights reserved except as expressly granted below.
+
+1. Free use
+The copyright holder grants you a non-exclusive, worldwide, royalty-free
+permission to download, install and run unmodified Blaze for personal,
+educational, internal organizational or commercial use. You may make copies
+reasonably needed for installation and backup. No fee is charged for this
+permission. This permission applies to Blaze code and documentation supplied
+by the copyright holder under this license.
+
+2. Reserved rights
+Ownership remains with the copyright holder. This license does not permit
+modification, distribution, sublicensing, sale of copies, or incorporation of
+Blaze code into another product. Those activities require separate written
+permission from the copyright holder. Keep copyright and license notices in
+all copies you make. No trademark rights are granted.
+
+3. Public repository and applicable law
+This license does not limit rights granted by GitHub's terms for viewing and
+forking a public repository on GitHub, or rights that applicable law gives
+you regardless of this license. A GitHub fork does not grant additional
+permission to distribute or modify Blaze outside those rights.
+
+4. Third-party software
+This license covers only the copyright holder's Blaze materials. Python,
+uv, yt-dlp, Rich, Mutagen, imageio-ffmpeg, FFmpeg, aria2 and other third-party
+components retain their own licenses. Nothing here restricts rights granted
+by their licenses. See THIRD-PARTY-NOTICES.md for upstream references.
+
+5. Warranty and liability
+To the extent permitted by applicable law, Blaze is provided as is, without
+warranties of any kind, express or implied, including merchantability,
+fitness for a particular purpose and noninfringement. The copyright holder
+is not liable for damages or other liability arising from the software or
+its use. This provision does not exclude liability that cannot legally be
+excluded.
+
+6. Permission requests
+For permission beyond free use, contact Brooth-C through the Blaze repository:
+https://github.com/Brooth-C/blaze
+
+This is a source-available free-use license, not an open-source license.

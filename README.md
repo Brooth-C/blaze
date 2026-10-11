@@ -25,7 +25,7 @@ Setup needs internet access and installs Python for you.
 | macOS (Apple Silicon / Intel) | [macOS ZIP](https://github.com/Brooth-C/blaze/releases/latest/download/Blaze-Mac-Installer.zip) | Double-click `Install-Blaze.command` | `~/Blaze/Start-Blaze.command` |
 | Linux (x86_64 / ARM64, glibc) | [Linux ZIP](https://github.com/Brooth-C/blaze/releases/latest/download/Blaze-Linux-Installer.zip) | `bash Install-Blaze.sh` | `bash ~/Blaze/Start-Blaze.sh` |
 
-Android users: see the [Termux setup guide](docs/ANDROID.md). Android support is experimental and has not yet been verified on a physical device.
+Android users: [APK preview](docs/ANDROID-APK.md) · [Termux setup](docs/ANDROID.md). Android support is experimental and has not yet been verified on a physical device.
 
 [Release notes and checksums](https://github.com/Brooth-C/blaze/releases/latest) · [Detailed setup and requirements](docs/INSTALLATION.md)
 

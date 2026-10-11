@@ -1,0 +1,54 @@
+name: Android APK preview
+on:
+  pull_request:
+    paths: ['android/**', 'tests/Blaze-Mobile-Tests.py', '.github/workflows/android-apk.yml']
+  push:
+    branches: [main]
+    paths: ['android/**', 'tests/Blaze-Mobile-Tests.py', '.github/workflows/android-apk.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  apk:
+    name: Build Android APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: android-actions/setup-android@v3
+      - name: Install SDK
+        run: sdkmanager 'platforms;android-35' 'build-tools;35.0.0'
+      - name: Backend checks
+        run: |
+          python -m pip install yt-dlp==2026.8.19
+          python tests/Blaze-Mobile-Tests.py
+      - name: Build and lint
+        working-directory: android
+        run: |
+          chmod +x gradlew
+          ./gradlew --no-daemon testDebugUnitTest lintDebug assembleDebug
+      - name: APK checksum
+        run: |
+          cp android/app/build/outputs/apk/debug/app-debug.apk Blaze-Android-Preview.apk
+          sha256sum Blaze-Android-Preview.apk > SHA256SUMS-Android.txt
+      - name: Emulator startup and Python runtime smoke test
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 29
+          arch: x86_64
+          working-directory: android
+          script: ./gradlew --no-daemon connectedDebugAndroidTest
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Blaze-Android-Preview
+          path: |
+            Blaze-Android-Preview.apk
+            SHA256SUMS-Android.txt
+          retention-days: 30
