@@ -100,8 +100,8 @@ jobs:
             adb install apk-tests/debug/app-debug.apk
             adb install apk-tests/androidTest/debug/app-debug-androidTest.apk
             adb shell am instrument -w -r com.brooth.blaze.test/androidx.test.runner.AndroidJUnitRunner | tee instrumentation.log
-            adb exec-out run-as com.brooth.blaze.test cat files/Blaze-Player-Audio.png > Blaze-Player-Audio.png
-            adb exec-out run-as com.brooth.blaze.test cat files/Blaze-Player-Video.png > Blaze-Player-Video.png
+            adb exec-out run-as com.brooth.blaze cat files/Blaze-Player-Audio.png > Blaze-Player-Audio.png
+            adb exec-out run-as com.brooth.blaze cat files/Blaze-Player-Video.png > Blaze-Player-Video.png
             grep -Eq '^OK \([0-9]+ tests?\)' instrumentation.log
             adb shell am start -W -n com.brooth.blaze/.MainActivity
             adb shell dumpsys activity activities | grep -Eq '(mResumedActivity|topResumedActivity).*com.brooth.blaze'

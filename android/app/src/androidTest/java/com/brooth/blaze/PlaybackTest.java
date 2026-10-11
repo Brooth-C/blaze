@@ -47,7 +47,7 @@ public class PlaybackTest {
     }
     private void screenshot(String name)throws Exception{
         Bitmap image=InstrumentationRegistry.getInstrumentation().getUiAutomation().takeScreenshot();assertNotNull(image);
-        File out=new File(InstrumentationRegistry.getInstrumentation().getContext().getFilesDir(),name);
+        File out=new File(app.getFilesDir(),name);
         try(OutputStream stream=new FileOutputStream(out)){assertTrue(image.compress(Bitmap.CompressFormat.PNG,100,stream));}finally{image.recycle();}
     }
     @Test public void audioPlaysSeeksAndSurvivesRecreation()throws Exception{
