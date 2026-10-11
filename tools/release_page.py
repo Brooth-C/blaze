@@ -95,7 +95,8 @@ def mirror(tag, android):
     source = json.loads(source)
     target = json.loads(target)
     if source.get('draft') or target.get('draft'):
-        raise ValueError('Only published release assets may be mirrored')
+        print('Companion release is still being published; its publisher will complete the mirror.')
+        return
     assets = {a['name']: a for a in source['assets']}
     if not all(name in assets and assets[name].get('state') == 'uploaded' for name in ANDROID_FILES):
         raise ValueError('Android release is missing required files')

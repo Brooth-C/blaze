@@ -67,6 +67,14 @@ class ReleaseTests(unittest.TestCase):
                 r.mirror('v4.1.27', '0.2.0-preview')
         self.assertEqual(2, mock.call_count)
 
+    def test_draft_companion_is_deferred_without_upload(self):
+        for source_draft in (True, False):
+            source = json.dumps({'draft': source_draft, 'assets': list(self.assets.values())})
+            target = json.dumps({'draft': not source_draft, 'assets': []})
+            with patch.dict(r.os.environ, GH_REPO='Brooth-C/blaze'), patch.object(r, 'gh', side_effect=[source, target]) as mock:
+                r.mirror('v4.1.27', '0.2.0-preview')
+            self.assertEqual(2, mock.call_count)
+
     def test_partial_mirror_uploads_only_missing_verified_files(self):
         uploaded = []
         def fake(*args, **kwargs):
