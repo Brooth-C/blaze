@@ -4,7 +4,7 @@ ABI=${1:?Pass arm64-v8a or x86_64}
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 WORK="$ROOT/../build/android-native-$ABI"
 PACKAGE="$WORK/package"
-NDK="${ANDROID_NDK_HOME:-$ANDROID_HOME/ndk/28.2.13676358}"
+NDK="$ANDROID_HOME/ndk/28.2.13676358"
 TOOLCHAIN="$NDK/toolchains/llvm/prebuilt/linux-x86_64"
 case "$ABI" in
   arm64-v8a) ARCH=aarch64; TARGET=aarch64-linux-android; HOST=aarch64-linux-android ;;
@@ -64,7 +64,7 @@ if [ ! -f "$PACKAGE/jniLibs/$ABI/libblaze_qjs.so" ]; then
     -DCMAKE_TOOLCHAIN_FILE="$NDK/build/cmake/android.toolchain.cmake" \
     -DANDROID_ABI="$ABI" -DANDROID_PLATFORM=android-24 -DCMAKE_BUILD_TYPE=Release \
     -DQJS_BUILD_EXAMPLES=OFF -DCMAKE_EXE_LINKER_FLAGS='-Wl,-z,max-page-size=16384 -Wl,-z,common-page-size=16384'
-  cmake --build "$WORK/qjs-build" --target qjs -j4
+  cmake --build "$WORK/qjs-build" --target qjs_exe -j4
   cp "$WORK/qjs-build/qjs" "$PACKAGE/jniLibs/$ABI/libblaze_qjs.so"
 fi
 "$TOOLCHAIN/bin/llvm-strip" "$PACKAGE/jniLibs/$ABI/"*.so
