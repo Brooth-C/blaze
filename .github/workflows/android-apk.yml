@@ -10,7 +10,7 @@ permissions:
   contents: read
 concurrency:
   group: blaze-android-${{ github.ref }}
-  cancel-in-progress: false
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 jobs:
   native:
     uses: ./.github/workflows/android-native-tools.yml
