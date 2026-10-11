@@ -75,8 +75,9 @@ public class PlaybackTest {
             assertEquals(fixture.file.getCanonicalFile(),PlaybackSource.load(app,fixture.id).file);
             android.content.ContentValues values=new android.content.ContentValues();values.put("state","running");fixture.store.getWritableDatabase().update("jobs",values,"id=?",new String[]{fixture.id});
             try{PlaybackSource.load(app,fixture.id);fail("Unfinished file accepted");}catch(IOException expected){}
-            values.put("state","complete");values.put("path",new File(app.getCacheDir(),"outside.mp3").getAbsolutePath());fixture.store.getWritableDatabase().update("jobs",values,"id=?",new String[]{fixture.id});
-            try{PlaybackSource.load(app,fixture.id);fail("Outside path accepted");}catch(IOException expected){}
+            File outside=new File(app.getCacheDir(),"outside-"+UUID.randomUUID()+".mp3");try(OutputStream out=new FileOutputStream(outside)){out.write(1);}
+            values.put("state","complete");values.put("path",outside.getAbsolutePath());fixture.store.getWritableDatabase().update("jobs",values,"id=?",new String[]{fixture.id});
+            try{PlaybackSource.load(app,fixture.id);fail("Outside path accepted");}catch(IOException expected){}finally{assertTrue(outside.delete());}
             values.put("path",fixture.file.getAbsolutePath());fixture.store.getWritableDatabase().update("jobs",values,"id=?",new String[]{fixture.id});assertTrue(fixture.file.delete());
             try{PlaybackSource.load(app,fixture.id);fail("Missing file accepted");}catch(IOException expected){}
             try{PlaybackSource.load(app,"../outside");fail("Invalid ID accepted");}catch(IOException expected){}
