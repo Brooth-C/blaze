@@ -23,6 +23,8 @@ jobs:
         with:
           python-version: '3.12'
       - uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
       - name: Install SDK
         run: sdkmanager 'platforms;android-35' 'build-tools;35.0.0'
       - name: Backend checks
@@ -52,3 +54,4 @@ jobs:
             Blaze-Android-Preview.apk
             SHA256SUMS-Android.txt
           retention-days: 30
+
