@@ -13,7 +13,7 @@ import static org.junit.Assert.*;
 public class StartupTest {
     @Test public void screenOpensAndEmbeddedRuntimeLoads() {
         try (ActivityScenario<MainActivity> scenario=ActivityScenario.launch(MainActivity.class)) {
-            scenario.onActivity(activity -> assertNotNull(activity.findViewById(1001)));
+            scenario.onActivity(activity -> assertNotNull(activity.findViewById(R.id.url_input)));
         }
         if (!Python.isStarted()) Python.start(new AndroidPlatform(
             InstrumentationRegistry.getInstrumentation().getTargetContext()));
@@ -23,3 +23,4 @@ public class StartupTest {
         catch (PyException expected) { assertTrue(expected.getMessage().contains("HTTPS")); }
     }
 }
+

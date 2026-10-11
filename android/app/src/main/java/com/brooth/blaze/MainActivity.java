@@ -55,14 +55,14 @@ public class MainActivity extends Activity {
         root.addView(text("A link. A tap. Yours to keep.", 17));
         gap(root, 28);
         root.addView(text("PASTE A LINK", 12));
-        url = new EditText(this); url.setId(1001); url.setSingleLine(true);
+        url = new EditText(this); url.setId(R.id.url_input); url.setSingleLine(true);
         url.setHint("https://…"); url.setTextColor(Color.WHITE); url.setHintTextColor(Color.GRAY);
         url.setInputType(android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_VARIATION_URI);
         url.setPadding(dp(16), dp(12), dp(16), dp(12)); url.setBackground(card()); root.addView(url);
         gap(root, 16);
-        modes = new RadioGroup(this); modes.setOrientation(RadioGroup.HORIZONTAL); modes.setId(1002);
-        for (int i=0;i<2;i++) { RadioButton b = new RadioButton(this); b.setId(1010+i); b.setText(i==0 ? "Video" : "Audio"); b.setTextColor(Color.WHITE); modes.addView(b); }
-        modes.check(1010); root.addView(modes);
+        modes = new RadioGroup(this); modes.setOrientation(RadioGroup.HORIZONTAL); modes.setId(R.id.download_mode);
+        for (int i=0;i<2;i++) { RadioButton b = new RadioButton(this); b.setId(i==0 ? R.id.video_mode : R.id.audio_mode); b.setText(i==0 ? "Video" : "Audio"); b.setTextColor(Color.WHITE); modes.addView(b); }
+        modes.check(R.id.video_mode); root.addView(modes);
         root.addView(text("Audio keeps its original format. Video includes sound.\nOne item at a time; no playlists or MP3 conversion yet.", 13));
         gap(root, 18);
         start = button("Download", root); start.setOnClickListener(v -> download());
@@ -77,7 +77,7 @@ public class MainActivity extends Activity {
         gap(root, 24);
         Button about = button("About Blaze", root); about.setOnClickListener(v -> about());
         root.addView(text("Android preview · © 2026 Brooth-C", 12));
-        if (saved != null) { url.setText(saved.getString("url", "")); modes.check(saved.getInt("mode",1010)); String path=saved.getString("export"); if(path!=null)exportFile=new File(path); }
+        if (saved != null) { url.setText(saved.getString("url", "")); modes.check(saved.getInt("mode",R.id.video_mode)); String path=saved.getString("export"); if(path!=null)exportFile=new File(path); }
         else receive(getIntent());
     }
 
@@ -86,7 +86,7 @@ public class MainActivity extends Activity {
         if (!"https".equalsIgnoreCase(link.getScheme()) || link.getHost()==null || link.getUserInfo()!=null) { url.setError("Paste a complete HTTPS link"); return; }
         if (Build.VERSION.SDK_INT>=33 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)!=android.content.pm.PackageManager.PERMISSION_GRANTED)
             requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS}, 2);
-        Intent request=new Intent(this,DownloadService.class).putExtra("url",value).putExtra("mode",modes.getCheckedRadioButtonId()==1011 ? "audio" : "video");
+        Intent request=new Intent(this,DownloadService.class).putExtra("url",value).putExtra("mode",modes.getCheckedRadioButtonId()==R.id.audio_mode ? "audio" : "video");
         if(Build.VERSION.SDK_INT>=26)startForegroundService(request); else startService(request);
         start.setEnabled(false);
     }
@@ -132,3 +132,4 @@ public class MainActivity extends Activity {
     private void gap(LinearLayout root,int size){View v=new View(this);root.addView(v,new LinearLayout.LayoutParams(1,dp(size)));}
     private int dp(int n){return Math.round(n*getResources().getDisplayMetrics().density);}
 }
+
