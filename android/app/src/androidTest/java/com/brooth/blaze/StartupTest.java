@@ -19,7 +19,12 @@ public class StartupTest {
     }
     @Test public void screenOpensAndEmbeddedRuntimeLoads() {
         try (ActivityScenario<MainActivity> scenario=ActivityScenario.launch(MainActivity.class)) {
-            scenario.onActivity(activity -> assertNotNull(activity.findViewById(R.id.url_input)));
+            scenario.onActivity(activity -> {
+                assertNotNull(activity.findViewById(R.id.url_input));
+                android.graphics.drawable.BitmapDrawable logo=(android.graphics.drawable.BitmapDrawable)activity.getResources().getDrawable(R.drawable.blaze_logo,activity.getTheme());
+                assertTrue("Logo exceeds conservative GPU texture size",logo.getBitmap().getWidth()<=2048);
+                assertTrue("Logo exceeds conservative GPU texture size",logo.getBitmap().getHeight()<=2048);
+            });
         }
         if (!Python.isStarted()) Python.start(new AndroidPlatform(
             InstrumentationRegistry.getInstrumentation().getTargetContext()));
