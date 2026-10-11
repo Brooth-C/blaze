@@ -49,7 +49,7 @@ public class VlcPlayerActivity extends Activity {
         catch(IOException|RuntimeException error){Toast.makeText(this,"This completed file is unavailable.",Toast.LENGTH_LONG).show();finish();return;}
         position=Math.max(0,getSharedPreferences("playback",MODE_PRIVATE).getLong(source.id,0));
         software=getIntent().getBooleanExtra("software",false);
-        if(saved!=null){position=saved.getLong("position",position);speed=saved.getFloat("speed",1);software=saved.getBoolean("software");repeat=saved.getBoolean("repeat");resume=saved.getBoolean("playing",true);}
+        if(saved!=null){position=saved.getLong("position",position);speed=saved.getFloat("speed",1);software=saved.getBoolean("software");repeat=saved.getBoolean("repeat");resume=saved.getBoolean("playing",true);fullscreen=saved.getBoolean("fullscreen");}
         if(!Float.isFinite(speed)||speed<0.5f||speed>2)speed=1;
         audio=(AudioManager)getSystemService(AUDIO_SERVICE);
         WindowCompat.setDecorFitsSystemWindows(getWindow(),false);
@@ -68,11 +68,14 @@ public class VlcPlayerActivity extends Activity {
         button(extra,"Tracks",this::tracks);button(extra,"Repeat",()->{repeat=!repeat;Toast.makeText(this,repeat?"Repeat on":"Repeat off",Toast.LENGTH_SHORT).show();});
         button(root,"Decoder: automatic / software",()->new AlertDialog.Builder(this).setTitle("Video decoding").setItems(new String[]{"Automatic (recommended)","Software (for unsupported hardware codecs)"},(d,i)->{remember();software=i==1;release();resume=true;start();}).show());
         button(root,"Try again",()->{remember();release();resume=true;start();});
+        button(root,"Use Android playback engine",()->{startActivity(new Intent(this,PlayerActivity.class).putExtra("job",source.id));finish();});
         setContentView(root);
+        video.setOnClickListener(v->{if(fullscreen)fullscreen(false);});
+        fullscreen(fullscreen);
         ViewCompat.setOnApplyWindowInsetsListener(root,(v,insets)->{androidx.core.graphics.Insets safe=insets.getInsets(WindowInsetsCompat.Type.systemBars()|WindowInsetsCompat.Type.displayCutout());v.setPadding(safe.left,safe.top,safe.right,safe.bottom);return insets;});
         if(Build.VERSION.SDK_INT>=33)getOnBackInvokedDispatcher().registerOnBackInvokedCallback(android.window.OnBackInvokedDispatcher.PRIORITY_DEFAULT,this::back);
     }
-    private Button button(LinearLayout parent,String text,Runnable action){Button b=new Button(this);b.setText(text);b.setTextAllCaps(false);b.setMinHeight((int)(48*getResources().getDisplayMetrics().density));b.setOnClickListener(v->action.run());parent.addView(b);return b;}
+    private Button button(LinearLayout parent,String text,Runnable action){Button b=new Button(this);b.setText(text);b.setTextSize(12);b.setTextAllCaps(false);b.setMinWidth(0);b.setMinimumWidth(0);b.setMinHeight((int)(48*getResources().getDisplayMetrics().density));b.setOnClickListener(v->action.run());parent.addView(b,parent.getOrientation()==LinearLayout.HORIZONTAL?new LinearLayout.LayoutParams(0,-2,1):new LinearLayout.LayoutParams(-1,-2));return b;}
     private void start(){
         if(source==null||player!=null||isFinishing())return;
         try{
@@ -111,13 +114,13 @@ public class VlcPlayerActivity extends Activity {
     }).show();}
     private void remember(){if(player!=null&&source!=null){position=Math.max(0,player.getTime());resume=player.isPlaying();getSharedPreferences("playback",MODE_PRIVATE).edit().putLong(source.id,position).apply();}}
     @SuppressWarnings("deprecation") private void release(){handler.removeCallbacks(tick);if(noisyRegistered){unregisterReceiver(noisy);noisyRegistered=false;}if(player!=null){player.setEventListener(null);player.stop();player.detachViews();player.release();player=null;}if(engine!=null){engine.release();engine=null;}if(video!=null)video.setKeepScreenOn(false);if(focusGranted){audio.abandonAudioFocus(focus);focusGranted=false;}}
-    private void fullscreen(boolean value){fullscreen=value;header.setVisibility(value?View.GONE:View.VISIBLE);WindowInsetsControllerCompat bars=WindowCompat.getInsetsController(getWindow(),root);bars.setSystemBarsBehavior(WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE);if(value)bars.hide(WindowInsetsCompat.Type.systemBars());else bars.show(WindowInsetsCompat.Type.systemBars());}
+    private void fullscreen(boolean value){fullscreen=value;for(int i=0;i<root.getChildCount();i++){View child=root.getChildAt(i);if(child!=video)child.setVisibility(value?View.GONE:View.VISIBLE);}WindowInsetsControllerCompat bars=WindowCompat.getInsetsController(getWindow(),root);bars.setSystemBarsBehavior(WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE);if(value)bars.hide(WindowInsetsCompat.Type.systemBars());else bars.show(WindowInsetsCompat.Type.systemBars());}
     private void back(){if(fullscreen)fullscreen(false);else finish();}
     @Override public void onBackPressed(){back();}
-    @Override protected void onStart(){super.onStart();start();}
+    @Override protected void onResume(){super.onResume();if(player==null)start();else if(!pendingSeek&&resume&&!player.isPlaying())play();}
     @Override protected void onPause(){remember();if(player!=null)player.pause();super.onPause();}
     @Override protected void onStop(){release();super.onStop();}
     @Override protected void onDestroy(){release();super.onDestroy();}
-    @Override protected void onSaveInstanceState(Bundle saved){remember();saved.putLong("position",position);saved.putFloat("speed",speed);saved.putBoolean("playing",resume);saved.putBoolean("software",software);saved.putBoolean("repeat",repeat);super.onSaveInstanceState(saved);}
+    @Override protected void onSaveInstanceState(Bundle saved){remember();saved.putLong("position",position);saved.putFloat("speed",speed);saved.putBoolean("playing",resume);saved.putBoolean("software",software);saved.putBoolean("repeat",repeat);saved.putBoolean("fullscreen",fullscreen);super.onSaveInstanceState(saved);}
     private static String time(long millis){long seconds=Math.max(0,millis)/1000;return String.format(Locale.ROOT,"%d:%02d",seconds/60,seconds%60);}
 }

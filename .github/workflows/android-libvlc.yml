@@ -27,7 +27,7 @@ jobs:
         if: steps.cache.outputs.cache-hit != 'true'
         run: |
           sudo apt-get update
-          sudo apt-get install -y build-essential autoconf automake libtool autopoint gettext pkg-config cmake ninja-build nasm yasm curl git zip unzip ant python3
+          sudo apt-get install -y build-essential autoconf automake libtool-bin autopoint gettext pkg-config cmake ninja-build nasm yasm curl git zip unzip ant python3 flex bison ragel protobuf-compiler subversion
           sdkmanager 'ndk;29.0.14206865'
           ANDROID_NDK="$ANDROID_HOME/ndk/29.0.14206865" bash tools/build_android_libvlc.sh '${{ matrix.abi }}'
       - uses: actions/upload-artifact@v7.0.2

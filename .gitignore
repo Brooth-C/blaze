@@ -33,6 +33,9 @@ android/local.properties
 android/app/src/main/jniLibs/
 android/app/src/main/assets/licenses/
 android/app/src/main/Blaze-Android-Native-Sources.tar.gz
+android/app/src/main/Blaze-LibVLC-Sources.tar.gz
+android/app/src/main/licenses/
+android/app/libs/libvlc-java.aar
 *.jks
 *.keystore
 

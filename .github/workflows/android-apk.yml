@@ -48,7 +48,7 @@ jobs:
       - name: Package LGPL engine and matching source
         run: |
           mkdir -p android/app/src/main/assets/licenses
-          cp android/app/src/main/licenses/LIBVLC-LICENSE.txt android/app/src/main/assets/licenses/
+          cp -a android/app/src/main/licenses/. android/app/src/main/assets/licenses/
           python tools/prepare_android_libvlc.py
       - name: Backend checks
         run: |

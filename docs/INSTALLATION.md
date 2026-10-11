@@ -64,7 +64,7 @@ installer to upgrade while preserving settings and downloads.
 
 ## Android app (APK preview)
 
-Install the [Android APK](https://github.com/Brooth-C/blaze/releases/download/android-v0.3.0-preview/Blaze-Android-Preview.apk) on an Android 7+ ARM64 phone, then open **Blaze**. Python is included and Termux is not required. Use **Save a copy…** to export completed downloads before uninstalling the app.
+Install the [Android APK](https://github.com/Brooth-C/blaze/releases/download/android-v0.4.0-preview/Blaze-Android-Preview.apk) on an Android 7+ ARM64 phone, then open **Blaze**. Python is included and Termux is not required. Use **Save a copy…** to export completed downloads before uninstalling the app.
 
 The APK is a debug-signed preview with a persistent queue/history, video quality
 choices, original audio/MP3/M4A/WAV/FLAC, separate-stream merging and playlists.
