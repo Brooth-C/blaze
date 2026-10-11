@@ -5,6 +5,8 @@ permissions:
   contents: read
   actions: read
   pull-requests: read
+env:
+  BLAZE_LIBVLC_NDK_VERSION: '29.0.14206865'
 jobs:
   libvlc:
     runs-on: ubuntu-24.04
@@ -20,14 +22,16 @@ jobs:
           distribution: temurin
           java-version: '17'
       - uses: android-actions/setup-android@v4.0.4
-      - uses: actions/cache@v5.0.0
+      - uses: actions/cache/restore@v5.0.0
         id: cache
         with:
           path: build/libvlc-${{ matrix.abi }}/output
-          key: libvlc-lgpl-3.7.7-${{ matrix.abi }}-${{ hashFiles('tools/build_android_libvlc.sh') }}
+          key: libvlc-lgpl-3.7.7-ndk${{ env.BLAZE_LIBVLC_NDK_VERSION }}-${{ matrix.abi }}-${{ hashFiles('tools/build_android_libvlc.sh') }}
+          # The legacy namespace was built only with NDK 29.0.14206865. Never restore it for another NDK.
+          restore-keys: ${{ env.BLAZE_LIBVLC_NDK_VERSION == '29.0.14206865' && format('libvlc-lgpl-3.7.7-{0}-{1}', matrix.abi, hashFiles('tools/build_android_libvlc.sh')) || '' }}
       - name: Reuse validated pull-request decoder build after merge
         id: validated
-        if: steps.cache.outputs.cache-hit != 'true' && github.event_name == 'push' && github.ref == 'refs/heads/main'
+        if: steps.cache.outputs.cache-matched-key == '' && github.event_name == 'push' && github.ref == 'refs/heads/main'
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
@@ -41,23 +45,30 @@ jobs:
           gh run download "$RUN" --name 'Blaze-LibVLC-${{ matrix.abi }}' --dir 'build/libvlc-${{ matrix.abi }}/output'
           EXPECTED=$(sha256sum tools/build_android_libvlc.sh | cut -d ' ' -f 1)
           test "$(cat 'build/libvlc-${{ matrix.abi }}/output/BUILD-SCRIPT-SHA256')" = "$EXPECTED"
+          test "$(cat 'build/libvlc-${{ matrix.abi }}/output/BUILD-NDK-VERSION')" = "$BLAZE_LIBVLC_NDK_VERSION"
           (cd 'build/libvlc-${{ matrix.abi }}/output' && sha256sum --check SHA256SUMS-LIBVLC.txt)
           echo 'reused=true' >> "$GITHUB_OUTPUT"
       - name: Build LGPL-only codecs and collect corresponding source
-        if: steps.cache.outputs.cache-hit != 'true' && steps.validated.outputs.reused != 'true'
+        if: steps.cache.outputs.cache-matched-key == '' && steps.validated.outputs.reused != 'true'
         run: |
           sudo apt-get update
           sudo apt-get install -y build-essential autoconf automake libtool-bin autopoint gettext pkg-config cmake ninja-build nasm yasm curl git zip unzip ant python3 flex bison ragel protobuf-compiler subversion gperf python3-mako python3-ply
-          sdkmanager 'ndk;29.0.14206865'
+          sdkmanager "ndk;$BLAZE_LIBVLC_NDK_VERSION"
           # Use Ubuntu host tools consistently for the build bootstrap.
-          PATH="/usr/bin:$PATH" ANDROID_NDK="$ANDROID_HOME/ndk/29.0.14206865" bash tools/build_android_libvlc.sh '${{ matrix.abi }}'
+          PATH="/usr/bin:$PATH" ANDROID_NDK="$ANDROID_HOME/ndk/$BLAZE_LIBVLC_NDK_VERSION" bash tools/build_android_libvlc.sh '${{ matrix.abi }}'
       - name: Record decoder build provenance and integrity
         shell: bash
         run: |
           test -s 'build/libvlc-${{ matrix.abi }}/output/jniLibs/${{ matrix.abi }}/libvlc.so'
           sha256sum tools/build_android_libvlc.sh | cut -d ' ' -f 1 > 'build/libvlc-${{ matrix.abi }}/output/BUILD-SCRIPT-SHA256'
+          printf '%s\n' "$BLAZE_LIBVLC_NDK_VERSION" > 'build/libvlc-${{ matrix.abi }}/output/BUILD-NDK-VERSION'
           cd 'build/libvlc-${{ matrix.abi }}/output'
           find . -type f ! -name SHA256SUMS-LIBVLC.txt -print0 | sort -z | xargs -0 sha256sum > SHA256SUMS-LIBVLC.txt
+      - uses: actions/cache/save@v5.0.0
+        if: steps.cache.outputs.cache-hit != 'true'
+        with:
+          path: build/libvlc-${{ matrix.abi }}/output
+          key: ${{ steps.cache.outputs.cache-primary-key }}
       - uses: actions/upload-artifact@v7.0.2
         with:
           name: Blaze-LibVLC-${{ matrix.abi }}

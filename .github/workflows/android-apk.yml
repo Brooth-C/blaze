@@ -113,6 +113,7 @@ jobs:
           api-level: ${{ matrix.api }}
           arch: x86_64
           script: |
+            if [ '${{ matrix.api }}' = '29' ]; then adb root; adb wait-for-device; fi
             adb install apk-tests/debug/app-debug.apk
             adb install apk-tests/androidTest/debug/app-debug-androidTest.apk
             adb shell am instrument -w -r com.brooth.blaze.test/androidx.test.runner.AndroidJUnitRunner | tee instrumentation.log
