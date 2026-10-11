@@ -1,24 +1,25 @@
-# Blaze Android 0.1.0 preview
+# Blaze Android 0.2 preview
 
-Standalone Android APK with Blaze branding and touch controls. Requires Android
-7+ on ARM64 phones; x86_64 is included for emulators. Termux is not required.
+Adds the requested queue, history, quality choices, background handling,
+MP3 conversion, high-quality video merging and bounded playlist support.
 
-- Paste or share an HTTPS link and choose video or original-format audio.
-- Download one item in a foreground service, view progress and stop it.
-- Retry supported partial downloads, share completed files, or save a copy with Android's folder picker.
-- Embedded Python/yt-dlp runtime and third-party license notices.
+- Persistent, transactional queue with duplicate protection, interrupted-work recovery and 200-entry admission limits.
+- Separate Queue, History and Files views; pagination keeps older records accessible.
+- Original audio, MP3 (192 kbps), M4A, WAV and FLAC; maximum video quality choices through 4K where the site offers them.
+- Native FFmpeg/LAME conversion and MKV stream merging, built from verified source for ARM64/x86_64.
+- QuickJS and bundled ejs for supported extractor JavaScript challenges.
+- Stop-item, pause-queue, resume and retry; stale stop requests cannot cancel a newer job.
+- Foreground progress and Android timeout handling; queue state remains saved when the app rotates or is interrupted.
+- Separate Open/Share actions, foreground document-picker exports, export admission protection and guarded partial/file removal.
+- Legacy file import when the same signing key permits an upgrade.
 
-This is a **debug-signed preview**, not a Play Store or production-signed release.
-Audio conversion, separate video/audio merging, playlists, cookies/login,
-JavaScript runtimes and automatic extractor updates are not included. Some
-websites will fail. Export your files before uninstalling the app.
+Validation includes backend safety cases, real local HTTPS conversion/merging
+and stopped-conversion retry, Android lint and instrumented Android 10/15 tests
+with synthetic media. Native licenses and the exact corresponding source/build
+archive accompany the release.
 
-Backend safety tests, Android lint, compilation, emulator UI/runtime startup,
-foreground-app screenshot and local HTTPS video/audio samples passed.
-Physical-phone downloads, background behavior, storage and broad service
-compatibility still require validation. Future production updates need an
-owner-controlled signing key. Different debug builds may not install over each
-other; exported files survive removing the old preview.
-
-The APK, SHA256SUMS-Android.txt and emulator screenshot are attached to this
-prerelease. Existing version assets are not replaced.
+This remains a debug-signed preview. Physical-phone and broad public-service
+behavior are not established. Live streams, login/cookies and parallel downloads
+are not included. WAV/FLAC do not restore lost source detail. Export media before
+uninstalling an older preview when signing-key differences prevent updating.
+Production releases need an owner-controlled signing key for future upgrades.

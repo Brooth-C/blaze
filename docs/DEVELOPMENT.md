@@ -28,6 +28,7 @@ python tests/Blaze-Reliability-Tests.py
 python tests/Blaze-Integration-Tests.py
 python tests/Blaze-Termux-Tests.py
 python tests/Blaze-Mobile-Tests.py
+python tests/Blaze-Mobile-Integration-Tests.py
 python tools/package_installers.py --check
 ```
 
@@ -57,9 +58,10 @@ permitted to download.
 ## Android APK checks
 
 The [APK workflow](https://github.com/Brooth-C/blaze/actions/workflows/android-apk.yml)
-uses JDK 17, Python 3.12 and Android SDK 35. It runs backend tests, Android lint,
-APK compilation, Android 10 emulator startup and embedded-runtime checks, and
-captures the foreground app. See [android/README.md](../android/README.md).
+uses JDK 17, Python 3.12, Android SDK 35 and NDK 28.2. It builds verified native
+FFmpeg/LAME and QuickJS for ARM64/x86_64, checks backend and real HTTPS fixtures,
+runs lint and Android 10/15 instrumented queue/runtime/media tests, and captures
+the foreground app. See [android/README.md](../android/README.md).
 Main builds publish immutable versioned Android prereleases after these checks;
 pull requests produce temporary artifacts. Physical-phone testing and broad
 public-service compatibility remain outstanding.

@@ -23,10 +23,10 @@ Choose your platform below. Desktop and Termux ZIPs need the **entire ZIP** extr
 | Windows 10/11 (x64) | [Windows ZIP](https://github.com/Brooth-C/blaze/releases/latest/download/Blaze-Windows-Installer.zip) | Double-click `Install-Blaze.bat` | `%USERPROFILE%\Blaze\Start-Blaze.bat` |
 | macOS (Apple Silicon / Intel) | [macOS ZIP](https://github.com/Brooth-C/blaze/releases/latest/download/Blaze-Mac-Installer.zip) | Double-click `Install-Blaze.command` | `~/Blaze/Start-Blaze.command` |
 | Linux (x86_64 / ARM64, glibc) | [Linux ZIP](https://github.com/Brooth-C/blaze/releases/latest/download/Blaze-Linux-Installer.zip) | `bash Install-Blaze.sh` | `bash ~/Blaze/Start-Blaze.sh` |
-| Android 7+ (ARM64, preview) | [Android APK](https://github.com/Brooth-C/blaze/releases/download/android-v0.1.0-preview/Blaze-Android-Preview.apk) | Tap the APK to install | Open **Blaze** |
+| Android 7+ (ARM64, preview) | [Android APK](https://github.com/Brooth-C/blaze/releases/download/android-v0.2.0-preview/Blaze-Android-Preview.apk) | Tap the APK to install | Open **Blaze** |
 | Android / Termux (experimental) | [Termux ZIP](https://github.com/Brooth-C/blaze/releases/latest/download/Blaze-Termux-Installer.zip) | [Termux setup](docs/ANDROID.md) | `bash ~/Blaze/Start-Blaze.sh` |
 
-The [APK preview](docs/ANDROID-APK.md) has touch controls and original-format audio; conversion and playlists are not included. Android physical-device testing is still needed. ZIP setup requires internet access and provides Python for you.
+The [APK preview](docs/ANDROID-APK.md) includes queue/history, quality choices, MP3 conversion, video merging and playlists. Android physical-device testing is still needed. ZIP setup requires internet access and provides Python for you.
 
 [Release notes and checksums](https://github.com/Brooth-C/blaze/releases/latest) · [Detailed setup and requirements](docs/INSTALLATION.md)
 

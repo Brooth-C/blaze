@@ -7,9 +7,11 @@ APK, open **About Blaze** and follow the [APK guide](docs/ANDROID-APK.md).
 
 ## Android APK preview
 
-Paste a complete HTTPS link to a single item. If a service needs conversion,
-separate video/audio merging, playlists, login or JavaScript, try the Termux
-version instead. Check the error shown in the app. Use **Save a copy…** to keep
+Paste a complete HTTPS link. Enable playlist mode for playlists of up to 200
+entries. Queue/history persist across app restarts; use Resume for paused or
+interrupted work and Retry for stopped/failed items. Login/cookies and live
+streams are not supported. Sites can block or change their extractors; check
+the error shown in History. Use **Save a copy…** to keep
 completed files outside Blaze before uninstalling. Different debug-build keys
 can prevent an in-place update; export your files before removing an old build.
 

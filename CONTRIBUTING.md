@@ -54,8 +54,10 @@ new release. Run tests/Blaze-Installer-Tests.py only on a disposable clean runne
 ## Pull requests
 
 For Android APK development, use the [Android build instructions](android/README.md).
-Its backend is separate from the CLI and requires its own tests and emulator
-startup check. Distinguish APK support from Termux support in documentation.
+Its backend is separate from the CLI and requires backend, HTTPS integration
+and Android lifecycle/native-media tests on disposable emulators. Include
+native license/corresponding-source assets with any binary changes. Distinguish
+APK support from Termux support in documentation.
 
 Describe the concrete problem, resulting behavior, and validation.
 Keep unrelated changes separate. Discuss new dependencies before introducing them.

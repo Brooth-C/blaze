@@ -121,7 +121,7 @@ public class MainActivity extends Activity {
         }
         if(count==0)items.addView(text(filter==0?"Your queue is empty.":filter==1?"Completed and stopped items will appear here.":"Completed files will appear here.",14));
     }
-    private void receive(Intent intent){if(Intent.ACTION_SEND.equals(intent.getAction())){String value=intent.getStringExtra(Intent.EXTRA_TEXT);if(value!=null){java.util.regex.Matcher m=java.util.regex.Pattern.compile("https://[^\\s<>]+",java.util.regex.Pattern.CASE_INSENSITIVE).matcher(value);if(m.find())url.setText(m.group().replaceAll("[).,;]+$",""));}}}
+    private void receive(Intent intent){if(Intent.ACTION_SEND.equals(intent.getAction())){CharSequence shared=intent.getCharSequenceExtra(Intent.EXTRA_TEXT);String value=shared==null?null:shared.toString();if(value!=null){java.util.regex.Matcher m=java.util.regex.Pattern.compile("https://[^\\s<>]+",java.util.regex.Pattern.CASE_INSENSITIVE).matcher(value);if(m.find())url.setText(m.group().replaceAll("[).,;]+$",""));}}}
     @Override protected void onNewIntent(Intent intent){super.onNewIntent(intent);setIntent(intent);receive(intent);}
     @Override protected void onResume(){super.onResume();rendered="";handler.removeCallbacks(refresh);handler.post(refresh);}
     @Override protected void onPause(){handler.removeCallbacks(refresh);super.onPause();}

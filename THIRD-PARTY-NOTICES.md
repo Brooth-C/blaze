@@ -27,4 +27,9 @@ The standalone Android APK embeds Python and yt-dlp using Chaquopy (MIT), and
 uses AndroidX Core (Apache 2.0). These components are covered by their own
 licenses, not Blaze's reserved rights. Complete notice files are included in
 the APK's assets and in the [Android project](https://github.com/Brooth-C/blaze/tree/main/android/app/src/main/assets); the app's About dialog summarizes them.
-The APK preview does not bundle FFmpeg or aria2.
+Android APK 0.2 also bundles standalone LGPL-only FFmpeg/LAME programs and
+MIT-licensed QuickJS-ng, built from verified upstream sources. Their license
+files are included in the APK and corresponding sources/build instructions
+accompany the Android release. APK 0.1 did not include these native programs.
+The APK does not bundle aria2. The embedded yt-dlp-ejs solver uses the Unlicense;
+see https://github.com/yt-dlp/ejs for its license and source.

@@ -102,7 +102,7 @@ jobs:
             adb shell am instrument -w -r com.brooth.blaze.test/androidx.test.runner.AndroidJUnitRunner | tee instrumentation.log
             grep -Eq '^OK \([0-9]+ tests?\)' instrumentation.log
             adb shell am start -W -n com.brooth.blaze/.MainActivity
-            adb shell dumpsys activity activities | grep -q 'mResumedActivity.*com.brooth.blaze'
+            adb shell dumpsys activity activities | grep -Eq '(mResumedActivity|topResumedActivity).*com.brooth.blaze'
             sleep 2
             adb shell screencap -p /sdcard/blaze-preview.png
             adb pull /sdcard/blaze-preview.png Blaze-Android-Preview.png

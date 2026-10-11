@@ -1,48 +1,48 @@
-# Blaze Android APK preview
+# Blaze Android 0.2
 
-A native Android interface with embedded Python/yt-dlp. Termux is not required.
-Android 7+ on ARM64 phones or x86_64 emulators. This is a separate 0.1.0 preview,
-not the desktop application's complete feature set.
+A native touch interface with embedded Python/yt-dlp, verified native FFmpeg/LAME,
+and QuickJS. Android 7+ on ARM64 phones or x86_64 emulators; no Termux required.
 
-Paste an HTTPS link or share one from another app, choose Video or Audio, and tap
-Download. Downloads continue in a foreground service. Use Stop to cancel; retry
-the same link to resume a partial file when supported by the site.
-Completed files appear in Saved files. Save a copy with Android's folder picker
-or share them. Files kept only inside Blaze are removed when you uninstall it.
+The app supports persistent queue/history, quality selection, MP3/M4A/WAV/FLAC
+and original audio, video/audio merging, bounded playlists, pause/resume/retry,
+notifications, player opening, sharing, foreground export and guarded removal.
+See [the user guide](../docs/ANDROID-APK.md).
 
-Video uses a stream which already contains sound. Audio keeps its original
-format. No FFmpeg conversion, separate-stream merging, playlists, cookies/login,
-aria2, JavaScript runtime, or automatic extractor update is included. Websites
-which need those features can fail; use the Termux version for the full CLI.
+## Build and test
 
-## Build
-
-Use JDK 17, Python 3.12, Android SDK 35, and the checked-in Gradle wrapper:
+Use a disposable Linux runner with JDK 17, Python 3.12, SDK 35 and NDK 28.2.
+Run `bash android/native/build.sh arm64-v8a` and `x86_64`, then copy each
+`build/android-native-ABI/package/` into `android/app/src/main/` (merge folders).
+Native binaries and generated license assets are ignored by Git.
 
 ```sh
+python -m pip install yt-dlp==2026.8.19 cryptography imageio-ffmpeg
+python tests/Blaze-Mobile-Tests.py
+python tests/Blaze-Mobile-Integration-Tests.py
 cd android
-./gradlew testDebugUnitTest lintDebug assembleDebug
+./gradlew lintDebug assembleDebug assembleDebugAndroidTest
 ```
 
-The installable, debug-signed APK is `app/build/outputs/apk/debug/app-debug.apk`.
-This preview is for sideload testing, not a Play Store release. A debug key is
-generated locally by Android tooling; do not use it as a production signing key.
-For a public release, the owner must retain a private release keystore so future
-updates keep the same signing identity. Keystores are never committed.
+The workflow performs those steps, checks native programs from source, and runs
+instrumentation on fresh Android 10/API29 and Android 15/API35 x86_64 emulators.
+Tests cover actual MP3 conversion/merge/probe/JavaScript execution, queue
+persistence/claims/overflow/pagination/removal, pause/resume, and rotation.
+Synthetic media is generated for the tests; never run lifecycle tests over an
+existing user's production queue or downloads.
 
-The Android APK workflow builds a downloadable artifact for each PR and main
-push touching this project. A validated main build publishes a new version as a
-separate Android prerelease with an APK, checksum and screenshot. Existing
-version assets are not replaced, and the stable desktop/Termux Latest release
-is preserved. Increment versionCode and versionName together for a new APK.
+The APK is debug-signed for preview testing. Source/native notices and exact
+corresponding source archives accompany versioned prereleases; old version
+assets are never overwritten. For production upgrades, the owner must retain a
+private signing key. Do not commit signing keys. Different preview keys can
+require exporting files before uninstalling the old app.
 
-## Ownership and dependencies
+## Ownership
 
-Blaze UI/backend code uses the repository's free-use license. Embedded Python,
-yt-dlp, Chaquopy, and AndroidX retain their own licenses. See the app's About page
-and `app/src/main/assets/`. No GPL Android wrapper or FFmpeg binary is bundled.
+Blaze UI/backend use the repository's free-use license. The LGPL FFmpeg/LAME
+programs, MIT QuickJS/Chaquopy, Unlicense-covered yt-dlp/ejs, Python and AndroidX retain
+their own licenses and replacement/rebuilding rights. See [native build details](native/README.md)
+and APK assets. No GPL media features are enabled.
 
-Compilation and backend checks do not establish physical-device compatibility.
-Before promotion: test install, share input, actual video/audio download,
-notification, background/rotation, cancel/resume, export, and uninstall behavior
-on a physical Android phone.
+Passing emulator tests is evidence for those cases, not a guarantee about all
+phones or changing public services. Live streams, login/cookies and parallel
+media downloading are not implemented in this version.
