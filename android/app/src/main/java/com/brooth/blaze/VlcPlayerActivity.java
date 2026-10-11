@@ -68,7 +68,7 @@ public class VlcPlayerActivity extends Activity {
         WindowCompat.setDecorFitsSystemWindows(getWindow(),false);
         root=new LinearLayout(this);root.setOrientation(LinearLayout.VERTICAL);root.setBackgroundColor(0xff0d1117);
         header=new LinearLayout(this);root.addView(header);
-        button(header,"Back",this::back);TextView title=new TextView(this);title.setText(mediaTitle);title.setTextColor(0xffeeeeee);header.addView(title,new LinearLayout.LayoutParams(0,-2,1));
+        Button back=button(header,"Back",this::back);back.setLayoutParams(new LinearLayout.LayoutParams((int)(64*getResources().getDisplayMetrics().density),-2));TextView title=new TextView(this);title.setText(mediaTitle);title.setSingleLine(true);title.setEllipsize(android.text.TextUtils.TruncateAt.END);title.setTextColor(0xffeeeeee);header.addView(title,new LinearLayout.LayoutParams(0,-2,1));
         video=new VLCVideoLayout(this);root.addView(video,new LinearLayout.LayoutParams(-1,0,1));
         status=new TextView(this);status.setTextColor(0xffeeeeee);root.addView(status);
         clock=new TextView(this);clock.setTextColor(0xffeeeeee);root.addView(clock);
@@ -114,8 +114,8 @@ public class VlcPlayerActivity extends Activity {
                     case MediaPlayer.Event.Playing:
                         if(pendingSeek){pendingSeek=false;if(position>0)player.setTime(position);player.setRate(speed);}
                         if(!foreground||!resume||!wantedResume){player.pause();status.setText("Paused");video.setKeepScreenOn(false);break;}
-                        status.setText("Playing in Blaze · LibVLC");video.setKeepScreenOn(player.getCurrentVideoTrack()!=null);break;
-                    case MediaPlayer.Event.Paused: player.setVolume(100);status.setText("Paused");video.setKeepScreenOn(false);break;
+                        toggle.setText("Pause");status.setText("Playing in Blaze · LibVLC");video.setKeepScreenOn(player.getCurrentVideoTrack()!=null);break;
+                    case MediaPlayer.Event.Paused: player.setVolume(100);toggle.setText("Play");status.setText("Paused");video.setKeepScreenOn(false);break;
                     case MediaPlayer.Event.EndReached:
                         position=0;ended=!repeat;video.setKeepScreenOn(false);
                         getSharedPreferences("playback",MODE_PRIVATE).edit().remove(mediaId).apply();

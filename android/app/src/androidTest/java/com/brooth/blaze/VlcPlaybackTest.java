@@ -36,6 +36,7 @@ public class VlcPlaybackTest {
             Thread.sleep(250);screen.recreate();ready(screen,false);
             screen.onActivity(a->{assertTrue(a.player.getTime()>=1200);assertFalse(a.player.isPlaying());});
             Thread.sleep(200);assertFalse("Restoring a paused video must not interrupt other audio",focusStolen.get());
+            Thread.sleep(550); // Allow the visible timeline to refresh before the release screenshot.
             android.graphics.Bitmap image=null;boolean rendered=false;android.graphics.Rect bounds=new android.graphics.Rect();
             for(int attempt=0;attempt<40&&!rendered;attempt++){
                 screen.onActivity(a->{int[] location=new int[2];a.video.getLocationOnScreen(location);bounds.set(location[0],location[1],location[0]+a.video.getWidth(),location[1]+a.video.getHeight());});
