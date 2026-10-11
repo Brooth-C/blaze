@@ -1,58 +1,56 @@
 <div align="center">
 
-<img src="docs/assets/blaze-logo.png" alt="Blaze flame and download logo" width="128">
+<img src="docs/assets/blaze-logo.png" alt="Blaze flame and download logo" width="112">
 
 # Blaze
 
-**Audio and video downloads for your desktop and phone.**
+**Download audio and video on your desktop or phone.**
 
 Windows · macOS · Linux · Android
 
-[![Quality checks](https://github.com/Brooth-C/blaze/actions/workflows/quality-and-release.yml/badge.svg?branch=main)](https://github.com/Brooth-C/blaze/actions/workflows/quality-and-release.yml)
+[Download Blaze](https://github.com/Brooth-C/blaze/releases/latest) · [Guides](docs/README.md) · [Get help](SUPPORT.md)
 
-[Installation guide](docs/INSTALLATION.md) · [Usage guide](docs/USAGE.md) · [Get help](SUPPORT.md)
+[![Quality checks](https://github.com/Brooth-C/blaze/actions/workflows/quality-and-release.yml/badge.svg?branch=main)](https://github.com/Brooth-C/blaze/actions/workflows/quality-and-release.yml)
 
 </div>
 
-## Download and start
+## Get Blaze
 
-Choose your platform below. Desktop and Termux ZIPs need the **entire ZIP** extracted; the Android APK installs directly.
+| Platform | Download |
+| --- | --- |
+| Windows 10/11 · x64 | [Windows ZIP](https://github.com/Brooth-C/blaze/releases/latest/download/Blaze-Windows-Installer.zip) |
+| macOS · Apple Silicon / Intel | [macOS ZIP](https://github.com/Brooth-C/blaze/releases/latest/download/Blaze-Mac-Installer.zip) |
+| Linux · x86_64 / ARM64, glibc | [Linux ZIP](https://github.com/Brooth-C/blaze/releases/latest/download/Blaze-Linux-Installer.zip) |
+| Android 7+ · ARM64, preview | [Android APK](https://github.com/Brooth-C/blaze/releases/latest/download/Blaze-Android-Preview.apk) |
 
-| Platform | Download | Install | Launch after setup |
-| --- | --- | --- | --- |
-| Windows 10/11 (x64) | [Windows ZIP](https://github.com/Brooth-C/blaze/releases/latest/download/Blaze-Windows-Installer.zip) | Double-click `Install-Blaze.bat` | `%USERPROFILE%\Blaze\Start-Blaze.bat` |
-| macOS (Apple Silicon / Intel) | [macOS ZIP](https://github.com/Brooth-C/blaze/releases/latest/download/Blaze-Mac-Installer.zip) | Double-click `Install-Blaze.command` | `~/Blaze/Start-Blaze.command` |
-| Linux (x86_64 / ARM64, glibc) | [Linux ZIP](https://github.com/Brooth-C/blaze/releases/latest/download/Blaze-Linux-Installer.zip) | `bash Install-Blaze.sh` | `bash ~/Blaze/Start-Blaze.sh` |
-| Android 7+ (ARM64, preview) | [Android APK](https://github.com/Brooth-C/blaze/releases/download/android-v0.2.0-preview/Blaze-Android-Preview.apk) | Tap the APK to install | Open **Blaze** |
-| Android / Termux (experimental) | [Termux ZIP](https://github.com/Brooth-C/blaze/releases/latest/download/Blaze-Termux-Installer.zip) | [Termux setup](docs/ANDROID.md) | `bash ~/Blaze/Start-Blaze.sh` |
+Extract the entire ZIP and follow your platform's setup guide. ZIP setup needs
+an internet connection. Tap the APK to install the Android app.
+[Detailed installation](docs/INSTALLATION.md) · [Checksums and release files](https://github.com/Brooth-C/blaze/releases/latest)
 
-The [APK preview](docs/ANDROID-APK.md) includes queue/history, quality choices, MP3 conversion, video merging and playlists. Android physical-device testing is still needed. ZIP setup requires internet access and provides Python for you.
+Prefer a terminal on Android? Use the [Termux version](docs/ANDROID.md).
 
-[Release notes and checksums](https://github.com/Brooth-C/blaze/releases/latest) · [Detailed setup and requirements](docs/INSTALLATION.md)
+## What you can do
 
-## Desktop and Termux features
+- Download audio or video and choose quality and format.
+- Track downloads, keep a queue and resume supported partial files.
+- Convert audio and merge separate video/audio streams.
+- Keep downloads on your device and open or export completed files.
 
-- **See every download.** Track progress, speed, ETA, conversion and merging in a keyboard-controlled terminal dashboard.
-- **Pick audio or video.** Download through yt-dlp and choose your format and video quality.
-- **Resume interrupted work.** Keep partial downloads and review job reports.
-- **Keep everything together.** The private runtime, settings, reports and downloads live inside your Blaze folder.
+Desktop and Termux use a keyboard-controlled terminal dashboard.
+The [Android app](docs/ANDROID-APK.md) has touch controls, history, playlists and
+MP3/M4A/WAV/FLAC conversion. It is a debug-signed preview; physical-phone testing
+is still needed.
 
-## Using Blaze
+## Find your way
 
-Launch Blaze and follow the terminal prompts. Use **N / P** to page through the queue,
-**F** to show failed downloads, **A** to show all, and **D** to show active and waiting jobs.
-**Q / Ctrl+C** stops downloads and keeps partial files.
+[Installation](docs/INSTALLATION.md) · [Desktop usage](docs/USAGE.md) · [Android app](docs/ANDROID-APK.md) · [Troubleshooting](SUPPORT.md)
 
-Prefer commands? With Python 3.10+ installed, run `python blaze.py --help`.
-See the [usage guide](docs/USAGE.md) and [source setup](docs/INSTALLATION.md#run-from-source).
+[Report a bug](https://github.com/Brooth-C/blaze/issues/new?template=bug_report.yml) · [Request a feature](https://github.com/Brooth-C/blaze/issues/new?template=feature_request.yml) · [Development](docs/DEVELOPMENT.md) · [Contributing](CONTRIBUTING.md)
 
-## Help and project information
+## Ownership and free use
 
-[Troubleshooting](SUPPORT.md) · [Report a bug](https://github.com/Brooth-C/blaze/issues/new?template=bug_report.yml) · [Contributing](CONTRIBUTING.md) · [Tests and project structure](docs/DEVELOPMENT.md)
+© 2026 Brooth-C. Free to download, install and run, including commercially,
+under the [Blaze Free-Use License](LICENSE.txt). Brooth-C retains ownership;
+modification and redistribution require permission. Third-party software keeps
+its [own licenses](THIRD-PARTY-NOTICES.md).
 
-## Free to use
-
-Copyright © 2026 Brooth-C. You may download, install and run Blaze for free,
-including for commercial use, under the [Blaze Free-Use License](LICENSE.txt).
-Brooth-C retains ownership; modification and redistribution require separate permission.
-Third-party components retain their [own licenses](THIRD-PARTY-NOTICES.md).

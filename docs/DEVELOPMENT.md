@@ -37,6 +37,13 @@ permitted to download.
 
 ## Project map
 
+User guides are indexed in [the documentation hub](README.md).
+Release pages show only the current version's changes. Both publishers use
+`tools/release_page.py` to attach the verified APK, checksum and native sources
+to the matching desktop release, regardless of which publisher finishes first.
+Published files are never overwritten. When changing an already-published APK
+version, bump the desktop version too so its companion assets stay immutable.
+
 | Path | Purpose |
 | --- | --- |
 | `blaze.py` | Main application |
@@ -65,3 +72,4 @@ the foreground app. See [android/README.md](../android/README.md).
 Main builds publish immutable versioned Android prereleases after these checks;
 pull requests produce temporary artifacts. Physical-phone testing and broad
 public-service compatibility remain outstanding.
+
