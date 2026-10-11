@@ -39,7 +39,7 @@ serve generated media on localhost and do not contact public download services.
 
 ## Installer changes
 
-The application also exists in all three installer source folders. When changing
+The application also exists in all four installer source folders. When changing
 `blaze.py`, run `python tools/package_installers.py` to synchronize those copies and
 rebuild the downloadable ZIPs. Run `python tools/package_installers.py --check` to
 detect stale source or package contents. Verify archive contents and script syntax. Do not claim end-to-end Windows or
@@ -52,6 +52,10 @@ version's release assets. Increment VERSION and update docs/RELEASE-NOTES.md for
 new release. Run tests/Blaze-Installer-Tests.py only on a disposable clean runner.
 
 ## Pull requests
+
+For Android APK development, use the [Android build instructions](android/README.md).
+Its backend is separate from the CLI and requires its own tests and emulator
+startup check. Distinguish APK support from Termux support in documentation.
 
 Describe the concrete problem, resulting behavior, and validation.
 Keep unrelated changes separate. Discuss new dependencies before introducing them.

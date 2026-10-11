@@ -8,21 +8,24 @@ on:
   workflow_dispatch:
 permissions:
   contents: read
+concurrency:
+  group: blaze-android-${{ github.ref }}
+  cancel-in-progress: false
 jobs:
   apk:
     name: Build Android APK
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-java@v6.0.1
         with:
           distribution: temurin
           java-version: '17'
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7.0.0
         with:
           python-version: '3.12'
-      - uses: android-actions/setup-android@v3
+      - uses: android-actions/setup-android@v4.0.4
         with:
           packages: platform-tools
       - name: Install SDK
@@ -56,7 +59,7 @@ jobs:
             sleep 2
             adb shell screencap -p /sdcard/blaze-preview.png
             adb pull /sdcard/blaze-preview.png ../Blaze-Android-Preview.png
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7.0.2
         with:
           name: Blaze-Android-Preview
           path: |
@@ -64,11 +67,44 @@ jobs:
             SHA256SUMS-Android.txt
             Blaze-Android-Preview.png
           retention-days: 30
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7.0.2
         if: failure()
         with:
           name: Android-diagnostics
           path: |
             android/app/build/reports/
             android/app/build/intermediates/lint_intermediate_text_report/
-
+  publish:
+    name: Publish Android preview
+    needs: apk
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: write
+      actions: read
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/download-artifact@v8.0.2
+        with:
+          name: Blaze-Android-Preview
+      - name: Publish immutable versioned preview
+        shell: bash
+        run: |
+          set -euo pipefail
+          CURRENT_SHA=$(gh api "repos/$GH_REPO/git/ref/heads/main" --jq .object.sha)
+          if [ "$CURRENT_SHA" != "$GITHUB_SHA" ]; then
+            echo "A newer main commit is awaiting validation; skipping publication."
+            exit 0
+          fi
+          VERSION=$(python -c 'import re,pathlib; print(re.search(r"versionName\s+[^0-9]([0-9][A-Za-z0-9.+-]*)", pathlib.Path("android/app/build.gradle").read_text()).group(1))')
+          TAG="android-v$VERSION"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "Android version already published; existing signed assets will be preserved."
+            exit 0
+          fi
+          sha256sum --check SHA256SUMS-Android.txt
+          gh release create "$TAG" Blaze-Android-Preview.apk SHA256SUMS-Android.txt Blaze-Android-Preview.png --target "$GITHUB_SHA" --title "Blaze Android $VERSION" --notes-file docs/ANDROID-RELEASE-NOTES.md --prerelease --latest=false

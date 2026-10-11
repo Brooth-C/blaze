@@ -8,8 +8,9 @@ It supports HTTPS links, video with sound, original-format audio, foreground
 downloads, cancellation, resumable partial files when supported, sharing, and
 export to a folder chosen with Android's document picker.
 
-Install the preview APK from the APK build artifact or the file supplied by the
-maintainer. Allow installation from that source when Android asks, then open
+**[Download the Android APK](https://github.com/Brooth-C/blaze/releases/download/android-v0.1.0-preview/Blaze-Android-Preview.apk)** · [Preview release and checksum](https://github.com/Brooth-C/blaze/releases/tag/android-v0.1.0-preview)
+
+Install the preview APK. Allow installation from that source when Android asks, then open
 Blaze. Paste a link, choose Video or Audio and tap Download. You can also share
 a link from another app to Blaze.
 
@@ -32,3 +33,15 @@ The APK code follows Blaze's free-use license. Bundled third-party licenses are
 included under `android/app/src/main/assets` and summarized in the app's About
 dialog. Production releases need an owner-controlled private signing key.
 
+## Validation and builds
+
+The Android workflow compiles the APK, runs lint and backend safety tests, and
+opens the app and embedded Python runtime in an Android 10 x86_64 emulator.
+It captures an actual foreground-app screenshot. Local HTTPS MP4 and Ogg
+sample downloads also passed; broad website and physical-device behavior are
+not established by those checks.
+
+PR builds remain temporary artifacts. A validated main build publishes a new
+version as a separate Android prerelease, with the APK, screenshot and checksum.
+The desktop/Termux stable release remains the default Latest release. Existing
+Android preview assets are never replaced, preserving their signing identity.

@@ -31,7 +31,10 @@ For a public release, the owner must retain a private release keystore so future
 updates keep the same signing identity. Keystores are never committed.
 
 The Android APK workflow builds a downloadable artifact for each PR and main
-push touching this project. It does not publish a release automatically.
+push touching this project. A validated main build publishes a new version as a
+separate Android prerelease with an APK, checksum and screenshot. Existing
+version assets are not replaced, and the stable desktop/Termux Latest release
+is preserved. Increment versionCode and versionName together for a new APK.
 
 ## Ownership and dependencies
 

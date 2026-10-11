@@ -55,7 +55,7 @@ import zipfile
 # ═══════════════════════════════════════════════════════════════════════
 
 APP_NAME = "Blaze"
-VERSION = "4.1.25"
+VERSION = "4.1.26"
 DEFAULT_WORKERS = 4
 DEFAULT_FRAGMENTS = 8
 DEFAULT_OUTPUT = Path.home() / "Blaze"

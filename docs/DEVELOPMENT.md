@@ -26,10 +26,12 @@ Run the tests in a Python environment with Rich, yt-dlp and FFmpeg available:
 python tests/Blaze-Regression-Tests.py
 python tests/Blaze-Reliability-Tests.py
 python tests/Blaze-Integration-Tests.py
+python tests/Blaze-Termux-Tests.py
+python tests/Blaze-Mobile-Tests.py
 python tools/package_installers.py --check
 ```
 
-Installer sources are in `installers/windows-installer/`, `installers/macos-installer/` and `installers/linux-installer/`. Download only media you are
+Installer sources are in `installers/windows-installer/`, `installers/macos-installer/`, `installers/linux-installer/` and `installers/termux-installer/`. Download only media you are
 permitted to download.
 
 ## Project map
@@ -45,5 +47,19 @@ permitted to download.
 | `installers/windows-installer/` | Windows installer sources |
 | `installers/macos-installer/` | macOS installer sources |
 | `installers/linux-installer/` | Linux installer sources |
+| `installers/termux-installer/` | Experimental Android / Termux installer |
+| `android/` | Native Android APK preview and embedded downloader |
+| `tests/Blaze-Termux-Tests.py` | Android dependency selection and packaging safety |
+| `tests/Blaze-Mobile-Tests.py` | APK backend URL, playlist, format and cancellation safety |
 | `downloads/` | Ready-to-download installer ZIPs |
 | `tools/build.py`, `tools/blaze.spec` | Legacy standalone build tools |
+
+## Android APK checks
+
+The [APK workflow](https://github.com/Brooth-C/blaze/actions/workflows/android-apk.yml)
+uses JDK 17, Python 3.12 and Android SDK 35. It runs backend tests, Android lint,
+APK compilation, Android 10 emulator startup and embedded-runtime checks, and
+captures the foreground app. See [android/README.md](../android/README.md).
+Main builds publish immutable versioned Android prereleases after these checks;
+pull requests produce temporary artifacts. Physical-phone testing and broad
+public-service compatibility remain outstanding.

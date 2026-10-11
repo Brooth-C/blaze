@@ -62,6 +62,20 @@ Python 3.13, dependencies, FFmpeg and aria2c install privately under `~/Blaze`.
 No sudo or shell-profile edits are required. Close Blaze and rerun the newer
 installer to upgrade while preserving settings and downloads.
 
+## Android app (APK preview)
+
+Install the [Android APK](https://github.com/Brooth-C/blaze/releases/download/android-v0.1.0-preview/Blaze-Android-Preview.apk) on an Android 7+ ARM64 phone, then open **Blaze**. Python is included and Termux is not required. Use **Save a copy…** to export completed downloads before uninstalling the app.
+
+The APK is a debug-signed preview with original-format audio and single-stream
+video; conversion, separate-stream merging and playlists are not included.
+See the [APK guide](ANDROID-APK.md) for limitations, signing and update details.
+
+## Android / Termux (experimental)
+
+Use the [Termux guide](ANDROID.md) for the full terminal application. Its Python,
+FFmpeg and aria2 packages come from Termux. Android does not use the desktop
+Linux installer. Physical-device validation remains outstanding.
+
 ## Run from source
 
 Requires an existing Python 3.10+ interpreter:

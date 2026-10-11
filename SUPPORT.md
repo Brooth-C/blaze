@@ -1,8 +1,23 @@
 # Getting help with Blaze
 
 Start with the platform setup instructions in [README.md](README.md).
-Run your installed launcher with `--help` for available options and `--version`
-to identify the application version.
+For desktop/Termux, run your installed launcher with `--help` for available
+options and `--version` to identify the application version. For the Android
+APK, open **About Blaze** and follow the [APK guide](docs/ANDROID-APK.md).
+
+## Android APK preview
+
+Paste a complete HTTPS link to a single item. If a service needs conversion,
+separate video/audio merging, playlists, login or JavaScript, try the Termux
+version instead. Check the error shown in the app. Use **Save a copy…** to keep
+completed files outside Blaze before uninstalling. Different debug-build keys
+can prevent an in-place update; export your files before removing an old build.
+
+Include your Android version, device architecture, APK version, affected
+service, and the steps you tapped when reporting a bug. The preview is not yet
+validated on physical phones.
+
+## Desktop and Termux
 
 If setup fails, keep the terminal open and read the first error. Extract the
 whole installer ZIP, check your internet connection, and rerun setup after
