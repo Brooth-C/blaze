@@ -22,7 +22,10 @@ chaquopy {
     }
 }
 dependencies {
-    implementation 'org.videolan.android:libvlc-all:3.7.7'
+    // CI keeps the upstream Java bindings and replaces GPL native binaries with our LGPL-only build.
+    implementation files('libs/libvlc-java.aar')
+    implementation 'androidx.legacy:legacy-support-v4:1.0.0'
+    implementation 'org.jetbrains.kotlin:kotlin-stdlib:2.2.10'
     implementation 'androidx.core:core:1.15.0'
     implementation 'androidx.media3:media3-exoplayer:1.11.1'
     implementation 'androidx.media3:media3-ui:1.11.1'

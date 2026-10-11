@@ -5,7 +5,7 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROCESSING" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
-    <application android:label="Blaze" android:icon="@drawable/blaze_logo" android:theme="@style/BlazeTheme" android:allowBackup="false" android:supportsRtl="true" android:usesCleartextTraffic="false" android:extractNativeLibs="true">
+    <application android:label="Blaze" android:icon="@mipmap/ic_launcher" android:theme="@style/BlazeTheme" android:allowBackup="false" android:supportsRtl="true" android:usesCleartextTraffic="false" android:extractNativeLibs="true">
         <activity android:name=".MainActivity" android:exported="true">
             <intent-filter><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/></intent-filter>
             <intent-filter><action android:name="android.intent.action.SEND"/><category android:name="android.intent.category.DEFAULT"/><data android:mimeType="text/plain"/></intent-filter>

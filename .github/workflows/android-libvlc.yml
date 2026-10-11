@@ -1,0 +1,37 @@
+name: Build embedded LGPL LibVLC
+on:
+  workflow_call:
+permissions:
+  contents: read
+jobs:
+  libvlc:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        abi: [arm64-v8a, x86_64]
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-java@v6.0.1
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v4.0.4
+      - uses: actions/cache@v5.0.0
+        id: cache
+        with:
+          path: build/libvlc-${{ matrix.abi }}/output
+          key: libvlc-lgpl-3.7.7-${{ matrix.abi }}-${{ hashFiles('tools/build_android_libvlc.sh') }}
+      - name: Build LGPL-only codecs and collect corresponding source
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential autoconf automake libtool autopoint gettext pkg-config cmake ninja-build nasm yasm curl git zip unzip ant python3
+          sdkmanager 'ndk;29.0.14206865'
+          ANDROID_NDK="$ANDROID_HOME/ndk/29.0.14206865" bash tools/build_android_libvlc.sh '${{ matrix.abi }}'
+      - uses: actions/upload-artifact@v7.0.2
+        with:
+          name: Blaze-LibVLC-${{ matrix.abi }}
+          path: build/libvlc-${{ matrix.abi }}/output/
+          retention-days: 30

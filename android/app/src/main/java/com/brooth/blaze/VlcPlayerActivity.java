@@ -9,6 +9,7 @@ import android.os.*;
 import android.view.View;
 import android.widget.*;
 import androidx.core.view.*;
+import androidx.core.content.ContextCompat;
 import org.videolan.libvlc.*;
 import org.videolan.libvlc.util.VLCVideoLayout;
 import java.io.IOException;
