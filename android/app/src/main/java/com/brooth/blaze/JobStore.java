@@ -14,7 +14,8 @@ public final class JobStore extends SQLiteOpenHelper {
         public long created, updated;
         public float progress;
     }
-    public JobStore(Context context) { super(context.getApplicationContext(),"blaze-jobs.db",null,1); }
+    public JobStore(Context context) { this(context,"blaze-jobs.db"); }
+    JobStore(Context context,String name) { super(context.getApplicationContext(),name,null,1); }
     @Override public void onCreate(SQLiteDatabase db) {
         db.execSQL("CREATE TABLE jobs (id TEXT PRIMARY KEY, url TEXT NOT NULL, mode TEXT NOT NULL, options TEXT NOT NULL, state TEXT NOT NULL, title TEXT NOT NULL, path TEXT NOT NULL DEFAULT '', error TEXT NOT NULL DEFAULT '', progress REAL NOT NULL DEFAULT -1, created INTEGER NOT NULL, updated INTEGER NOT NULL)");
         db.execSQL("CREATE INDEX queue_order ON jobs(state,created)");
@@ -40,7 +41,7 @@ public final class JobStore extends SQLiteOpenHelper {
     private int countPending(SQLiteDatabase db) { try(Cursor c=db.rawQuery("SELECT COUNT(*) FROM jobs WHERE state IN ('queued','running','paused','interrupted')",null)) { c.moveToFirst();return c.getInt(0); } }
     public synchronized Job claimNext() {
         SQLiteDatabase db=getWritableDatabase();db.beginTransaction();
-        try(Cursor c=db.query("jobs",null,"state='queued'",null,null,null,"created ASC,id ASC","1")) {
+        try(Cursor c=db.query("jobs",null,"state='queued'",null,null,null,"created ASC,rowid ASC","1")) {
             if(!c.moveToFirst())return null;
             Job job=read(c);ContentValues v=new ContentValues();v.put("state","running");v.put("error","");v.put("progress",-1);v.put("updated",System.currentTimeMillis());
             db.update("jobs",v,"id=? AND state='queued'",new String[]{job.id});db.setTransactionSuccessful();job.state="running";return job;
@@ -75,7 +76,7 @@ public final class JobStore extends SQLiteOpenHelper {
     public synchronized void resumePending() {ContentValues v=new ContentValues();v.put("state","queued");getWritableDatabase().update("jobs",v,"state IN ('paused','interrupted')",null);}
     public synchronized void removeQueued(String id) { getWritableDatabase().delete("jobs","id=? AND state IN ('queued','paused','interrupted')",new String[]{id}); }
     public synchronized List<Job> list() {
-        List<Job> out=new ArrayList<>();try(Cursor c=getReadableDatabase().query("jobs",null,null,null,null,null,"CASE state WHEN 'running' THEN 0 WHEN 'queued' THEN 1 ELSE 2 END,CASE WHEN state IN ('queued','running') THEN created ELSE -created END ASC","250")) { while(c.moveToNext())out.add(read(c)); }return out;
+        List<Job> out=new ArrayList<>();try(Cursor c=getReadableDatabase().query("jobs",null,null,null,null,null,"CASE state WHEN 'running' THEN 0 WHEN 'queued' THEN 1 ELSE 2 END,CASE WHEN state IN ('queued','running') THEN created ELSE -updated END ASC,rowid ASC","250")) { while(c.moveToNext())out.add(read(c)); }return out;
     }
     public synchronized boolean hasQueued() { try(Cursor c=getReadableDatabase().rawQuery("SELECT 1 FROM jobs WHERE state='queued' LIMIT 1",null)) { return c.moveToFirst(); } }
     public synchronized boolean deleteCompleted(String id,File root) throws java.io.IOException {

@@ -7,6 +7,7 @@ import threading
 from urllib.parse import urlsplit
 from yt_dlp import YoutubeDL
 from yt_dlp.postprocessor import ffmpeg as ffmpeg_module
+from yt_dlp.extractor.youtube.jsc._builtin import quickjs as quickjs_module
 
 
 class DownloadCancelled(Exception):
@@ -53,6 +54,7 @@ class CancellablePopen(_original_popen):
 
 
 ffmpeg_module.Popen = CancellablePopen
+quickjs_module.Popen = CancellablePopen
 
 
 def cancel(token):
@@ -189,15 +191,19 @@ def download(url, mode, directory, callback, options_json='{}', ffmpeg_path='', 
             if info.get('_type') in ('playlist', 'multi_video'):
                 if not playlist:
                     raise ValueError('Enable playlist mode to queue this playlist.')
+                raw_entries=list(info.get('entries') or [])
+                reported_count=info.get('playlist_count') or info.get('n_entries') or 0
+                if len(raw_entries)>200 or isinstance(reported_count,int) and reported_count>200:
+                    raise ValueError('Playlists are limited to 200 entries. Split this playlist into smaller lists.')
                 entries = []
                 seen = set()
-                for entry in info.get('entries') or []:
+                for entry in raw_entries:
                     session.check()
                     if len(entries) >= 200:
                         raise ValueError('Playlists are limited to 200 items. Use a smaller playlist.')
                     if not entry:
                         continue
-                    candidate = entry.get('webpage_url') or entry.get('url')
+                    candidate = entry.get('url') if entry.get('_type') in ('url','url_transparent') else entry.get('webpage_url') or entry.get('url')
                     if candidate:
                         try:
                             candidate = validate_url(candidate)

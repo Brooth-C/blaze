@@ -90,7 +90,7 @@ public class MainActivity extends Activity {
     private void resume() {
         store.resumePending();
         if(!store.hasQueued()&&!DownloadService.busy){message("No queued items. Retry stopped or failed items from History.");return;}
-        if(Build.VERSION.SDK_INT>=33&&checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)!=android.content.pm.PackageManager.PERMISSION_GRANTED)requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS},2);
+        if(Build.VERSION.SDK_INT>=33&&checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)!=android.content.pm.PackageManager.PERMISSION_GRANTED&&!getPreferences(MODE_PRIVATE).getBoolean("notificationAsked",false)){getPreferences(MODE_PRIVATE).edit().putBoolean("notificationAsked",true).apply();requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS},2);}
         try {Intent intent=new Intent(this,DownloadService.class).setAction("RESUME");if(Build.VERSION.SDK_INT>=26)startForegroundService(intent);else startService(intent);}
         catch(RuntimeException error){message("Android could not start the queue. Your items are saved; open Blaze and try again.");}
     }
