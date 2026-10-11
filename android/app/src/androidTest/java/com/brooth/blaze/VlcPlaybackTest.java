@@ -26,12 +26,16 @@ public class VlcPlaybackTest {
             store.finish(id,"complete","HEVC MKV demo",file.getAbsolutePath(),"");
         }
         android.net.Uri selected=androidx.core.content.FileProvider.getUriForFile(app,app.getPackageName()+".files",file);
+        android.media.AudioManager audio=app.getSystemService(android.media.AudioManager.class);
+        AtomicBoolean focusStolen=new AtomicBoolean();android.media.AudioManager.OnAudioFocusChangeListener music=change->{if(change<0)focusStolen.set(true);};
         try{
         try(ActivityScenario<VlcPlayerActivity> screen=ActivityScenario.launch(new Intent(app,VlcPlayerActivity.class).putExtra("job",id).putExtra("software",true))){
             ready(screen,true);
             screen.onActivity(a->{assertTrue(a.player.isPlaying());assertTrue(a.player.getAudioTracksCount()>0);assertTrue(a.player.getVideoTracksCount()>0);assertEquals(320,a.player.getCurrentVideoTrack().width);a.toggle.performClick();a.player.setTime(1500);});
+            assertEquals(android.media.AudioManager.AUDIOFOCUS_REQUEST_GRANTED,audio.requestAudioFocus(music,android.media.AudioManager.STREAM_MUSIC,android.media.AudioManager.AUDIOFOCUS_GAIN));
             Thread.sleep(250);screen.recreate();ready(screen,false);
             screen.onActivity(a->{assertTrue(a.player.getTime()>=1200);assertFalse(a.player.isPlaying());});
+            Thread.sleep(200);assertFalse("Restoring a paused video must not interrupt other audio",focusStolen.get());
             android.graphics.Bitmap image=null;boolean rendered=false;android.graphics.Rect bounds=new android.graphics.Rect();
             for(int attempt=0;attempt<40&&!rendered;attempt++){
                 screen.onActivity(a->{int[] location=new int[2];a.video.getLocationOnScreen(location);bounds.set(location[0],location[1],location[0]+a.video.getWidth(),location[1]+a.video.getHeight());});
@@ -44,6 +48,7 @@ public class VlcPlaybackTest {
             screen.moveToState(Lifecycle.State.CREATED);screen.onActivity(a->assertNull(a.player));
             screen.moveToState(Lifecycle.State.RESUMED);ready(screen,false);
         }
+        audio.abandonAudioFocus(music);
         try(ActivityScenario<VlcPlayerActivity> selectedFile=ActivityScenario.launch(new Intent(app,VlcPlayerActivity.class).setData(selected).putExtra("software",true))){
             ready(selectedFile,true);
             selectedFile.onActivity(a->{assertEquals(320,a.player.getCurrentVideoTrack().width);assertTrue(a.player.getAudioTracksCount()>0);});
@@ -51,6 +56,7 @@ public class VlcPlaybackTest {
             selectedFile.moveToState(Lifecycle.State.RESUMED);ready(selectedFile,true);
         }
         }finally{
+            audio.abandonAudioFocus(music);
             try(JobStore store=new JobStore(app)){store.getWritableDatabase().delete("jobs","id=?",new String[]{id});}
             file.delete();directory.delete();app.getSharedPreferences("playback",Context.MODE_PRIVATE).edit().remove(id).remove("document:"+selected).apply();
         }

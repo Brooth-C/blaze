@@ -87,7 +87,7 @@ public class VlcPlayerActivity extends Activity {
         ViewCompat.setOnApplyWindowInsetsListener(root,(v,insets)->{androidx.core.graphics.Insets safe=insets.getInsets(WindowInsetsCompat.Type.systemBars()|WindowInsetsCompat.Type.displayCutout());v.setPadding(safe.left,safe.top,safe.right,safe.bottom);return insets;});
         if(Build.VERSION.SDK_INT>=33)getOnBackInvokedDispatcher().registerOnBackInvokedCallback(android.window.OnBackInvokedDispatcher.PRIORITY_DEFAULT,this::back);
     }
-    private Button button(LinearLayout parent,String text,Runnable action){Button b=new Button(this);b.setText(text);b.setTextSize(12);b.setTextAllCaps(false);b.setMinWidth(0);b.setMinimumWidth(0);b.setMinHeight((int)(48*getResources().getDisplayMetrics().density));b.setOnClickListener(v->action.run());parent.addView(b,parent.getOrientation()==LinearLayout.HORIZONTAL?new LinearLayout.LayoutParams(0,-2,1):new LinearLayout.LayoutParams(-1,-2));return b;}
+    private Button button(LinearLayout parent,String text,Runnable action){Button b=new Button(this);b.setText(text);b.setTextSize(12);b.setAllCaps(false);b.setMinWidth(0);b.setMinimumWidth(0);b.setMinHeight((int)(48*getResources().getDisplayMetrics().density));b.setOnClickListener(v->action.run());parent.addView(b,parent.getOrientation()==LinearLayout.HORIZONTAL?new LinearLayout.LayoutParams(0,-2,1):new LinearLayout.LayoutParams(-1,-2));return b;}
     private void start(){
         if((source==null&&document==null)||player!=null||opening||isFinishing())return;
         if(document!=null){
@@ -114,7 +114,7 @@ public class VlcPlayerActivity extends Activity {
                         if(pendingSeek){pendingSeek=false;if(position>0)player.setTime(position);player.setRate(speed);}
                         if(!foreground||!resume||!wantedResume){player.pause();status.setText("Paused");video.setKeepScreenOn(false);break;}
                         status.setText("Playing in Blaze · LibVLC");video.setKeepScreenOn(player.getCurrentVideoTrack()!=null);break;
-                    case MediaPlayer.Event.Paused: status.setText("Paused");video.setKeepScreenOn(false);break;
+                    case MediaPlayer.Event.Paused: player.setVolume(100);status.setText("Paused");video.setKeepScreenOn(false);break;
                     case MediaPlayer.Event.EndReached:
                         position=0;ended=!repeat;video.setKeepScreenOn(false);
                         getSharedPreferences("playback",MODE_PRIVATE).edit().remove(mediaId).apply();
@@ -131,7 +131,7 @@ public class VlcPlayerActivity extends Activity {
         }catch(IOException|RuntimeException|UnsatisfiedLinkError error){release();status.setText("Blaze could not open this file. Try again.");}
     }
     private void play(){resume=true;wantedResume=true;beginPlayback();}
-    @SuppressWarnings("deprecation") private void beginPlayback(){if(player==null)return;focusGranted=audio.requestAudioFocus(focus,AudioManager.STREAM_MUSIC,AudioManager.AUDIOFOCUS_GAIN)==AudioManager.AUDIOFOCUS_REQUEST_GRANTED;if(focusGranted)player.play();else status.setText("Audio is in use by another app. Try Play again.");}
+    @SuppressWarnings("deprecation") private void beginPlayback(){if(player==null)return;if(!resume){player.setVolume(0);player.play();return;}focusGranted=audio.requestAudioFocus(focus,AudioManager.STREAM_MUSIC,AudioManager.AUDIOFOCUS_GAIN)==AudioManager.AUDIOFOCUS_REQUEST_GRANTED;if(focusGranted){player.setVolume(100);player.play();}else status.setText("Audio is in use by another app. Try Play again.");}
     private void pause(){resume=false;wantedResume=false;if(player!=null){player.pause();video.setKeepScreenOn(false);}}
     private void skip(long amount){if(player!=null)player.setTime(Math.max(0,Math.min(player.getLength(),player.getTime()+amount)));}
     private void tracks(){if(player==null)return;new AlertDialog.Builder(this).setTitle("Tracks").setItems(new String[]{"Audio","Subtitles"},(d,i)->{
