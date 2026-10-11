@@ -90,5 +90,17 @@ class MobileIntegration(unittest.TestCase):
         self.assertEqual(decoded.returncode,0,decoded.stderr.decode())
         self.assertEqual(list((self.folder/'merge').glob('*.part')),[])
 
+    def test_stopped_conversion_can_retry_existing_source(self):
+        class StopProcessing(Callback):
+            stopped=False
+            def isCancelled(self):return self.stopped
+            def onProgress(self,percent,message):
+                if 'Converting' in message:self.stopped=True
+        output=self.folder/'retry'
+        with self.assertRaises(b.DownloadCancelled):b.download(self.base+'/fixture-audio.wav','audio',str(output),StopProcessing(),'{"audio":"mp3"}',self.ffmpeg,token='stop-processing')
+        self.assertTrue((output/'source.wav').is_file())
+        result=json.loads(b.download(self.base+'/fixture-audio.wav','audio',str(output),Callback(),'{"audio":"mp3"}',self.ffmpeg,token='retry-processing'))
+        self.assertTrue(result['path'].endswith('.mp3'));self.assertGreater(Path(result['path']).stat().st_size,100)
+
 
 if __name__=='__main__':unittest.main()

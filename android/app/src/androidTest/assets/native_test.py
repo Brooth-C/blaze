@@ -14,7 +14,7 @@ with YoutubeDL({'ffmpeg_location':ffmpeg_path,'quiet':True,'no_warnings':True}) 
     probe=subprocess.run([ffprobe_path,'-v','error','-show_entries','stream=codec_name','-of','json',str(result)],check=True,capture_output=True,text=True)
     assert json.loads(probe.stdout)['streams'][0]['codec_name']=='mp3'
     merged=folder/'merged.mkv'
-    merge_info={'filepath':str(merged),'ext':'mkv','requested_formats':[{'vcodec':'h264','acodec':'none'},{'vcodec':'none','acodec':'pcm_s16le'}],'__files_to_merge':[str(folder/'fixture-video.mp4'),str(audio)]}
+    merge_info={'filepath':str(merged),'ext':'mkv','requested_formats':[{'vcodec':'h264','acodec':'none','protocol':'file'},{'vcodec':'none','acodec':'pcm_s16le','protocol':'file'}],'__files_to_merge':[str(folder/'fixture-video.mp4'),str(audio)]}
     FFmpegMergerPP(downloader).run(merge_info)
     probe=subprocess.run([ffprobe_path,'-v','error','-show_entries','stream=codec_type','-of','json',str(merged)],check=True,capture_output=True,text=True)
     assert {stream['codec_type'] for stream in json.loads(probe.stdout)['streams']}=={'video','audio'}

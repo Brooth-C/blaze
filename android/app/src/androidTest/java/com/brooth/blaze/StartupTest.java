@@ -11,6 +11,12 @@ import static org.junit.Assert.*;
 
 @RunWith(AndroidJUnit4.class)
 public class StartupTest {
+    @Test public void formatAndPlaylistChoicesSurviveRotation(){
+        try(ActivityScenario<MainActivity> scenario=ActivityScenario.launch(MainActivity.class)){
+            scenario.onActivity(activity->{((android.widget.EditText)activity.findViewById(R.id.url_input)).setText("https://example.test/item");((android.widget.RadioGroup)activity.findViewById(R.id.download_mode)).check(R.id.audio_mode);((android.widget.Spinner)activity.findViewById(R.id.audio_choice)).setSelection(3);((android.widget.CheckBox)activity.findViewById(R.id.playlist_choice)).setChecked(true);});
+            scenario.recreate();scenario.onActivity(activity->{assertEquals("https://example.test/item",((android.widget.EditText)activity.findViewById(R.id.url_input)).getText().toString());assertEquals(R.id.audio_mode,((android.widget.RadioGroup)activity.findViewById(R.id.download_mode)).getCheckedRadioButtonId());assertEquals(3,((android.widget.Spinner)activity.findViewById(R.id.audio_choice)).getSelectedItemPosition());assertTrue(((android.widget.CheckBox)activity.findViewById(R.id.playlist_choice)).isChecked());});
+        }
+    }
     @Test public void screenOpensAndEmbeddedRuntimeLoads() {
         try (ActivityScenario<MainActivity> scenario=ActivityScenario.launch(MainActivity.class)) {
             scenario.onActivity(activity -> assertNotNull(activity.findViewById(R.id.url_input)));

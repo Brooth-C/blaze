@@ -50,4 +50,10 @@ public class QueueStoreTest {
         assertEquals(120,store.count(2));assertEquals(50,store.page(2,0).size());assertEquals(50,store.page(2,50).size());assertEquals(20,store.page(2,100).size());
         Set<String> ids=new HashSet<>();for(int page=0;page<3;page++)for(JobStore.Job job:store.page(2,page*50))assertTrue(ids.add(job.id));assertEquals(120,ids.size());
     }
+    @Test public void removingQueuedItemKeepsUnrelatedFiles()throws Exception{
+        java.io.File root=new java.io.File(context.getCacheDir(),"remove-test-"+UUID.randomUUID());assertTrue(root.mkdirs());
+        String id=store.enqueue("https://example.test/remove","video","{}","Remove");java.io.File partialDirectory=new java.io.File(root,id);assertTrue(partialDirectory.mkdir());java.io.File partial=new java.io.File(partialDirectory,"source.part");try(java.io.FileOutputStream out=new java.io.FileOutputStream(partial)){out.write(1);}
+        java.io.File keep=new java.io.File(root,"keep.mp4");try(java.io.FileOutputStream out=new java.io.FileOutputStream(keep)){out.write(2);}
+        store.removeQueued(id,root);assertFalse(partialDirectory.exists());assertTrue(keep.exists());assertEquals(0,store.count(0));assertTrue(keep.delete());assertTrue(root.delete());
+    }
 }

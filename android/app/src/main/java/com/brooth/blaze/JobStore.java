@@ -15,7 +15,7 @@ public final class JobStore extends SQLiteOpenHelper {
         public float progress;
     }
     public JobStore(Context context) { this(context,"blaze-jobs.db"); }
-    JobStore(Context context,String name) { super(context.getApplicationContext(),name,null,1); }
+    JobStore(Context context,String name) { super(context.getApplicationContext(),name,null,1);setWriteAheadLoggingEnabled(true); }
     @Override public void onCreate(SQLiteDatabase db) {
         db.execSQL("CREATE TABLE jobs (id TEXT PRIMARY KEY, url TEXT NOT NULL, mode TEXT NOT NULL, options TEXT NOT NULL, state TEXT NOT NULL, title TEXT NOT NULL, path TEXT NOT NULL DEFAULT '', error TEXT NOT NULL DEFAULT '', progress REAL NOT NULL DEFAULT -1, created INTEGER NOT NULL, updated INTEGER NOT NULL)");
         db.execSQL("CREATE INDEX queue_order ON jobs(state,created)");
@@ -74,7 +74,21 @@ public final class JobStore extends SQLiteOpenHelper {
         getWritableDatabase().update("jobs",v,"id=? AND state IN ('failed','stopped','interrupted')",new String[]{id});
     }
     public synchronized void resumePending() {ContentValues v=new ContentValues();v.put("state","queued");getWritableDatabase().update("jobs",v,"state IN ('paused','interrupted')",null);}
-    public synchronized void removeQueued(String id) { getWritableDatabase().delete("jobs","id=? AND state IN ('queued','paused','interrupted')",new String[]{id}); }
+    public synchronized void removeQueued(String id,File root)throws java.io.IOException {
+        SQLiteDatabase db=getWritableDatabase();db.beginTransaction();
+        try(Cursor c=db.query("jobs",new String[]{"state"},"id=? AND state IN ('queued','paused','interrupted')",new String[]{id},null,null,null,"1")) {
+            if(!c.moveToFirst())return;
+            if(!UUID.fromString(id).toString().equals(id))throw new java.io.IOException("Invalid queue item");
+            File canonical=root.getCanonicalFile();deleteOwnedTree(new File(canonical,id),canonical);
+            db.delete("jobs","id=? AND state IN ('queued','paused','interrupted')",new String[]{id});db.setTransactionSuccessful();
+        }finally{db.endTransaction();}
+    }
+    private void deleteOwnedTree(File file,File root)throws java.io.IOException {
+        if(!file.exists())return;
+        if(!file.getCanonicalPath().startsWith(root.getCanonicalPath()+File.separator))throw new java.io.IOException("Unsafe partial-file path");
+        if(file.getAbsoluteFile().equals(file.getCanonicalFile())&&file.isDirectory()){File[] children=file.listFiles();if(children==null)throw new java.io.IOException("Storage unavailable");for(File child:children)deleteOwnedTree(child,root);}
+        if(!file.delete())throw new java.io.IOException("Could not remove partial files");
+    }
     public synchronized List<Job> list() {
         List<Job> out=new ArrayList<>();try(Cursor c=getReadableDatabase().query("jobs",null,null,null,null,null,"CASE state WHEN 'running' THEN 0 WHEN 'queued' THEN 1 ELSE 2 END,CASE WHEN state IN ('queued','running') THEN created ELSE -updated END ASC,rowid ASC","250")) { while(c.moveToNext())out.add(read(c)); }return out;
     }
