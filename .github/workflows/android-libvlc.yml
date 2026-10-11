@@ -3,6 +3,7 @@ on:
   workflow_call:
 permissions:
   contents: read
+  actions: read
 jobs:
   libvlc:
     runs-on: ubuntu-24.04
@@ -23,13 +24,39 @@ jobs:
         with:
           path: build/libvlc-${{ matrix.abi }}/output
           key: libvlc-lgpl-3.7.7-${{ matrix.abi }}-${{ hashFiles('tools/build_android_libvlc.sh') }}
+      - name: Reuse validated pull-request decoder build after merge
+        id: validated
+        if: steps.cache.outputs.cache-hit != 'true' && github.event_name == 'push' && github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          PR_HEAD=$(gh api "repos/$GH_REPO/commits/$GITHUB_SHA/pulls" --jq ".[] | select(.merged_at != null and .merge_commit_sha == \"$GITHUB_SHA\" and .head.repo.full_name == \"$GH_REPO\") | .head.sha" | head -n 1)
+          if [[ ! "$PR_HEAD" =~ ^[0-9a-f]{40}$ ]]; then exit 0; fi
+          RUN=$(gh api "repos/$GH_REPO/actions/workflows/android-apk.yml/runs?head_sha=$PR_HEAD&event=pull_request&status=success&per_page=10" --jq ".workflow_runs[] | select(.head_sha == \"$PR_HEAD\" and .conclusion == \"success\") | .id" | head -n 1)
+          if [[ ! "$RUN" =~ ^[0-9]+$ ]]; then exit 0; fi
+          gh run download "$RUN" --name 'Blaze-LibVLC-${{ matrix.abi }}' --dir 'build/libvlc-${{ matrix.abi }}/output'
+          EXPECTED=$(sha256sum tools/build_android_libvlc.sh | cut -d ' ' -f 1)
+          test "$(cat 'build/libvlc-${{ matrix.abi }}/output/BUILD-SCRIPT-SHA256')" = "$EXPECTED"
+          (cd 'build/libvlc-${{ matrix.abi }}/output' && sha256sum --check SHA256SUMS-LIBVLC.txt)
+          echo 'reused=true' >> "$GITHUB_OUTPUT"
       - name: Build LGPL-only codecs and collect corresponding source
-        if: steps.cache.outputs.cache-hit != 'true'
+        if: steps.cache.outputs.cache-hit != 'true' && steps.validated.outputs.reused != 'true'
         run: |
           sudo apt-get update
-          sudo apt-get install -y build-essential autoconf automake libtool-bin autopoint gettext pkg-config cmake ninja-build nasm yasm curl git zip unzip ant python3 flex bison ragel protobuf-compiler subversion
+          sudo apt-get install -y build-essential autoconf automake libtool-bin autopoint gettext pkg-config cmake ninja-build nasm yasm curl git zip unzip ant python3 flex bison ragel protobuf-compiler subversion gperf python3-mako python3-ply
           sdkmanager 'ndk;29.0.14206865'
-          ANDROID_NDK="$ANDROID_HOME/ndk/29.0.14206865" bash tools/build_android_libvlc.sh '${{ matrix.abi }}'
+          # Use Ubuntu's Ninja instead of the runner's newer jobserver-sensitive build.
+          PATH="/usr/bin:$PATH" ANDROID_NDK="$ANDROID_HOME/ndk/29.0.14206865" bash tools/build_android_libvlc.sh '${{ matrix.abi }}'
+      - name: Record decoder build provenance and integrity
+        shell: bash
+        run: |
+          test -s 'build/libvlc-${{ matrix.abi }}/output/jniLibs/${{ matrix.abi }}/libvlc.so'
+          sha256sum tools/build_android_libvlc.sh | cut -d ' ' -f 1 > 'build/libvlc-${{ matrix.abi }}/output/BUILD-SCRIPT-SHA256'
+          cd 'build/libvlc-${{ matrix.abi }}/output'
+          find . -type f ! -name SHA256SUMS-LIBVLC.txt -print0 | sort -z | xargs -0 sha256sum > SHA256SUMS-LIBVLC.txt
       - uses: actions/upload-artifact@v7.0.2
         with:
           name: Blaze-LibVLC-${{ matrix.abi }}

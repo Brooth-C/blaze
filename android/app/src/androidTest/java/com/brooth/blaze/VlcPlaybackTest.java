@@ -26,20 +26,29 @@ public class VlcPlaybackTest {
             store.finish(id,"complete","HEVC MKV demo",file.getAbsolutePath(),"");
         }
         try(ActivityScenario<VlcPlayerActivity> screen=ActivityScenario.launch(new Intent(app,VlcPlayerActivity.class).putExtra("job",id).putExtra("software",true))){
-            ready(screen);
-            screen.onActivity(a->{assertTrue(a.player.getAudioTracksCount()>0);assertTrue(a.player.getVideoTracksCount()>0);assertEquals(320,a.player.getCurrentVideoTrack().width);a.player.pause();a.player.setTime(1500);});
-            Thread.sleep(250);screen.recreate();ready(screen);
-            screen.onActivity(a->{assertTrue(a.player.getTime()>=1200);});
+            ready(screen,true);
+            screen.onActivity(a->{assertTrue(a.player.isPlaying());assertTrue(a.player.getAudioTracksCount()>0);assertTrue(a.player.getVideoTracksCount()>0);assertEquals(320,a.player.getCurrentVideoTrack().width);a.toggle.performClick();a.player.setTime(1500);});
+            Thread.sleep(250);screen.recreate();ready(screen,false);
+            screen.onActivity(a->{assertTrue(a.player.getTime()>=1200);assertFalse(a.player.isPlaying());});
+            android.graphics.Bitmap image=null;boolean rendered=false;android.graphics.Rect bounds=new android.graphics.Rect();
+            for(int attempt=0;attempt<40&&!rendered;attempt++){
+                screen.onActivity(a->{int[] location=new int[2];a.video.getLocationOnScreen(location);bounds.set(location[0],location[1],location[0]+a.video.getWidth(),location[1]+a.video.getHeight());});
+                if(image!=null)image.recycle();image=InstrumentationRegistry.getInstrumentation().getUiAutomation().takeScreenshot();assertNotNull(image);
+                int colored=0;for(int y=Math.max(0,bounds.top);y<Math.min(image.getHeight(),bounds.bottom);y++)for(int x=Math.max(0,bounds.left);x<Math.min(image.getWidth(),bounds.right);x++){int color=image.getPixel(x,y);if(android.graphics.Color.red(color)>150&&android.graphics.Color.red(color)>android.graphics.Color.blue(color)*2)colored++;}
+                rendered=colored>100;if(!rendered)Thread.sleep(100);
+            }
+            assertTrue("HEVC video must render, not only play its audio",rendered);
+            try(OutputStream out=new FileOutputStream(new File(app.getFilesDir(),"Blaze-VLC-Player.png"))){assertTrue(image.compress(android.graphics.Bitmap.CompressFormat.PNG,100,out));}finally{image.recycle();}
             screen.moveToState(Lifecycle.State.CREATED);screen.onActivity(a->assertNull(a.player));
-            screen.moveToState(Lifecycle.State.RESUMED);ready(screen);
+            screen.moveToState(Lifecycle.State.RESUMED);ready(screen,false);
         }finally{
             try(JobStore store=new JobStore(app)){store.getWritableDatabase().delete("jobs","id=?",new String[]{id});}
             file.delete();directory.delete();app.getSharedPreferences("playback",Context.MODE_PRIVATE).edit().remove(id).apply();
         }
     }
-    private void ready(ActivityScenario<VlcPlayerActivity> screen)throws Exception{
+    private void ready(ActivityScenario<VlcPlayerActivity> screen,boolean playing)throws Exception{
         long until=System.currentTimeMillis()+20000;AtomicBoolean ready=new AtomicBoolean();
-        while(!ready.get()&&System.currentTimeMillis()<until){screen.onActivity(a->ready.set(a.player!=null&&a.player.getTime()>100&&a.player.getCurrentVideoTrack()!=null));Thread.sleep(50);}
+        while(!ready.get()&&System.currentTimeMillis()<until){screen.onActivity(a->ready.set(a.player!=null&&a.player.getTime()>100&&a.player.getCurrentVideoTrack()!=null&&a.player.isPlaying()==playing));Thread.sleep(50);}
         assertTrue("LibVLC did not decode the original HEVC MKV",ready.get());
     }
 }
