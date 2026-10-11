@@ -1,25 +1,24 @@
-# Blaze Android 0.2 preview
+# Blaze Android 0.3 preview
 
-Adds the requested queue, history, quality choices, background handling,
-MP3 conversion, high-quality video merging and bounded playlist support.
+Adds an audio/video player inside the Blaze APK, powered by AndroidX Media3/ExoPlayer.
 
-- Persistent, transactional queue with duplicate protection, interrupted-work recovery and 200-entry admission limits.
-- Separate Queue, History and Files views; pagination keeps older records accessible.
-- Original audio, MP3 (192 kbps), M4A, WAV and FLAC; maximum video quality choices through 4K where the site offers them.
-- Native FFmpeg/LAME conversion and MKV stream merging, built from verified source for ARM64/x86_64.
-- QuickJS and bundled ejs for supported extractor JavaScript challenges.
-- Stop-item, pause-queue, resume and retry; stale stop requests cannot cancel a newer job.
-- Foreground progress and Android timeout handling; queue state remains saved when the app rotates or is interrupted.
-- Separate Open/Share actions, foreground document-picker exports, export admission protection and guarded partial/file removal.
-- Legacy file import when the same signing key permits an upgrade.
+- Tap Play on a completed download in Files or History.
+- Play/pause, seek, ten-second skips, playback speed and single-file repeat.
+- Fullscreen video and embedded subtitle controls where tracks are available.
+- Position, speed and pause state survive rotation; saved positions are remembered when reopening a file.
+- Playback releases its decoder and audio focus when you leave the player screen; headphone disconnection pauses playback.
+- Missing, unfinished or out-of-folder files are rejected. Codec failures show a useful error inside the player.
+- Queue/history, quality choices, conversion, stream merging and playlists remain available.
 
-Validation includes backend safety cases, real local HTTPS conversion/merging
-and stopped-conversion retry, Android lint and instrumented Android 10/15 tests
-with synthetic media. Native licenses and the exact corresponding source/build
-archive accompany the release.
+The player is part of Blaze; no separate player app is required. Playback codec
+support depends on the Android device. This version does not include background
+music playback or picture-in-picture. Physical-phone validation remains outstanding.
 
-This remains a debug-signed preview. Physical-phone and broad public-service
-behavior are not established. Live streams, login/cookies and parallel downloads
-are not included. WAV/FLAC do not restore lost source detail. Export media before
-uninstalling an older preview when signing-key differences prevent updating.
-Production releases need an owner-controlled signing key for future upgrades.
+This is a debug-signed preview. Export files before uninstalling an older build
+if signing-key differences prevent updating. An owner-controlled production key
+is needed for reliable future upgrades.
+
+Media3 and its supporting libraries keep their Apache 2.0 licenses. Native
+FFmpeg/LAME/QuickJS licenses and corresponding sources accompany the release.
+
+[Setup and player guide](https://github.com/Brooth-C/blaze/blob/main/docs/ANDROID-APK.md) · [Previous Android release](https://github.com/Brooth-C/blaze/releases/tag/android-v0.2.0-preview)

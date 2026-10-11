@@ -1,3 +1,8 @@
+# Blaze 4.1.28
+
+- Publish Android 0.3 with an inbuilt audio/video player, seeking, playback speed, repeat and fullscreen controls.
+- Update the Android guides and playback-library notices in the installer packages.
+
 # Blaze 4.1.27
 
 - Refresh Android 0.2 download links and third-party native media/runtime notices.

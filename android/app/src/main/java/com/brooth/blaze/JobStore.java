@@ -95,6 +95,11 @@ public final class JobStore extends SQLiteOpenHelper {
         List<Job> out=new ArrayList<>();try(Cursor c=getReadableDatabase().query("jobs",null,null,null,null,null,"CASE state WHEN 'running' THEN 0 WHEN 'queued' THEN 1 ELSE 2 END,CASE WHEN state IN ('queued','running') THEN created ELSE -updated END ASC,rowid ASC","250")) { while(c.moveToNext())out.add(read(c)); }return out;
     }
     private String filterWhere(int filter){return filter==2?"state='complete'":filter==1?"state NOT IN ('queued','running','paused','interrupted')":"state IN ('queued','running','paused','interrupted')";}
+    public synchronized Job completed(String id) {
+        try(Cursor c=getReadableDatabase().query("jobs",null,"id=? AND state='complete'",new String[]{id},null,null,null,"1")) {
+            return c.moveToFirst()?read(c):null;
+        }
+    }
     public synchronized int count(int filter){try(Cursor c=getReadableDatabase().rawQuery("SELECT COUNT(*) FROM jobs WHERE "+filterWhere(filter),null)){c.moveToFirst();return c.getInt(0);}}
     public synchronized List<Job> page(int filter,int offset){List<Job> out=new ArrayList<>();String order=filter==0?"CASE state WHEN 'running' THEN 0 ELSE 1 END,created ASC,rowid ASC":"updated DESC,rowid DESC";try(Cursor c=getReadableDatabase().query("jobs",null,filterWhere(filter),null,null,null,order,Math.max(0,offset)+",50")){while(c.moveToNext())out.add(read(c));}return out;}
     public synchronized void importLegacyFiles(File root)throws java.io.IOException{

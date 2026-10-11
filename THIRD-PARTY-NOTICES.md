@@ -27,6 +27,8 @@ The standalone Android APK embeds Python and yt-dlp using Chaquopy (MIT), and
 uses AndroidX Core (Apache 2.0). These components are covered by their own
 licenses, not Blaze's reserved rights. Complete notice files are included in
 the APK's assets and in the [Android project](https://github.com/Brooth-C/blaze/tree/main/android/app/src/main/assets); the app's About dialog summarizes them.
+Android 0.3 adds AndroidX Media3/ExoPlayer and Guava (Apache 2.0) for inbuilt
+playback; their notices and the Apache license are included in the APK assets.
 Android APK 0.2 also bundles standalone LGPL-only FFmpeg/LAME programs and
 MIT-licensed QuickJS-ng, built from verified upstream sources. Their license
 files are included in the APK and corresponding sources/build instructions

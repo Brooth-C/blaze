@@ -37,7 +37,7 @@ Prefer a terminal on Android? Use the [Termux version](docs/ANDROID.md).
 - Keep downloads on your device and open or export completed files.
 
 Desktop and Termux use a keyboard-controlled terminal dashboard.
-The [Android app](docs/ANDROID-APK.md) has touch controls, history, playlists and
+The [Android app](docs/ANDROID-APK.md) has a built-in audio/video player, touch controls, history, playlists and
 MP3/M4A/WAV/FLAC conversion. It is a debug-signed preview; physical-phone testing
 is still needed.
 

@@ -32,7 +32,7 @@ jobs:
         with:
           packages: platform-tools
       - name: Install SDK
-        run: sdkmanager 'platforms;android-35' 'build-tools;35.0.0'
+        run: sdkmanager 'platforms;android-36' 'build-tools;35.0.0'
       - uses: actions/download-artifact@v8.0.2
         with:
           pattern: Blaze-Native-*
@@ -100,6 +100,8 @@ jobs:
             adb install apk-tests/debug/app-debug.apk
             adb install apk-tests/androidTest/debug/app-debug-androidTest.apk
             adb shell am instrument -w -r com.brooth.blaze.test/androidx.test.runner.AndroidJUnitRunner | tee instrumentation.log
+            adb exec-out run-as com.brooth.blaze.test cat files/Blaze-Player-Audio.png > Blaze-Player-Audio.png
+            adb exec-out run-as com.brooth.blaze.test cat files/Blaze-Player-Video.png > Blaze-Player-Video.png
             grep -Eq '^OK \([0-9]+ tests?\)' instrumentation.log
             adb shell am start -W -n com.brooth.blaze/.MainActivity
             adb shell dumpsys activity activities | grep -Eq '(mResumedActivity|topResumedActivity).*com.brooth.blaze'
@@ -113,6 +115,8 @@ jobs:
           path: |
             instrumentation.log
             Blaze-Android-Preview.png
+            Blaze-Player-Audio.png
+            Blaze-Player-Video.png
   publish:
     name: Publish Android preview
     needs: [apk, emulator]
@@ -151,7 +155,7 @@ jobs:
             exit 0
           fi
           sha256sum --check SHA256SUMS-Android.txt
-          gh release create "$TAG" Blaze-Android-Preview.apk SHA256SUMS-Android.txt Blaze-Android-Preview.png Blaze-Android-Native-Sources.tar.gz --target "$GITHUB_SHA" --title "Blaze Android $VERSION" --notes-file docs/ANDROID-RELEASE-NOTES.md --prerelease --latest=false
+          gh release create "$TAG" Blaze-Android-Preview.apk SHA256SUMS-Android.txt Blaze-Android-Preview.png Blaze-Player-Audio.png Blaze-Player-Video.png Blaze-Android-Native-Sources.tar.gz --target "$GITHUB_SHA" --title "Blaze Android $VERSION" --notes-file docs/ANDROID-RELEASE-NOTES.md --prerelease --latest=false
           DESKTOP_VERSION=$(python -c 'import tools.release_page as r; print(r.versions()[0])')
           python tools/release_page.py --mirror "v$DESKTOP_VERSION"
 

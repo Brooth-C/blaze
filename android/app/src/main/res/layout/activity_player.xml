@@ -1,0 +1,25 @@
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/player_root" android:layout_width="match_parent" android:layout_height="match_parent"
+    android:orientation="vertical" android:background="#10131C">
+    <LinearLayout android:id="@+id/player_header" android:layout_width="match_parent"
+        android:layout_height="wrap_content" android:padding="12dp" android:gravity="center_vertical">
+        <Button android:id="@+id/player_back" android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:minHeight="48dp" android:text="Back" android:textAllCaps="false" android:textColor="#FF8C42" />
+        <TextView android:id="@+id/player_title" android:layout_width="0dp" android:layout_height="wrap_content"
+            android:layout_weight="1" android:paddingStart="12dp" android:paddingEnd="4dp"
+            android:text="Blaze player" android:textSize="20sp" android:textColor="#FFFFFF"
+            android:maxLines="2" android:ellipsize="end" />
+    </LinearLayout>
+    <androidx.media3.ui.PlayerView android:id="@+id/media_player"
+        android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1"
+        android:keepScreenOn="false" android:background="#000000"
+        app:resize_mode="fit" app:show_buffering="when_playing"
+        app:show_previous_button="false" app:show_next_button="false"
+        app:show_subtitle_button="true" app:show_timeout="3000" />
+    <TextView android:id="@+id/player_status" android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:padding="14dp" android:text="Opening your download…" android:textSize="14sp" android:textColor="#A8B1C5" />
+    <Button android:id="@+id/player_retry" android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:minHeight="48dp" android:text="Try again" android:textAllCaps="false"
+        android:textColor="#FF8C42" android:visibility="gone" />
+</LinearLayout>

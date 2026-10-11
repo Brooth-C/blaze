@@ -1,0 +1,10 @@
+Blaze's inbuilt player uses AndroidX Media3/ExoPlayer 1.11.1.
+Project: https://github.com/androidx/media
+License: Apache License 2.0; the full text is in ANDROIDX-LICENSE.txt.
+
+Media3 includes Guava 33.3.1-android and its small supporting libraries,
+licensed under Apache License 2.0.
+Project and license: https://github.com/google/guava
+
+These components retain their own copyrights and licenses. Blaze's Free-Use
+License does not limit rights granted by any third-party license.

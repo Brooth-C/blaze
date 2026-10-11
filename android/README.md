@@ -1,4 +1,4 @@
-# Blaze Android 0.2
+# Blaze Android 0.3
 
 A native touch interface with embedded Python/yt-dlp, verified native FFmpeg/LAME,
 and QuickJS. Android 7+ on ARM64 phones or x86_64 emulators; no Termux required.
@@ -10,7 +10,7 @@ See [the user guide](../docs/ANDROID-APK.md).
 
 ## Build and test
 
-Use a disposable Linux runner with JDK 17, Python 3.12, SDK 35 and NDK 28.2.
+Use a disposable Linux runner with JDK 17, Python 3.12, SDK 36 and NDK 28.2.
 Run `bash android/native/build.sh arm64-v8a` and `x86_64`, then copy each
 `build/android-native-ABI/package/` into `android/app/src/main/` (merge folders).
 Native binaries and generated license assets are ignored by Git.

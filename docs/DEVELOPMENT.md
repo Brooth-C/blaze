@@ -65,7 +65,7 @@ version, bump the desktop version too so its companion assets stay immutable.
 ## Android APK checks
 
 The [APK workflow](https://github.com/Brooth-C/blaze/actions/workflows/android-apk.yml)
-uses JDK 17, Python 3.12, Android SDK 35 and NDK 28.2. It builds verified native
+uses JDK 17, Python 3.12, Android SDK 36 and NDK 28.2. It builds verified native
 FFmpeg/LAME and QuickJS for ARM64/x86_64, checks backend and real HTTPS fixtures,
 runs lint and Android 10/15 instrumented queue/runtime/media tests, and captures
 the foreground app. See [android/README.md](../android/README.md).

@@ -27,9 +27,12 @@ public class StartupTest {
             });
             android.graphics.Rect bounds=new android.graphics.Rect();
             InstrumentationRegistry.getInstrumentation().waitForIdleSync();
-            scenario.onActivity(activity -> assertTrue(activity.findViewById(R.id.brand_logo).getGlobalVisibleRect(bounds)));
             boolean visible=false;
             for(int attempt=0;attempt<50&&!visible;attempt++){
+                // Screenshot coordinates are screen coordinates, while
+                // getGlobalVisibleRect is relative to the root view. Insets
+                // and launch transitions can move that root between frames.
+                scenario.onActivity(activity->{android.view.View logo=activity.findViewById(R.id.brand_logo);int[] location=new int[2];logo.getLocationOnScreen(location);bounds.set(location[0],location[1],location[0]+logo.getWidth(),location[1]+logo.getHeight());});
                 android.graphics.Bitmap screen=InstrumentationRegistry.getInstrumentation().getUiAutomation().takeScreenshot();
                 if(screen!=null){int colored=0;for(int y=Math.max(0,bounds.top);y<Math.min(screen.getHeight(),bounds.bottom);y++)for(int x=Math.max(0,bounds.left);x<Math.min(screen.getWidth(),bounds.right);x++){int color=screen.getPixel(x,y);if(android.graphics.Color.red(color)>150&&android.graphics.Color.red(color)>android.graphics.Color.blue(color)*2)colored++;}visible=colored>20;screen.recycle();}
                 if(!visible)android.os.SystemClock.sleep(100);
