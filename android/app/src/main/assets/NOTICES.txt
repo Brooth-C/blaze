@@ -1,14 +1,16 @@
-Blaze Android 0.1.0 preview
+Blaze Android 0.2.0 preview
 Copyright © 2026 Brooth-C.
 Free to install and use. Other rights reserved under the included BLAZE-LICENSE.txt. Your downloads stay on your device. There is no Blaze account, analytics or server. Requests go directly to the website you choose.
 
-This Android preview is a separate touch interface, powered by embedded Python and yt-dlp. It has no FFmpeg, aria2, audio conversion, playlists, cookies, or desktop dashboard. Some sites require JavaScript runtimes, login, or separate video/audio merging and will not work in this preview. Download only content you are allowed to save.
+This Android app includes a persistent queue/history, video quality selection, original audio/MP3/M4A/WAV/FLAC, separate-stream merging, and bounded playlists. Pause/resume retains supported partial files; interrupted work remains in the queue. Save a copy to keep media outside Blaze before uninstalling. Android can stop or time-limit background services. Live streams, login/cookies and the desktop dashboard are not included. Some sites block downloading or change independently. Download only content you are allowed to save. WAV/FLAC conversion cannot restore detail missing from the source.
 
 Bundled third-party software keeps its own licenses:
 Chaquopy 17.0.0 — MIT (CHAQUOPY-LICENSE.txt), https://github.com/chaquo/chaquopy
 Python 3.12 — PSF license and third-party notices supplied with the embedded runtime, https://www.python.org/doc/copyright/
 yt-dlp 2026.8.19 — Unlicense and bundled third-party notices supplied with its distribution, https://github.com/yt-dlp/yt-dlp
 AndroidX Core 1.15.0 — Apache 2.0, https://android.googlesource.com/platform/frameworks/support/
+FFmpeg 9.0.2 — LGPL-only build, LAME 3.100 — LGPL, QuickJS-ng 0.17.0 — MIT. Licenses are included in assets/licenses. Their corresponding source archives and exact build script accompany the Android release as Blaze-Android-Native-Sources.tar.gz.
+yt-dlp-ejs 0.8.0 — Unlicense, bundled JavaScript challenge solver; https://github.com/yt-dlp/ejs
 Android Gradle, Gradle, and build tools are build-time components; their own licenses apply.
 
 Blaze's license does not limit your rights in any third-party component.

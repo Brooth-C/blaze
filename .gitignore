@@ -30,6 +30,9 @@ cookies*.txt
 android/.gradle/
 android/**/build/
 android/local.properties
+android/app/src/main/jniLibs/
+android/app/src/main/assets/licenses/
+android/app/src/main/Blaze-Android-Native-Sources.tar.gz
 *.jks
 *.keystore
 

@@ -1,7 +1,12 @@
 <resources>
+    <item name="brand_logo" type="id" />
     <item name="url_input" type="id" />
     <item name="download_mode" type="id" />
     <item name="video_mode" type="id" />
     <item name="audio_mode" type="id" />
+    <item name="quality_choice" type="id" />
+    <item name="audio_choice" type="id" />
+    <item name="playlist_choice" type="id" />
+    <item name="add_queue" type="id" />
 </resources>
 

@@ -1,3 +1,8 @@
+# Blaze 4.1.27
+
+- Refresh Android 0.2 download links and third-party native media/runtime notices.
+- Rebuild desktop/Termux packages with updated notices; their runtime behavior is unchanged.
+
 # Blaze 4.1.26
 
 - Add the separate Android APK preview to the repository's download page, setup, support and development guides.
