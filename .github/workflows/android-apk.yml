@@ -50,7 +50,9 @@ jobs:
           working-directory: android
           script: |
             ./gradlew --no-daemon connectedDebugAndroidTest
-            adb shell am start -n com.brooth.blaze/.MainActivity
+            adb install -r app/build/outputs/apk/debug/app-debug.apk
+            adb shell am start -W -n com.brooth.blaze/.MainActivity
+            adb shell dumpsys activity activities | grep -q 'mResumedActivity.*com.brooth.blaze'
             sleep 2
             adb shell screencap -p /sdcard/blaze-preview.png
             adb pull /sdcard/blaze-preview.png ../Blaze-Android-Preview.png
