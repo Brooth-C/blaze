@@ -1,8 +1,8 @@
-# Blaze Android app — 0.2 preview
+# Blaze Android app — 0.3 preview
 
 [Back to Blaze](../README.md)
 
-**[Download the APK](https://github.com/Brooth-C/blaze/releases/download/android-v0.2.0-preview/Blaze-Android-Preview.apk)** · [Release, screenshot, checksums and native sources](https://github.com/Brooth-C/blaze/releases/tag/android-v0.2.0-preview)
+**[Download the APK](https://github.com/Brooth-C/blaze/releases/download/android-v0.3.0-preview/Blaze-Android-Preview.apk)** · [Release, screenshots, checksums and native sources](https://github.com/Brooth-C/blaze/releases/tag/android-v0.3.0-preview)
 
 Requires Android 7+ on ARM64 phones; x86_64 is included for emulators. Python,
 yt-dlp, FFmpeg/LAME and QuickJS are bundled. Termux is not required.
@@ -29,8 +29,23 @@ Blaze and resume if this happens. Enable notifications for visible progress.
 
 Use Queue, History and Files to filter items. Older records stay accessible with
 Previous/Next pagination. Files appear only after a verified completion.
-Open launches a supporting player; Share grants read access to the chosen file.
+Play opens the completed download inside Blaze's own audio/video player;
+Share grants read access to the chosen file.
 Save a copy uses Android's document picker and a foreground copy service.
+
+## Inbuilt player
+
+Tap **Play** in Files or History. Media3/ExoPlayer handles playback inside the
+same APK; a separate player app is not required. The controls include play/pause,
+seeking, ten-second skips, playback speed, repeat, embedded subtitles when
+available, and fullscreen video. Position, speed and pause state survive rotation.
+Blaze remembers your position when you leave the player.
+
+Playback pauses when the player screen leaves the foreground and releases its
+decoder/audio focus. Reopen the file to continue. Headphone disconnection pauses
+playback. Supported codecs depend on the device; an unsupported or damaged file
+shows an error inside the player. This player opens completed Blaze downloads,
+not arbitrary links or unfinished partial files.
 
 Files kept only in Blaze are removed on uninstall. Export anything you want to
 keep first. Removing a queued item discards its private partial files after a

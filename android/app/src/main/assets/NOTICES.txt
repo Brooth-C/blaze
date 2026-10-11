@@ -1,4 +1,4 @@
-Blaze Android 0.2.0 preview
+Blaze Android 0.3.0 preview
 Copyright © 2026 Brooth-C.
 Free to install and use. Other rights reserved under the included BLAZE-LICENSE.txt. Your downloads stay on your device. There is no Blaze account, analytics or server. Requests go directly to the website you choose.
 
@@ -9,6 +9,7 @@ Chaquopy 17.0.0 — MIT (CHAQUOPY-LICENSE.txt), https://github.com/chaquo/chaquo
 Python 3.12 — PSF license and third-party notices supplied with the embedded runtime, https://www.python.org/doc/copyright/
 yt-dlp 2026.8.19 — Unlicense and bundled third-party notices supplied with its distribution, https://github.com/yt-dlp/yt-dlp
 AndroidX Core 1.15.0 — Apache 2.0, https://android.googlesource.com/platform/frameworks/support/
+AndroidX Media3/ExoPlayer 1.11.1 and Guava 33.3.1-android — Apache 2.0 (ANDROIDX-LICENSE.txt). Playback runs inside Blaze. Codec availability depends on the device. Playback pauses when you leave its screen.
 FFmpeg 9.0.2 — LGPL-only build, LAME 3.100 — LGPL, QuickJS-ng 0.17.0 — MIT. Licenses are included in assets/licenses. Their corresponding source archives and exact build script accompany the Android release as Blaze-Android-Native-Sources.tar.gz.
 yt-dlp-ejs 0.8.0 — Unlicense, bundled JavaScript challenge solver; https://github.com/yt-dlp/ejs
 Android Gradle, Gradle, and build tools are build-time components; their own licenses apply.
