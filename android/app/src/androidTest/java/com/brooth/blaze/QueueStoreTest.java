@@ -42,6 +42,12 @@ public class QueueStoreTest {
         JobStore other=new JobStore(context,database);ExecutorService pool=Executors.newFixedThreadPool(2);
         try{Future<JobStore.Job>a=pool.submit(()->store.claimNext());Future<JobStore.Job>b=pool.submit(()->other.claimNext());assertNotEquals(a.get(5,TimeUnit.SECONDS).id,b.get(5,TimeUnit.SECONDS).id);}finally{pool.shutdownNow();other.close();}
     }
+    @Test public void exactCapacityPlaylistIsAcceptedAndDuplicatesStayDeduplicated()throws Exception{
+        String id=store.enqueue("https://example.test/playlist","audio","{\"playlist\":true}","Playlist");JobStore.Job parent=store.claimNext();
+        JSONArray entries=new JSONArray();for(int i=0;i<200;i++)entries.put(new JSONObject().put("url","https://example.test/boundary/"+i));
+        assertEquals(200,store.expandPlaylist(parent,entries));assertEquals(200,store.count(0));assertEquals("expanded",store.list().stream().filter(j->j.id.equals(id)).findFirst().get().state);
+        JobStore.Job child=store.claimNext();store.finish(child.id,"paused",child.title,"","");assertEquals(child.id,store.enqueue(child.url,child.mode,child.options,child.title));assertEquals(200,store.count(0));
+    }
     @Test public void exportAdmissionSurvivesWrongOwnerCleanup(){
         String token=ExportService.reserve();assertFalse(token.isEmpty());assertEquals("",ExportService.reserve());ExportService.abandon("wrong-owner");assertTrue(ExportService.owns(token));ExportService.abandon(token);assertFalse(ExportService.owns(token));
     }

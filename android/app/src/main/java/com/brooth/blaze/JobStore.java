@@ -28,10 +28,10 @@ public final class JobStore extends SQLiteOpenHelper {
     public synchronized String enqueue(String url,String mode,String options,String title) {
         SQLiteDatabase db=getWritableDatabase();db.beginTransaction();
         try {
-            if(countPending(db)>=200)throw new IllegalStateException("Queue limit: 200 items. Finish or remove queued items first.");
-            try(Cursor c=db.query("jobs",new String[]{"id"},"url=? AND mode=? AND options=? AND state IN ('queued','running')",new String[]{url,mode,options},null,null,null,"1")) {
+            try(Cursor c=db.query("jobs",new String[]{"id"},"url=? AND mode=? AND options=? AND state IN ('queued','running','paused','interrupted')",new String[]{url,mode,options},null,null,null,"1")) {
                 if(c.moveToFirst()) { db.setTransactionSuccessful();return c.getString(0); }
             }
+            if(countPending(db)>=200)throw new IllegalStateException("Queue limit: 200 items. Finish or remove queued items first.");
             String id=UUID.randomUUID().toString();ContentValues v=new ContentValues();
             v.put("id",id);v.put("url",url);v.put("mode",mode);v.put("options",options);v.put("state","queued");v.put("title",title);
             long now=System.currentTimeMillis();v.put("created",now);v.put("updated",now);db.insertOrThrow("jobs",null,v);
@@ -61,10 +61,12 @@ public final class JobStore extends SQLiteOpenHelper {
         try {
             if(countPending(db)-1+entries.length()>200)throw new IllegalStateException("Playlist would exceed the queue's 200-item limit.");
             JSONObject opts=new JSONObject(parent.options);opts.put("playlist",false);
+            // Retire the parent inside this transaction before admitting its children.
+            // Any failed child admission rolls back both the parent and all children.
+            finish(parent.id,"expanded",parent.title,"","Queued "+entries.length()+" playlist items");
             for(int i=0;i<entries.length();i++) {
                 JSONObject e=entries.getJSONObject(i);enqueue(e.getString("url"),parent.mode,opts.toString(),e.optString("title","Playlist item"));
             }
-            finish(parent.id,"expanded",parent.title,"","Queued "+entries.length()+" playlist items");
             db.setTransactionSuccessful();return entries.length();
         } finally { db.endTransaction(); }
     }
