@@ -40,6 +40,8 @@ jobs:
         run: |
           cp android/app/build/outputs/apk/debug/app-debug.apk Blaze-Android-Preview.apk
           sha256sum Blaze-Android-Preview.apk > SHA256SUMS-Android.txt
+      - name: Enable emulator acceleration on isolated runner
+        run: sudo chown "$(id -u):$(id -g)" /dev/kvm
       - name: Emulator startup and Python runtime smoke test
         uses: reactivecircus/android-emulator-runner@v2
         with:

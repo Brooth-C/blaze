@@ -25,6 +25,10 @@ The preview has not been validated on a physical Android phone. Build/lint and
 backend tests are not a substitute for testing actual service downloads and
 background behavior on your device. This is not a Play Store release.
 
+Debug APKs from different CI runs can have different signing keys. If Android
+refuses an update, export your saved files before uninstalling the old preview.
+
 The APK code follows Blaze's free-use license. Bundled third-party licenses are
 included under `android/app/src/main/assets` and summarized in the app's About
 dialog. Production releases need an owner-controlled private signing key.
+
