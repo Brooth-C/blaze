@@ -1,8 +1,8 @@
-# Blaze Android app — 0.3 preview
+# Blaze Android app — 0.4 preview
 
 [Back to Blaze](../README.md)
 
-**[Download the APK](https://github.com/Brooth-C/blaze/releases/download/android-v0.3.0-preview/Blaze-Android-Preview.apk)** · [Release, screenshots, checksums and native sources](https://github.com/Brooth-C/blaze/releases/tag/android-v0.3.0-preview)
+**[Download the APK](https://github.com/Brooth-C/blaze/releases/download/android-v0.4.0-preview/Blaze-Android-Preview.apk)** · [Release, screenshots, checksums and native sources](https://github.com/Brooth-C/blaze/releases/tag/android-v0.4.0-preview)
 
 Requires Android 7+ on ARM64 phones; x86_64 is included for emulators. Python,
 yt-dlp, FFmpeg/LAME and QuickJS are bundled. Termux is not required.
@@ -31,21 +31,35 @@ Use Queue, History and Files to filter items. Older records stay accessible with
 Previous/Next pagination. Files appear only after a verified completion.
 Play opens the completed download inside Blaze's own audio/video player;
 Share grants read access to the chosen file.
+**Files → Open an audio or video file** opens an existing local file using
+Android's file picker. Blaze reads the selected file directly without copying,
+converting or downloading it again. The provider must allow read access.
 Save a copy uses Android's document picker and a foreground copy service.
 
 ## Inbuilt player
 
-Tap **Play** in Files or History. Media3/ExoPlayer handles playback inside the
-same APK; a separate player app is not required. The controls include play/pause,
+Tap **Play** in Files or History. Embedded LibVLC plays the original file inside
+the same APK; a separate VLC app, conversion or another download is not required.
+The controls include play/pause,
 seeking, ten-second skips, playback speed, repeat, embedded subtitles when
 available, and fullscreen video. Position, speed and pause state survive rotation.
 Blaze remembers your position when you leave the player.
 
 Playback pauses when the player screen leaves the foreground and releases its
 decoder/audio focus. Reopen the file to continue. Headphone disconnection pauses
-playback. Supported codecs depend on the device; an unsupported or damaged file
-shows an error inside the player. This player opens completed Blaze downloads,
-not arbitrary links or unfinished partial files.
+playback. Automatic decoding uses hardware where available. If a file fails,
+choose **Decoder: automatic / software**, then **Software** to use bundled codecs.
+Software decoding can be slower and use more battery. **Use Android playback
+engine** switches to the secondary Media3 player inside Blaze.
+Damaged, encrypted or especially demanding files can still fail. Native 8K/16K
+playback on every low-end phone is not possible; resolution, codec, frame rate
+and bitrate must fit the device's processing capacity.
+The player opens completed Blaze downloads or a file you explicitly choose in
+Android's picker. It does not accept arbitrary network links or unfinished jobs.
+
+The Blaze logo has a white background in the system's light mode and black in
+dark mode. Switching system themes refreshes the in-app logo. The launcher icon
+uses the same day/night resources; launcher caching can delay its refresh.
 
 Files kept only in Blaze are removed on uninstall. Export anything you want to
 keep first. Removing a queued item discards its private partial files after a

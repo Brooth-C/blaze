@@ -35,3 +35,6 @@ files are included in the APK and corresponding sources/build instructions
 accompany the Android release. APK 0.1 did not include these native programs.
 The APK does not bundle aria2. The embedded yt-dlp-ejs solver uses the Unlicense;
 see https://github.com/yt-dlp/ejs for its license and source.
+
+Android 0.4 embeds LibVLC using an LGPL-only native build instead of the GPL native libraries in the upstream Maven AAR. The Java bindings retain LGPL 2.1. Matching source archives and build instructions accompany the APK; license text and dependency credits are embedded. AndroidX Legacy and Kotlin standard library use Apache 2.0. See [player build and library replacement](docs/ANDROID-PLAYER-BUILD.md).
+

@@ -1,5 +1,12 @@
 # Blaze 4.1.28
 
+## Blaze 4.1.29
+
+- Publish Android 0.4 with embedded LibVLC, software decoding and theme-aware logo backgrounds.
+- Include corresponding LGPL decoder sources and component replacement instructions.
+- Keep desktop and Termux download behavior unchanged.
+
+
 - Publish Android 0.3 with an inbuilt audio/video player, seeking, playback speed, repeat and fullscreen controls.
 - Update the Android guides and playback-library notices in the installer packages.
 
