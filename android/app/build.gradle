@@ -22,6 +22,7 @@ chaquopy {
     }
 }
 dependencies {
+    implementation 'org.videolan.android:libvlc-all:3.7.7'
     implementation 'androidx.core:core:1.15.0'
     implementation 'androidx.media3:media3-exoplayer:1.11.1'
     implementation 'androidx.media3:media3-ui:1.11.1'
