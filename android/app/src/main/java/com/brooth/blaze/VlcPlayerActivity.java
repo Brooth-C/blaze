@@ -108,7 +108,10 @@ public class VlcPlayerActivity extends Activity {
     private void buildPlayer(){
         try{
             if(source!=null)source=PlaybackSource.load(this,source.id);
-            engine=new LibVLC(this,new ArrayList<>(Arrays.asList("--no-video-title-show","--file-caching=300","--avcodec-threads=2")));
+            ArrayList<String> options=new ArrayList<>(Arrays.asList("--no-video-title-show","--file-caching=300","--avcodec-threads=2"));
+            // Software fallback must also work without 10-bit OpenGL texture support.
+            if(software){options.add("--vout=android-display");options.add("--android-display-chroma=RV32");}
+            engine=new LibVLC(this,options);
             player=new MediaPlayer(engine);player.attachViews(video,null,true,false);pendingSeek=true;wantedResume=resume;ended=false;
             MediaPlayer active=player;
             player.setEventListener(event->{if(player!=active)return;

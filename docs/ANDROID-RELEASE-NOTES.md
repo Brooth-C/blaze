@@ -7,6 +7,7 @@ Find chords offline in local audio/video and completed Blaze downloads.
 - Save results by media content and reuse them offline; changed media is analysed again.
 - Transpose chord labels and locally drawn guitar/piano diagrams without changing playback pitch.
 - Cancel analysis; leaving the screen releases processing and removes temporary document copies.
+- Software video playback uses native RGB output for devices without usable 10-bit OpenGL textures.
 - Major/minor triads only. Ambiguous passages are marked N; complex chords and beat/BPM detection are not implemented.
 
 This is an initial harmonic baseline. Synthetic tests do not establish accuracy

@@ -30,7 +30,8 @@ public class ChordFinderTest {
             for (int i = 0; i < 130; i++) {
                 File file = new File(folder, String.format(java.util.Locale.ROOT, "v1-%064x.json", i));
                 try (FileOutputStream out = new FileOutputStream(file)) { out.write(1); }
-                assertTrue(file.setLastModified(1000L + i)); keep = file;
+                // Older Android File APIs expose timestamps with whole-second precision.
+                assertTrue(file.setLastModified(1000L * (i + 1))); keep = file;
             }
             ChordAnalyzer.prune(folder, keep);
             assertEquals(129, folder.listFiles().length); assertTrue(keep.isFile()); assertTrue(unrelated.isFile());

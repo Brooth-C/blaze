@@ -49,8 +49,9 @@ Playback pauses when the player screen leaves the foreground and releases its
 decoder/audio focus. Reopen the file to continue. Headphone disconnection pauses
 playback. Automatic decoding uses hardware where available. If a file fails,
 choose **Decoder: automatic / software**, then **Software** to use bundled codecs.
-Software decoding can be slower and use more battery. **Use Android playback
-engine** switches to the secondary Media3 player inside Blaze.
+Software mode uses native RGB video output to avoid relying on 10-bit OpenGL
+textures. It can be slower and use more battery. **Use Android playback engine**
+switches to the secondary Media3 player inside Blaze.
 Damaged, encrypted or especially demanding files can still fail. Native 8K/16K
 playback on every low-end phone is not possible; resolution, codec, frame rate
 and bitrate must fit the device's processing capacity.
