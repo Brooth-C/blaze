@@ -8,5 +8,11 @@
     <item name="audio_choice" type="id" />
     <item name="playlist_choice" type="id" />
     <item name="add_queue" type="id" />
+    <item name="find_chords" type="id" />
+    <item name="chord_panel" type="id" />
+    <item name="chord_status" type="id" />
+    <item name="chord_current" type="id" />
+    <item name="chord_analyze" type="id" />
+    <item name="chord_cancel" type="id" />
 </resources>
 

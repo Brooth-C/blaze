@@ -1,10 +1,10 @@
 name: Android APK preview
 on:
   pull_request:
-    paths: ['android/**', 'tests/Blaze-Mobile*-Tests.py', 'tools/*android_libvlc*', '.github/workflows/android-apk.yml', '.github/workflows/android-native-tools.yml', '.github/workflows/android-libvlc.yml']
+    paths: ['android/**', 'tests/Blaze-Mobile*-Tests.py', 'tests/java/**', 'tools/build_music_models.py', 'tools/music_cqt.py', 'tools/*android_libvlc*', '.github/workflows/android-apk.yml', '.github/workflows/android-native-tools.yml', '.github/workflows/android-libvlc.yml']
   push:
     branches: [main]
-    paths: ['android/**', 'tests/Blaze-Mobile*-Tests.py', 'tools/*android_libvlc*', '.github/workflows/android-apk.yml', '.github/workflows/android-native-tools.yml', '.github/workflows/android-libvlc.yml']
+    paths: ['android/**', 'tests/Blaze-Mobile*-Tests.py', 'tests/java/**', 'tools/build_music_models.py', 'tools/music_cqt.py', 'tools/*android_libvlc*', '.github/workflows/android-apk.yml', '.github/workflows/android-native-tools.yml', '.github/workflows/android-libvlc.yml']
   workflow_dispatch:
 permissions:
   contents: read
@@ -60,6 +60,22 @@ jobs:
           python -m ruff check --select F,E9 android/app/src/main/python/ tests/Blaze-Mobile*-Tests.py
           python -m ruff check --select F,E9 tools/prepare_android_libvlc.py
           bash -n tools/build_android_libvlc.sh
+      - name: Offline chord engine checks
+        run: |
+          mkdir -p build/chord-tests
+          javac -d build/chord-tests android/app/src/main/java/com/brooth/blaze/ChordEngine.java tests/java/com/brooth/blaze/ChordEngineTest.java
+          java -cp build/chord-tests com.brooth.blaze.ChordEngineTest
+          javac -d build/chord-tests android/app/src/main/java/com/brooth/blaze/{ChordEngine,StudioChord,StudioTimeline,StudioSignal}.java tests/java/com/brooth/blaze/StudioTimelineTest.java
+          java -cp build/chord-tests com.brooth.blaze.StudioTimelineTest
+          node tests/Blaze-Live-Flow-Tests.cjs
+          python tests/Blaze-Mobile-Chord-Tests.py
+      - name: Export verified pretrained Studio models
+        run: |
+          python -m venv build/studio-models-venv
+          build/studio-models-venv/bin/python -m pip install torch==2.6.0 --index-url https://download.pytorch.org/whl/cpu
+          build/studio-models-venv/bin/python -m pip install numpy==1.26.4 scipy==1.14.1 librosa==0.10.2.post1 onnx==1.17.0 onnxruntime==1.20.1 PyYAML==6.0.2 resampy==0.4.3 six==1.17.0
+          build/studio-models-venv/bin/python -m pip install --no-deps --target build/legacy-librosa librosa==0.6.3
+          build/studio-models-venv/bin/python tools/build_music_models.py --work build/studio-export --legacy-librosa build/legacy-librosa --output build/studio-models --android-assets android/app/src/main/assets/musicstudio_models
       - name: Build and lint
         working-directory: android
         run: |
