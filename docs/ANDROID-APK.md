@@ -72,6 +72,8 @@ changes labels and diagrams only; the original playback pitch is preserved.
 Guitar shapes assume standard Eâ€“Aâ€“Dâ€“Gâ€“Bâ€“e tuning. The estimated key is for the
 original recording. Analyses stay saved in Blaze and are reused when the same
 media content is selected again. Changing the file triggers a new analysis.
+Saved analyses are limited to 128 results and 32 MB. Older results are evicted
+when needed; selecting their media again regenerates the analysis locally.
 
 This first engine estimates the 24 major/minor triads. **N** means silence or no
 reliable chord. It does not identify sevenths, slash chords, complex voicings,

@@ -19,6 +19,27 @@ import static org.junit.Assert.*;
 @RunWith(AndroidJUnit4.class)
 public class ChordFinderTest {
     private final Context app = InstrumentationRegistry.getInstrumentation().getTargetContext();
+    @Test public void failuresHaveTextAndSavedAnalysesStayBounded() throws Exception {
+        assertFalse(ChordActivity.analysisError(new EOFException()).trim().isEmpty());
+        assertFalse(ChordActivity.analysisError(new IOException(" ")).trim().isEmpty());
+        assertEquals("The file is missing.", ChordActivity.analysisError(new IOException("The file is missing.")));
+        File folder = new File(app.getCacheDir(), "chord-cache-test-" + UUID.randomUUID()); assertTrue(folder.mkdirs());
+        File unrelated = new File(folder, "keep.txt"); assertTrue(unrelated.createNewFile());
+        File keep = null;
+        try {
+            for (int i = 0; i < 130; i++) {
+                File file = new File(folder, String.format(java.util.Locale.ROOT, "v1-%064x.json", i));
+                try (FileOutputStream out = new FileOutputStream(file)) { out.write(1); }
+                assertTrue(file.setLastModified(1000L + i)); keep = file;
+            }
+            ChordAnalyzer.prune(folder, keep);
+            assertEquals(129, folder.listFiles().length); assertTrue(keep.isFile()); assertTrue(unrelated.isFile());
+            assertFalse(new File(folder, String.format(java.util.Locale.ROOT, "v1-%064x.json", 0)).exists());
+            File oversized = new File(folder, String.format(java.util.Locale.ROOT, "v1-%064x.json", 999));
+            try (RandomAccessFile out = new RandomAccessFile(oversized, "rw")) { out.setLength(ChordAnalyzer.MAX_CACHE_BYTES + 1); }
+            ChordAnalyzer.prune(folder, keep); assertFalse(oversized.exists()); assertTrue(keep.isFile());
+        } finally { File[] files = folder.listFiles(); if (files != null) for (File file : files) file.delete(); folder.delete(); }
+    }
     @Test public void offlineAudioVideoCacheAndSyncedPlayback() throws Exception {
         File folder = new File(DownloadService.folder(app), "chord-test-" + UUID.randomUUID()); assertTrue(folder.mkdirs());
         File audio = new File(folder, "triads.wav"), video = new File(folder, "triads.mkv"), silentVideo = new File(folder, "silent.mp4");

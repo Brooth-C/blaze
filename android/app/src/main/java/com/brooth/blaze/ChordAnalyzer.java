@@ -14,6 +14,9 @@ import java.util.concurrent.CancellationException;
 /** Local-only decoder and content-addressed results. One instance per analysis task. */
 final class ChordAnalyzer {
     static final int VERSION = 1;
+    static final int MAX_RESULTS = 128;
+    static final long MAX_CACHE_BYTES = 32L * 1024 * 1024;
+    private static final Object CACHE_LOCK = new Object();
     static final long MAX_BYTES = 2L * 1024 * 1024 * 1024, MAX_SAMPLES = ChordEngine.RATE * 7200L;
     interface Progress { void update(String message); }
     static final class Result {
@@ -61,7 +64,14 @@ final class ChordAnalyzer {
             File folder = new File(app.getFilesDir(), "chords");
             if (!folder.isDirectory() && !folder.mkdirs()) throw new IOException("Could not save chord results.");
             AtomicFile cache = new AtomicFile(new File(folder, "v" + VERSION + "-" + hash + ".json"));
-            Result saved = read(cache);
+            Result saved;
+            synchronized (CACHE_LOCK) {
+                saved = read(cache);
+                if (saved != null) {
+                    cache.getBaseFile().setLastModified(System.currentTimeMillis());
+                    prune(folder, cache.getBaseFile());
+                }
+            }
             if (saved != null) { check(); return saved; }
             progress.update("Finding chords offline…");
             File executable = new File(app.getApplicationInfo().nativeLibraryDir, "libblaze_ffmpeg.so");
@@ -161,10 +171,25 @@ final class ChordAnalyzer {
         JSONObject data = new JSONObject().put("version", VERSION).put("durationMs", result.durationMs).put("key", result.key).put("events", entries);
         FileOutputStream out = null;
         // Cancellation and publication are serialized: cancelled work cannot publish a partial result.
-        synchronized (this) {
+        synchronized (CACHE_LOCK) { synchronized (this) {
             check();
             try { out = file.startWrite(); out.write(data.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8)); file.finishWrite(out); }
             catch (Exception error) { if (out != null) file.failWrite(out); throw error; }
+        } prune(file.getBaseFile().getParentFile(), file.getBaseFile()); }
+    }
+    /** Evict oldest saved analyses; never touch source media or unrelated files. */
+    static void prune(File folder, File keep) {
+        synchronized (CACHE_LOCK) {
+            File[] files = folder.listFiles(f -> f.isFile() && f.getName().matches("v[0-9]+-[a-f0-9]{64}\\.json"));
+            if (files == null) return;
+            java.util.Arrays.sort(files, java.util.Comparator.comparingLong(File::lastModified).reversed());
+            long bytes = keep.isFile() ? keep.length() : 0; int count = keep.isFile() ? 1 : 0;
+            for (File candidate : files) {
+                if (candidate.equals(keep)) continue;
+                long size = candidate.length();
+                if (count >= MAX_RESULTS || bytes + size > MAX_CACHE_BYTES) new AtomicFile(candidate).delete();
+                else { bytes += size; count++; }
+            }
         }
     }
 }

@@ -78,10 +78,15 @@ public class ChordActivity extends VlcPlayerActivity {
                 updates.post(() -> {
                     if (request != generation || isFinishing() || isDestroyed()) return;
                     task = null; automatic = false; analyze.setEnabled(true); cancel.setEnabled(false);
-                    state.setText(error instanceof java.io.IOException ? error.getMessage() : "Could not analyse this file. Try again.");
+                    state.setText(analysisError(error));
                 });
             }
         });
+    }
+    static String analysisError(Exception error) {
+        String message = error.getMessage();
+        return error instanceof java.io.IOException && message != null && !message.trim().isEmpty()
+            ? message : "Could not analyse this file. No readable audio track or unsupported media. Try another file.";
     }
     private void stopAnalysis() {
         generation++;
