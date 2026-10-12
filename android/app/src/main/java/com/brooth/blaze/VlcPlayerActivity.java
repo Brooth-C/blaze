@@ -117,10 +117,13 @@ public class VlcPlayerActivity extends Activity {
             player.setEventListener(event->{if(player!=active)return;
                 switch(event.type){
                     case MediaPlayer.Event.Playing:
-                        if(pendingSeek){pendingSeek=false;if(position>0)player.setTime(position);player.setRate(speed);}
+                        if(pendingSeek){pendingSeek=false;player.setRate(speed);}
                         if(!foreground||!resume||!wantedResume){player.pause();status.setText("Paused");video.setKeepScreenOn(false);break;}
                         toggle.setText("Pause");status.setText("Playing in Blaze · LibVLC");video.setKeepScreenOn(player.getCurrentVideoTrack()!=null);break;
-                    case MediaPlayer.Event.Paused: player.setVolume(100);toggle.setText("Play");status.setText("Paused");video.setKeepScreenOn(false);break;
+                    case MediaPlayer.Event.Paused:
+                        if(pendingSeek){pendingSeek=false;player.setRate(speed);}
+                        player.setVolume(100);toggle.setText("Play");status.setText("Paused");video.setKeepScreenOn(false);
+                        if(foreground&&resume&&wantedResume)beginPlayback();break;
                     case MediaPlayer.Event.EndReached:
                         position=0;ended=!repeat;video.setKeepScreenOn(false);
                         getSharedPreferences("playback",MODE_PRIVATE).edit().remove(mediaId).apply();
@@ -131,7 +134,12 @@ public class VlcPlayerActivity extends Activity {
                 }
             });
             Media media=document==null?new Media(engine,Uri.fromFile(source.file)):new Media(engine,descriptor.getFileDescriptor());
-            try{media.setHWDecoderEnabled(!software,false);player.setMedia(media);}finally{media.release();}
+            try{
+                // Let VLC preroll the restored frame before pausing; pausing in Playing races decoding.
+                if(position>0)media.addOption(":start-time="+Double.toString(position/1000.0));
+                if(!resume)media.addOption(":start-paused");
+                media.setHWDecoderEnabled(!software,false);player.setMedia(media);
+            }finally{media.release();}
             status.setText("Opening the original file…");beginPlayback();handler.post(tick);
             ContextCompat.registerReceiver(this,noisy,new IntentFilter(AudioManager.ACTION_AUDIO_BECOMING_NOISY),ContextCompat.RECEIVER_NOT_EXPORTED);noisyRegistered=true;
         }catch(IOException|RuntimeException|UnsatisfiedLinkError error){android.util.Log.e("BlazePlayer","Player initialization failed",error);release();status.setText("Blaze could not open this file. Try again.");}
