@@ -17,7 +17,7 @@ final class ChordEngine {
         Event(long start, long end, int chord, double confidence) {
             this.startMs = start; this.endMs = end; this.chord = chord; this.confidence = confidence;
         }
-        String label(int transpose) { return chord < 0 ? "N" : NOTES[Math.floorMod(chord % 12 + transpose, 12)] + QUALITIES[chord / 12]; }
+        String label(int transpose) { return chord == -2 ? "X" : chord < 0 ? "N" : NOTES[Math.floorMod(chord % 12 + transpose, 12)] + QUALITIES[chord / 12]; }
     }
     private final double[] samples = new double[WINDOW], real = new double[WINDOW], imaginary = new double[WINDOW];
     private final double[] window = new double[WINDOW], keyChroma = new double[12];
