@@ -48,6 +48,18 @@ public class VlcPlaybackTest {
             try(OutputStream out=new FileOutputStream(new File(app.getFilesDir(),"Blaze-VLC-Player.png"))){assertTrue(image.compress(android.graphics.Bitmap.CompressFormat.PNG,100,out));}finally{image.recycle();}
             screen.moveToState(Lifecycle.State.CREATED);screen.onActivity(a->assertNull(a.player));
             screen.moveToState(Lifecycle.State.RESUMED);ready(screen,false);
+            // Restored start-time options must not leak into replay or repeat.
+            screen.onActivity(a->{a.player.setTime(Math.max(0,a.player.getLength()-300));a.toggle.performClick();});
+            long endDeadline=System.currentTimeMillis()+20000;AtomicBoolean ended=new AtomicBoolean();
+            while(!ended.get()&&System.currentTimeMillis()<endDeadline){screen.onActivity(a->ended.set(a.player!=null&&a.player.getPlayerState()==org.videolan.libvlc.Media.State.Ended));Thread.sleep(50);}
+            assertTrue("The video must reach its end",ended.get());
+            screen.onActivity(a->a.toggle.performClick());ready(screen,true);
+            screen.onActivity(a->assertTrue("Replay must start at zero",a.player.getTime()<1000));
+            java.util.concurrent.atomic.AtomicReference<org.videolan.libvlc.MediaPlayer> beforeRepeat=new java.util.concurrent.atomic.AtomicReference<>();
+            screen.onActivity(a->{android.widget.Button repeat=findButton(a.root,"Repeat");assertNotNull(repeat);repeat.performClick();beforeRepeat.set(a.player);a.player.setTime(Math.max(0,a.player.getLength()-300));});
+            long repeatDeadline=System.currentTimeMillis()+20000;AtomicBoolean repeated=new AtomicBoolean();
+            while(!repeated.get()&&System.currentTimeMillis()<repeatDeadline){screen.onActivity(a->repeated.set(a.player!=null&&a.player!=beforeRepeat.get()&&a.player.isPlaying()&&a.player.getTime()>100&&a.player.getTime()<1000));Thread.sleep(50);}
+            assertTrue("Repeat must reopen at zero",repeated.get());
         }
         audio.abandonAudioFocus(music);
         try(ActivityScenario<VlcPlayerActivity> selectedFile=ActivityScenario.launch(new Intent(app,VlcPlayerActivity.class).setData(selected).putExtra("software",true))){
@@ -67,5 +79,10 @@ public class VlcPlaybackTest {
         while(!ready.get()&&System.currentTimeMillis()<until){screen.onActivity(a->ready.set(a.player!=null&&a.player.getTime()>100&&a.player.getCurrentVideoTrack()!=null&&a.player.isPlaying()==playing));Thread.sleep(50);}
         if(!ready.get())screen.onActivity(a->System.out.println("Blaze player: "+(a.player==null?"not initialized":"state="+a.player.getPlayerState()+", time="+a.player.getTime()+", playing="+a.player.isPlaying()+", tracks="+a.player.getVideoTracksCount())));
         assertTrue("LibVLC did not decode the original HEVC MKV",ready.get());
+    }
+    private android.widget.Button findButton(android.view.View view,String label){
+        if(view instanceof android.widget.Button&&label.contentEquals(((android.widget.Button)view).getText()))return (android.widget.Button)view;
+        if(view instanceof android.view.ViewGroup){android.view.ViewGroup group=(android.view.ViewGroup)view;for(int i=0;i<group.getChildCount();i++){android.widget.Button found=findButton(group.getChildAt(i),label);if(found!=null)return found;}}
+        return null;
     }
 }
