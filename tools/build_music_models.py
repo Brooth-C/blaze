@@ -73,5 +73,5 @@ manifest['frontend']={'file':'cqt.onnx','sha256':digest(path),'bytes':path.stat(
 if a.android_assets:
     import shutil
     a.android_assets.mkdir(parents=True,exist_ok=True)
-    for name in ['btc_25.onnx','cqt.onnx','manifest.json','LICENSE-BTC.txt']:shutil.copy2(a.output/name,a.android_assets/name)
+    for name in ['btc_25.onnx','btc_170.onnx','cqt.onnx','manifest.json','LICENSE-BTC.txt']:shutil.copy2(a.output/name,a.android_assets/name)
 print('Pretrained exports and parity checks passed. No model was trained.')

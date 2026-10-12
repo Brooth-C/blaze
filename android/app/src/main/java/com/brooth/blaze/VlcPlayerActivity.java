@@ -182,6 +182,8 @@ public class VlcPlayerActivity extends Activity {
     @Override protected void onDestroy(){release();documents.shutdownNow();super.onDestroy();}
     @Override protected void onSaveInstanceState(Bundle saved){remember();saved.putLong("position",position);saved.putFloat("speed",speed);saved.putBoolean("playing",resume);saved.putBoolean("software",software);saved.putBoolean("repeat",repeat);saved.putBoolean("fullscreen",fullscreen);super.onSaveInstanceState(saved);}
     private static String time(long millis){long seconds=Math.max(0,millis)/1000;return String.format(Locale.ROOT,"%d:%02d",seconds/60,seconds%60);}
+    protected long playbackPosition(){return player==null?position:restoringFrame?restorePosition:Math.max(0,player.getTime());}
+    protected boolean playbackMoving(){return player!=null&&player.isPlaying()&&!restoringFrame;}
     protected void seekPlayback(long millis){position=Math.max(0,millis);if(restoringFrame)restorePosition=position;if(player!=null)player.setTime(position);onPlaybackTime(position);}
     protected void onPlaybackTime(long millis) { }
 }

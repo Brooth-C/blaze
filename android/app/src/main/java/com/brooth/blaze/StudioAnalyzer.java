@@ -13,7 +13,7 @@ import java.util.concurrent.CancellationException;
 
 /** Local-only decoder and content-addressed results. One instance per analysis task. */
 final class StudioAnalyzer {
-    static final int VERSION = 2;
+    static final int VERSION = 4;
     static final int MAX_RESULTS = 128;
     static final long MAX_CACHE_BYTES = 32L * 1024 * 1024;
     private static final Object CACHE_LOCK = new Object();
@@ -25,7 +25,8 @@ final class StudioAnalyzer {
         final String key;
         final boolean cached;
         final float[] waveform;
-        String identity;
+        String identity,sourceHash;
+        double tempo=Double.NaN;long[] beats=new long[0];
         Result(List<ChordEngine.Event> events,long duration,String key,boolean cached,float[] waveform){this.events=events;durationMs=duration;this.key=key;this.cached=cached;this.waveform=waveform;}
         Result(List<ChordEngine.Event> events, long duration, String key, boolean cached) {
             this(events,duration,key,cached,new float[0]);
@@ -63,7 +64,8 @@ final class StudioAnalyzer {
                 try (InputStream in = new FileInputStream(file)) { track(in); copyAndHash(in, null, digest); }
             }
             check();
-            try(InputStream manifest=app.getAssets().open("musicstudio_models/manifest.json")){digest.update(StudioModels.read(manifest,65536));}
+            String sourceHash=hex(digest.digest());digest.update(sourceHash.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            try(InputStream manifest=app.getAssets().open("musicstudio_models/manifest.json")){digest.update(StudioModels.read(manifest,65536));digest.update("BTC170:flow1".getBytes(java.nio.charset.StandardCharsets.UTF_8));}
             StringBuilder hash = new StringBuilder(); for (byte value : digest.digest()) hash.append(String.format(java.util.Locale.ROOT, "%02x", value & 255));
             File folder = new File(app.getFilesDir(), "studio-chords");
             if (!folder.isDirectory() && !folder.mkdirs()) throw new IOException("Could not save chord results.");
@@ -76,7 +78,7 @@ final class StudioAnalyzer {
                     prune(folder, cache.getBaseFile());
                 }
             }
-            if (saved != null) { check(); saved.identity=hash.toString(); return saved; }
+            if (saved != null) { check(); saved.identity=hash.toString();saved.sourceHash=sourceHash; return saved; }
             progress.update("Finding chords offline…");
             File executable = new File(app.getApplicationInfo().nativeLibraryDir, "libblaze_ffmpeg.so");
             if (!executable.isFile()) throw new IOException("Local media tools are missing. Install the complete Blaze APK.");
@@ -97,7 +99,7 @@ final class StudioAnalyzer {
                 } catch (IOException ignored) { /* Cancellation closes the process pipes. */ }
             }, "BlazeChordDecoderErrors");
             errors.setDaemon(true); errors.start();
-            StudioModels models = new StudioModels(app,"major_minor");
+            StudioModels models = new StudioModels(app,"extended");
             try {
             StudioEngine engine = new StudioEngine(models);
             long samples = 0, reported = -1;
@@ -119,7 +121,7 @@ final class StudioAnalyzer {
             check();
             if (running.waitFor() != 0 || samples == 0) throw new IOException("No readable audio track. Try another audio or video file.");
             Result result = new Result(engine.finish(), engine.durationMs(), "—", false,engine.waveform());
-            result.identity=hash.toString();
+            result.identity=hash.toString();result.sourceHash=sourceHash;result.tempo=engine.signal.bpm;result.beats=engine.signal.beats;
             check(); write(cache, result); return result;
             } finally { models.close(); }
         } catch (IOException error) {
@@ -129,6 +131,7 @@ final class StudioAnalyzer {
             if (temporary != null) temporary.delete();
         }
     }
+    private static String hex(byte[] bytes){StringBuilder text=new StringBuilder();for(byte value:bytes)text.append(String.format(java.util.Locale.ROOT,"%02x",value&255));return text.toString();}
     private void copyAndHash(InputStream in, OutputStream out, MessageDigest digest) throws IOException {
         byte[] bytes = new byte[65536]; long size = 0; int n;
         while ((n = in.read(bytes)) != -1) { check(); size += n; if (size > MAX_BYTES) throw new IOException("Choose a file smaller than 2 GB."); digest.update(bytes, 0, n); if (out != null) out.write(bytes, 0, n); }
@@ -158,7 +161,7 @@ final class StudioAnalyzer {
     private static int unsigned16(byte[] bytes, int i) { return (bytes[i] & 255) | (bytes[i + 1] & 255) << 8; }
     private static long unsigned32(byte[] bytes, int i) { return unsigned16(bytes, i) | (long) unsigned16(bytes, i + 2) << 16; }
     private static Result read(AtomicFile file) {
-        if (!file.getBaseFile().isFile() || file.getBaseFile().length() > 8 * 1024 * 1024) return null;
+        if (!file.getBaseFile().isFile() || file.getBaseFile().length() > 16 * 1024 * 1024) return null;
         try (InputStream in = file.openRead(); ByteArrayOutputStream out = new ByteArrayOutputStream()) {
             byte[] buffer = new byte[8192]; int n; while ((n = in.read(buffer)) != -1) out.write(buffer, 0, n);
             JSONObject data = new JSONObject(out.toString("UTF-8"));
@@ -169,19 +172,20 @@ final class StudioAnalyzer {
             if (entries.length() == 0 || entries.length() > 100000) return null;
             for (int i = 0; i < entries.length(); i++) {
                 JSONObject e = entries.getJSONObject(i); long start = e.getLong("startMs"), end = e.getLong("endMs"); int chord = e.getInt("chord"); double score = e.getDouble("confidence");
-                if (start != previous || end <= start || end > duration || chord < -2 || chord >= 24 || !Double.isFinite(score) || score < 0 || score > 1) return null;
+                if (start != previous || end <= start || end > duration || chord < -2 || chord >= 252 || !Double.isFinite(score) || score < 0 || score > 1) return null;
                 events.add(new ChordEngine.Event(start, end, chord, score)); previous = end;
             }
             if (previous != duration) return null;
             JSONArray peaks=data.optJSONArray("waveform");float[] wave=new float[peaks==null?0:Math.min(2048,peaks.length())];for(int i=0;i<wave.length;i++){wave[i]=(float)peaks.getDouble(i);if(!Float.isFinite(wave[i])||wave[i]<0||wave[i]>1)return null;}
-            return new Result(events, duration, data.getString("key"), true,wave);
+            Result result=new Result(events, duration, data.getString("key"), true,wave);result.tempo=data.optDouble("tempo",Double.NaN);JSONArray times=data.optJSONArray("beats");if(times!=null){result.beats=new long[times.length()];long last=-1;for(int i=0;i<times.length();i++){long t=times.getLong(i);if(t<=last||t<0||t>=duration)return null;result.beats[i]=t;last=t;}}return result;
         } catch (Exception error) { return null; }
     }
     private void write(AtomicFile file, Result result) throws Exception {
         JSONArray entries = new JSONArray();
         for (ChordEngine.Event e : result.events) entries.put(new JSONObject().put("startMs", e.startMs).put("endMs", e.endMs).put("chord", e.chord).put("confidence", e.confidence));
         JSONArray wave=new JSONArray();for(float value:result.waveform)wave.put(value);
-        JSONObject data = new JSONObject().put("waveform",wave).put("version", VERSION).put("durationMs", result.durationMs).put("key", result.key).put("events", entries);
+        JSONArray beats=new JSONArray();for(long t:result.beats)beats.put(t);
+        JSONObject data = new JSONObject().put("beats",beats).put("tempo",Double.isFinite(result.tempo)?result.tempo:JSONObject.NULL).put("waveform",wave).put("version", VERSION).put("durationMs", result.durationMs).put("key", result.key).put("events", entries);
         FileOutputStream out = null;
         // Cancellation and publication are serialized: cancelled work cannot publish a partial result.
         synchronized (CACHE_LOCK) { synchronized (this) {

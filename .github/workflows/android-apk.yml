@@ -65,6 +65,9 @@ jobs:
           mkdir -p build/chord-tests
           javac -d build/chord-tests android/app/src/main/java/com/brooth/blaze/ChordEngine.java tests/java/com/brooth/blaze/ChordEngineTest.java
           java -cp build/chord-tests com.brooth.blaze.ChordEngineTest
+          javac -d build/chord-tests android/app/src/main/java/com/brooth/blaze/{ChordEngine,StudioChord,StudioTimeline,StudioSignal}.java tests/java/com/brooth/blaze/StudioTimelineTest.java
+          java -cp build/chord-tests com.brooth.blaze.StudioTimelineTest
+          node tests/Blaze-Live-Flow-Tests.cjs
           python tests/Blaze-Mobile-Chord-Tests.py
       - name: Export verified pretrained Studio models
         run: |

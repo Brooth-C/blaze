@@ -4,6 +4,7 @@ import java.util.*;
 /** Streaming adapter for the frozen neural model; no heuristic fallback. */
 final class StudioEngine {
     private final StudioModels models;
+    final StudioSignal signal=new StudioSignal();
     private final float[] chunk=new float[StudioModels.CHUNK];
     private final List<ChordEngine.Event> frames=new ArrayList<>();
     private final List<Float> peaks=new ArrayList<>();
@@ -12,6 +13,7 @@ final class StudioEngine {
     private long samples,processed;
     StudioEngine(StudioModels models){this.models=models;}
     void sample(double value)throws Exception{
+        signal.sample(value);
         float v=(float)Math.max(-1,Math.min(1,value));chunk[filled++]=v;samples++;
         peak=Math.max(peak,Math.abs(v));
         if(++peakCount>=peakStride){peaks.add(peak);peak=0;peakCount=0;compact();}
@@ -29,9 +31,9 @@ final class StudioEngine {
         }
         processed+=length;filled=0;
     }
-    static int chord(String label){if("N".equals(label))return -1;if("X".equals(label))return -2;String[] parts=label.split(":");for(int i=0;i<12;i++)if(ChordEngine.NOTES[i].equals(parts[0]))return i+(parts.length>1&&"min".equals(parts[1])?12:0);return -2;}
+    static int chord(String label){return StudioChord.parse(label);}
     List<ChordEngine.Event> finish()throws Exception{
-        flush();List<ChordEngine.Event> result=new ArrayList<>();
+        flush();signal.finish();List<ChordEngine.Event> result=new ArrayList<>();
         for(ChordEngine.Event e:frames){if(!result.isEmpty()&&result.get(result.size()-1).chord==e.chord){ChordEngine.Event prev=result.remove(result.size()-1);double score=(prev.confidence*(prev.endMs-prev.startMs)+e.confidence*(e.endMs-e.startMs))/(e.endMs-prev.startMs);result.add(new ChordEngine.Event(prev.startMs,e.endMs,e.chord,score));}else result.add(e);}
         return result;
     }

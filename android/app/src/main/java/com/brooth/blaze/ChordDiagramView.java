@@ -12,8 +12,9 @@ final class ChordDiagramView extends View {
     private boolean guitar;
     ChordDiagramView(Context context) { super(context); setContentDescription("Chord diagram"); }
     void show(int value, boolean guitar) {
+        if(this.chord==value&&this.guitar==guitar)return;
         this.chord = value; this.guitar = guitar;
-        setContentDescription(value < 0 ? "No reliable chord diagram" : new ChordEngine.Event(0, 1, value, 0).label(0) + (guitar ? " guitar fingering" : " piano notes"));
+        setContentDescription(value < 0 ? "No reliable chord diagram" : StudioChord.label(value,0) + (guitar ? " guitar fingering" : " piano notes"));
         invalidate();
     }
     @Override protected void onDraw(Canvas canvas) {
@@ -39,11 +40,10 @@ final class ChordDiagramView extends View {
         paint.setColor(0xffeeeeee); canvas.drawText("Highlighted notes (choose a comfortable octave)", getWidth() / 2f, getHeight() - 3 * unit, paint);
     }
     private boolean contains(int pitch) {
-        int interval = Math.floorMod(pitch - chord % 12, 12);
-        return interval == 0 || interval == (chord / 12 == 1 ? 3 : 4) || interval == 7;
+        return StudioChord.contains(chord,pitch);
     }
     private void drawGuitar(Canvas canvas, float unit) {
-        int root = chord % 12; boolean minor = chord / 12 == 1;
+        int root = StudioChord.root(chord); boolean minor = StudioChord.quality(chord)==0;
         int eShift = Math.floorMod(root - 4, 12), aShift = Math.floorMod(root - 9, 12);
         int shift = Math.min(eShift, aShift);
         int[] frets = eShift <= aShift ? new int[]{0, 2, 2, minor ? 0 : 1, 0, 0} : new int[]{-1, 0, 2, 2, minor ? 1 : 2, 0};
@@ -52,6 +52,7 @@ final class ChordDiagramView extends View {
         if (!minor && root == 2) frets = new int[]{-1, -1, 0, 2, 3, 2};
         if (!minor && root == 7) frets = new int[]{3, 2, 0, 0, 0, 3};
         if (minor && root == 2) frets = new int[]{-1, -1, 0, 2, 3, 1};
+        if(StudioChord.quality(chord)>1){frets=StudioChord.voicing(chord);if(frets==null){paint.setColor(0xffa8b1c5);canvas.drawText("No compact guitar shape · use piano notes",getWidth()/2f,getHeight()/2f,paint);return;}}
         int lowest = 99, highest = 0; for (int fret : frets) { if (fret > 0) lowest = Math.min(lowest, fret); highest = Math.max(highest, fret); }
         int firstFret = highest <= 4 ? 1 : lowest;
         float spacing = Math.min(28 * unit, (getWidth() - 80 * unit) / 5), left = (getWidth() - spacing * 5) / 2;

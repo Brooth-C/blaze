@@ -14,7 +14,7 @@ public class MusicStudioTest {
     @Test public void pretrainedAudioIsLocalTimedAndCached() throws Exception {
         File wave=File.createTempFile("studio-reference-",".wav",app.getCacheDir());
         try{writeWave(wave,false,12);StudioAnalyzer.Result r=new StudioAnalyzer().analyze(app,wave,null,message->{});
-            Set<String> labels=new HashSet<>();long end=0;for(ChordEngine.Event e:r.events){assertEquals(end,e.startMs);assertTrue(e.endMs>e.startMs);labels.add(e.label(0));end=e.endMs;}
+            Set<String> labels=new HashSet<>();long end=0;for(ChordEngine.Event e:r.events){assertEquals(end,e.startMs);assertTrue(e.endMs>e.startMs);labels.add(StudioChord.label(e.chord,0));end=e.endMs;}
             assertEquals(12000,end);assertTrue(labels.contains("C"));assertTrue(labels.contains("Am"));assertTrue(labels.contains("G"));assertTrue(r.waveform.length>0);
             StudioAnalyzer.Result cached=new StudioAnalyzer().analyze(app,wave,null,message->{});assertTrue(cached.cached);assertEquals(r.identity,cached.identity);
             StudioAnalyzer cancelled=new StudioAnalyzer();cancelled.cancel();try{cancelled.analyze(app,wave,null,message->{});fail("Cancelled analysis ran");}catch(java.util.concurrent.CancellationException expected){}
