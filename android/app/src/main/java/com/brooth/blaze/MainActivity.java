@@ -51,7 +51,7 @@ public class MainActivity extends Activity {
         LinearLayout root=new LinearLayout(this);root.setOrientation(LinearLayout.VERTICAL);root.setPadding(dp(20),dp(20),dp(20),dp(28));scroll.addView(root);setContentView(scroll);
         if(Build.VERSION.SDK_INT>=35)scroll.setOnApplyWindowInsetsListener((view,insets)->{android.graphics.Insets safe=insets.getInsets(WindowInsets.Type.systemBars());view.setPadding(safe.left,safe.top,safe.right,safe.bottom);return insets;});
         LinearLayout brand=new LinearLayout(this);brand.setGravity(Gravity.CENTER_VERTICAL);
-        ImageView logo=new ImageView(this);logo.setId(R.id.brand_logo);logo.setLayerType(View.LAYER_TYPE_SOFTWARE,null);logo.setImageResource(R.drawable.blaze_logo);logo.setBackgroundColor(getColor(R.color.logo_background));logo.setContentDescription("Blaze logo");brand.addView(logo,new LinearLayout.LayoutParams(dp(52),dp(52)));
+        ImageView logo=new ImageView(this);logo.setId(R.id.brand_logo);logo.setLayerType(View.LAYER_TYPE_SOFTWARE,null);logo.setImageResource(R.drawable.blaze_brand_mark);logo.setScaleType(ImageView.ScaleType.FIT_CENTER);logo.setBackgroundColor(Color.TRANSPARENT);logo.setContentDescription("Blaze logo");brand.addView(logo,new LinearLayout.LayoutParams(dp(52),dp(52)));
         TextView title=text("Blaze",30);title.setTypeface(null,Typeface.BOLD);brand.addView(title);root.addView(brand);
         root.addView(text("Download. Convert. Keep.",16));gap(root,18);
         TextView label=text("Link",13);label.setLabelFor(R.id.url_input);root.addView(label);
