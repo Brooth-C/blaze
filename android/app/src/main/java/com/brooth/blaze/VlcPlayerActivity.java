@@ -31,6 +31,7 @@ public class VlcPlayerActivity extends Activity {
     private int generation;
     private boolean opening;
     VLCVideoLayout video;
+    protected FrameLayout videoViewport;
     private TextView status, clock;
     protected LinearLayout root;
     private LinearLayout header;
@@ -82,7 +83,7 @@ public class VlcPlayerActivity extends Activity {
         root=new LinearLayout(this);root.setOrientation(LinearLayout.VERTICAL);root.setBackgroundColor(0xff0d1117);
         header=new LinearLayout(this);root.addView(header);
         Button back=button(header,"Back",this::back);back.setLayoutParams(new LinearLayout.LayoutParams((int)(64*getResources().getDisplayMetrics().density),-2));TextView title=new TextView(this);title.setText(mediaTitle);title.setSingleLine(true);title.setEllipsize(android.text.TextUtils.TruncateAt.END);title.setTextColor(0xffeeeeee);header.addView(title,new LinearLayout.LayoutParams(0,-2,1));
-        video=new VLCVideoLayout(this);root.addView(video,new LinearLayout.LayoutParams(-1,0,1));
+        video=new VLCVideoLayout(this);videoViewport=new FrameLayout(this);videoViewport.setClipChildren(true);videoViewport.setClipToPadding(true);videoViewport.addView(video,new FrameLayout.LayoutParams(-1,-1));root.addView(videoViewport,new LinearLayout.LayoutParams(-1,0,1));
         status=new TextView(this);status.setTextColor(0xffeeeeee);root.addView(status);
         clock=new TextView(this);clock.setTextColor(0xffeeeeee);root.addView(clock);
         seek=new SeekBar(this);seek.setMax(1000);seek.setContentDescription("Seek through media");root.addView(seek);
@@ -174,7 +175,7 @@ public class VlcPlayerActivity extends Activity {
     private static void close(ParcelFileDescriptor value){if(value!=null)try{value.close();}catch(IOException ignored){}}
     @SuppressWarnings("deprecation") private void release(){restoringFrame=false;handler.removeCallbacks(restoreTick);generation++;opening=false;if(openingTask!=null){openingTask.cancel(true);openingTask=null;}handler.removeCallbacks(tick);if(noisyRegistered){unregisterReceiver(noisy);noisyRegistered=false;}if(player!=null){player.setEventListener(null);player.stop();player.detachViews();player.release();player=null;}if(engine!=null){engine.release();engine=null;}close(descriptor);descriptor=null;if(video!=null)video.setKeepScreenOn(false);if(focusGranted){audio.abandonAudioFocus(focus);focusGranted=false;}}
     private void fullscreen(boolean value){fullscreen=value;for(int i=0;i<root.getChildCount();i++){View child=root.getChildAt(i);if(child!=playbackVideoContainer())child.setVisibility(value?View.GONE:View.VISIBLE);}WindowInsetsControllerCompat bars=WindowCompat.getInsetsController(getWindow(),root);bars.setSystemBarsBehavior(WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE);if(value)bars.hide(WindowInsetsCompat.Type.systemBars());else bars.show(WindowInsetsCompat.Type.systemBars());onFullscreenChanged(value);}
-    protected View playbackVideoContainer(){return video;}
+    protected View playbackVideoContainer(){return videoViewport;}
     protected void onFullscreenChanged(boolean fullscreen){}
     private void back(){if(fullscreen)fullscreen(false);else finish();}
     @Override public void onBackPressed(){back();}

@@ -57,10 +57,8 @@ public class MusicStudioActivity extends VlcPlayerActivity {
         if (root.getChildAt(2) instanceof TextView) { playerStatus = (TextView)root.getChildAt(2); playerStatus.setTextSize(11); playerStatus.setMaxLines(2); playerStatus.setVisibility(View.GONE); }
         // LibVLC resizes its surface frame. Contain it so it cannot consume the
         // Studio's control area when audio is playing or the preview is collapsed.
-        root.removeView(video);
-        videoHost = new FrameLayout(this); videoHost.setClipChildren(true); videoHost.setClipToPadding(true);
-        videoHost.addView(video, new FrameLayout.LayoutParams(-1, -1));
-        root.addView(videoHost, 1, new LinearLayout.LayoutParams(-1, 0));
+        videoHost = videoViewport;
+        videoHost.setLayoutParams(new LinearLayout.LayoutParams(-1, 0));
         videoHost.setVisibility(View.GONE);
         LinearLayout header = (LinearLayout)root.getChildAt(0);
         if (header.getChildCount() > 1 && header.getChildAt(1) instanceof TextView) { TextView title = (TextView)header.getChildAt(1); title.setTextSize(16); title.setTypeface(null, android.graphics.Typeface.BOLD); title.setText(mediaName()); title.setContentDescription("Blaze Music Studio, " + mediaName()); }

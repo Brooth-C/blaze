@@ -31,7 +31,7 @@ public class VlcPlaybackTest {
         try{
         try(ActivityScenario<VlcPlayerActivity> screen=ActivityScenario.launch(new Intent(app,VlcPlayerActivity.class).putExtra("job",id).putExtra("software",true))){
             ready(screen,true);
-            screen.onActivity(a->{assertTrue(a.player.isPlaying());assertTrue(a.player.getAudioTracksCount()>0);assertTrue(a.player.getVideoTracksCount()>0);assertEquals(320,a.player.getCurrentVideoTrack().width);a.toggle.performClick();a.player.setTime(1500);});
+            screen.onActivity(a->{android.graphics.Rect control=new android.graphics.Rect();assertTrue("Player controls are off-screen",a.toggle.getGlobalVisibleRect(control));assertTrue("Player control is clipped",control.height()>=a.toggle.getHeight()-1);assertTrue(a.player.isPlaying());assertTrue(a.player.getAudioTracksCount()>0);assertTrue(a.player.getVideoTracksCount()>0);assertEquals(320,a.player.getCurrentVideoTrack().width);a.toggle.performClick();a.player.setTime(1500);});
             assertEquals(android.media.AudioManager.AUDIOFOCUS_REQUEST_GRANTED,audio.requestAudioFocus(music,android.media.AudioManager.STREAM_MUSIC,android.media.AudioManager.AUDIOFOCUS_GAIN));
             Thread.sleep(250);screen.recreate();ready(screen,false);
             screen.onActivity(a->{assertTrue(a.player.getTime()>=1200);assertFalse(a.player.isPlaying());});
@@ -39,7 +39,7 @@ public class VlcPlaybackTest {
             Thread.sleep(550); // Allow the visible timeline to refresh before the release screenshot.
             android.graphics.Bitmap image=null;boolean rendered=false;android.graphics.Rect bounds=new android.graphics.Rect();
             for(int attempt=0;attempt<40&&!rendered;attempt++){
-                screen.onActivity(a->{int[] location=new int[2];a.video.getLocationOnScreen(location);bounds.set(location[0],location[1],location[0]+a.video.getWidth(),location[1]+a.video.getHeight());});
+                screen.onActivity(a->{assertTrue(a.video.getGlobalVisibleRect(bounds));});
                 if(image!=null)image.recycle();image=InstrumentationRegistry.getInstrumentation().getUiAutomation().takeScreenshot();assertNotNull(image);
                 int colored=0;for(int y=Math.max(0,bounds.top);y<Math.min(image.getHeight(),bounds.bottom);y++)for(int x=Math.max(0,bounds.left);x<Math.min(image.getWidth(),bounds.right);x++){int color=image.getPixel(x,y);if(android.graphics.Color.red(color)>150&&android.graphics.Color.red(color)>android.graphics.Color.blue(color)*2)colored++;}
                 rendered=colored>100;if(!rendered)Thread.sleep(100);
