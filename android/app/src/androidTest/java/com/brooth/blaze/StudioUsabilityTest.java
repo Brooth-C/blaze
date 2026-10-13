@@ -94,7 +94,15 @@ public class StudioUsabilityTest {
             if (!ready.get()) Thread.sleep(80);
         }
         screenshot("Blaze-Android-Studio-Layout-Diagnostic.png");
-        assertTrue("Studio never completed its layout", ready.get());
+        java.util.concurrent.atomic.AtomicReference<String> details = new java.util.concurrent.atomic.AtomicReference<>("");
+        screen.onActivity(activity -> details.set("orientation=" + activity.getResources().getConfiguration().orientation + " " + layoutTree(activity.root)));
+        assertTrue("Studio never completed its layout: " + details.get(), ready.get());
+    }
+    private String layoutTree(View view) {
+        String info = view.getClass().getSimpleName() + "[" + view.getWidth() + "x" + view.getHeight() + ",v=" + view.getVisibility() + ",tag=" + view.getTag()
+            + (view instanceof TextView ? ",text=" + ((TextView)view).getText() : "") + "]";
+        if (view instanceof ViewGroup) for (int i=0;i<((ViewGroup)view).getChildCount();i++) info += layoutTree(((ViewGroup)view).getChildAt(i));
+        return info;
     }
     private void inject(MusicStudioActivity activity) {
         try {
