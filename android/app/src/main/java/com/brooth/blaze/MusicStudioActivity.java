@@ -236,7 +236,10 @@ public class MusicStudioActivity extends VlcPlayerActivity {
         left.addView(state, new LinearLayout.LayoutParams(-1, -2)); left.addView(flow, new LinearLayout.LayoutParams(-1, dp(landscape ? 72 : 88)));
         left.addView(rhythmStatus, new LinearLayout.LayoutParams(-1, -2));
         if (getResources().getConfiguration().fontScale <= 1.35f) left.addView(instrumentRow, new LinearLayout.LayoutParams(-1, -2));
-        right.addView(cardRow, new LinearLayout.LayoutParams(-1, 0, 1)); right.addView(countdown, new LinearLayout.LayoutParams(-1, -2)); right.addView(actionRow, new LinearLayout.LayoutParams(-1, -2));
+        right.addView(cardRow, landscape ? new LinearLayout.LayoutParams(-1, 0, 1) : new LinearLayout.LayoutParams(-1, dp(164)));
+        right.addView(countdown, new LinearLayout.LayoutParams(-1, -2));
+        if (!landscape) right.addView(new Space(this), new LinearLayout.LayoutParams(-1, 0, 1));
+        right.addView(actionRow, new LinearLayout.LayoutParams(-1, -2));
     }
     private void loadRhythm(){
         try{String saved=getSharedPreferences("studio-rhythm",MODE_PRIVATE).getString(result.sourceHash,"");rhythm=StudioRhythm.read(saved);musical=new StudioTimeline(result.durationMs,result.events,result.beats,result.downbeats,result.meter,rhythm);flow.show(musical,transpose);}

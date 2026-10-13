@@ -29,7 +29,8 @@ final class ChordDiagramView extends View {
     private void drawPiano(Canvas canvas, float unit) {
         int[] whites = {5, 7, 9, 11, 0, 2, 4, 5, 7, 9, 11, 0, 2, 4};
         int[] blacks = {6, 8, 10, 1, 3, 6, 8, 10, 1, 3}, gaps = {1, 2, 3, 5, 6, 8, 9, 10, 12, 13};
-        float width = (getWidth() - 12 * unit) / 14, left = 6 * unit, top = 4 * unit, bottom = getHeight() - 24 * unit;
+        float width = (getWidth() - 12 * unit) / 14, left = 6 * unit, top = 4 * unit;
+        float bottom = top + Math.max(unit, Math.min(getHeight() - 28 * unit, width * 14 * .42f));
         boolean[] marked = new boolean[12];
         for (int i = 0; i < whites.length; i++) {
             paint.setStyle(Paint.Style.FILL); paint.setColor(0xfff3f3f3);
@@ -44,7 +45,7 @@ final class ChordDiagramView extends View {
         }
         StringBuilder notes = new StringBuilder();
         for (int n = 0; n < 12; n++) { int pitch = Math.floorMod(StudioChord.root(chord) + n, 12); if (contains(pitch)) notes.append(notes.length() == 0 ? "" : "  ").append(ChordEngine.NOTES[pitch]); }
-        paint.setColor(0xffeeeeee); canvas.drawText(notes.toString(), getWidth() / 2f, getHeight() - 6 * unit, paint);
+        paint.setColor(0xffeeeeee); canvas.drawText(notes.toString(), getWidth() / 2f, bottom + 18 * unit, paint);
     }
     private boolean contains(int pitch) {
         return StudioChord.contains(chord,pitch);
@@ -68,7 +69,7 @@ final class ChordDiagramView extends View {
         for (int i = 0; i < 5; i++) canvas.drawLine(left, top + i * step, left + 5 * spacing, top + i * step, paint);
         for (int i = 0; i < 6; i++) {
             float x = left + i * spacing; canvas.drawLine(x, top, x, top + 4 * step, paint);
-            canvas.drawText(frets[i] < 0 ? "Ã—" : frets[i] == 0 ? "â—‹" : Integer.toString(frets[i]), x, top - 9 * unit, paint);
+            canvas.drawText(frets[i] < 0 ? "\u00d7" : frets[i] == 0 ? "\u25cb" : Integer.toString(frets[i]), x, top - 9 * unit, paint);
             if (frets[i] > 0) { paint.setColor(0xffff8c42); canvas.drawCircle(x, top + (frets[i] - firstFret + .5f) * step, 5 * unit, paint); paint.setColor(0xffeeeeee); }
         }
         canvas.drawText(Integer.toString(firstFret), left - 18 * unit, top + step / 2, paint);

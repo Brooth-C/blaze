@@ -62,7 +62,7 @@ public class StudioUsabilityTest {
                         assertTrue("Piano diagram is too shallow", diagram.getHeight() >= dp(activity, 48)); assertFullyVisible(diagram);
                         assertEquals("Now: Cmaj7", ((TextView)activity.findViewById(R.id.chord_current)).getText().toString());
                         activity.onPlaybackTime(4200);
-                        assertEquals("Now: â€”", ((TextView)activity.findViewById(R.id.chord_current)).getText().toString());
+                        assertEquals("Now: \u2014", ((TextView)activity.findViewById(R.id.chord_current)).getText().toString());
                         assertFalse("Uncertainty leaked into the display", allText(activity.root).contains("Uncertain"));
                         activity.onPlaybackTime(1500);
                     });
