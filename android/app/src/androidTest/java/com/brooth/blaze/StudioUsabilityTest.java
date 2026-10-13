@@ -35,6 +35,28 @@ public class StudioUsabilityTest {
         }
     }
 
+    @Test public void studioAnalyzesAndPlaysSelectedAudio() throws Exception {
+        File wave=File.createTempFile("studio-playback-", ".wav",DownloadService.folder(app));
+        MusicStudioTest.writeWave(wave,false,12);
+        android.net.Uri uri=androidx.core.content.FileProvider.getUriForFile(app,app.getPackageName()+".files",wave);
+        try(ActivityScenario<MusicStudioActivity> screen=ActivityScenario.launch(new Intent(app,MusicStudioActivity.class).setData(uri))) {
+            java.util.concurrent.atomic.AtomicBoolean analysed=new java.util.concurrent.atomic.AtomicBoolean();
+            screen.onActivity(activity->activity.findViewById(R.id.chord_analyze).performClick());
+            long deadline=android.os.SystemClock.uptimeMillis()+90000;
+            while(!analysed.get()&&android.os.SystemClock.uptimeMillis()<deadline) {
+                screen.onActivity(activity->analysed.set(activity.result!=null)); Thread.sleep(100);
+            }
+            assertTrue("Studio did not finish selected-file analysis",analysed.get());
+            java.util.concurrent.atomic.AtomicBoolean playing=new java.util.concurrent.atomic.AtomicBoolean();
+            deadline=android.os.SystemClock.uptimeMillis()+20000;
+            while(!playing.get()&&android.os.SystemClock.uptimeMillis()<deadline) {
+                screen.onActivity(activity->playing.set(activity.player!=null&&activity.player.isPlaying()&&activity.player.getTime()>500)); Thread.sleep(100);
+            }
+            assertTrue("Studio audio did not play with the preview collapsed",playing.get());
+            screen.onActivity(activity->{activity.toggle.performClick();activity.seekPlayback(4500);assertTrue(activity.result.events.size()>0);});
+            screenshot("Blaze-Android-Studio-Real-Analysis.png");
+        } finally {wave.delete();app.getSharedPreferences("playback",Context.MODE_PRIVATE).edit().remove("document:"+uri).apply();}
+    }
     @Test public void studioFitsPhoneAndLargeTextWithoutScrolling() throws Exception {
         String oldFont = shell("settings get system font_scale").trim();
         File wave = new File(DownloadService.folder(app), "studio-ui-" + UUID.randomUUID() + ".wav");
