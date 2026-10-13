@@ -113,7 +113,7 @@ def check_decoder(ffmpeg, ffprobe, materials, arch):
     entries = decoder_entries(manifest)
     for name, path in (("ffmpeg", ffmpeg), ("ffprobe", ffprobe)):
         checked_file(path, entries[name])
-        run("/usr/bin/lipo", "-verify_arch", arch, path)
+        run("/usr/bin/lipo", path, "-verify_arch", arch)
     archive = materials / "FFmpeg-LGPL-Corresponding-Sources.zip"
     if not archive.is_file() or not (materials / "licenses").is_dir():
         raise ValueError("Matching decoder source archive and license files are required.")
@@ -242,7 +242,7 @@ def build(args):
         raise ValueError("Supply retained Node and standalone yt-dlp license materials.")
     check_decoder(args.ffmpeg, args.ffprobe, args.decoder_materials, args.arch)
     for binary in (args.ytdlp, args.node):
-        run("/usr/bin/lipo", "-verify_arch", args.arch, binary)
+        run("/usr/bin/lipo", binary, "-verify_arch", args.arch)
     args.output.mkdir(parents=True, exist_ok=True)
     args.work.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(prefix="macos-stage-", dir=args.work) as temporary:

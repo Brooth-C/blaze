@@ -40,13 +40,15 @@ jobs:
           python tests/Blaze-Sequence-Tests.py
           node tests/Blaze-Live-Flow-Tests.cjs
           node tests/Blaze-Timeline-Cells-Tests.cjs
-      - uses: actions/cache@v6.1.0
+      - uses: actions/cache/restore@v6.1.0
+        id: tools-cache
         with:
           path: build/mac-assets
           key: blaze-mac-tools-minimal-${{ matrix.arch }}-73bfa1bc-node2220-ytdlp20260819
       - name: Stage pinned model and downloader assets
         run: python tools/stage_macos_studio.py --work build/mac-assets --arch ${{ matrix.arch }}
-      - uses: actions/cache@v6.1.0
+      - uses: actions/cache/restore@v6.1.0
+        id: decoder-cache
         with:
           path: |
             tools/macos_decoder/downloads
@@ -59,6 +61,18 @@ jobs:
             bash tools/macos_decoder/build.sh
             python tools/macos_decoder/package_sources.py
           fi
+      - uses: actions/cache/save@v6.1.0
+        if: steps.decoder-cache.outputs.cache-hit != 'true'
+        with:
+          path: |
+            tools/macos_decoder/downloads
+            tools/macos_decoder/output
+          key: ${{ steps.decoder-cache.outputs.cache-primary-key }}
+      - uses: actions/cache/save@v6.1.0
+        if: steps.tools-cache.outputs.cache-hit != 'true'
+        with:
+          path: build/mac-assets
+          key: ${{ steps.tools-cache.outputs.cache-primary-key }}
       - name: Build minimal separate downloader
         run: python tools/build_macos_downloader.py --arch ${{ matrix.arch }} --output build/mac-assets/bin --work build/mac-downloader --notices build/mac-assets/notices
       - name: Build Blaze.app
