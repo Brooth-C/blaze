@@ -1,0 +1,30 @@
+name: Windows Studio source checks
+on:
+  pull_request:
+    paths: ['music_studio/**', 'tests/Blaze-*Rhythm*-Tests.cjs', 'tests/Blaze-*Flow*-Tests.cjs', 'tests/Blaze-Timeline-Cells-Tests.cjs', 'tests/Blaze-Meter-Tests.py', 'tests/Blaze-Sequence-Tests.py', 'tests/Blaze-Chord-Evidence-Tests.py', 'tools/build_*models.py', 'tools/build_lv_frontend.py', 'tools/build_windows_studio.py', '.github/workflows/windows-studio-tests.yml']
+  push:
+    branches: [main]
+    paths: ['music_studio/**', '.github/workflows/windows-studio-tests.yml']
+permissions:
+  contents: read
+jobs:
+  music-studio:
+    name: Music Studio timing and evidence
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-python@v7.0.0
+        with:
+          python-version: '3.12'
+      - run: node --version
+      - run: python -m pip install numpy==1.26.4 onnxruntime==1.20.1 ruff==0.14.0
+      - run: |
+          python -m ruff check --select F,E9 music_studio tools/build_structured_models.py tools/build_lv_frontend.py tools/build_rhythm_model.py tools/build_windows_studio.py
+          python tests/Blaze-Meter-Tests.py
+          python tests/Blaze-Chord-Evidence-Tests.py
+          python tests/Blaze-Sequence-Tests.py
+          python tests/Blaze-Uncertainty-Tests.py
+          node tests/Blaze-Automatic-Rhythm-Tests.cjs
+          node tests/Blaze-Live-Flow-Tests.cjs
+          node tests/Blaze-Timeline-Cells-Tests.cjs

@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "name": "Beat This! final0",
+  "source": "https://github.com/CPJKU/beat_this",
+  "version": "b95c8ab0c58c2d9fcfd40508ae8dffbc05ac4f5c",
+  "license": "MIT",
+  "checkpoint_sha256": "8c328b45f59d8dd3dff219253ff6a8d6482be57d0133a29140e2febbf8eb8331",
+  "sample_rate": 22050,
+  "hop_length": 441,
+  "n_fft": 1024,
+  "fps": 50,
+  "chunk_frames": 1500,
+  "border_frames": 6,
+  "network": {
+    "file": "beat_this.onnx",
+    "sha256": "19bc4c266f833f05aadbd2ff342d0404bd4e1396a161ef6c9b49aa0e53820716"
+  },
+  "frontend": {
+    "file": "beat_mel.npz",
+    "sha256": "44e4c626069ee3c86d3fc6a8513ae026bf01d8e98f0c67b7385e92d55caf22e6"
+  }
+}
