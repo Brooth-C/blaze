@@ -58,6 +58,7 @@ def page(catalog):
         f"{asset['size']:,} bytes · SHA256 `{asset['sha256']}`"
         for asset in catalog['assets'])
     native = catalog['android_native_sources']
+    versions = '; '.join(f"{asset['platform']}: {asset['component_version']}" for asset in catalog['assets'])
     return f'''## Download Blaze
 
 Choose **one download** for your platform. Extract ZIPs completely before opening
@@ -72,8 +73,7 @@ audio/video import, playback and automatic beat/meter detection. Android remains
 a preview. macOS, Linux and Termux retain the existing terminal app.
 
 **{catalog['tag']} is a distribution refresh:** it brings these existing platform
-builds together. Windows and Android are version 0.6.0 (Android preview); the terminal installers
-remain version 4.1.29.
+builds together. Component versions: {versions}.
 
 [Setup guides]({base}/blob/main/docs/README.md) · [Android guide]({base}/blob/main/docs/ANDROID-APK.md) · [Help]({base}/blob/main/SUPPORT.md)
 
