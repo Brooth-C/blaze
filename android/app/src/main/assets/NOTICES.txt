@@ -1,5 +1,5 @@
-Blaze Android 0.4.0 preview
-Copyright © 2026 Brooth-C.
+Blaze Android 0.6.0 preview
+Copyright Â© 2026 Brooth-C.
 Free to install and use. Other rights reserved under the included BLAZE-LICENSE.txt. Your downloads stay on your device. There is no Blaze account, analytics or server. Requests go directly to the website you choose.
 
 This Android app includes a persistent queue/history, video quality selection, original audio/MP3/M4A/WAV/FLAC, separate-stream merging, and bounded playlists. Pause/resume retains supported partial files; interrupted work remains in the queue. Save a copy to keep media outside Blaze before uninstalling. Android can stop or time-limit background services. Live streams, login/cookies and the desktop dashboard are not included. Some sites block downloading or change independently. Download only content you are allowed to save. WAV/FLAC conversion cannot restore detail missing from the source.
@@ -19,3 +19,9 @@ The statically linked libc++ runtime retains Apache 2.0 with LLVM exceptions (LL
 
 LibVLC 3.7.7 Java bindings and separately built LGPL-only native engine — LGPL 2.1 (assets/licenses/LIBVLC-LICENSE.txt). Native GPL components from the Maven AAR are excluded. Corresponding JNI/VLC/dependency sources and build script accompany the Android release. Audio/subtitle tracks and software decoding run inside Blaze. AndroidX Legacy and Kotlin standard library retain Apache 2.0 licenses. See docs/ANDROID-PLAYER-BUILD.md for component replacement instructions. The Blaze logo uses black in dark mode and white in light mode.
 
+
+The offline chord finder analyses local audio/video soundtracks on-device and saves timestamped chord estimates. No microphone, server, upload, or model download is used. Chord/key accuracy on full mixes is not established; A legacy basic analyser is retained separately; Music Studio defaults to the pretrained extended model described below.
+
+Music Studio defaults to verified MIT BTC-170 plus the five-model MusicXLab ensemble, with Beat This! local beat/downbeat detection. Shared CQT/sequence code matches Windows; portable CQT adaptations retain librosa ISC notices. Model licenses/checksums are in assets/musicstudio_models. Recognition is fallible and scores are uncalibrated. Uncertain intervals remain X in exports; automatic meter requires consistent detected downbeats and accepts manual overrides.
+ONNX Runtime Android 1.20.0: MIT, Microsoft Corporation. NumPy 1.26.2 and OpenBLAS retain their BSD notices. libgfortran uses GPLv3 with the GCC Runtime Library Exception; libc++ retains LLVM notices. Full numerical dependency notices are embedded in Python distribution metadata and assets/licenses. Blaze rights do not restrict these components.
+All ten native media executables/libraries are unchanged from the published v4.1.29 APK. Exact corresponding source/build recipes: https://github.com/Brooth-C/blaze/releases/download/v4.1.29/Blaze-Android-Native-Sources.tar.gz (SHA256 c2eeadf7bbc8be426ead9248fa69e4a5ce5c490c5484669495e684a3081d226e). These component replacement/rebuilding rights remain unaffected by Blaze's license.

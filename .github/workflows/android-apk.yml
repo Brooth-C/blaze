@@ -1,28 +1,21 @@
-name: Android APK preview
+name: Android offline Studio validation
 on:
   pull_request:
-    paths: ['android/**', 'tests/Blaze-Mobile*-Tests.py', 'tools/*android_libvlc*', '.github/workflows/android-apk.yml', '.github/workflows/android-native-tools.yml', '.github/workflows/android-libvlc.yml']
+    paths: ['android/**', 'music_studio/lv_frontend.py', 'music_studio/structured.py', 'tests/Blaze-Android*-Tests.py', 'tests/Blaze-Mobile*-Tests.py', 'tests/java/**', 'tools/stage_android_studio.py', 'tools/sync_android_harmony.py', '.github/workflows/android-apk.yml']
   push:
     branches: [main]
-    paths: ['android/**', 'tests/Blaze-Mobile*-Tests.py', 'tools/*android_libvlc*', '.github/workflows/android-apk.yml', '.github/workflows/android-native-tools.yml', '.github/workflows/android-libvlc.yml']
+    paths: ['android/**', 'music_studio/lv_frontend.py', 'music_studio/structured.py', 'tests/Blaze-Android*-Tests.py', 'tests/Blaze-Mobile*-Tests.py', 'tests/java/**', 'tools/stage_android_studio.py', 'tools/sync_android_harmony.py', '.github/workflows/android-apk.yml']
   workflow_dispatch:
 permissions:
   contents: read
-  actions: read
-  pull-requests: read
 concurrency:
   group: blaze-android-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 jobs:
-  libvlc:
-    uses: ./.github/workflows/android-libvlc.yml
-  native:
-    uses: ./.github/workflows/android-native-tools.yml
   apk:
-    needs: [native, libvlc]
     name: Build Android APK
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v7.0.1
       - uses: actions/setup-java@v6.0.1
@@ -37,39 +30,32 @@ jobs:
           packages: platform-tools
       - name: Install SDK
         run: sdkmanager 'platforms;android-36' 'build-tools;35.0.0'
-      - uses: actions/download-artifact@v8.0.2
+      - uses: actions/cache@v6.1.0
         with:
-          pattern: Blaze-Native-*
-          merge-multiple: true
-          path: android/app/src/main/
-      - uses: actions/download-artifact@v8.0.2
-        with:
-          pattern: Blaze-LibVLC-*
-          merge-multiple: true
-          path: android/app/src/main/
-      - name: Package LGPL engine and matching source
+          path: build/android-released-assets
+          key: blaze-android-assets-native-d7dbd408-models-73bfa1bc
+      - name: Stage verified existing native and pretrained model releases
         run: |
-          mkdir -p android/app/src/main/assets/licenses
-          cp -a android/app/src/main/licenses/. android/app/src/main/assets/licenses/
-          python tools/prepare_android_libvlc.py
-      - name: Backend checks
+          python tools/stage_android_studio.py --work build/android-released-assets
+          python tools/sync_android_harmony.py
+      - name: Engine and backend checks
         run: |
-          python -m pip install yt-dlp==2026.8.19 cryptography imageio-ffmpeg ruff
+          python -m pip install numpy==1.26.4 onnxruntime==1.20.1 yt-dlp==2026.8.19 cryptography imageio-ffmpeg ruff==0.14.0
           python tests/Blaze-Mobile-Tests.py
           python tests/Blaze-Mobile-Integration-Tests.py
-          python -m ruff check --select F,E9 android/app/src/main/python/ tests/Blaze-Mobile*-Tests.py
-          python -m ruff check --select F,E9 tools/prepare_android_libvlc.py
-          bash -n tools/build_android_libvlc.sh
+          python tests/Blaze-Mobile-Chord-Tests.py
+          python tests/Blaze-Android-Harmony-Tests.py
+          python tests/Blaze-Android-Rhythm-Frontend-Tests.py
+          python -m ruff check --select F,E9 android/app/src/main/python/ tests/Blaze-Android*-Tests.py tools/stage_android_studio.py tools/sync_android_harmony.py
+          mkdir -p build/chord-tests
+          javac -d build/chord-tests android/app/src/main/java/com/brooth/blaze/{ChordEngine,StudioChord,StudioTimeline,StudioSignal,StudioMeter}.java tests/java/com/brooth/blaze/StudioTimelineTest.java tests/java/com/brooth/blaze/StudioMeterTest.java
+          java -cp build/chord-tests com.brooth.blaze.StudioTimelineTest
+          java -cp build/chord-tests com.brooth.blaze.StudioMeterTest
       - name: Build and lint
         working-directory: android
         run: |
           chmod +x gradlew
           ./gradlew --no-daemon lintDebug assembleDebug assembleDebugAndroidTest
-      - name: APK checksum
-        run: |
-          cp android/app/build/outputs/apk/debug/app-debug.apk Blaze-Android-Preview.apk
-          cp android/app/src/main/Blaze-Android-Native-Sources.tar.gz .
-          sha256sum Blaze-Android-Preview.apk > SHA256SUMS-Android.txt
       - uses: actions/upload-artifact@v7.0.2
         with:
           name: Android-instrumentation-bundle
@@ -77,30 +63,21 @@ jobs:
             android/app/build/outputs/apk/debug/app-debug.apk
             android/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
       - uses: actions/upload-artifact@v7.0.2
-        with:
-          name: Blaze-Android-Preview
-          path: |
-            Blaze-Android-Preview.apk
-            SHA256SUMS-Android.txt
-            Blaze-Android-Native-Sources.tar.gz
-          retention-days: 30
-      - uses: actions/upload-artifact@v7.0.2
         if: failure()
         with:
-          name: Android-diagnostics
-          path: |
-            android/app/build/reports/
-            android/app/build/intermediates/lint_intermediate_text_report/
+          name: Android-build-diagnostics
+          path: android/app/build/reports/
   emulator:
     name: Android tests / API ${{ matrix.api }}
     needs: apk
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    timeout-minutes: 25
     strategy:
       fail-fast: false
       matrix:
         api: [29, 35]
     steps:
+      - uses: actions/checkout@v7.0.1
       - uses: android-actions/setup-android@v4.0.4
       - uses: actions/download-artifact@v8.0.2
         with:
@@ -112,71 +89,22 @@ jobs:
         with:
           api-level: ${{ matrix.api }}
           arch: x86_64
+          profile: pixel_2
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
           script: |
-            if [ '${{ matrix.api }}' = '29' ]; then adb root; adb wait-for-device; fi
             adb install apk-tests/debug/app-debug.apk
             adb install apk-tests/androidTest/debug/app-debug-androidTest.apk
             adb shell am instrument -w -r com.brooth.blaze.test/androidx.test.runner.AndroidJUnitRunner | tee instrumentation.log
             adb logcat -d > android-logcat.txt
-            adb exec-out run-as com.brooth.blaze cat files/Blaze-Player-Audio.png > Blaze-Player-Audio.png
-            adb exec-out run-as com.brooth.blaze cat files/Blaze-Player-Video.png > Blaze-Player-Video.png
-            adb exec-out run-as com.brooth.blaze cat files/Blaze-VLC-Player.png > Blaze-VLC-Player.png
+            mkdir -p screenshots
+            for name in Blaze-Android-Home Blaze-Android-Studio-Portrait Blaze-Android-Studio-Large-Text Blaze-Android-Studio-Landscape Blaze-Android-Studio-Options; do adb exec-out run-as com.brooth.blaze cat "files/$name.png" > "screenshots/$name.png"; done
             grep -Eq '^OK \([0-9]+ tests?\)' instrumentation.log
-            adb shell am start -W -n com.brooth.blaze/.MainActivity
-            adb shell dumpsys activity activities | grep -Eq '(mResumedActivity|topResumedActivity).*com.brooth.blaze'
-            sleep 2
-            adb shell screencap -p /sdcard/blaze-preview.png
-            adb pull /sdcard/blaze-preview.png Blaze-Android-Preview.png
       - uses: actions/upload-artifact@v7.0.2
         if: always()
         with:
           name: Android-emulator-${{ matrix.api }}
           path: |
             instrumentation.log
-            Blaze-Android-Preview.png
-            Blaze-Player-Audio.png
-            Blaze-Player-Video.png
-            Blaze-VLC-Player.png
+            screenshots/
             android-logcat.txt
-  publish:
-    name: Publish Android preview
-    needs: [apk, emulator]
-    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
-    runs-on: ubuntu-24.04
-    timeout-minutes: 5
-    permissions:
-      contents: write
-      actions: read
-    env:
-      GH_TOKEN: ${{ github.token }}
-      GH_REPO: ${{ github.repository }}
-    steps:
-      - uses: actions/checkout@v7.0.1
-      - uses: actions/download-artifact@v8.0.2
-        with:
-          name: Blaze-Android-Preview
-      - uses: actions/download-artifact@v8.0.2
-        with:
-          name: Android-emulator-35
-      - name: Publish immutable versioned preview
-        shell: bash
-        run: |
-          set -euo pipefail
-          CURRENT_SHA=$(gh api "repos/$GH_REPO/git/ref/heads/main" --jq .object.sha)
-          if [ "$CURRENT_SHA" != "$GITHUB_SHA" ]; then
-            echo "A newer main commit is awaiting validation; skipping publication."
-            exit 0
-          fi
-          VERSION=$(python -c 'import re,pathlib; print(re.search(r"versionName\s+[^0-9]([0-9][A-Za-z0-9.+-]*)", pathlib.Path("android/app/build.gradle").read_text()).group(1))')
-          TAG="android-v$VERSION"
-          if gh release view "$TAG" >/dev/null 2>&1; then
-            echo "Android version already published; existing signed assets will be preserved."
-            DESKTOP_VERSION=$(python -c 'import tools.release_page as r; print(r.versions()[0])')
-            python tools/release_page.py --mirror "v$DESKTOP_VERSION"
-            exit 0
-          fi
-          sha256sum --check SHA256SUMS-Android.txt
-          gh release create "$TAG" Blaze-Android-Preview.apk SHA256SUMS-Android.txt Blaze-Android-Preview.png Blaze-Player-Audio.png Blaze-Player-Video.png Blaze-VLC-Player.png Blaze-Android-Native-Sources.tar.gz --target "$GITHUB_SHA" --title "Blaze Android $VERSION" --notes-file docs/ANDROID-RELEASE-NOTES.md --prerelease --latest=false
-          DESKTOP_VERSION=$(python -c 'import tools.release_page as r; print(r.versions()[0])')
-          python tools/release_page.py --mirror "v$DESKTOP_VERSION"
-

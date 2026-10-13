@@ -1,21 +1,19 @@
-# Blaze Android 0.4 preview
+# Blaze Android 0.6.0 preview
 
-Play original downloads inside Blaze with embedded LibVLC and broader codec support.
+One app for Downloads, Music Studio and playback, with the proper Blaze logo
+and orange theme. Install Blaze-Android-Preview.apk.
 
-- Automatic hardware decoding and a Software option for unsupported hardware codecs.
-- Original MKV playback, audio/subtitle track selection, seeking, speed, repeat and fullscreen controls.
-- Files → Open an audio or video file plays an existing file directly through Android's picker.
-- An optional Android playback engine remains available inside the same app.
-- Playback pauses outside the foreground and on headphone disconnection or audio focus loss.
-- Black logo background in system dark mode and white in light mode, including adaptive launcher resources.
-- LGPL-only native LibVLC built from pinned sources; matching decoder sources and build instructions accompany the APK.
+- Advanced offline chords default to the same verified ensemble and shared
+  frontend/sequence decoder used by Blaze Windows, including extensions/inversions.
+- Native Beat This! beat/downbeat detection and conservative automatic meter,
+  with persistent manual timing corrections and no invented four-beat lines.
+- Smooth beat cells, blank uncertain segments, readable current/next diagrams,
+  and a compact phone screen. Extra controls are in Studio options.
+- Content/model-addressed caching, cancellation, manual chord editing and exports.
 
-Codec support does not guarantee smooth 8K/16K playback on low-end phones.
-Damaged or encrypted files may not play. No redownload or transcoding is required
-to use the player. Physical Redmi validation remains outstanding.
+Model and dependency notices are inside the APK. Matching unchanged native
+sources: https://github.com/Brooth-C/blaze/releases/download/v4.1.29/Blaze-Android-Native-Sources.tar.gz
+SHA256: c2eeadf7bbc8be426ead9248fa69e4a5ce5c490c5484669495e684a3081d226e
 
-This is a debug-signed preview. Export files before uninstalling an older build
-if signing-key differences prevent updating. An owner-controlled production key
-is needed for reliable future upgrades.
-
-[Player guide](https://github.com/Brooth-C/blaze/blob/main/docs/ANDROID-APK.md) · [Previous Android release](https://github.com/Brooth-C/blaze/releases/tag/android-v0.3.0-preview)
+Recognition is fallible; broader vocabulary is not a real-song accuracy guarantee.
+This is a debug-signed preview; a different signing key can prevent an in-place update.

@@ -1,4 +1,1 @@
-<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
-    <item android:drawable="@color/logo_background" />
-    <item android:drawable="@drawable/blaze_logo" />
-</layer-list>
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android"><item android:drawable="@color/launcher_background"/><item android:drawable="@drawable/blaze_brand_mark" android:left="6dp" android:right="6dp" android:top="6dp" android:bottom="6dp"/></layer-list>
