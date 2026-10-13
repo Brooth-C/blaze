@@ -47,6 +47,7 @@ public class StudioUsabilityTest {
                 screen.onActivity(activity->analysed.set(activity.result!=null)); Thread.sleep(100);
             }
             assertTrue("Studio did not finish selected-file analysis",analysed.get());
+            screen.onActivity(activity->{if(activity.player!=null&&!activity.player.isPlaying())activity.toggle.performClick();});
             java.util.concurrent.atomic.AtomicBoolean playing=new java.util.concurrent.atomic.AtomicBoolean();
             deadline=android.os.SystemClock.uptimeMillis()+20000;
             while(!playing.get()&&android.os.SystemClock.uptimeMillis()<deadline) {

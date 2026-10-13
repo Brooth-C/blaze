@@ -22,7 +22,7 @@ public class MusicStudioActivity extends VlcPlayerActivity {
     private Button analyze, cancel, previous, following;
     private ChordDiagramView diagram, nextDiagram;
     private LinearLayout playbackOptions, studioPanel, instrumentRow, cardRow, actionRow;
-    private boolean videoExpanded;
+    private boolean videoExpanded, videoPresented;
     private FrameLayout videoHost;
     private TextView playerStatus;
     private final Runnable playerMessages = new Runnable() { public void run() {
@@ -71,7 +71,7 @@ public class MusicStudioActivity extends VlcPlayerActivity {
         LinearLayout instruments = new LinearLayout(this); instrumentRow = instruments; panel.addView(instruments);
         button(instruments, "Piano", () -> { guitar = false; onPlaybackTime(playbackTime); });
         button(instruments, "Guitar", () -> { guitar = true; onPlaybackTime(playbackTime); });
-        button(instruments, "Video", () -> { videoExpanded = !videoExpanded; videoHost.setLayoutParams(new LinearLayout.LayoutParams(-1, videoExpanded ? dp(90) : 0)); videoHost.setVisibility(videoExpanded ? View.VISIBLE : View.GONE); });
+        button(instruments, "Video", () -> { videoExpanded = !videoExpanded; onFullscreenChanged(playbackFullscreen()); });
         LinearLayout cards = new LinearLayout(this); cardRow = cards; panel.addView(cards, new LinearLayout.LayoutParams(-1, 0, 1));
         LinearLayout nowCard = chordCard(cards); current = text(nowCard, "Now: —", 23); current.setId(R.id.chord_current); current.setTypeface(null, android.graphics.Typeface.BOLD); current.setMaxLines(1); current.setEllipsize(android.text.TextUtils.TruncateAt.END);
         diagram = new ChordDiagramView(this); diagram.setTag("studio_current_diagram"); nowCard.addView(diagram, new LinearLayout.LayoutParams(-1, 0, 1));
@@ -122,7 +122,7 @@ public class MusicStudioActivity extends VlcPlayerActivity {
         if (task != null && !task.isDone() || root == null || isFinishing()) return;
         final int request = ++generation;
         analyzer = new StudioAnalyzer(); final StudioAnalyzer operation = analyzer;
-        analyze.setEnabled(false); cancel.setEnabled(true); cancel.setVisibility(View.VISIBLE); state.setText("Reading media locally…");
+        analyze.setEnabled(false); cancel.setEnabled(true); cancel.setVisibility(View.VISIBLE); root.setKeepScreenOn(true); state.setText("Reading media locally…");
         // Application context and local source only; no Activity is passed to the decoder.
         android.content.Context app = getApplicationContext();
         java.io.File file = source == null ? null : source.file;
@@ -133,7 +133,7 @@ public class MusicStudioActivity extends VlcPlayerActivity {
                 updates.post(() -> {
                     if (request != generation || isFinishing() || isDestroyed()) return;
                     result = ready; applyEdits(); loadRhythm(); waveform.show(ready.waveform,ready.durationMs); automatic = false; task = null; analyze.setEnabled(true); cancel.setEnabled(false); cancel.setVisibility(View.GONE);
-                    state.setText(ready.cached ? "Saved offline analysis" : "Analysis saved offline"); render();
+                    root.setKeepScreenOn(false); state.setText(ready.cached ? "Saved offline analysis" : "Analysis saved offline"); render();
                 });
             } catch (CancellationException ignored) {
                 // stopAnalysis invalidates all callbacks before cancelling the decoder.
@@ -141,7 +141,7 @@ public class MusicStudioActivity extends VlcPlayerActivity {
                 updates.post(() -> {
                     if (request != generation || isFinishing() || isDestroyed()) return;
                     task = null; automatic = false; analyze.setEnabled(true); cancel.setEnabled(false); cancel.setVisibility(View.GONE);
-                    state.setText(analysisError(error));
+                    root.setKeepScreenOn(false); state.setText(analysisError(error));
                 });
             }
         });
@@ -152,6 +152,7 @@ public class MusicStudioActivity extends VlcPlayerActivity {
             ? message : "Could not analyse this file. No readable audio track or unsupported media. Try another file.";
     }
     private void stopAnalysis() {
+        if (root != null) root.setKeepScreenOn(false);
         generation++;
         if (analyzer != null) analyzer.cancel();
         if (task != null) task.cancel(true);
@@ -211,13 +212,16 @@ public class MusicStudioActivity extends VlcPlayerActivity {
     @Override protected void onStop() { foreground=false;updates.removeCallbacks(playerMessages);stopFrame();stopAnalysis(); if (state != null && result == null) state.setText("Analysis paused while Blaze is closed. Tap Analyse to retry."); automatic = false; super.onStop(); }
     @Override protected void onDestroy() { foreground=false;stopFrame();stopAnalysis(); worker.shutdownNow(); updates.removeCallbacksAndMessages(null); super.onDestroy(); }
     @Override protected void onSaveInstanceState(Bundle saved) { saved.putInt("transpose", transpose); saved.putInt("chordPage", page); saved.putBoolean("chordAutomatic", result != null); saved.putBoolean("guitar", guitar); super.onSaveInstanceState(saved); }
-    @Override public void onConfigurationChanged(android.content.res.Configuration config) { super.onConfigurationChanged(config); arrangeStudio(); }
+    @Override public void onConfigurationChanged(android.content.res.Configuration config) { super.onConfigurationChanged(config); arrangeStudio(); setPlaybackFullscreen(playbackFullscreen()); }
     @Override protected View playbackVideoContainer() { return videoHost == null ? videoViewport : videoHost; }
+    @Override protected boolean videoViewsWanted() { return videoPresented; }
     @Override protected void onFullscreenChanged(boolean fullscreen) {
         if (videoHost == null) return;
         videoHost.setLayoutParams(fullscreen ? new LinearLayout.LayoutParams(-1, 0, 1)
             : new LinearLayout.LayoutParams(-1, videoExpanded ? dp(90) : 0));
-        videoHost.setVisibility(fullscreen || videoExpanded ? View.VISIBLE : View.GONE);
+        boolean showing = fullscreen || videoExpanded;
+        videoHost.setVisibility(showing ? View.VISIBLE : View.GONE);
+        if (videoPresented != showing) { videoPresented = showing; refreshVideoPresentation(); }
     }
     private void arrangeStudio() {
         if (studioPanel == null) return;

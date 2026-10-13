@@ -124,7 +124,8 @@ public class VlcPlayerActivity extends Activity {
             // Software fallback must also work without 10-bit OpenGL texture support.
             if(software){options.add("--vout=android-display");options.add("--android-display-chroma=RV32");}
             engine=new LibVLC(this,options);
-            player=new MediaPlayer(engine);player.attachViews(video,null,true,false);pendingSeek=true;wantedResume=resume;ended=false;
+            boolean showVideo=videoViewsWanted();
+            player=new MediaPlayer(engine);if(showVideo)player.attachViews(video,null,true,false);pendingSeek=true;wantedResume=resume;ended=false;
             restoringFrame=!resume;restorePosition=position;restoreDeadline=SystemClock.uptimeMillis()+5000;
             MediaPlayer active=player;
             player.setEventListener(event->{if(player!=active)return;
@@ -155,6 +156,7 @@ public class VlcPlayerActivity extends Activity {
             try{
                 // Seek before starting; paused restoration waits for a displayed frame, muted.
                 if(position>0)media.addOption(":start-time="+Double.toString(position/1000.0));
+                if(!showVideo)media.addOption(":no-video");
                 media.setHWDecoderEnabled(!software,false);player.setMedia(media);
             }finally{media.release();}
             status.setText("Opening the original file…");beginPlayback();handler.post(tick);
@@ -176,6 +178,9 @@ public class VlcPlayerActivity extends Activity {
     @SuppressWarnings("deprecation") private void release(){restoringFrame=false;handler.removeCallbacks(restoreTick);generation++;opening=false;if(openingTask!=null){openingTask.cancel(true);openingTask=null;}handler.removeCallbacks(tick);if(noisyRegistered){unregisterReceiver(noisy);noisyRegistered=false;}if(player!=null){player.setEventListener(null);player.stop();player.detachViews();player.release();player=null;}if(engine!=null){engine.release();engine=null;}close(descriptor);descriptor=null;if(video!=null)video.setKeepScreenOn(false);if(focusGranted){audio.abandonAudioFocus(focus);focusGranted=false;}}
     private void fullscreen(boolean value){fullscreen=value;for(int i=0;i<root.getChildCount();i++){View child=root.getChildAt(i);if(child!=playbackVideoContainer())child.setVisibility(value?View.GONE:View.VISIBLE);}WindowInsetsControllerCompat bars=WindowCompat.getInsetsController(getWindow(),root);bars.setSystemBarsBehavior(WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE);if(value)bars.hide(WindowInsetsCompat.Type.systemBars());else bars.show(WindowInsetsCompat.Type.systemBars());onFullscreenChanged(value);}
     protected View playbackVideoContainer(){return videoViewport;}
+    protected boolean videoViewsWanted(){return true;}
+    protected boolean playbackFullscreen(){return fullscreen;}
+    protected void refreshVideoPresentation(){if(player!=null){remember();release();start();}}
     protected void setPlaybackFullscreen(boolean value){fullscreen(value);}
     protected void onFullscreenChanged(boolean fullscreen){}
     private void back(){if(fullscreen)fullscreen(false);else finish();}
