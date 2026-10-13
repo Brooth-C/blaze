@@ -247,17 +247,21 @@ def create_server(studio, port=0):
                 if not 0 <= length <= 65536:
                     raise ValueError('The request is too large.')
                 body = json.loads(self.rfile.read(length) or b'{}')
+                if path == '/api/fullscreen':
+                    native = getattr(studio, 'native_fullscreen', None)
+                    if native:
+                        native()
+                    self.json({'native': bool(native)})
+                    return
                 if path.startswith('/api/download-'):
                     if not studio.downloader:
-                        raise ValueError('Open the complete Blaze Windows app to use downloading.')
+                        raise ValueError('Open the complete Blaze app to use downloading.')
                     if path == '/api/download-start':
                         studio.downloader.start(body)
                     elif path == '/api/download-cancel':
                         studio.downloader.cancel()
                     elif path == '/api/download-folder':
-                        import os
-                        studio.downloader.output.mkdir(parents=True, exist_ok=True)
-                        os.startfile(studio.downloader.output)
+                        studio.downloader.open_folder()
                     elif path == '/api/download-select':
                         with studio.lock:
                             if studio.state['busy']:

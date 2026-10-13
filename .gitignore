@@ -53,3 +53,10 @@ android/app/src/main/assets/musicstudio_models/
 music_studio/models/*.npz
 music_studio/incoming/
 music_studio/analyses/
+tools/macos_decoder/downloads/
+tools/macos_decoder/src/
+tools/macos_decoder/build/
+tools/macos_decoder/prefix/
+tools/macos_decoder/output/
+tools/macos_decoder/logs/
+tools/macos_decoder/build.*/

@@ -2,6 +2,8 @@
 from pathlib import Path
 from dataclasses import asdict
 import os
+import subprocess
+import sys
 import threading
 import blaze
 
@@ -17,6 +19,19 @@ class Downloads:
         self.tracker = blaze.DownloadTracker()
         self.lock = threading.RLock()
         self.worker = None
+
+    def executable(self, name):
+        """Use only tools packaged with the desktop app, never a PATH fallback."""
+        return self.tools / (name + '.exe' if sys.platform == 'win32' else name)
+
+    def open_folder(self):
+        self.output.mkdir(parents=True, exist_ok=True)
+        if sys.platform == 'win32':
+            os.startfile(self.output)
+        else:
+            command = '/usr/bin/open' if sys.platform == 'darwin' else 'xdg-open'
+            subprocess.Popen([command, str(self.output)], stdout=subprocess.DEVNULL,
+                             stderr=subprocess.DEVNULL)
 
     def state(self):
         with self.tracker.lock:
@@ -52,14 +67,16 @@ class Downloads:
             mode, fmt, resolution = body.get('mode'), body.get('format'), body.get('resolution')
             if mode not in ('audio', 'video') or fmt not in ('wav', 'mp3', 'flac', 'm4a', 'ogg', 'opus') or resolution not in ('any', '1080p', '4k', '8k'):
                 raise ValueError('Choose a supported format and resolution.')
-            if not (self.tools / 'yt-dlp.exe').is_file():
-                raise ValueError('Downloader is missing. Extract the complete Blaze ZIP.')
+            downloader = self.executable('yt-dlp')
+            if not downloader.is_file():
+                raise ValueError('Downloader is missing. Reinstall the complete Blaze app.')
             self.output.mkdir(parents=True, exist_ok=True)
             config = blaze.Config(format=fmt, mode=mode, video_resolution=resolution,
                                   use_aria2c=False, write_thumbnails=False)
-            cmd = [str(self.tools / 'yt-dlp.exe')]
-            if (self.tools / 'node.exe').is_file():
-                cmd += ['--js-runtimes', 'node:' + str(self.tools / 'node.exe')]
+            cmd = [str(downloader)]
+            node = self.executable('node')
+            if node.is_file():
+                cmd += ['--js-runtimes', 'node:' + str(node)]
             engine = blaze.DownloadEngine(cmd, config, False, self.tracker)
             blaze._shutdown_requested = False
             ids = [self.tracker.add_job(u, mode) for u in urls]
