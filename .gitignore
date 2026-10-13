@@ -45,3 +45,11 @@ android/app/libs/libvlc-java.aar
 /Reports/
 /Audio/
 /Video/
+
+# Reproducibly exported pretrained model assets
+music_studio/models/*.onnx
+android/app/src/main/assets/musicstudio_models/
+
+music_studio/models/*.npz
+music_studio/incoming/
+music_studio/analyses/

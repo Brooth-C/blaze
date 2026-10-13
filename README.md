@@ -18,10 +18,10 @@ Windows · macOS · Linux · Android
 
 | Platform | Download |
 | --- | --- |
-| Windows 10/11 · x64 | [Windows ZIP](https://github.com/Brooth-C/blaze/releases/latest/download/Blaze-Windows-Installer.zip) |
-| macOS · Apple Silicon / Intel | [macOS ZIP](https://github.com/Brooth-C/blaze/releases/latest/download/Blaze-Mac-Installer.zip) |
-| Linux · x86_64 / ARM64, glibc | [Linux ZIP](https://github.com/Brooth-C/blaze/releases/latest/download/Blaze-Linux-Installer.zip) |
-| Android 7+ · ARM64, preview | [Android APK](https://github.com/Brooth-C/blaze/releases/latest/download/Blaze-Android-Preview.apk) |
+| Windows 10/11 · x64 | [Blaze Windows app](https://github.com/Brooth-C/blaze/releases/download/windows-v0.6.0/Blaze-Windows.zip) |
+| macOS · Apple Silicon / Intel | [macOS ZIP](https://github.com/Brooth-C/blaze/releases/download/v4.1.29/Blaze-Mac-Installer.zip) |
+| Linux · x86_64 / ARM64, glibc | [Linux ZIP](https://github.com/Brooth-C/blaze/releases/download/v4.1.29/Blaze-Linux-Installer.zip) |
+| Android 7+ · ARM64, preview | [Android APK](https://github.com/Brooth-C/blaze/releases/download/v4.1.29/Blaze-Android-Preview.apk) |
 
 Extract the entire ZIP and follow your platform's setup guide. ZIP setup needs
 an internet connection. Tap the APK to install the Android app.
@@ -36,7 +36,10 @@ Prefer a terminal on Android? Use the [Termux version](docs/ANDROID.md).
 - Convert audio and merge separate video/audio streams.
 - Keep downloads on your device and open or export completed files.
 
-Desktop and Termux use a keyboard-controlled terminal dashboard.
+The Windows app includes Downloads, Library and offline Music Studio.
+[Windows player and build guide](music_studio/README.md).
+macOS, Linux and Termux use a keyboard-controlled terminal dashboard.
+The [Windows terminal installer](https://github.com/Brooth-C/blaze/releases/download/v4.1.29/Blaze-Windows-Installer.zip) remains available.
 The [Android app](docs/ANDROID-APK.md) has a built-in audio/video player, touch controls, history, playlists and
 MP3/M4A/WAV/FLAC conversion. It is a debug-signed preview; physical-phone testing
 is still needed.

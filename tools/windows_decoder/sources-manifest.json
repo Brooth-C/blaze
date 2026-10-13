@@ -1,0 +1,48 @@
+{
+  "ffmpeg_tag": "n7.1.3",
+  "ffmpeg_commit": "f46e514491172d15bd74b4abb1814cd2f05a763e",
+  "assets": [
+    {
+      "file": "w64devkit-x64-2.10.0.7z.exe",
+      "url": "https://github.com/skeeto/w64devkit/releases/download/v2.10.0/w64devkit-x64-2.10.0.7z.exe",
+      "sha256": "18d0a4c71a166f8401ab6305781bec5882b40b5e06ba9807c61cb5f3b3c6325e",
+      "bytes": 67127496,
+      "license": "build tool only"
+    },
+    {
+      "file": "ffmpeg-7.1.3.tar.xz",
+      "url": "https://ffmpeg.org/releases/ffmpeg-7.1.3.tar.xz",
+      "sha256": "f0bf043299db9e3caacb435a712fc541fbb07df613c4b893e8b77e67baf3adbe",
+      "bytes": 11032252,
+      "license": "LGPL-2.1-or-later; GPL disabled"
+    },
+    {
+      "file": "lame-3.100.tar.gz",
+      "url": "https://downloads.sourceforge.net/project/lame/lame/3.100/lame-3.100.tar.gz",
+      "sha256": "ddfe36cab873794038ae2c1210557ad34857a4b6bdc515785d1da9e175b1da1e",
+      "bytes": 1524133,
+      "license": "LGPL-2.0-or-later"
+    },
+    {
+      "file": "ogg-1.3.5.tar.gz",
+      "url": "https://github.com/xiph/ogg/archive/refs/tags/v1.3.5.tar.gz",
+      "sha256": "f6f1b04cfa4e98b70ffe775d5e302d9c6b98541f05159af6de2d6617817ed7d6",
+      "bytes": 251765,
+      "license": "BSD-3-Clause"
+    },
+    {
+      "file": "vorbis-1.3.7.tar.gz",
+      "url": "https://github.com/xiph/vorbis/archive/refs/tags/v1.3.7.tar.gz",
+      "sha256": "270c76933d0934e42c5ee0a54a36280e2d87af1de3cc3e584806357e237afd13",
+      "bytes": 1234573,
+      "license": "BSD-3-Clause"
+    },
+    {
+      "file": "opus-1.5.2.tar.gz",
+      "url": "https://github.com/xiph/opus/archive/refs/tags/v1.5.2.tar.gz",
+      "sha256": "9480e329e989f70d69886ded470c7f8cfe6c0667cc4196d4837ac9e668fb7404",
+      "bytes": 4183352,
+      "license": "BSD-3-Clause"
+    }
+  ]
+}
