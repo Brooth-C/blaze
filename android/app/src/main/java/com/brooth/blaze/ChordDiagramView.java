@@ -59,7 +59,7 @@ final class ChordDiagramView extends View {
         if (!minor && root == 2) frets = new int[]{-1, -1, 0, 2, 3, 2};
         if (!minor && root == 7) frets = new int[]{3, 2, 0, 0, 0, 3};
         if (minor && root == 2) frets = new int[]{-1, -1, 0, 2, 3, 1};
-        if(StudioChord.quality(chord)>1){frets=StudioChord.voicing(chord);if(frets==null){paint.setColor(0xffa8b1c5);canvas.drawText("Use piano chord tones",getWidth()/2f,getHeight()/2f,paint);return;}}
+        if(StudioChord.quality(chord)>1||StudioChord.bass(chord)!=root){frets=StudioChord.voicing(chord);if(frets==null){paint.setColor(0xffa8b1c5);canvas.drawText("Use piano chord tones",getWidth()/2f,getHeight()/2f,paint);return;}}
         int lowest = 99, highest = 0; for (int fret : frets) { if (fret > 0) lowest = Math.min(lowest, fret); highest = Math.max(highest, fret); }
         int firstFret = highest <= 4 ? 1 : lowest;
         float spacing = Math.min(28 * unit, (getWidth() - 80 * unit) / 5), left = (getWidth() - spacing * 5) / 2;
@@ -68,7 +68,7 @@ final class ChordDiagramView extends View {
         for (int i = 0; i < 5; i++) canvas.drawLine(left, top + i * step, left + 5 * spacing, top + i * step, paint);
         for (int i = 0; i < 6; i++) {
             float x = left + i * spacing; canvas.drawLine(x, top, x, top + 4 * step, paint);
-            canvas.drawText(frets[i] < 0 ? "×" : frets[i] == 0 ? "○" : Integer.toString(frets[i]), x, top - 9 * unit, paint);
+            canvas.drawText(frets[i] < 0 ? "Ã—" : frets[i] == 0 ? "â—‹" : Integer.toString(frets[i]), x, top - 9 * unit, paint);
             if (frets[i] > 0) { paint.setColor(0xffff8c42); canvas.drawCircle(x, top + (frets[i] - firstFret + .5f) * step, 5 * unit, paint); paint.setColor(0xffeeeeee); }
         }
         canvas.drawText(Integer.toString(firstFret), left - 18 * unit, top + step / 2, paint);

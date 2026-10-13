@@ -51,7 +51,8 @@ public class StudioUsabilityTest {
                         if (activity.player != null && activity.player.isPlaying()) activity.toggle.performClick();
                         inject(activity);
                     });
-                    instrumentation.waitForIdleSync();
+                    waitForLayout(screen, android.content.res.Configuration.ORIENTATION_PORTRAIT);
+                    screenshot("Blaze-Android-Studio-" + (scale.equals("1.0") ? "Portrait" : "Large-Text") + ".png");
                     screen.onActivity(activity -> {
                         assertFalse(activity.findViewById(R.id.chord_panel) instanceof ScrollView);
                         View analyse = activity.findViewById(R.id.chord_analyze), options = activity.root.findViewWithTag("studio_options");
@@ -61,7 +62,7 @@ public class StudioUsabilityTest {
                         assertTrue("Piano diagram is too shallow", diagram.getHeight() >= dp(activity, 48)); assertFullyVisible(diagram);
                         assertEquals("Now: Cmaj7", ((TextView)activity.findViewById(R.id.chord_current)).getText().toString());
                         activity.onPlaybackTime(4200);
-                        assertEquals("Now: —", ((TextView)activity.findViewById(R.id.chord_current)).getText().toString());
+                        assertEquals("Now: â€”", ((TextView)activity.findViewById(R.id.chord_current)).getText().toString());
                         assertFalse("Uncertainty leaked into the display", allText(activity.root).contains("Uncertain"));
                         activity.onPlaybackTime(1500);
                     });
@@ -71,7 +72,7 @@ public class StudioUsabilityTest {
                         instrumentation.waitForIdleSync(); screenshot("Blaze-Android-Studio-Options.png");
                         instrumentation.getUiAutomation().performGlobalAction(android.accessibilityservice.AccessibilityService.GLOBAL_ACTION_BACK);
                         screen.onActivity(activity -> activity.setRequestedOrientation(android.content.pm.ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE));
-                        Thread.sleep(600); instrumentation.waitForIdleSync();
+                        waitForLayout(screen, android.content.res.Configuration.ORIENTATION_LANDSCAPE);
                         screen.onActivity(activity -> { assertFullyVisible(activity.findViewById(R.id.chord_analyze)); assertFullyVisible(activity.root.findViewWithTag("studio_timeline")); assertTrue(activity.root.findViewWithTag("studio_current_diagram").getHeight() >= dp(activity, 30)); });
                         screenshot("Blaze-Android-Studio-Landscape.png");
                     }
@@ -81,6 +82,19 @@ public class StudioUsabilityTest {
             shell("settings put system font_scale " + (oldFont.equals("null") || oldFont.isEmpty() ? "1.0" : oldFont));
             wave.delete(); app.getSharedPreferences("playback", Context.MODE_PRIVATE).edit().remove("document:" + uri).apply();
         }
+    }
+    private void waitForLayout(ActivityScenario<MusicStudioActivity> screen, int orientation) throws Exception {
+        java.util.concurrent.atomic.AtomicBoolean ready = new java.util.concurrent.atomic.AtomicBoolean();
+        long end = android.os.SystemClock.uptimeMillis() + 8000;
+        while (!ready.get() && android.os.SystemClock.uptimeMillis() < end) {
+            instrumentation.waitForIdleSync();
+            screen.onActivity(activity -> ready.set(activity.getResources().getConfiguration().orientation == orientation
+                && activity.root.isLaidOut() && !activity.root.isLayoutRequested()
+                && activity.findViewById(R.id.chord_analyze).getHeight() > 0));
+            if (!ready.get()) Thread.sleep(80);
+        }
+        screenshot("Blaze-Android-Studio-Layout-Diagnostic.png");
+        assertTrue("Studio never completed its layout", ready.get());
     }
     private void inject(MusicStudioActivity activity) {
         try {
@@ -101,7 +115,7 @@ public class StudioUsabilityTest {
     private static int dp(Context context, int value) { return Math.round(context.getResources().getDisplayMetrics().density * value); }
     private void assertTouchTarget(View view) { assertTrue("Control is smaller than 48dp", view.getHeight() >= dp(app, 48)); }
     private void assertFullyVisible(View view) {
-        Rect visible = new Rect(); assertTrue("Control is outside the screen", view.getGlobalVisibleRect(visible));
+        Rect visible = new Rect(); assertTrue("Control is outside the screen: " + (view instanceof TextView ? ((TextView)view).getText() : view.getTag()) + " size=" + view.getWidth() + "x" + view.getHeight(), view.getGlobalVisibleRect(visible));
         assertTrue("Control is clipped horizontally", visible.width() >= view.getWidth() - 1);
         assertTrue("Control is clipped vertically", visible.height() >= view.getHeight() - 1);
     }
