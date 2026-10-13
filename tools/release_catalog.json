@@ -1,0 +1,59 @@
+{
+  "schema": 1,
+  "repository": "Brooth-C/blaze",
+  "tag": "v4.2.0",
+  "assets": [
+    {
+      "platform": "Windows",
+      "name": "Blaze-Windows.zip",
+      "component_version": "0.6.0",
+      "description": "Blaze desktop app + Music Studio",
+      "source_tag": "windows-v0.6.0",
+      "size": 251442533,
+      "sha256": "73bfa1bc0ce0657bb2792b5552c6614844fee3ebbea3bdccfa64ed4c659f96dc"
+    },
+    {
+      "platform": "Android APK · preview",
+      "name": "Blaze-Android-Preview.apk",
+      "component_version": "0.6.0-preview",
+      "description": "Blaze Android app + Music Studio",
+      "source_tag": "android-v0.6.0-preview",
+      "size": 235056650,
+      "sha256": "70025d86ee70f62d7d6c21c0b9fba7bfd5d1fc34dbcf9ec2b4eeb19861ac5b1d"
+    },
+    {
+      "platform": "macOS",
+      "name": "Blaze-Mac-Installer.zip",
+      "component_version": "4.1.29",
+      "description": "Existing terminal app",
+      "source_tag": "v4.1.29",
+      "size": 37889,
+      "sha256": "e64e7dd564fa93ded9d7559b258da8c9f4a9944073619934cce67a504ba282ed"
+    },
+    {
+      "platform": "Linux",
+      "name": "Blaze-Linux-Installer.zip",
+      "component_version": "4.1.29",
+      "description": "Existing terminal app",
+      "source_tag": "v4.1.29",
+      "size": 37702,
+      "sha256": "69e630ce3df183b8859c8851ac307755e2f7197f8ef6e651467dafaec37dc51a"
+    },
+    {
+      "platform": "Android / Termux",
+      "name": "Blaze-Termux-Installer.zip",
+      "component_version": "4.1.29",
+      "description": "Existing terminal app",
+      "source_tag": "v4.1.29",
+      "size": 37022,
+      "sha256": "2e755a1a1eed1431c632ea2226746588bac49c5e103f8ae5aa0a6bf4a24691b7"
+    }
+  ],
+  "android_native_sources": {
+    "name": "Blaze-Android-Native-Sources.tar.gz",
+    "source_tag": "v4.1.29",
+    "url": "https://github.com/Brooth-C/blaze/releases/download/v4.1.29/Blaze-Android-Native-Sources.tar.gz",
+    "size": 374676937,
+    "sha256": "c2eeadf7bbc8be426ead9248fa69e4a5ce5c490c5484669495e684a3081d226e"
+  }
+}

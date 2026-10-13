@@ -73,11 +73,11 @@ jobs:
       - name: Install the ZIP, launch, test upgrade and downloads
         run: python tests/Blaze-Installer-Tests.py
   publish:
-    name: Publish verified installers
+    name: Maintain unified release
     needs: [source-tests, installer-tests]
     if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 15
     permissions:
       contents: write
     env:
@@ -85,7 +85,7 @@ jobs:
       GH_REPO: ${{ github.repository }}
     steps:
       - uses: actions/checkout@v7.0.1
-      - name: Create release for a new version
+      - name: Refresh the verified distribution catalog
         shell: bash
         run: |
           set -euo pipefail
@@ -94,17 +94,9 @@ jobs:
             echo "A newer commit is awaiting validation; this run will not publish."
             exit 0
           fi
-          VERSION=$(python -c 'import re,pathlib; print(re.search(r"^VERSION = \"([^\"]+)\"", pathlib.Path("blaze.py").read_text(), re.M).group(1))')
-          if gh release view "v$VERSION" >/dev/null 2>&1; then
-            python tools/release_page.py --notes RELEASE-PAGE.md
-            gh release edit "v$VERSION" --notes-file RELEASE-PAGE.md
-            python tools/release_page.py --mirror "v$VERSION"
-            echo "Release navigation refreshed; existing assets preserved."
-            exit 0
-          fi
-          python tools/package_installers.py --check
-          sha256sum downloads/Blaze-Windows-Installer.zip downloads/Blaze-Mac-Installer.zip downloads/Blaze-Linux-Installer.zip downloads/Blaze-Termux-Installer.zip | sed 's@downloads/@@' > SHA256SUMS.txt
-          python tools/release_page.py --notes RELEASE-PAGE.md
-          gh release create "v$VERSION" downloads/Blaze-Windows-Installer.zip downloads/Blaze-Mac-Installer.zip downloads/Blaze-Linux-Installer.zip downloads/Blaze-Termux-Installer.zip SHA256SUMS.txt --target "$GITHUB_SHA" --title "Blaze v$VERSION" --notes-file RELEASE-PAGE.md --latest
-          python tools/release_page.py --mirror "v$VERSION"
+          # The distribution catalog names independently versioned GUI/APK/CLI
+          # builds. Never infer it from the terminal VERSION or replace assets.
+          # Creating a new catalog release is an explicit publishing operation;
+          # later main pushes maintain its notes and verified missing mirrors.
+          python tools/release_page.py --refresh
 

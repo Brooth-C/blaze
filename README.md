@@ -18,16 +18,17 @@ Windows · macOS · Linux · Android
 
 | Platform | Download |
 | --- | --- |
-| Windows 10/11 · x64 | [Blaze Windows app](https://github.com/Brooth-C/blaze/releases/download/windows-v0.6.0/Blaze-Windows.zip) |
-| macOS · Apple Silicon / Intel | [macOS ZIP](https://github.com/Brooth-C/blaze/releases/download/v4.1.29/Blaze-Mac-Installer.zip) |
-| Linux · x86_64 / ARM64, glibc | [Linux ZIP](https://github.com/Brooth-C/blaze/releases/download/v4.1.29/Blaze-Linux-Installer.zip) |
-| Android 7+ · ARM64, preview | [Android APK](https://github.com/Brooth-C/blaze/releases/download/android-v0.6.0-preview/Blaze-Android-Preview.apk) |
+| Windows 10/11 · x64 | [Blaze Windows app](https://github.com/Brooth-C/blaze/releases/latest/download/Blaze-Windows.zip) |
+| macOS · Apple Silicon / Intel | [macOS ZIP](https://github.com/Brooth-C/blaze/releases/latest/download/Blaze-Mac-Installer.zip) |
+| Linux · x86_64 / ARM64, glibc | [Linux ZIP](https://github.com/Brooth-C/blaze/releases/latest/download/Blaze-Linux-Installer.zip) |
+| Android 7+ · ARM64, preview | [Android APK](https://github.com/Brooth-C/blaze/releases/latest/download/Blaze-Android-Preview.apk) |
 
-Extract the entire ZIP and follow your platform's setup guide. ZIP setup needs
-an internet connection. Tap the APK to install the Android app.
+Download one file for your platform from the main release. For Windows, extract
+the ZIP and run Blaze.exe. Tap the Android APK to install. Mac, Linux and Termux
+installer setup needs an internet connection; follow the matching guide.
 [Detailed installation](docs/INSTALLATION.md) · [Checksums and release files](https://github.com/Brooth-C/blaze/releases/latest)
 
-Prefer a terminal on Android? Use the [Termux version](docs/ANDROID.md).
+Prefer a terminal on Android? Download the [Termux ZIP](https://github.com/Brooth-C/blaze/releases/latest/download/Blaze-Termux-Installer.zip) and follow the [Termux guide](docs/ANDROID.md).
 
 ## What you can do
 
