@@ -85,6 +85,7 @@ public class MusicStudioActivity extends VlcPlayerActivity {
         summary = new TextView(this); summary.setTextColor(0xffa8b1c5); summary.setTextSize(13); summary.setText("Advanced chord analysis runs entirely on this device.\nImport audio or video from Blaze or your files. Transposition changes labels; playback keeps its original pitch.");
         shift = new TextView(this); shift.setTextColor(0xffeeeeee);
         arrangeStudio();
+        setPlaybackFullscreen(saved != null && saved.getBoolean("fullscreen"));
     }
     private LinearLayout chordCard(LinearLayout parent) {
         LinearLayout card = new LinearLayout(this); card.setOrientation(LinearLayout.VERTICAL); card.setPadding(dp(6), dp(3), dp(6), dp(3));
@@ -211,7 +212,7 @@ public class MusicStudioActivity extends VlcPlayerActivity {
     @Override protected void onDestroy() { foreground=false;stopFrame();stopAnalysis(); worker.shutdownNow(); updates.removeCallbacksAndMessages(null); super.onDestroy(); }
     @Override protected void onSaveInstanceState(Bundle saved) { saved.putInt("transpose", transpose); saved.putInt("chordPage", page); saved.putBoolean("chordAutomatic", result != null); saved.putBoolean("guitar", guitar); super.onSaveInstanceState(saved); }
     @Override public void onConfigurationChanged(android.content.res.Configuration config) { super.onConfigurationChanged(config); arrangeStudio(); }
-    @Override protected View playbackVideoContainer() { return videoHost == null ? video : videoHost; }
+    @Override protected View playbackVideoContainer() { return videoHost == null ? videoViewport : videoHost; }
     @Override protected void onFullscreenChanged(boolean fullscreen) {
         if (videoHost == null) return;
         videoHost.setLayoutParams(fullscreen ? new LinearLayout.LayoutParams(-1, 0, 1)
