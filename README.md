@@ -21,7 +21,7 @@ Windows · macOS · Linux · Android
 | Windows 10/11 · x64 | [Blaze Windows app](https://github.com/Brooth-C/blaze/releases/download/windows-v0.6.0/Blaze-Windows.zip) |
 | macOS · Apple Silicon / Intel | [macOS ZIP](https://github.com/Brooth-C/blaze/releases/download/v4.1.29/Blaze-Mac-Installer.zip) |
 | Linux · x86_64 / ARM64, glibc | [Linux ZIP](https://github.com/Brooth-C/blaze/releases/download/v4.1.29/Blaze-Linux-Installer.zip) |
-| Android 7+ · ARM64, preview | [Android APK](https://github.com/Brooth-C/blaze/releases/download/v4.1.29/Blaze-Android-Preview.apk) |
+| Android 7+ · ARM64, preview | [Android APK](https://github.com/Brooth-C/blaze/releases/download/android-v0.6.0-preview/Blaze-Android-Preview.apk) |
 
 Extract the entire ZIP and follow your platform's setup guide. ZIP setup needs
 an internet connection. Tap the APK to install the Android app.

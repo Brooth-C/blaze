@@ -6,7 +6,6 @@ checksum-verified ONNX files are used. Acoustic support is not calibrated.
 from pathlib import Path
 import hashlib,json,tempfile
 import numpy as np
-import onnxruntime as ort
 from .lv_frontend import PortableLVFrontend
 from .evidence import grouped_candidates
 from .chords import notes
@@ -66,6 +65,9 @@ def stabilize_equivalent_names(frames):
 
 class StructuredRecognizer:
     def __init__(self,directory):
+        # Android shares the exact NumPy decoder while Java owns ORT sessions.
+        # Importing this module therefore does not require Python ORT.
+        import onnxruntime as ort
         self.directory=Path(directory)
         self.manifest=json.loads((self.directory/'structured_manifest.json').read_text(encoding='utf-8'))
         if self.manifest.get('schema_version')!=1 or self.manifest.get('feature_size')!=252 or len(self.manifest['models'])!=5:

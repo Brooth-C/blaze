@@ -1,0 +1,140 @@
+{
+  "beats": [
+    0.0,
+    0.5,
+    1.0,
+    1.5,
+    2.0,
+    2.5,
+    3.0,
+    3.5,
+    4.0,
+    4.5,
+    5.0,
+    5.5,
+    6.0,
+    6.5,
+    7.0,
+    7.5,
+    8.0,
+    8.5,
+    9.0,
+    9.5,
+    10.0,
+    10.5,
+    11.0,
+    11.5,
+    12.0,
+    12.5,
+    13.0,
+    13.5,
+    14.0,
+    14.5,
+    15.0,
+    15.5
+  ],
+  "downbeats": [
+    0.0,
+    2.0,
+    4.0,
+    6.0,
+    8.0,
+    10.0,
+    12.0,
+    14.0
+  ],
+  "tempo_bpm": 120.0,
+  "meter": {
+    "beats_per_bar": 4,
+    "denominator": null,
+    "label": "4 beats/bar",
+    "bars": [
+      {
+        "start": 0.0,
+        "end": 2.0,
+        "beats": [
+          0.0,
+          0.5,
+          1.0,
+          1.5
+        ],
+        "beats_per_bar": 4
+      },
+      {
+        "start": 2.0,
+        "end": 4.0,
+        "beats": [
+          2.0,
+          2.5,
+          3.0,
+          3.5
+        ],
+        "beats_per_bar": 4
+      },
+      {
+        "start": 4.0,
+        "end": 6.0,
+        "beats": [
+          4.0,
+          4.5,
+          5.0,
+          5.5
+        ],
+        "beats_per_bar": 4
+      },
+      {
+        "start": 6.0,
+        "end": 8.0,
+        "beats": [
+          6.0,
+          6.5,
+          7.0,
+          7.5
+        ],
+        "beats_per_bar": 4
+      },
+      {
+        "start": 8.0,
+        "end": 10.0,
+        "beats": [
+          8.0,
+          8.5,
+          9.0,
+          9.5
+        ],
+        "beats_per_bar": 4
+      },
+      {
+        "start": 10.0,
+        "end": 12.0,
+        "beats": [
+          10.0,
+          10.5,
+          11.0,
+          11.5
+        ],
+        "beats_per_bar": 4
+      },
+      {
+        "start": 12.0,
+        "end": 14.0,
+        "beats": [
+          12.0,
+          12.5,
+          13.0,
+          13.5
+        ],
+        "beats_per_bar": 4
+      }
+    ],
+    "confidence_kind": "bar_consistency",
+    "confidence": 1.0
+  },
+  "rhythm_model": {
+    "name": "Beat This! final0",
+    "version": "b95c8ab0c58c2d9fcfd40508ae8dffbc05ac4f5c",
+    "source": "https://github.com/CPJKU/beat_this",
+    "license": "MIT"
+  },
+  "rhythm_model_sha256": "19bc4c266f833f05aadbd2ff342d0404bd4e1396a161ef6c9b49aa0e53820716"
+}
