@@ -75,7 +75,7 @@ class DecoderToolsTests(unittest.TestCase):
         (output / "buildconf.txt").write_text(
             "--disable-gpl --disable-nonfree --disable-version3\n", encoding="utf-8"
         )
-        (output / "license.txt").write_text("GNU Lesser General Public License\n", encoding="utf-8")
+        (output / "license.txt").write_text("under the terms of the GNU Lesser General Public\nLicense as published by the Free Software Foundation\n", encoding="utf-8")
         (output / "toolchain.txt").write_text("Native architecture: arm64\n", encoding="utf-8")
         for name in ("ffmpeg", "ffprobe"):
             (output / f"{name}-dependencies.txt").write_text(

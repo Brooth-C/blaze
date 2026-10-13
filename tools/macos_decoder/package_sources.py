@@ -39,7 +39,7 @@ def file_record(path: Path) -> dict:
 def check_evidence(output: Path) -> None:
     buildconf = (output / "buildconf.txt").read_text(encoding="utf-8")
     license_text = (output / "license.txt").read_text(encoding="utf-8")
-    if "GNU Lesser General Public License" not in license_text:
+    if "GNU Lesser General Public License" not in " ".join(license_text.split()):
         raise RuntimeError("Decoder does not report an LGPL license")
     for flag in ("gpl", "nonfree", "version3"):
         if f"--enable-{flag}" in buildconf or f"--disable-{flag}" not in buildconf:

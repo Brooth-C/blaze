@@ -126,7 +126,7 @@ def check_decoder(ffmpeg, ffprobe, materials, arch):
     if any(flag in configuration for flag in ("--enable-gpl", "--enable-nonfree", "--enable-version3")):
         raise ValueError("The decoder must disable GPL, nonfree and version3 components.")
     license_text = run(ffmpeg, "-L")
-    if "GNU Lesser General Public License" not in license_text:
+    if "GNU Lesser General Public License" not in " ".join(license_text.split()):
         raise ValueError("This release requires an LGPL-only decoder.")
     return manifest
 
