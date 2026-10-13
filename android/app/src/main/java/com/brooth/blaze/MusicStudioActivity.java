@@ -23,6 +23,7 @@ public class MusicStudioActivity extends VlcPlayerActivity {
     private ChordDiagramView diagram, nextDiagram;
     private LinearLayout playbackOptions, studioPanel, instrumentRow, cardRow, actionRow;
     private boolean videoExpanded;
+    private FrameLayout videoHost;
     private TextView playerStatus;
     private final Runnable playerMessages = new Runnable() { public void run() {
         if (playerStatus != null) { String message = playerStatus.getText().toString(); boolean failure = message.startsWith("Could") || message.contains("unavailable") || message.contains("could not"); playerStatus.setVisibility(failure ? View.VISIBLE : View.GONE); }
@@ -54,7 +55,13 @@ public class MusicStudioActivity extends VlcPlayerActivity {
         playbackOptions = new LinearLayout(this); playbackOptions.setOrientation(LinearLayout.VERTICAL);
         while (root.getChildCount() > 6) { View extra = root.getChildAt(6); root.removeView(extra); playbackOptions.addView(extra); }
         if (root.getChildAt(2) instanceof TextView) { playerStatus = (TextView)root.getChildAt(2); playerStatus.setTextSize(11); playerStatus.setMaxLines(2); playerStatus.setVisibility(View.GONE); }
-        video.setLayoutParams(new LinearLayout.LayoutParams(-1, 0));
+        // LibVLC resizes its surface frame. Contain it so it cannot consume the
+        // Studio's control area when audio is playing or the preview is collapsed.
+        root.removeView(video);
+        videoHost = new FrameLayout(this); videoHost.setClipChildren(true); videoHost.setClipToPadding(true);
+        videoHost.addView(video, new FrameLayout.LayoutParams(-1, -1));
+        root.addView(videoHost, 1, new LinearLayout.LayoutParams(-1, 0));
+        videoHost.setVisibility(View.GONE);
         LinearLayout header = (LinearLayout)root.getChildAt(0);
         if (header.getChildCount() > 1 && header.getChildAt(1) instanceof TextView) { TextView title = (TextView)header.getChildAt(1); title.setTextSize(16); title.setTypeface(null, android.graphics.Typeface.BOLD); title.setText(mediaName()); title.setContentDescription("Blaze Music Studio, " + mediaName()); }
         LinearLayout panel = new LinearLayout(this); panel.setOrientation(LinearLayout.VERTICAL); studioPanel = panel; panel.setId(R.id.chord_panel); panel.setPadding(dp(12), dp(2), dp(12), dp(4));
@@ -66,7 +73,7 @@ public class MusicStudioActivity extends VlcPlayerActivity {
         LinearLayout instruments = new LinearLayout(this); instrumentRow = instruments; panel.addView(instruments);
         button(instruments, "Piano", () -> { guitar = false; onPlaybackTime(playbackTime); });
         button(instruments, "Guitar", () -> { guitar = true; onPlaybackTime(playbackTime); });
-        button(instruments, "Video", () -> { videoExpanded = !videoExpanded; video.setLayoutParams(new LinearLayout.LayoutParams(-1, videoExpanded ? dp(90) : 0)); });
+        button(instruments, "Video", () -> { videoExpanded = !videoExpanded; videoHost.setLayoutParams(new LinearLayout.LayoutParams(-1, videoExpanded ? dp(90) : 0)); videoHost.setVisibility(videoExpanded ? View.VISIBLE : View.GONE); });
         LinearLayout cards = new LinearLayout(this); cardRow = cards; panel.addView(cards, new LinearLayout.LayoutParams(-1, 0, 1));
         LinearLayout nowCard = chordCard(cards); current = text(nowCard, "Now: —", 23); current.setId(R.id.chord_current); current.setTypeface(null, android.graphics.Typeface.BOLD); current.setMaxLines(1); current.setEllipsize(android.text.TextUtils.TruncateAt.END);
         diagram = new ChordDiagramView(this); diagram.setTag("studio_current_diagram"); nowCard.addView(diagram, new LinearLayout.LayoutParams(-1, 0, 1));
@@ -206,6 +213,13 @@ public class MusicStudioActivity extends VlcPlayerActivity {
     @Override protected void onDestroy() { foreground=false;stopFrame();stopAnalysis(); worker.shutdownNow(); updates.removeCallbacksAndMessages(null); super.onDestroy(); }
     @Override protected void onSaveInstanceState(Bundle saved) { saved.putInt("transpose", transpose); saved.putInt("chordPage", page); saved.putBoolean("chordAutomatic", result != null); saved.putBoolean("guitar", guitar); super.onSaveInstanceState(saved); }
     @Override public void onConfigurationChanged(android.content.res.Configuration config) { super.onConfigurationChanged(config); arrangeStudio(); }
+    @Override protected View playbackVideoContainer() { return videoHost == null ? video : videoHost; }
+    @Override protected void onFullscreenChanged(boolean fullscreen) {
+        if (videoHost == null) return;
+        videoHost.setLayoutParams(fullscreen ? new LinearLayout.LayoutParams(-1, 0, 1)
+            : new LinearLayout.LayoutParams(-1, videoExpanded ? dp(90) : 0));
+        videoHost.setVisibility(fullscreen || videoExpanded ? View.VISIBLE : View.GONE);
+    }
     private void arrangeStudio() {
         if (studioPanel == null) return;
         View[] views = {state, flow, rhythmStatus, instrumentRow, cardRow, countdown, actionRow};
@@ -217,7 +231,7 @@ public class MusicStudioActivity extends VlcPlayerActivity {
         if (landscape) {
             left = new LinearLayout(this); left.setOrientation(LinearLayout.VERTICAL); right = new LinearLayout(this); right.setOrientation(LinearLayout.VERTICAL);
             studioPanel.addView(left, new LinearLayout.LayoutParams(0, -1, 3)); studioPanel.addView(right, new LinearLayout.LayoutParams(0, -1, 2));
-            videoExpanded = false; video.setLayoutParams(new LinearLayout.LayoutParams(-1, 0));
+            videoExpanded = false; videoHost.setLayoutParams(new LinearLayout.LayoutParams(-1, 0)); videoHost.setVisibility(View.GONE);
         }
         left.addView(state, new LinearLayout.LayoutParams(-1, -2)); left.addView(flow, new LinearLayout.LayoutParams(-1, dp(landscape ? 72 : 88)));
         left.addView(rhythmStatus, new LinearLayout.LayoutParams(-1, -2));
