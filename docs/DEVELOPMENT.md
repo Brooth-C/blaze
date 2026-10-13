@@ -38,11 +38,13 @@ permitted to download.
 ## Project map
 
 User guides are indexed in [the documentation hub](README.md).
-Release pages show only the current version's changes. Both publishers use
-`tools/release_page.py` to attach the verified APK, checksum and native sources
-to the matching desktop release, regardless of which publisher finishes first.
-Published files are never overwritten. When changing an already-published APK
-version, bump the desktop version too so its companion assets stay immutable.
+The main release is a catalog of independently versioned platform builds.
+`tools/release_catalog.json` pins the original tags, sizes and SHA256 digests;
+`tools/release_page.py` verifies and mirrors only missing install downloads.
+Main CI maintains the catalog notes without changing its Latest state or
+replacing published files. Publish a new catalog tag explicitly when collecting
+new validated platform builds. Source and license archives remain linked from
+immutable original releases; normal users need only their platform's install file.
 
 | Path | Purpose |
 | --- | --- |

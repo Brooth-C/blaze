@@ -47,9 +47,12 @@ macOS or Linux validation unless the installer was actually run on that platform
 The quality workflow checks source behavior on Python 3.10/3.13 and installs
 the ZIPs on Windows x64, Apple Silicon macOS Intel macOS, Ubuntu x86_64 and Ubuntu ARM64 runners. It checks
 upgrades and runs download suites with the installed private runtime. Automatic
-publication runs only after all checks pass, and never replaces an existing
-version's release assets. Increment VERSION and update docs/RELEASE-NOTES.md for a
-new release. Run tests/Blaze-Installer-Tests.py only on a disposable clean runner.
+maintenance runs only after all checks pass and never replaces published assets.
+For CLI changes, increment VERSION, update docs/RELEASE-NOTES.md and synchronize
+installers. Distribution releases are separate: update tools/release_catalog.json
+with verified platform versions, original release tags, byte sizes and digests.
+A new catalog is published explicitly; CI maintains its verified downloads and
+notes without changing the Latest state. Run tests/Blaze-Installer-Tests.py only on a disposable clean runner.
 
 ## Pull requests
 

@@ -2,9 +2,13 @@
 
 [Back to Blaze](../README.md)
 
-## Windows setup - no Python needed beforehand
+## Windows app
 
-**[Download the Windows installer ZIP](https://github.com/Brooth-C/blaze/releases/latest/download/Blaze-Windows-Installer.zip)**
+[Download Blaze for Windows](https://github.com/Brooth-C/blaze/releases/latest/download/Blaze-Windows.zip). Extract the entire ZIP, then open `Blaze.exe`. Music Studio is included inside Blaze.
+
+## Legacy Windows terminal setup - no Python needed beforehand
+
+**[Download the Windows installer ZIP](https://github.com/Brooth-C/blaze/releases/download/v4.1.29/Blaze-Windows-Installer.zip)**
 
 1. Extract the entire ZIP.
 2. Double-click `Install-Blaze.bat`. Internet is required during setup.
@@ -64,7 +68,7 @@ installer to upgrade while preserving settings and downloads.
 
 ## Android app (APK preview)
 
-Install the [Android APK](https://github.com/Brooth-C/blaze/releases/download/android-v0.4.0-preview/Blaze-Android-Preview.apk) on an Android 7+ ARM64 phone, then open **Blaze**. Python is included and Termux is not required. Use **Save a copy…** to export completed downloads before uninstalling the app.
+Install the [Android APK](https://github.com/Brooth-C/blaze/releases/latest/download/Blaze-Android-Preview.apk) on an Android 7+ ARM64 phone, then open **Blaze**. Python is included and Termux is not required. Use **Save a copy…** to export completed downloads before uninstalling the app.
 
 The APK is a debug-signed preview with a persistent queue/history, video quality
 choices, original audio/MP3/M4A/WAV/FLAC, separate-stream merging and playlists.
