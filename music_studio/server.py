@@ -3,6 +3,7 @@ from pathlib import Path
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlsplit, parse_qs, unquote
 import json
+import hashlib
 import mimetypes
 import re
 import secrets
@@ -51,9 +52,24 @@ class Studio:
                 def progress(message):
                     with self.lock:
                         self.state['progress'] = message
-                result = analyzer.analyze(source, progress)
+                progress('Checking saved analysis…')
+                digest = hashlib.sha256()
+                if source.stat().st_size > MAX_BYTES:
+                    raise ValueError('Choose a media file smaller than 2 GB.')
+                with source.open('rb') as stream:
+                    while block := stream.read(65536):
+                        analyzer.check()
+                        digest.update(block)
+                identity = self.store.identity({
+                    'source_sha256': digest.hexdigest(),
+                    'engine_version': 'structured1' if bundle.structured else 'overlap1',
+                    'model': {'sha256': bundle.metadata['sha256'],
+                              'frontend_sha256': bundle.manifest['frontend']['sha256']}})
+                result = self.store.load(identity)
+                if result is None:
+                    result = analyzer.analyze(source, progress)
+                    result = self.store.save(result)
                 result['audio_file'] = name
-                result = self.store.save(result)
                 with self.lock:
                     self.state.update(result=result, progress='Analysis saved on this device.', busy=False, error=None)
             except AnalysisCancelled:

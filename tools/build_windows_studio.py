@@ -3,15 +3,23 @@ from pathlib import Path
 import argparse
 import shutil
 import json
+import hashlib
 import PyInstaller.__main__
 
 p = argparse.ArgumentParser()
 p.add_argument('--ffmpeg', required=True, type=Path)
+p.add_argument('--decoder-materials', required=True, type=Path,
+               help='Output of tools/windows_decoder/package_sources.py')
 p.add_argument('--ytdlp', required=True, type=Path)
 p.add_argument('--node', required=True, type=Path)
 p.add_argument('--output', required=True, type=Path)
 p.add_argument('--work', required=True, type=Path)
 a = p.parse_args()
+decoder_manifest = json.loads((a.decoder_materials / 'decoder-manifest.json').read_text(encoding='utf-8'))
+if hashlib.sha256(a.ffmpeg.read_bytes()).hexdigest() != decoder_manifest['binary']['sha256']:
+    raise ValueError('Decoder sources must match the supplied executable.')
+if not (a.decoder_materials / 'FFmpeg-LGPL-Corresponding-Sources.zip').is_file():
+    raise ValueError('Matching decoder source archive is required.')
 root = Path(__file__).resolve().parents[1]
 shutil.copy2(root / 'docs/assets/blaze-logo.png', root / 'music_studio/web/blaze-logo.png')
 a.work.mkdir(parents=True, exist_ok=True)
@@ -65,3 +73,8 @@ for module in ('torch', 'scipy', 'librosa', 'matplotlib', 'pandas', 'IPython', '
     args += ['--exclude-module', module]
 args += [str(root / 'music_studio/windows_app.py')]
 PyInstaller.__main__.run(args)
+distribution = a.output.resolve() / 'Blaze' / 'licenses'
+distribution.mkdir(parents=True, exist_ok=True)
+shutil.copytree(a.decoder_materials / 'licenses', distribution / 'FFmpeg', dirs_exist_ok=True)
+for name in ('FFmpeg-LGPL-Corresponding-Sources.zip', 'decoder-manifest.json'):
+    shutil.copy2(a.decoder_materials / name, distribution / name)
