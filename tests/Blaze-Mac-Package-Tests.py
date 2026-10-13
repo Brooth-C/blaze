@@ -1,7 +1,7 @@
 """Real macOS binary, audio/video decoder and local download verification."""
 from pathlib import Path
 from functools import partial
-from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
+from http.server import SimpleHTTPRequestHandler
 import argparse
 import json
 import math
@@ -67,7 +67,10 @@ def main():
     assert 'Ensemble' in str(result['model'])
     # Exercise the real packaged downloader, decoder and output path without
     # relying on a third-party site's uptime, accounts or anti-bot policy.
-    server = ThreadingHTTPServer(('127.0.0.1', 0), partial(SimpleHTTPRequestHandler, directory=str(work)))
+    import sys
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+    from music_studio.server import LoopbackHTTPServer
+    server = LoopbackHTTPServer(('127.0.0.1', 0), partial(SimpleHTTPRequestHandler, directory=str(work)))
     threading.Thread(target=server.serve_forever, daemon=True).start()
     try:
         output = work / 'downloaded.wav'

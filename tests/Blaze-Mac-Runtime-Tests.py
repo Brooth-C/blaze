@@ -224,5 +224,18 @@ class MacRuntimeTests(unittest.TestCase):
             mac_app.SmokeFixture(self.root / 'missing.wav')
 
 
+class LoopbackServerTests(unittest.TestCase):
+    def test_ui_server_does_not_reverse_resolve_the_local_hostname(self):
+        from http.server import BaseHTTPRequestHandler
+        from music_studio.server import LoopbackHTTPServer
+        with patch('socket.getfqdn', side_effect=AssertionError('No local DNS discovery')):
+            server = LoopbackHTTPServer(('127.0.0.1', 0), BaseHTTPRequestHandler)
+        try:
+            self.assertEqual(server.server_name, '127.0.0.1')
+            self.assertGreater(server.server_port, 0)
+        finally:
+            server.server_close()
+
+
 if __name__ == '__main__':
     unittest.main()

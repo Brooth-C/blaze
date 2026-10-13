@@ -1,6 +1,6 @@
 """Blaze's offline macOS desktop app, using the system Cocoa web view."""
 from pathlib import Path
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from http.server import BaseHTTPRequestHandler
 import argparse
 import json
 import mimetypes
@@ -118,7 +118,8 @@ class SmokeFixture:
             def do_GET(self):
                 self.respond(True)
 
-        self.server = ThreadingHTTPServer(('127.0.0.1', 0), Handler)
+        from music_studio.server import LoopbackHTTPServer
+        self.server = LoopbackHTTPServer(('127.0.0.1', 0), Handler)
         self.server.daemon_threads = True
         self.url = f'http://127.0.0.1:{self.server.server_port}' + route
         threading.Thread(target=self.server.serve_forever, name='BlazeSmokeFixture', daemon=True).start()

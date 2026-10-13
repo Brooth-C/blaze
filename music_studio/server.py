@@ -1,6 +1,7 @@
 """Blaze's desktop Studio UI, served only on loopback with packaged assets."""
 from pathlib import Path
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from socketserver import TCPServer
 from urllib.parse import urlsplit, parse_qs, unquote
 import json
 import hashlib
@@ -12,6 +13,14 @@ import uuid
 import webbrowser
 from .engine import ModelBundle, Analyzer, AnalysisCancelled, MAX_BYTES
 from .store import Store, export_json, export_csv
+
+
+class LoopbackHTTPServer(ThreadingHTTPServer):
+    """Keep numeric loopback serving independent of local DNS discovery."""
+    def server_bind(self):
+        TCPServer.server_bind(self)
+        self.server_name = '127.0.0.1'
+        self.server_port = self.server_address[1]
 
 
 class Studio:
@@ -293,7 +302,7 @@ def create_server(studio, port=0):
             except (ValueError, OSError, TypeError) as error:
                 self.close_connection = True
                 self.json({'error': str(error) or 'Could not complete this action.'}, 400)
-    server = ThreadingHTTPServer(('127.0.0.1', port), Handler)
+    server = LoopbackHTTPServer(('127.0.0.1', port), Handler)
     server.daemon_threads = True
     return server
 
