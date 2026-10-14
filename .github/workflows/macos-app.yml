@@ -1,0 +1,144 @@
+name: Blaze macOS app
+on:
+  pull_request:
+    paths: ['music_studio/**', 'tools/*macos*', 'tools/macos_decoder/**', 'tests/Blaze-Mac-*-Tests.py', '.github/workflows/macos-app.yml']
+  push:
+    branches: [main]
+    paths: ['music_studio/**', 'tools/*macos*', 'tools/macos_decoder/**', 'tests/Blaze-Mac-*-Tests.py', '.github/workflows/macos-app.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: blaze-mac-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+jobs:
+  app:
+    name: Mac app / ${{ matrix.arch }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-15
+            arch: arm64
+          - runner: macos-15-intel
+            arch: x86_64
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-python@v7.0.0
+        with:
+          python-version: '3.12.10'
+      - name: Install pinned desktop dependencies
+        run: python -m pip install numpy==1.26.4 onnxruntime==1.20.1 pywebview==6.1 pyinstaller==6.16.0 Pillow==11.3.0 rich==14.2.0 ruff==0.14.0 yt-dlp==2026.8.19 yt-dlp-ejs==0.8.0
+      - name: Source and platform checks
+        run: |
+          python -m ruff check --select F,E9 music_studio tools/build_macos_studio.py tools/build_macos_downloader.py tools/stage_macos_studio.py tools/macos_decoder/*.py tests/Blaze-Mac-*-Tests.py
+          python tests/Blaze-Mac-Runtime-Tests.py
+          python tests/Blaze-Meter-Tests.py
+          python tests/Blaze-Chord-Evidence-Tests.py
+          python tests/Blaze-Sequence-Tests.py
+          node tests/Blaze-Live-Flow-Tests.cjs
+          node tests/Blaze-Timeline-Cells-Tests.cjs
+      - uses: actions/cache/restore@v6.1.0
+        id: tools-cache
+        with:
+          path: build/mac-assets
+          key: blaze-mac-tools-minimal-${{ matrix.arch }}-73bfa1bc-node2220-ytdlp20260819
+      - name: Stage pinned model and downloader assets
+        run: python tools/stage_macos_studio.py --work build/mac-assets --arch ${{ matrix.arch }}
+      - uses: actions/cache/restore@v6.1.0
+        id: decoder-cache
+        with:
+          path: |
+            tools/macos_decoder/downloads
+            tools/macos_decoder/output
+          key: blaze-mac-lgpl-${{ matrix.arch }}-${{ hashFiles('tools/macos_decoder/*.py', 'tools/macos_decoder/*.sh', 'tools/macos_decoder/*.json') }}
+      - name: Build verified LGPL media tools
+        run: |
+          if [ ! -f tools/macos_decoder/output/decoder-manifest.json ]; then
+            python tools/macos_decoder/fetch_sources.py
+            bash tools/macos_decoder/build.sh
+            python tools/macos_decoder/package_sources.py
+          fi
+      - uses: actions/cache/save@v6.1.0
+        if: steps.decoder-cache.outputs.cache-hit != 'true'
+        with:
+          path: |
+            tools/macos_decoder/downloads
+            tools/macos_decoder/output
+          key: ${{ steps.decoder-cache.outputs.cache-primary-key }}
+      - uses: actions/cache/save@v6.1.0
+        if: steps.tools-cache.outputs.cache-hit != 'true'
+        with:
+          path: build/mac-assets
+          key: ${{ steps.tools-cache.outputs.cache-primary-key }}
+      - name: Build minimal separate downloader
+        run: python tools/build_macos_downloader.py --arch ${{ matrix.arch }} --output build/mac-assets/bin --work build/mac-downloader --notices build/mac-assets/notices
+      - name: Build Blaze.app
+        run: |
+          python tools/build_macos_studio.py --arch ${{ matrix.arch }} --version 0.6.0 \
+            --ffmpeg tools/macos_decoder/output/bin/ffmpeg --ffprobe tools/macos_decoder/output/bin/ffprobe \
+            --decoder-materials tools/macos_decoder/output --ytdlp build/mac-assets/bin/yt-dlp \
+            --node build/mac-assets/bin/node --external-notices build/mac-assets/notices --python-license build/mac-assets/notices/Python-LICENSE.txt --python-license-version 3.12.10 --output dist --work build/mac-bundle
+      - name: Verify the native app and rendered Cocoa interface
+        run: python tests/Blaze-Mac-Package-Tests.py --app dist/Blaze.app --work build/mac-tests --arch ${{ matrix.arch }}
+      - name: Record native interface proof
+        if: always()
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import base64
+          p = Path('build/mac-tests/native-ui.png')
+          if p.is_file(): print('BLAZE_MAC_UI:' + base64.b64encode(p.read_bytes()).decode())
+          PY
+      - uses: actions/upload-artifact@v7.0.2
+        with:
+          name: Blaze-Mac-${{ matrix.arch }}
+          path: dist/Blaze-Mac-${{ matrix.arch }}.zip
+      - uses: actions/upload-artifact@v7.0.2
+        if: always()
+        with:
+          name: Blaze-Mac-checks-${{ matrix.arch }}
+          path: |
+            build/mac-tests/*.json
+            build/mac-tests/*.png
+            build/mac-tests/ui-smoke-data/desktop.log
+            tools/macos_decoder/logs/
+  publish:
+    name: Publish tested Mac app
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    needs: app
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v8.0.2
+        with:
+          pattern: Blaze-Mac-*
+          merge-multiple: true
+          path: artifacts
+      - name: Publish immutable Mac preview
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import hashlib, json, subprocess
+          tag = 'macos-v0.6.0-preview'
+          files = [Path('artifacts/Blaze-Mac-arm64.zip'), Path('artifacts/Blaze-Mac-x86_64.zip')]
+          digests = {p.name: hashlib.sha256(p.read_bytes()).hexdigest() for p in files}
+          probe = subprocess.run(['gh','release','view',tag,'--json','assets'], capture_output=True, text=True)
+          if probe.returncode == 0:
+              assets = {a['name']: a for a in json.loads(probe.stdout)['assets']}
+              for p in files:
+                  assert assets[p.name]['size'] == p.stat().st_size
+                  assert assets[p.name].get('digest') == 'sha256:' + digests[p.name], 'Existing release is immutable'
+              print('Existing Mac release verified; no assets replaced.')
+          else:
+              notes = '# Blaze for macOS\n\nChoose one ZIP: **arm64** for Apple Silicon, **x86_64** for Intel. Requires macOS 13 or newer. Extract it and move Blaze.app to Applications.\n\nDownloads, Music Studio and Library are together inside Blaze, with the same advanced offline chord ensemble and beat/meter engine as Windows. No Python or model installation is needed.\n\nThis preview is ad-hoc signed and is not Apple-notarized. macOS may require Privacy & Security → Open Anyway on first launch. Native builds and UI tests ran on both architectures. Some video containers can be analysed by the decoder but are not playable in the system web view.\n\nMatching LGPL decoder sources, dependency licenses, model notices and rebuild scripts are inside each app. Previous terminal Mac installer remains available in v4.1.29.\n\n'
+              notes += '\n'.join(f'{p.name}: {p.stat().st_size} bytes; SHA256 `{digests[p.name]}`' for p in files)
+              Path('notes.md').write_text(notes)
+              subprocess.run(['gh','release','create',tag,*map(str,files),'--target','${{ github.sha }}','--title','Blaze for macOS','--notes-file','notes.md','--prerelease','--latest=false'],check=True)
+          PY
