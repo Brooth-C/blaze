@@ -19,13 +19,14 @@ Windows · macOS · Linux · Android
 | Platform | Download |
 | --- | --- |
 | Windows 10/11 · x64 | [Blaze Windows app](https://github.com/Brooth-C/blaze/releases/latest/download/Blaze-Windows.zip) |
-| macOS · Apple Silicon / Intel | [macOS ZIP](https://github.com/Brooth-C/blaze/releases/latest/download/Blaze-Mac-Installer.zip) |
+| macOS 13+ · Apple Silicon, preview | [Blaze Mac app](https://github.com/Brooth-C/blaze/releases/latest/download/Blaze-Mac-arm64.zip) |
+| macOS 13+ · Intel, preview | [Blaze Mac app](https://github.com/Brooth-C/blaze/releases/latest/download/Blaze-Mac-x86_64.zip) |
 | Linux · x86_64 / ARM64, glibc | [Linux ZIP](https://github.com/Brooth-C/blaze/releases/latest/download/Blaze-Linux-Installer.zip) |
 | Android 7+ · ARM64, preview | [Android APK](https://github.com/Brooth-C/blaze/releases/latest/download/Blaze-Android-Preview.apk) |
 
 Download one file for your platform from the main release. For Windows, extract
-the ZIP and run Blaze.exe. Tap the Android APK to install. Mac, Linux and Termux
-installer setup needs an internet connection; follow the matching guide.
+the ZIP and run Blaze.exe. On Mac, extract the ZIP and move Blaze.app to Applications. Tap the Android APK to install. Linux and Termux installer setup needs an internet connection; follow the matching guide.
+Mac previews are ad-hoc signed; see the [macOS guide](docs/MACOS.md) for first launch.
 [Detailed installation](docs/INSTALLATION.md) · [Checksums and release files](https://github.com/Brooth-C/blaze/releases/latest)
 
 Prefer a terminal on Android? Download the [Termux ZIP](https://github.com/Brooth-C/blaze/releases/latest/download/Blaze-Termux-Installer.zip) and follow the [Termux guide](docs/ANDROID.md).
@@ -37,7 +38,7 @@ Prefer a terminal on Android? Download the [Termux ZIP](https://github.com/Broot
 - Convert audio and merge separate video/audio streams.
 - Keep downloads on your device and open or export completed files.
 
-The Windows app includes Downloads, Library and offline Music Studio.
+The Windows and Mac apps include Downloads, Library and offline Music Studio.
 [Windows player and build guide](music_studio/README.md).
 macOS, Linux and Termux use a keyboard-controlled terminal dashboard.
 The [Windows terminal installer](https://github.com/Brooth-C/blaze/releases/download/v4.1.29/Blaze-Windows-Installer.zip) remains available.
