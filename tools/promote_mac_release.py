@@ -88,8 +88,23 @@ def fresh(main_sha):
         raise ValueError("Main advanced during promotion; no newer source will be published unvalidated")
 
 
+def find_release(tag):
+    # Untagged drafts are absent from the by-tag endpoint until publication.
+    page = 1
+    while True:
+        releases = api(f"releases?per_page=100&page={page}")
+        matches = [item for item in releases if item["tag_name"] == tag]
+        if len(matches) > 1:
+            raise ValueError("Multiple releases declare the same tag")
+        if matches:
+            return matches[0]
+        if len(releases) < 100:
+            return None
+        page += 1
+
+
 def publish(tag, title, expected, directory, notes, target, preview, main_sha):
-    existing = api(f"releases/tags/{tag}", optional=True)
+    existing = find_release(tag)
     if existing is None:
         fresh(main_sha)
         arguments = ["release", "create", tag, *(str(directory / asset["name"]) for asset in expected),
@@ -98,7 +113,9 @@ def publish(tag, title, expected, directory, notes, target, preview, main_sha):
         if preview:
             arguments.append("--prerelease")
         release.gh(*arguments)
-        existing = api(f"releases/tags/{tag}")
+        existing = find_release(tag)
+        if existing is None:
+            raise ValueError("Created draft is absent from the release collection")
     release.verify_target(existing, {"assets": expected}, require_all=False)
     present = {asset['name'] for asset in existing['assets']}
     missing = [asset for asset in expected if asset['name'] not in present]
@@ -107,14 +124,17 @@ def publish(tag, title, expected, directory, notes, target, preview, main_sha):
             raise ValueError('An incomplete published release is preserved for review')
         fresh(main_sha)
         release.gh('release', 'upload', tag, *(str(directory / asset['name']) for asset in missing), '--repo', REPOSITORY)
-        existing = api(f'releases/tags/{tag}')
+        existing = api(f"releases/{existing['id']}")
     release.verify_target(existing, {"assets": expected}, require_all=True)
     if existing.get("prerelease") != preview:
         raise ValueError("Existing release has a different preview status; it is preserved")
     fresh(main_sha)
-    release.gh("release", "edit", tag, "--repo", REPOSITORY, "--notes-file", str(notes),
-               "--draft=false", "--latest=false" if preview else "--latest=true")
-    final = api(f"releases/tags/{tag}")
+    payload = directory / "publish-release.json"
+    payload.write_text(json.dumps({"body": notes.read_text(encoding="utf-8"), "draft": False,
+                                   "make_latest": "false" if preview else "true"}), encoding="utf-8")
+    release.gh("api", f"repos/{REPOSITORY}/releases/{existing['id']}",
+               "--method", "PATCH", "--input", str(payload))
+    final = api(f"releases/{existing['id']}")
     release.verify_target(final, {"assets": expected}, require_all=True)
     if final.get("draft") or final.get("prerelease") != preview:
         raise ValueError("Published release status does not match the catalog")

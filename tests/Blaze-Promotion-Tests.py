@@ -2,6 +2,7 @@
 from pathlib import Path
 import copy
 import sys
+import tempfile
 import unittest
 from unittest.mock import patch
 
@@ -68,6 +69,37 @@ class PromotionTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 p.promote(self.catalog)
             publish.assert_not_called()
+
+    def test_untagged_draft_is_found_in_release_collection(self):
+        draft = {'id': 42, 'tag_name': p.MAC_TAG, 'draft': True}
+        with patch.object(p, 'api', return_value=[draft]) as api:
+            self.assertEqual(p.find_release(p.MAC_TAG), draft)
+            api.assert_called_once_with('releases?per_page=100&page=1')
+
+    def test_release_lookup_pages_and_reports_absent_tag(self):
+        older = {'id': 42, 'tag_name': p.MAC_TAG, 'draft': True}
+        with patch.object(p, 'api', side_effect=[[{'tag_name': 'old'}] * 100, [older]]):
+            self.assertEqual(p.find_release(p.MAC_TAG), older)
+        with patch.object(p, 'api', return_value=[]):
+            self.assertIsNone(p.find_release(p.MAC_TAG))
+
+    def test_draft_is_verified_and_published_by_id(self):
+        draft = {'id': 42, 'tag_name': p.MAC_TAG, 'draft': True, 'prerelease': True,
+                 'assets': [{'name': 'Blaze-Mac-arm64.zip'}]}
+        final = dict(draft, draft=False)
+        with tempfile.TemporaryDirectory() as temporary:
+            directory = Path(temporary)
+            notes = directory / 'notes.md'
+            notes.write_text('Mac preview notes', encoding='utf-8')
+            with patch.object(p, 'find_release', return_value=draft), patch.object(p, 'api', return_value=final) as api, patch.object(p, 'fresh'), patch.object(p.release, 'verify_target') as verify, patch.object(p.release, 'gh') as gh:
+                p.publish(p.MAC_TAG, 'Blaze', [{'name': 'Blaze-Mac-arm64.zip'}], directory, notes,
+                          self.head, True, self.main)
+                gh.assert_called_once_with('api', f'repos/{p.REPOSITORY}/releases/42',
+                                           '--method', 'PATCH', '--input', str(directory / 'publish-release.json'))
+                api.assert_called_once_with('releases/42')
+                self.assertEqual(verify.call_count, 3)
+                self.assertEqual(p.json.loads((directory / 'publish-release.json').read_text()),
+                                 {'body': 'Mac preview notes', 'draft': False, 'make_latest': 'false'})
 
 
 if __name__ == '__main__':
