@@ -213,13 +213,14 @@ def ui_smoke(window, studio, destination, receipt, probe, timeout=240):
           const ids = ['bar-flow','diagram-strip','analyze','studio-settings'];
           return {width: innerWidth, height: innerHeight,
             scroll_height: viewport.scrollHeight,
+            keyboards_visible: Array.from(document.querySelectorAll('.diagram-card canvas')).every(canvas => {const r=canvas.getBoundingClientRect();return r.height>=65 && r.top>=0 && r.bottom<=innerHeight;}),
             branding_fits: document.querySelector('header .brand h1').getBoundingClientRect().right <= document.querySelector('header').getBoundingClientRect().right,
             controls_visible: ids.every(id => {
               const r = document.getElementById(id).getBoundingClientRect();
               return r.width > 0 && r.height > 0 && r.top >= 0 && r.bottom <= innerHeight + 1;
             })};
         })()""")
-        if (not receipt['layout']['controls_visible'] or not receipt['layout']['branding_fits']
+        if (not receipt['layout']['controls_visible'] or not receipt['layout']['branding_fits'] or not receipt['layout']['keyboards_visible']
                 or receipt['layout']['scroll_height'] > receipt['layout']['height'] + 1):
             raise RuntimeError('The native app layout hides controls or requires vertical scrolling.')
         # Invoke the same handler as the play button. The native media clock,

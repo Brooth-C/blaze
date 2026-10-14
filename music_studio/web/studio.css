@@ -139,7 +139,7 @@ body.studio-active #diagram-strip.summary-strip{grid-template-columns:none;grid-
  body.studio-active #diagram-strip{grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;}
  body.studio-active .diagram-card{padding:8px;}
 }
-@media(max-height:650px){
+@media(max-height:700px){
  body.studio-active .song-top{display:grid;grid-template-columns:auto minmax(0,1fr) auto;grid-template-rows:20px 38px;gap:2px 10px;min-height:0;}
  body.studio-active .song-top h2{grid-column:1/-1;max-width:100%;font-size:18px;}
  body.studio-active .offline-pill{display:none;}
@@ -170,8 +170,8 @@ body.studio-active #diagram-strip.summary-strip{grid-template-columns:none;grid-
  body.studio-active .play-workspace>.actions>label{font-size:12px;}
  body.studio-active #status{font-size:11px;margin:3px 0;}
 }
-@media(max-height:650px){body.studio-active .diagram-section{min-height:180px;flex-shrink:0;}}
-@media(max-height:650px){
+@media(max-height:700px){body.studio-active .diagram-section{min-height:180px;flex-shrink:0;}}
+@media(max-height:700px){
  body.studio-active .anticipation{height:34px;min-height:34px;line-height:1;}
  body.studio-active .anticipation small{font-size:11px;line-height:1;}
  body.studio-active .anticipation strong{line-height:1;}
