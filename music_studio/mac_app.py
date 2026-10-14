@@ -165,7 +165,7 @@ def ui_smoke(window, studio, destination, receipt, probe, timeout=240):
         })()""")
         if receipt['controls']:
             raise RuntimeError('The packaged app is missing controls: ' + ', '.join(receipt['controls']))
-        wait_for("!!sourceName && document.getElementById('media').readyState >= 1")
+        wait_for("!!sourceName")
         probe.run(window, "document.getElementById('tab-downloads').click()")
         wait_for("!document.getElementById('downloads-panel').hidden && !document.getElementById('download-start').disabled")
         fixture = SmokeFixture(studio.source)

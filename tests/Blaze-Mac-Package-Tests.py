@@ -87,8 +87,12 @@ def main():
     except subprocess.TimeoutExpired:
         process.kill()
         raise
-    assert process.returncode == 0
     receipt = json.loads(receipt_path.read_text())
+    print(json.dumps(receipt, indent=2), flush=True)
+    if process.returncode != 0:
+        log = work / 'ui-smoke-data/desktop.log'
+        if log.is_file(): print(log.read_text(encoding='utf-8')[-6000:], flush=True)
+    assert process.returncode == 0, receipt
     assert receipt['ok'], receipt
     print(json.dumps({'architecture': args.arch, 'checks': 'native launch, ensemble, edits/exports, 6 audio formats, 4K decode, download, Cocoa playback/seek/layout', 'ui': receipt}, indent=2))
     # Let the remote desktop screenshot finish writing before artifact upload.
