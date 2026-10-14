@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Download Blaze for your Mac. Downloads, Music Studio and Library in one app, with offline chord analysis.">
+  <title>Download Blaze for Mac</title>
+  <link rel="icon" href="../blaze-logo.png">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main>
+    <a class="brand" href="https://github.com/Brooth-C/blaze"><img src="../blaze-logo.png" alt="" width="48" height="48">Blaze</a>
+    <span class="badge">macOS 13+ · Preview</span>
+    <h1>Blaze for Mac</h1>
+    <p class="intro">Download. Convert. Play along.</p>
+    <p>Downloads, Music Studio and Library in one app. Analyse chords and beats from your audio and video, offline.</p>
+    <section class="download" aria-label="Mac download">
+      <p id="status" role="status" aria-live="polite">Checking your Mac…</p>
+      <label for="processor">Mac processor</label>
+      <select id="processor">
+        <option value="">Select automatically</option>
+        <option value="arm64">Apple Silicon (M1 and newer)</option>
+        <option value="x86_64">Intel</option>
+      </select>
+      <a id="download" class="button" aria-disabled="true">Download for Mac</a>
+      <p class="hint">Not sure? Open the Apple menu → About This Mac. “Chip: Apple M…” means Apple Silicon; “Processor: Intel…” means Intel.</p>
+      <noscript><p>JavaScript is disabled. Choose your ZIP: <a href="https://github.com/Brooth-C/blaze/releases/latest/download/Blaze-Mac-arm64.zip">Apple Silicon</a> or <a href="https://github.com/Brooth-C/blaze/releases/latest/download/Blaze-Mac-x86_64.zip">Intel</a>.</p></noscript>
+    </section>
+    <section class="install" aria-labelledby="install-title">
+      <h2 id="install-title">Ready in three steps</h2>
+      <ol><li>Download and extract the ZIP.</li><li>Move <strong>Blaze.app</strong> to Applications.</li><li>Open Blaze and import your audio or video in Music Studio.</li></ol>
+      <p class="hint">This preview is not Apple-notarized. First launch may require System Settings → Privacy &amp; Security → Open Anyway. <a href="https://github.com/Brooth-C/blaze/blob/main/docs/MACOS.md">Installation help</a></p>
+    </section>
+    <footer><a href="https://github.com/Brooth-C/blaze/releases/latest">Other platforms &amp; release notes</a><p>Processor detection stays in your browser. No analytics or tracking.</p></footer>
+  </main>
+  <script type="module" src="page.mjs"></script>
+</body>
+</html>

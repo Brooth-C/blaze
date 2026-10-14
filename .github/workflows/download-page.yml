@@ -1,0 +1,40 @@
+name: Mac download page
+on:
+  push:
+    branches: [main]
+    paths: ['download-site/**', 'tests/mac-download.test.mjs', 'docs/assets/blaze-logo.png', '.github/workflows/download-page.yml']
+  pull_request:
+    paths: ['download-site/**', 'tests/mac-download.test.mjs', '.github/workflows/download-page.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: mac-download-page-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - name: Test processor selection
+        run: node --test tests/mac-download.test.mjs
+      - name: Stage public download page
+        run: cp docs/assets/blaze-logo.png download-site/blaze-logo.png
+      - uses: actions/upload-pages-artifact@v4
+        if: github.ref == 'refs/heads/main'
+        with:
+          path: download-site
+  deploy:
+    if: github.ref == 'refs/heads/main'
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy Mac download page
+        id: deployment
+        uses: actions/deploy-pages@v4

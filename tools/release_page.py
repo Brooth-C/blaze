@@ -9,6 +9,8 @@ import subprocess
 import tempfile
 
 ROOT = Path(__file__).resolve().parents[1]
+MAC_DOWNLOAD_PAGE = 'https://brooth-c.github.io/blaze/mac/'
+MAC_BUILDS = {'Blaze-Mac-arm64.zip', 'Blaze-Mac-x86_64.zip'}
 
 
 def load_catalog(path=None):
@@ -50,12 +52,20 @@ def target_repository(catalog):
 def page(catalog):
     base = f'https://github.com/{target_repository(catalog)}'
     source_base = f"https://github.com/{catalog['repository']}"
-    rows = '\n'.join(
-        f"| {asset['platform']} | [Download {'APK' if asset['name'].endswith('.apk') else 'ZIP'}]({base}/releases/download/{catalog['tag']}/{asset['name']}) |"
-        for asset in catalog['assets'])
+    download_rows = []
+    mac_added = False
+    for asset in catalog['assets']:
+        if asset['name'] in MAC_BUILDS:
+            if not mac_added:
+                download_rows.append(f'| macOS 13+ · preview | [Download for Mac]({MAC_DOWNLOAD_PAGE}) |')
+                mac_added = True
+        else:
+            download_rows.append(f"| {asset['platform']} | [Download {'APK' if asset['name'].endswith('.apk') else 'ZIP'}]({base}/releases/download/{catalog['tag']}/{asset['name']}) |")
+    rows = '\n'.join(download_rows)
     provenance = '\n'.join(
         f"- **{asset['name']}** · version {asset['component_version']} · [{asset['source_tag']}]({source_base}/releases/tag/{asset['source_tag']}) · "
-        f"{asset['size']:,} bytes · SHA256 `{asset['sha256']}`"
+        f"{asset['size']:,} bytes · SHA256 `{asset['sha256']}`" +
+        (f" · [Direct ZIP]({base}/releases/download/{catalog['tag']}/{asset['name']})" if asset['name'] in MAC_BUILDS else '')
         for asset in catalog['assets'])
     native = catalog['android_native_sources']
     mac_apps = any(asset['name'] == 'Blaze-Mac-arm64.zip' for asset in catalog['assets'])

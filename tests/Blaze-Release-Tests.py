@@ -94,6 +94,16 @@ class ReleaseTests(unittest.TestCase):
         self.catalog['assets'][0]['component_version'] = '99.0.0'
         self.assertIn('Windows: 99.0.0', r.page(self.catalog))
 
+    def test_mac_has_one_download_row_and_keeps_binary_provenance(self):
+        notes = r.page(self.catalog)
+        table = notes.split('| Platform | Download |', 1)[1].split('\n\n', 1)[0]
+        self.assertEqual(table.count('| macOS'), 1)
+        self.assertIn(f'[Download for Mac]({r.MAC_DOWNLOAD_PAGE})', table)
+        self.assertNotIn('Blaze-Mac-arm64.zip', table)
+        self.assertNotIn('Blaze-Mac-x86_64.zip', table)
+        for name in r.MAC_BUILDS:
+            self.assertIn(f'/releases/download/{self.catalog["tag"]}/{name}', notes)
+
     def test_invalid_catalog_provenance_is_rejected(self):
         for key, value in [('name', '../evil.zip'), ('source_tag', ''), ('sha256', 'bad'), ('size', 0)]:
             catalog = copy.deepcopy(self.catalog)

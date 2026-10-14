@@ -19,8 +19,7 @@ Windows · macOS · Linux · Android
 | Platform | Download |
 | --- | --- |
 | Windows 10/11 · x64 | [Blaze Windows app](https://github.com/Brooth-C/blaze/releases/latest/download/Blaze-Windows.zip) |
-| macOS 13+ · Apple Silicon, preview | [Blaze Mac app](https://github.com/Brooth-C/blaze/releases/latest/download/Blaze-Mac-arm64.zip) |
-| macOS 13+ · Intel, preview | [Blaze Mac app](https://github.com/Brooth-C/blaze/releases/latest/download/Blaze-Mac-x86_64.zip) |
+| macOS 13+ · preview | [Download for Mac](https://brooth-c.github.io/blaze/mac/) |
 | Linux · x86_64 / ARM64, glibc | [Linux ZIP](https://github.com/Brooth-C/blaze/releases/latest/download/Blaze-Linux-Installer.zip) |
 | Android 7+ · ARM64, preview | [Android APK](https://github.com/Brooth-C/blaze/releases/latest/download/Blaze-Android-Preview.apk) |
 
@@ -40,7 +39,7 @@ Prefer a terminal on Android? Download the [Termux ZIP](https://github.com/Broot
 
 The Windows and Mac apps include Downloads, Library and offline Music Studio.
 [Windows player and build guide](music_studio/README.md).
-macOS, Linux and Termux use a keyboard-controlled terminal dashboard.
+Linux and Termux use a keyboard-controlled terminal dashboard.
 The [Windows terminal installer](https://github.com/Brooth-C/blaze/releases/download/v4.1.29/Blaze-Windows-Installer.zip) remains available.
 The [Android app](docs/ANDROID-APK.md) has a built-in audio/video player, touch controls, history, playlists and
 MP3/M4A/WAV/FLAC conversion. It is a debug-signed preview; physical-phone testing

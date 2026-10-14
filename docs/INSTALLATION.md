@@ -35,7 +35,7 @@ are not bundled. aria2c is installed automatically; use `--no-aria2c` to opt out
 
 ## Mac app - Apple Silicon and Intel
 
-Download one ZIP for your processor: [Apple Silicon](https://github.com/Brooth-C/blaze/releases/latest/download/Blaze-Mac-arm64.zip) or [Intel](https://github.com/Brooth-C/blaze/releases/latest/download/Blaze-Mac-x86_64.zip). Requires macOS 13 or newer. Extract it completely and move **Blaze.app** to Applications. No Python or model setup is needed. See the [macOS guide](MACOS.md) for first launch, offline Studio and preview signing details.
+Open [Download for Mac](https://brooth-c.github.io/blaze/mac/). The page selects the appropriate ZIP when your browser exposes the processor; otherwise choose the chip shown in About This Mac. Requires macOS 13 or newer. Extract it completely and move **Blaze.app** to Applications. No Python or model setup is needed. See the [macOS guide](MACOS.md) for first launch, offline Studio and preview signing details.
 
 ## Legacy Mac terminal setup
 

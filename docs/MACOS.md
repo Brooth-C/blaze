@@ -7,7 +7,10 @@ or model installation is required to use the app.
 
 ## Install
 
-Download one ZIP from the [Mac release](https://github.com/Brooth-C/blaze/releases/tag/macos-v0.6.0-preview):
+Open [Download for Mac](https://brooth-c.github.io/blaze/mac/). It automatically
+selects the ZIP when your browser exposes the processor. If detection is unavailable,
+choose the chip shown in Apple menu → About This Mac. One download button handles
+both Mac processors. Direct ZIPs remain available in the Mac release for fallback:
 
 - **Blaze-Mac-arm64.zip** for Apple Silicon (M1 and newer).
 - **Blaze-Mac-x86_64.zip** for Intel Macs.
