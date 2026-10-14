@@ -58,6 +58,10 @@ def page(catalog):
         f"{asset['size']:,} bytes · SHA256 `{asset['sha256']}`"
         for asset in catalog['assets'])
     native = catalog['android_native_sources']
+    mac_apps = any(asset['name'] == 'Blaze-Mac-arm64.zip' for asset in catalog['assets'])
+    desktop = 'Windows, macOS and Android' if mac_apps else 'Windows and Android'
+    terminals = 'Linux and Termux' if mac_apps else 'macOS, Linux and Termux'
+    mac_note = f'Mac previews are ad-hoc signed without Apple notarization; see the [Mac guide]({base}/blob/main/docs/MACOS.md) for installation.\n' if mac_apps else ''
     versions = '; '.join(f"{asset['platform']}: {asset['component_version']}" for asset in catalog['assets'])
     return f'''## Download Blaze
 
@@ -68,9 +72,10 @@ Blaze; install the Android APK directly.
 | --- | --- |
 {rows}
 
-Windows and Android include Music Studio with advanced offline chord analysis,
+{desktop} include Music Studio with advanced offline chord analysis,
 audio/video import, playback and automatic beat/meter detection. Android remains
-a preview. macOS, Linux and Termux retain the existing terminal app.
+a preview. {terminals} retain the existing terminal app.
+{mac_note}
 
 **{catalog['tag']} is a distribution refresh:** it brings these existing platform
 builds together. Component versions: {versions}.
@@ -80,6 +85,7 @@ builds together. Component versions: {versions}.
 ## Sources and licenses
 
 Windows corresponding decoder sources and license notices are inside its ZIP.
+Mac apps include their matching decoder sources and license notices inside the app.
 Android's matching native decoder sources remain available in the
 [corresponding-source archive]({native['url']})
 ({native['size']:,} bytes; SHA256 `{native['sha256']}`). Android licenses and

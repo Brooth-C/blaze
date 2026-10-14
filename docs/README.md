@@ -17,3 +17,5 @@
 Download complete installer ZIPs or the APK from release **Assets**. GitHub's
 automatically generated “Source code” archives are for development.
 
+
+- [Mac desktop app and offline Music Studio](MACOS.md)

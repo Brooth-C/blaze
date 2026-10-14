@@ -1,0 +1,37 @@
+name: Promote validated Mac app
+on:
+  push:
+    branches: [main]
+    paths: ['tools/release_catalog.json', 'tools/promote_mac_release.py', '.github/workflows/macos-promote.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: blaze-mac-release-promotion
+  cancel-in-progress: false
+jobs:
+  promote:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: write
+      actions: read
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v7.0.0
+        with:
+          python-version: '3.13'
+      - name: Validate release sources
+        run: |
+          python -m pip install ruff==0.14.0
+          python -m ruff check --select F,E9 tools/promote_mac_release.py tools/release_page.py tests/Blaze-Release-Tests.py
+          python tests/Blaze-Release-Tests.py
+          python tests/Blaze-Promotion-Tests.py
+      - name: Promote pinned and previously tested builds
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: python tools/promote_mac_release.py

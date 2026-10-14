@@ -67,28 +67,32 @@ class ReleaseTests(unittest.TestCase):
         with patch.dict(r.os.environ, GH_REPO='Brooth-C/blaze'), patch.object(r, 'gh', side_effect=self.fake_gh):
             return r.mirror(self.catalog['tag'], self.catalog)
 
-    def test_real_catalog_has_five_explicit_platform_builds(self):
+    def test_real_catalog_has_six_explicit_platform_builds(self):
         catalog = r.load_catalog()
-        self.assertEqual('v4.2.0', catalog['tag'])
-        self.assertEqual(['Blaze-Windows.zip', 'Blaze-Android-Preview.apk', 'Blaze-Mac-Installer.zip',
+        self.assertEqual('v4.2.1', catalog['tag'])
+        self.assertEqual(['Blaze-Windows.zip', 'Blaze-Android-Preview.apk', 'Blaze-Mac-arm64.zip', 'Blaze-Mac-x86_64.zip',
                           'Blaze-Linux-Installer.zip', 'Blaze-Termux-Installer.zip'],
                          [asset['name'] for asset in catalog['assets']])
-        self.assertEqual(['windows-v0.6.0', 'android-v0.6.0-preview', 'v4.1.29', 'v4.1.29', 'v4.1.29'],
+        self.assertEqual(['windows-v0.6.0', 'android-v0.6.0-preview', 'macos-v0.6.0-preview', 'macos-v0.6.0-preview', 'v4.1.29', 'v4.1.29'],
                          [asset['source_tag'] for asset in catalog['assets']])
-        self.assertEqual(['0.6.0', '0.6.0-preview', '4.1.29', '4.1.29', '4.1.29'],
+        self.assertEqual(['0.6.0', '0.6.0-preview', '0.6.0-preview', '0.6.0-preview', '4.1.29', '4.1.29'],
                          [asset['component_version'] for asset in catalog['assets']])
         self.assertNotIn('Blaze-Windows-Installer.zip', [asset['name'] for asset in catalog['assets']])
 
     def test_notes_link_once_to_each_catalog_download_and_show_origins(self):
         result = r.page(self.catalog)
         for asset in self.catalog['assets']:
-            self.assertEqual(1, result.count(f"/releases/download/v4.2.0/{asset['name']}"))
+            self.assertEqual(1, result.count(f"/releases/download/{self.catalog['tag']}/{asset['name']}"))
             self.assertIn(asset['sha256'], result)
             self.assertIn(f"/releases/tag/{asset['source_tag']}", result)
         self.assertIn('distribution refresh', result)
         self.assertIn('Android remains\na preview', result)
         self.assertIn(self.catalog['android_native_sources']['url'], result)
         self.assertNotIn('SHA256SUMS', result)
+
+    def test_component_versions_come_from_the_catalog(self):
+        self.catalog['assets'][0]['component_version'] = '99.0.0'
+        self.assertIn('Windows: 99.0.0', r.page(self.catalog))
 
     def test_invalid_catalog_provenance_is_rejected(self):
         for key, value in [('name', '../evil.zip'), ('source_tag', ''), ('sha256', 'bad'), ('size', 0)]:
@@ -171,7 +175,7 @@ class ReleaseTests(unittest.TestCase):
         self.assertTrue(self.mirror())
         self.assertEqual([], self.downloaded)
         self.assertEqual([], self.uploaded)
-        self.assertEqual(4, len(self.calls))  # target + three immutable source releases
+        self.assertEqual(1 + len({asset['source_tag'] for asset in self.catalog['assets']}), len(self.calls))
 
     def test_identical_concurrent_upload_is_accepted(self):
         self.concurrent = True
@@ -192,7 +196,7 @@ class ReleaseTests(unittest.TestCase):
         with patch.dict(r.os.environ, GH_REPO='Brooth-C/blaze'), patch.object(r, 'gh', side_effect=self.fake_gh):
             r.refresh(self.catalog)
         edit = self.calls[-1]
-        self.assertEqual(('release', 'edit', 'v4.2.0'), edit[:3])
+        self.assertEqual(('release', 'edit', self.catalog['tag']), edit[:3])
         for flag in ('--latest', '--prerelease', '--target', '--clobber'):
             self.assertNotIn(flag, edit)
 

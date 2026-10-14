@@ -33,9 +33,13 @@ New installed files stay inside `%USERPROFILE%\Blaze`:
 Existing installations elsewhere are left untouched. Optional mpv and FFprobe
 are not bundled. aria2c is installed automatically; use `--no-aria2c` to opt out.
 
-## Mac setup - Apple Silicon and Intel
+## Mac app - Apple Silicon and Intel
 
-**[Download the Mac installer ZIP](https://github.com/Brooth-C/blaze/releases/latest/download/Blaze-Mac-Installer.zip)**
+Download one ZIP for your processor: [Apple Silicon](https://github.com/Brooth-C/blaze/releases/latest/download/Blaze-Mac-arm64.zip) or [Intel](https://github.com/Brooth-C/blaze/releases/latest/download/Blaze-Mac-x86_64.zip). Requires macOS 13 or newer. Extract it completely and move **Blaze.app** to Applications. No Python or model setup is needed. See the [macOS guide](MACOS.md) for first launch, offline Studio and preview signing details.
+
+## Legacy Mac terminal setup
+
+**[Download the Mac installer ZIP](https://github.com/Brooth-C/blaze/releases/download/v4.1.29/Blaze-Mac-Installer.zip)**
 
 1. Extract the entire ZIP.
 2. Double-click `Install-Blaze.command`. Internet is required during setup.
