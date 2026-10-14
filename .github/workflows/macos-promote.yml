@@ -2,7 +2,7 @@ name: Promote validated Mac app
 on:
   push:
     branches: [main]
-    paths: ['tools/release_catalog.json', 'tools/promote_mac_release.py', '.github/workflows/macos-promote.yml']
+    paths: ['tools/release_catalog.json', 'tools/promote_mac_release.py', 'tests/Blaze-Promotion-Tests.py', '.github/workflows/macos-promote.yml']
   workflow_dispatch:
 permissions:
   contents: read

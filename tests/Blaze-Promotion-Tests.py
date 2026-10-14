@@ -64,7 +64,7 @@ class PromotionTests(unittest.TestCase):
 
     def test_validation_failure_cannot_publish(self):
         self.catalog['macos_validation']['head_sha'] = 'not-a-commit'
-        with patch.object(p, 'current_main', return_value=self.main), patch.object(p, 'publish') as publish:
+        with patch.dict(p.os.environ, GITHUB_SHA=self.main), patch.object(p, 'current_main', return_value=self.main), patch.object(p, 'publish') as publish:
             with self.assertRaises(ValueError):
                 p.promote(self.catalog)
             publish.assert_not_called()
