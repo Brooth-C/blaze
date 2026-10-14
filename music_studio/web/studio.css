@@ -182,3 +182,6 @@ body.studio-active #diagram-strip.summary-strip{grid-template-columns:none;grid-
  body.studio-active .reference-head{height:59px;}
  body.studio-active .reference-progress{top:60px;}
 }
+
+/* Keep the Blaze wordmark inside the compact sidebar on short desktop windows. */
+@media(max-height:700px){header{padding-left:12px;padding-right:12px}.brand{gap:8px}.brand h1{font-size:22px}.brand-logo{width:32px;height:42px}}
