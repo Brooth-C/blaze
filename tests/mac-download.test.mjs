@@ -13,7 +13,8 @@ test('Intel compatibility user agent never guesses an Intel processor', async ()
 });
 test('privacy restrictions fall back safely and blocked WebGL remains unknown', async () => {
   const nav = {...mac,userAgentData:{platform:'macOS',getHighEntropyValues:async()=>{throw Error('blocked');}}};
-  assert.equal(await detectMac(nav,()=> 'Apple GPU'),'arm64');
+  assert.equal(await detectMac(nav,()=> 'Apple M2'),'arm64');
+  assert.equal(await detectMac(nav,()=> 'Apple GPU'),null);
   assert.equal(await detectMac(nav,()=>{throw Error('blocked');}),null);
 });
 test('client hints take precedence over renderer', async () => {

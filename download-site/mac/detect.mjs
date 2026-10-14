@@ -16,7 +16,8 @@ export function architecture(hints) {
 }
 
 export function rendererArchitecture(renderer) {
-  if (/\bApple (M\d+\b|GPU\b)/i.test(renderer)) return 'arm64';
+  // Safari masks even Intel hardware as "Apple GPU". Require an M-series name.
+  if (/\bApple M\d+\b/i.test(renderer)) return 'arm64';
   // Never infer Intel from the MacIntel platform / Intel Mac OS X user agent:
   // Apple Silicon browsers also report those compatibility strings.
   if (/\b(Intel|AMD|ATI|Radeon|NVIDIA|GeForce)\b/i.test(renderer)) return 'x86_64';
