@@ -106,11 +106,16 @@ def main(argv=None):
             server = create_server(studio)
             threading.Thread(target=server.serve_forever, name='BlazeLocalUI', daemon=True).start()
             webview.settings['ALLOW_DOWNLOADS'] = True
+            renderer = 'edgechromium' if windows else 'gtk'
+            # Select the same backend for screen discovery and the actual window.
+            os.environ['PYWEBVIEW_GUI'] = renderer
+            screen = webview.screens[0]
+            width = min(1500, max(780, screen.width - 40))
+            height = min(960, max(600, screen.height - 100))
             window = webview.create_window('Blaze', f'http://127.0.0.1:{server.server_port}/',
-                                            width=1500, height=960, min_size=(780, 600),
+                                            width=width, height=height, min_size=(780, 600),
                                             background_color='#ffffff')
             studio.native_fullscreen = window.toggle_fullscreen
-            renderer = 'edgechromium' if windows else 'gtk'
             options = dict(gui=renderer, private_mode=False, storage_path=str(data / 'webview'))
             if args.ui_smoke:
                 from music_studio.mac_app import ui_smoke

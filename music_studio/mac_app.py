@@ -244,6 +244,9 @@ def ui_smoke(window, studio, destination, receipt, probe, timeout=240):
         probe.run(window, "document.getElementById('studio-settings').click()")
         wait_for("document.getElementById('settings-dialog').open")
         probe.run(window, "document.getElementById('close-settings').click()")
+        wait_for("!document.getElementById('settings-dialog').open")
+        # Let the compositor paint the closed dialog before capturing the desktop.
+        time.sleep(.2)
         screenshot = target.with_suffix('.png')
         capture_screenshot(screenshot)
         if not screenshot.is_file() or screenshot.stat().st_size == 0:
