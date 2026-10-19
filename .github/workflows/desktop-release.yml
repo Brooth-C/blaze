@@ -1,0 +1,118 @@
+name: Windows and Linux desktop packages
+on:
+  push:
+    branches: [main]
+    paths: ['music_studio/**', 'tools/build*studio.py', 'tools/stage_desktop_release.py', 'installers/linux-desktop/**', 'tests/Blaze-Desktop*', '.github/workflows/desktop-release.yml']
+  pull_request:
+    paths: ['music_studio/**', 'tools/build*studio.py', 'tools/stage_desktop_release.py', 'installers/linux-desktop/**', 'tests/Blaze-Desktop*', '.github/workflows/desktop-release.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-python@v7.0.0
+        with:
+          python-version: '3.12.10'
+      - name: Install pinned dependencies
+        run: python -m pip install numpy==1.26.4 onnxruntime==1.20.1 pywebview==6.1 pyinstaller==6.16.0 Pillow==11.3.0 rich==14.2.0 ruff==0.14.0
+      - uses: actions/cache@v6.1.0
+        with:
+          path: build/windows-assets
+          key: blaze-windows-original-73bfa1bc
+      - name: Stage reviewed models, decoder sources and tools
+        run: python tools/stage_desktop_release.py --platform windows --work build/windows-assets
+      - name: Build portable app
+        run: python tools/build_windows_studio.py --ffmpeg build/windows-assets/bin/ffmpeg.exe --decoder-materials build/windows-assets/decoder --ytdlp build/windows-assets/bin/yt-dlp.exe --node build/windows-assets/bin/node.exe --output dist --work build/windows-bundle
+      - name: Retain all matching dependency licenses
+        shell: python
+        run: |
+          import shutil
+          shutil.copytree('build/windows-assets/licenses','dist/Blaze/licenses',dirs_exist_ok=True)
+      - name: Verify the native package
+        run: python tests/Blaze-Desktop-Package-Tests.py --app dist/Blaze/Blaze.exe --work build/windows-checks
+      - name: Package ZIP
+        shell: python
+        run: |
+          import shutil
+          shutil.make_archive('dist/Blaze-Windows','zip','dist','Blaze')
+      - uses: actions/upload-artifact@v7.0.2
+        with:
+          name: Blaze-Windows
+          path: dist/Blaze-Windows.zip
+      - uses: actions/upload-artifact@v7.0.2
+        if: always()
+        with:
+          name: Windows-native-checks
+          path: |
+            build/windows-checks/*.json
+            build/windows-checks/*.png
+            build/windows-checks/ui-smoke-data/desktop.log
+  linux:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-python@v7.0.0
+        with:
+          python-version: '3.12'
+      - name: Install system rendering and media dependencies
+        run: sudo apt-get update && sudo apt-get install -y python3-venv python3-gi python3-gi-cairo gir1.2-webkit2-4.1 ffmpeg xvfb dbus-x11 pulseaudio scrot
+      - uses: actions/cache@v6.1.0
+        with:
+          path: build/linux-assets
+          key: blaze-linux-original-73bfa1bc-node2220
+      - name: Stage reviewed models and Node
+        run: python tools/stage_desktop_release.py --platform linux --work build/linux-assets
+      - name: Package the desktop installer
+        run: python tools/build_linux_studio.py --assets build/linux-assets --output dist --work build/linux-package
+      - name: Install the actual package
+        run: |
+          mkdir -p build/linux-installed
+          tar -xzf dist/Blaze-Linux-x86_64.tar.gz -C build/linux-installed
+          BLAZE_INSTALL_DIR="$RUNNER_TEMP/BlazeApp" /usr/bin/bash build/linux-installed/Blaze/Install-Blaze.sh
+      - name: Verify GTK app, model and media flows
+        env:
+          LIBGL_ALWAYS_SOFTWARE: '1'
+          WEBKIT_DISABLE_COMPOSITING_MODE: '1'
+        run: |
+          pulseaudio --start --exit-idle-time=-1
+          xvfb-run -a dbus-run-session -- python tests/Blaze-Desktop-Package-Tests.py --app "$RUNNER_TEMP/BlazeApp/Blaze" --work build/linux-checks
+      - uses: actions/upload-artifact@v7.0.2
+        with:
+          name: Blaze-Linux
+          path: dist/Blaze-Linux-x86_64.tar.gz
+      - uses: actions/upload-artifact@v7.0.2
+        if: always()
+        with:
+          name: Linux-native-checks
+          path: |
+            build/linux-checks/*.json
+            build/linux-checks/*.png
+            build/linux-checks/ui-smoke-data/desktop.log
+  publish:
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    needs: [windows, linux]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/download-artifact@v8.0.2
+        with:
+          name: Blaze-Windows
+          path: artifacts
+      - uses: actions/download-artifact@v8.0.2
+        with:
+          name: Blaze-Linux
+          path: artifacts
+      - name: Publish new immutable desktop packages
+        run: |
+          python tools/publish_desktop_release.py --tag windows-v0.7.0 --file artifacts/Blaze-Windows.zip --platform Windows
+          python tools/publish_desktop_release.py --tag linux-v0.7.0-preview --file artifacts/Blaze-Linux-x86_64.tar.gz --platform Linux

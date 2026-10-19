@@ -1,3 +1,7 @@
+# Blaze Android 0.7.0 preview
+
+Updated home navigation, system light/dark appearance, clearer section selection and preserved offline Studio, downloads and saved-file controls. Built and instrumented on Android API 29 and 35 before publication. Debug-signed preview; physical-phone and OEM background behavior are not comprehensively tested.
+
 # Blaze Android 0.6.0 preview
 
 One app for Downloads, Music Studio and playback, with the proper Blaze logo
