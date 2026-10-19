@@ -40,6 +40,23 @@ class Studio:
         self.analyzer = None
         self.worker = None
         self.downloader = None
+        self.appearance_path = self.directory / 'appearance.json'
+        self.appearance = 'system'
+        try:
+            saved = json.loads(self.appearance_path.read_text(encoding='utf-8'))
+            if isinstance(saved, dict) and saved.get('appearance') in ('system', 'light', 'dark'):
+                self.appearance = saved['appearance']
+        except (OSError, ValueError, TypeError):
+            pass
+
+    def set_appearance(self, appearance):
+        if appearance not in ('system', 'light', 'dark'):
+            raise ValueError('Choose System, Light, or Dark appearance.')
+        with self.lock:
+            temporary = self.appearance_path.with_suffix('.tmp')
+            temporary.write_text(json.dumps({'appearance': appearance}), encoding='utf-8')
+            temporary.replace(self.appearance_path)
+            self.appearance = appearance
 
     def analyze(self, selected):
         if selected not in ('major_minor', 'extended', 'refined', 'powerful'):
@@ -151,6 +168,7 @@ def create_server(studio, port=0):
                 data = (assets / name).read_bytes()
                 if path == '/':
                     data = data.replace(b'%%TOKEN%%', studio.token.encode())
+                    data = data.replace(b'%%APPEARANCE%%', studio.appearance.encode())
                 self.send(data, content_type={'/': 'text/html; charset=utf-8', '/studio.js': 'text/javascript; charset=utf-8', '/flow.js': 'text/javascript; charset=utf-8', '/studio.css': 'text/css; charset=utf-8', '/blaze-logo.png': 'image/png'}[path])
                 return
             if not self.permitted(token=True):
@@ -159,6 +177,9 @@ def create_server(studio, port=0):
             if path == '/api/state':
                 with studio.lock:
                     self.json(studio.state)
+                return
+            if path == '/api/appearance':
+                self.json({'appearance': studio.appearance})
                 return
             if path == '/api/downloads':
                 self.json(studio.downloader.state() if studio.downloader else {'unavailable': True})
@@ -204,6 +225,7 @@ def create_server(studio, port=0):
             self.send_response(206 if header else 200)
             self.send_header('Content-Type', mimetypes.guess_type(name)[0] or 'application/octet-stream')
             self.send_header('Accept-Ranges', 'bytes')
+            self.send_header('Cache-Control', 'no-store')
             self.send_header('Content-Length', str(end - begin + 1))
             self.send_header('Cache-Control', 'no-store')
             if header:
@@ -256,6 +278,10 @@ def create_server(studio, port=0):
                 if not 0 <= length <= 65536:
                     raise ValueError('The request is too large.')
                 body = json.loads(self.rfile.read(length) or b'{}')
+                if path == '/api/appearance':
+                    studio.set_appearance(body.get('appearance'))
+                    self.json({'appearance': studio.appearance})
+                    return
                 if path == '/api/fullscreen':
                     native = getattr(studio, 'native_fullscreen', None)
                     if native:

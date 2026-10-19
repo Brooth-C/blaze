@@ -77,7 +77,7 @@ jobs:
         run: python tools/build_macos_downloader.py --arch ${{ matrix.arch }} --output build/mac-assets/bin --work build/mac-downloader --notices build/mac-assets/notices
       - name: Build Blaze.app
         run: |
-          python tools/build_macos_studio.py --arch ${{ matrix.arch }} --version 0.6.0 \
+          python tools/build_macos_studio.py --arch ${{ matrix.arch }} --version 0.7.0 \
             --ffmpeg tools/macos_decoder/output/bin/ffmpeg --ffprobe tools/macos_decoder/output/bin/ffprobe \
             --decoder-materials tools/macos_decoder/output --ytdlp build/mac-assets/bin/yt-dlp \
             --node build/mac-assets/bin/node --external-notices build/mac-assets/notices --python-license build/mac-assets/notices/Python-LICENSE.txt --python-license-version 3.12.10 --output dist --work build/mac-bundle
@@ -126,7 +126,7 @@ jobs:
           python - <<'PY'
           from pathlib import Path
           import hashlib, json, subprocess
-          tag = 'macos-v0.6.0-preview'
+          tag = 'macos-v0.7.0-preview'
           files = [Path('artifacts/Blaze-Mac-arm64.zip'), Path('artifacts/Blaze-Mac-x86_64.zip')]
           digests = {p.name: hashlib.sha256(p.read_bytes()).hexdigest() for p in files}
           probe = subprocess.run(['gh','release','view',tag,'--json','assets'], capture_output=True, text=True)

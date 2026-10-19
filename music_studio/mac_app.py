@@ -129,6 +129,14 @@ class SmokeFixture:
         self.server.server_close()
 
 
+def capture_screenshot(destination):
+    if sys.platform == 'darwin':
+        subprocess.run(['/usr/sbin/screencapture', '-x', str(destination)], check=True, timeout=15)
+    else:
+        from PIL import ImageGrab
+        ImageGrab.grab().save(destination)
+
+
 def ui_smoke(window, studio, destination, receipt, probe, timeout=240):
     """Exercise the packaged Cocoa UI and engine; the report preserves failures."""
     target = Path(destination).resolve()
@@ -185,6 +193,7 @@ def ui_smoke(window, studio, destination, receipt, probe, timeout=240):
         receipt['download'] = {'status': completed[0]['status'], 'file': downloaded['name'],
                                'size': downloaded_path.stat().st_size, 'format': 'wav'}
         file_name = json.dumps(downloaded['name'])
+        probe.run(window, "document.getElementById('tab-library').click()")
         wait_for("[...document.querySelectorAll('#download-files .download-row')].some(row => row.querySelector('span')?.textContent === " + file_name + ")")
         probe.run(window, "[...document.querySelectorAll('#download-files .download-row')].find(row => row.querySelector('span')?.textContent === " + file_name + ").querySelector('button').click()")
         wait_for("document.getElementById('downloads-panel').hidden && document.getElementById('filename').textContent === " + file_name + " && document.getElementById('media').readyState >= 1")
@@ -235,8 +244,11 @@ def ui_smoke(window, studio, destination, receipt, probe, timeout=240):
         probe.run(window, "document.getElementById('studio-settings').click()")
         wait_for("document.getElementById('settings-dialog').open")
         probe.run(window, "document.getElementById('close-settings').click()")
+        wait_for("!document.getElementById('settings-dialog').open")
+        # Let the compositor paint the closed dialog before capturing the desktop.
+        time.sleep(.2)
         screenshot = target.with_suffix('.png')
-        subprocess.run(['/usr/sbin/screencapture', '-x', str(screenshot)], check=True, timeout=15)
+        capture_screenshot(screenshot)
         if not screenshot.is_file() or screenshot.stat().st_size == 0:
             raise RuntimeError('Native screenshot capture did not produce an image.')
         receipt['screenshot'] = str(screenshot)
@@ -248,10 +260,10 @@ def ui_smoke(window, studio, destination, receipt, probe, timeout=240):
         if fixture:
             fixture.close()
         target.parent.mkdir(parents=True, exist_ok=True)
-        if not receipt.get('screenshot') and sys.platform == 'darwin':
+        if not receipt.get('screenshot'):
             try:
                 screenshot = target.with_suffix('.png')
-                subprocess.run(['/usr/sbin/screencapture', '-x', str(screenshot)], check=True, timeout=15)
+                capture_screenshot(screenshot)
                 if screenshot.is_file() and screenshot.stat().st_size:
                     receipt['screenshot'] = str(screenshot)
             except Exception as error:
@@ -278,7 +290,7 @@ def launch(args, root, data, smoke_receipt):
         webview.settings['ALLOW_DOWNLOADS'] = True
         window = webview.create_window('Blaze', f'http://127.0.0.1:{server.server_port}/',
                                        width=1500, height=960, min_size=(780, 600),
-                                       background_color='#10131c')
+                                       background_color='#ffffff')
         studio.native_fullscreen = window.toggle_fullscreen
         if args.ui_smoke:
             webview.start(ui_smoke, (window, studio, args.ui_smoke, smoke_receipt, CocoaProbe()),
