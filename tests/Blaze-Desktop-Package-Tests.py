@@ -29,8 +29,9 @@ def main():
     assert result['chords'] and 'Ensemble' in str(result['model'])
     assert analysis.with_suffix('.csv').is_file()
     report = work / 'native-ui.json'
-    process = subprocess.run([str(args.app.resolve()), str(audio), '--ui-smoke', str(report)], timeout=360)
-    if process.returncode:
+    try:
+        process = subprocess.run([str(args.app.resolve()), str(audio), '--ui-smoke', str(report)], timeout=360)
+    finally:
         log = work / 'ui-smoke-data/desktop.log'
         if log.is_file():
             print(log.read_text(encoding='utf-8')[-10000:], flush=True)

@@ -11,7 +11,27 @@ import traceback
 class NativeProbe:
     """Call the renderer directly; never use eval or relax the page CSP."""
     def _evaluate(self, window, source):
-        text = window.gui.evaluate_js(source, window.uid, False)
+        # start(func) runs before WebView2 has necessarily finished navigation.
+        # Executing against an uninitialized controller can leave its task pending.
+        if not window.events.loaded.wait(30):
+            raise RuntimeError('The native page did not finish loading.')
+        finished = threading.Event()
+        result = {}
+
+        def evaluate():
+            try:
+                result['value'] = window.gui.evaluate_js(source, window.uid, False)
+            except Exception as error:
+                result['error'] = error
+            finally:
+                finished.set()
+
+        threading.Thread(target=evaluate, name='BlazeNativeProbe', daemon=True).start()
+        if not finished.wait(10):
+            raise RuntimeError('The native renderer did not answer within ten seconds.')
+        if 'error' in result:
+            raise result['error']
+        text = result['value']
         if not isinstance(text, str):
             raise RuntimeError('The native renderer did not return a probe result.')
         response = json.loads(text)

@@ -34,6 +34,18 @@ jobs:
           shutil.copytree('build/windows-assets/licenses','dist/Blaze/licenses',dirs_exist_ok=True)
       - name: Verify the native package
         run: python tests/Blaze-Desktop-Package-Tests.py --app dist/Blaze/Blaze.exe --work build/windows-checks
+      - name: Record Windows native diagnostics
+        if: always()
+        shell: python
+        run: |
+          from pathlib import Path
+          import base64
+          root = Path('build/windows-checks')
+          for path in root.rglob('*'):
+              if path.suffix in ('.json', '.log'):
+                  print(str(path) + '\n' + path.read_text(encoding='utf-8', errors='replace')[-12000:])
+          image = root / 'native-ui.png'
+          if image.is_file(): print('BLAZE_WINDOWS_UI:' + base64.b64encode(image.read_bytes()).decode())
       - name: Package ZIP
         shell: python
         run: |
@@ -81,6 +93,15 @@ jobs:
         run: |
           pulseaudio --start --exit-idle-time=-1
           xvfb-run -a dbus-run-session -- python tests/Blaze-Desktop-Package-Tests.py --app "$RUNNER_TEMP/BlazeApp/Blaze" --work build/linux-checks
+      - name: Record Linux native interface
+        if: always()
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import base64
+          image = Path('build/linux-checks/native-ui.png')
+          if image.is_file(): print('BLAZE_LINUX_UI:' + base64.b64encode(image.read_bytes()).decode())
+          PY
       - uses: actions/upload-artifact@v7.0.2
         with:
           name: Blaze-Linux
