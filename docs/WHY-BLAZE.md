@@ -12,11 +12,11 @@ The ambition should be bigger than collecting settings. A person should be able 
 
 Blaze documents audio and video downloading, quality and format choices, queues, supported partial-download resumption, audio conversion and separate audio/video merging. Its downloader uses yt-dlp, with optional aria2 support in the terminal engine.
 
-The Windows and Mac apps include Downloads, Library and offline Music Studio. Android's preview includes local playback and Studio too. Studio provides chord analysis, beat/downbeat detection, piano and guitar diagrams, corrections, looping, timing adjustments and analysis exports. Transposition changes labels and diagrams; it does not change the recording's pitch.
+The Windows, Mac and Linux desktop apps include Downloads, Library and offline Music Studio. Android's preview includes local playback and Studio too. Studio provides chord analysis, beat/downbeat detection, piano and guitar diagrams, corrections, looping, timing adjustments and analysis exports. Transposition changes labels and diagrams; it does not change the recording's pitch.
 
 That gives Blaze a practical story: download a recording you have permission to save, open it in Studio, inspect the suggested chords, correct uncertain passages, loop a section and practise.
 
-There are limits to this story today. macOS and Android are previews. Android still needs physical-phone validation. Recognised chords may need correction, and documented checks do not establish accuracy across annotated real songs. Features and interfaces also vary by platform.
+There are limits to this story today. macOS, Linux desktop and Android are previews. Android still needs physical-phone validation. Recognised chords may need correction, and documented checks do not establish accuracy across annotated real songs. Features and interfaces also vary by platform.
 
 ## How Blaze can earn the choice
 

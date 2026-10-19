@@ -1,46 +1,55 @@
 {
   "schema": 1,
   "repository": "Brooth-C/blaze",
-  "tag": "v4.2.1",
+  "tag": "v4.3.0",
   "assets": [
     {
       "platform": "Windows",
       "name": "Blaze-Windows.zip",
-      "component_version": "0.6.0",
+      "component_version": "0.7.0",
       "description": "Blaze desktop app + Music Studio",
-      "source_tag": "windows-v0.6.0",
-      "size": 251442533,
-      "sha256": "73bfa1bc0ce0657bb2792b5552c6614844fee3ebbea3bdccfa64ed4c659f96dc"
+      "source_tag": "windows-v0.7.0",
+      "size": 244188977,
+      "sha256": "7ac60b06e4a1758f048d676e0aeca0e4aeb6b50054265d2d4561bca55abaac24"
     },
     {
-      "platform": "Android APK · preview",
+      "platform": "Android APK \u00b7 preview",
       "name": "Blaze-Android-Preview.apk",
-      "component_version": "0.6.0-preview",
+      "component_version": "0.7.0-preview",
       "description": "Blaze Android app + Music Studio",
-      "source_tag": "android-v0.6.0-preview",
-      "size": 235056650,
-      "sha256": "70025d86ee70f62d7d6c21c0b9fba7bfd5d1fc34dbcf9ec2b4eeb19861ac5b1d"
+      "source_tag": "android-v0.7.0-preview",
+      "size": 234834641,
+      "sha256": "5367d8ecd8b39caa7996c60b6e889fc1ec73d5cb8e8d4e7dadf3f429d0b7c864"
     },
     {
-      "platform": "macOS 13+ · Apple Silicon, preview",
+      "platform": "macOS 13+ \u00b7 Apple Silicon, preview",
       "name": "Blaze-Mac-arm64.zip",
-      "component_version": "0.6.0-preview",
+      "component_version": "0.7.0-preview",
       "description": "Blaze Mac app + offline Music Studio",
-      "source_tag": "macos-v0.6.0-preview",
-      "size": 246694848,
-      "sha256": "fd7a0ac7a719938103ea1a99a74b0927a38fe6f70166f2d02b48ec7e4a14f47b"
+      "source_tag": "macos-v0.7.0-preview",
+      "size": 246774334,
+      "sha256": "191b6b2d0a8f99a622ef97d4208409204d9389044be5debfe7f31401788a6028"
     },
     {
-      "platform": "macOS 13+ · Intel, preview",
+      "platform": "macOS 13+ \u00b7 Intel, preview",
       "name": "Blaze-Mac-x86_64.zip",
-      "component_version": "0.6.0-preview",
+      "component_version": "0.7.0-preview",
       "description": "Blaze Mac app + offline Music Studio",
-      "source_tag": "macos-v0.6.0-preview",
-      "size": 259703809,
-      "sha256": "054924637c9cf7ee1ef9cf1f9aabe03822fa3cb4f5250e1658fd77135904da6e"
+      "source_tag": "macos-v0.7.0-preview",
+      "size": 259780761,
+      "sha256": "60a9e1a21e021d03c47071610d3375a408766bb739c1f2a50ebf133d620fc184"
     },
     {
-      "platform": "Linux",
+      "platform": "Linux desktop \u00b7 Ubuntu 22.04 x86_64, preview",
+      "name": "Blaze-Linux-x86_64.tar.gz",
+      "component_version": "0.7.0-preview",
+      "description": "GTK desktop installer with offline Music Studio; system prerequisites required",
+      "source_tag": "linux-v0.7.0-preview",
+      "size": 149993222,
+      "sha256": "f748765cbc1eaef9b99efbf0c9e908e999aa608f2f977e59ab193d142646bd43"
+    },
+    {
+      "platform": "Linux terminal \u00b7 x86_64 / ARM64",
       "name": "Blaze-Linux-Installer.zip",
       "component_version": "4.1.29",
       "description": "Existing terminal app",
@@ -65,8 +74,18 @@
     "size": 374676937,
     "sha256": "c2eeadf7bbc8be426ead9248fa69e4a5ce5c490c5484669495e684a3081d226e"
   },
-  "macos_validation": {
-    "run_id": 38488627569,
-    "head_sha": "c50429139d2b2c839046fab74a406e92ac10f7e3"
+  "native_validation": {
+    "desktop": {
+      "run_id": 39329596334,
+      "head_sha": "c4129639ec52f20f4f604edd8d3ee2023b167f8b"
+    },
+    "macos": {
+      "run_id": 39329596485,
+      "head_sha": "c4129639ec52f20f4f604edd8d3ee2023b167f8b"
+    },
+    "android": {
+      "run_id": 39329596382,
+      "head_sha": "c4129639ec52f20f4f604edd8d3ee2023b167f8b"
+    }
   }
 }

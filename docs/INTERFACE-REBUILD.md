@@ -29,11 +29,11 @@ node tests/Blaze-Desktop-UI-Tests.cjs
 
 Passed: desktop browser integration test; 28 existing regression tests; 20 Mac runtime tests; 10 mobile backend tests; live-flow, timeline-cell and automatic-rhythm JavaScript suites; JavaScript syntax and whitespace checks.
 
-Limits: this Linux environment has no native Cocoa/Windows webview verification, Android SDK/emulator, or packaged recognition weights. Native Android compilation was attempted but Gradle distribution retrieval failed with connection refused. New chord inference, external website downloads and Android visual behavior therefore have not been verified in this task. Existing timing suites test the unchanged flow engine. Native packaging and emulator checks remain necessary before a release.
+Native builds and package checks run separately on GitHub's platform runners. The [release catalog](../tools/release_catalog.json) records the successful Windows/Linux, Mac and Android native workflows used for publication. Real packaged-model inference, downloads and playback are checked there; Android physical-phone behavior and external website compatibility remain outside the local fixture tests.
 
 ## Visual review
 
-Concept: `local design reference: exec-02a5e533-c8ff-4032-bf67-fc418b9536a6.png` (a 1536×1024 composite containing Downloads, Library and Studio). Rendered screens were captured with local Playwright because the Browser connector was unavailable. Both the concept and browser screenshots were inspected using `view_image`; the main screen was checked at 1440×960, plus 780×600 and phone sizes. The composite is compared by screen region, not as one native app viewport.
+The initial concept was a local 1536×1024 composite containing Downloads, Library and Studio. Rendered screens were captured with local Playwright because the Browser connector was unavailable. Both the concept and browser screenshots were inspected using `view_image`; the main screen was checked at 1440×960, plus 780×600 and phone sizes. The composite is compared by screen region, not as one native app viewport.
 
 | Comparison | Render result / decision |
 | --- | --- |

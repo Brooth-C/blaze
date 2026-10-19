@@ -51,7 +51,7 @@ def page(catalog):
     base = f'https://github.com/{target_repository(catalog)}'
     source_base = f"https://github.com/{catalog['repository']}"
     rows = '\n'.join(
-        f"| {asset['platform']} | [Download {'APK' if asset['name'].endswith('.apk') else 'ZIP'}]({base}/releases/download/{catalog['tag']}/{asset['name']}) |"
+        f"| {asset['platform']} | [Download {'APK' if asset['name'].endswith('.apk') else 'tar.gz' if asset['name'].endswith('.tar.gz') else 'ZIP'}]({base}/releases/download/{catalog['tag']}/{asset['name']}) |"
         for asset in catalog['assets'])
     provenance = '\n'.join(
         f"- **{asset['name']}** · version {asset['component_version']} · [{asset['source_tag']}]({source_base}/releases/tag/{asset['source_tag']}) · "
@@ -59,14 +59,20 @@ def page(catalog):
         for asset in catalog['assets'])
     native = catalog['android_native_sources']
     mac_apps = any(asset['name'] == 'Blaze-Mac-arm64.zip' for asset in catalog['assets'])
-    desktop = 'Windows, macOS and Android' if mac_apps else 'Windows and Android'
-    terminals = 'Linux and Termux' if mac_apps else 'macOS, Linux and Termux'
+    linux_app = any(asset['name'] == 'Blaze-Linux-x86_64.tar.gz' for asset in catalog['assets'])
+    desktop = 'Windows, macOS, Linux desktop and Android' if linux_app else 'Windows, macOS and Android' if mac_apps else 'Windows and Android'
+    terminals = 'The separate Linux and Termux installers' if linux_app else 'Linux and Termux' if mac_apps else 'macOS, Linux and Termux'
     mac_note = f'Mac previews are ad-hoc signed without Apple notarization; see the [Mac guide]({base}/blob/main/docs/MACOS.md) for installation.\n' if mac_apps else ''
+    linux_note = (f'Linux desktop is an Ubuntu 22.04 x86_64 preview; extract the tar.gz and run `Blaze/Install-Blaze.sh`. '
+                  f'It requires system Python, GTK/WebKit and FFmpeg, plus internet during setup. '
+                  f'[Linux desktop guide]({base}/blob/main/docs/LINUX-DESKTOP.md).\n') if linux_app else ''
+    proof = '\n'.join(f"- [{platform} native validation]({base}/actions/runs/{item['run_id']}) · source `{item['head_sha']}`"
+                      for platform, item in catalog.get('native_validation', {}).items())
     versions = '; '.join(f"{asset['platform']}: {asset['component_version']}" for asset in catalog['assets'])
     return f'''## Download Blaze
 
 Choose **one download** for your platform. Extract ZIPs completely before opening
-Blaze; install the Android APK directly.
+Blaze; install the Android APK directly. Linux desktop uses the tar.gz installer.
 
 | Platform | Download |
 | --- | --- |
@@ -76,6 +82,9 @@ Blaze; install the Android APK directly.
 audio/video import, playback and automatic beat/meter detection. Android remains
 a preview. {terminals} retain the existing terminal app.
 {mac_note}
+{linux_note}
+Windows requires Microsoft Edge WebView2 Runtime and is not Authenticode-signed.
+Android is a debug-signed preview; physical-phone validation remains outstanding.
 
 **{catalog['tag']} is a distribution refresh:** it brings these existing platform
 builds together. Component versions: {versions}.
@@ -91,6 +100,9 @@ Android's matching native decoder sources remain available in the
 ({native['size']:,} bytes; SHA256 `{native['sha256']}`). Android licenses and
 component replacement instructions are documented in the Android guide.
 GitHub's automatic source archives contain the Blaze source for this tag.
+The Linux desktop package uses system GTK/WebKit and FFmpeg; matching model and Node notices are included.
+
+{proof}
 
 <details>
 <summary>Versions, checksums and original builds</summary>

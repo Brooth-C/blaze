@@ -27,15 +27,13 @@ Checked browser sizes: 1536×1024, 1440×960, 780×600, 390×844 and 320×740. C
 
 Passed existing suites: 28 regression tests, 20 Mac runtime tests, 10 mobile backend tests, and live-flow, timeline-cell and automatic-rhythm JavaScript suites. Three new tests cover default/corrupt appearance preferences, restart persistence and rejected values preserving the prior choice. See `tests/Blaze-Desktop-UI-Tests.cjs` for the browser test's environment variables; it requires Studio Python dependencies, Playwright, yt-dlp and FFmpeg.
 
-Limits: native Cocoa/Windows webview and Android emulator behavior are unverified in this Linux environment. Android's Gradle distribution was unavailable in the previous build attempt. Packaged recognition weights are absent, so fresh model inference remains a release check. The download regression uses local media, not external sites. No release was published.
+Native release validation uses GitHub runners for Windows WebView2, Linux GTK/WebKit, both Mac architectures and Android API 29/35 emulators. Desktop package checks perform real inference with the shipped models, local downloading, playback, seeking and layout assertions; exact successful build runs and source commits are pinned in [the release catalog](../tools/release_catalog.json). Screenshots are retained with workflow artifacts.
+
+Limits: automated download fixtures use local media rather than external services. Android still needs physical-phone validation. Synthetic chord fixtures verify integration rather than recognition accuracy on annotated songs.
 
 ## Concept and render review
 
-Full-screen concept files:
-
-- Downloads: `local design reference: exec-60973bc4-8f4f-4477-932d-fe3cbf9aafee.png`
-- Library: `local design reference: exec-31a0a767-d722-4dec-bb4a-b2c425541095.png`
-- Studio: `local design reference: exec-cf30fe77-1263-4ecd-af26-1d4bf831c34a.png`
+Three full-screen concepts were explored for Downloads, Library and Studio. The committed review captures show the implemented interface.
 
 Concepts and browser renders were inspected using `view_image`, including the concept's native 1536×1024 dimensions and 780×600 Studio.
 

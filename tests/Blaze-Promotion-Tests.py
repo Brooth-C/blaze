@@ -85,21 +85,52 @@ class PromotionTests(unittest.TestCase):
 
     def test_draft_is_verified_and_published_by_id(self):
         draft = {'id': 42, 'tag_name': p.MAC_TAG, 'draft': True, 'prerelease': True,
+                 'target_commitish': self.head,
                  'assets': [{'name': 'Blaze-Mac-arm64.zip'}]}
         final = dict(draft, draft=False)
         with tempfile.TemporaryDirectory() as temporary:
             directory = Path(temporary)
             notes = directory / 'notes.md'
             notes.write_text('Mac preview notes', encoding='utf-8')
-            with patch.object(p, 'find_release', return_value=draft), patch.object(p, 'api', return_value=final) as api, patch.object(p, 'fresh'), patch.object(p.release, 'verify_target') as verify, patch.object(p.release, 'gh') as gh:
+            def response(endpoint, **kwargs):
+                return {'object': {'type': 'commit', 'sha': self.head}} if endpoint.startswith('git/ref/') else final
+            with patch.object(p, 'find_release', return_value=draft), patch.object(p, 'api', side_effect=response) as api, patch.object(p, 'fresh'), patch.object(p.release, 'verify_target') as verify, patch.object(p.release, 'gh') as gh:
                 p.publish(p.MAC_TAG, 'Blaze', [{'name': 'Blaze-Mac-arm64.zip'}], directory, notes,
                           self.head, True, self.main)
                 gh.assert_called_once_with('api', f'repos/{p.REPOSITORY}/releases/42',
                                            '--method', 'PATCH', '--input', str(directory / 'publish-release.json'))
-                api.assert_called_once_with('releases/42')
+                api.assert_any_call('releases/42')
+                self.assertEqual(api.call_count, 4)
                 self.assertEqual(verify.call_count, 3)
                 self.assertEqual(p.json.loads((directory / 'publish-release.json').read_text()),
                                  {'body': 'Mac preview notes', 'draft': False, 'make_latest': 'false'})
+
+    def test_wrong_existing_draft_or_tag_cannot_publish(self):
+        for target, reference in [('c' * 40, None), (self.head, {'object': {'type': 'commit', 'sha': 'c' * 40}})]:
+            draft = dict(id=42, tag_name='v4.3.0', target_commitish=target, draft=True)
+            with patch.object(p, 'find_release', return_value=draft), patch.object(p, 'api', return_value=reference), patch.object(p.release, 'gh') as gh:
+                with self.assertRaisesRegex(ValueError, 'different'):
+                    p.publish('v4.3.0', 'Blaze', [], Path('/tmp'), Path('/tmp/unused-notes'), self.head, False, self.main)
+                gh.assert_not_called()
+
+    def test_preexisting_wrong_tag_without_release_cannot_create_draft(self):
+        with patch.object(p, 'find_release', return_value=None), patch.object(p, 'api', return_value={'object': {'type': 'commit', 'sha': 'c' * 40}}), patch.object(p.release, 'gh') as gh:
+            with self.assertRaisesRegex(ValueError, 'different'):
+                p.publish('v4.3.0', 'Blaze', [], Path('/tmp'), Path('/tmp/unused-notes'), self.head, False, self.main)
+            gh.assert_not_called()
+
+    def test_annotated_tags_are_peeled_to_the_verified_commit(self):
+        with patch.object(p, 'api', side_effect=[{'object': {'type': 'tag', 'sha': 'c' * 40}},
+                                              {'object': {'type': 'commit', 'sha': self.head}}]):
+            p.verify_tag_target('v4.3.0', self.head, required=True)
+
+    def test_missing_published_tag_and_cyclic_annotated_tag_are_rejected(self):
+        with patch.object(p, 'api', return_value=None):
+            with self.assertRaises(ValueError):
+                p.verify_tag_target('v4.3.0', self.head, required=True)
+        with patch.object(p, 'api', return_value={'object': {'type': 'tag', 'sha': 'c' * 40}}):
+            with self.assertRaises(ValueError):
+                p.verify_tag_target('v4.3.0', self.head)
 
 
 if __name__ == '__main__':

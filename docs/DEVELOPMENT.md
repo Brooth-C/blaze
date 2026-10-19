@@ -67,11 +67,30 @@ immutable original releases; normal users need only their platform's install fil
 ## Android APK checks
 
 The [APK workflow](https://github.com/Brooth-C/blaze/actions/workflows/android-apk.yml)
-uses JDK 17, Python 3.12, Android SDK 36 and NDK 28.2. It builds verified native
-FFmpeg/LAME and QuickJS for ARM64/x86_64, checks backend and real HTTPS fixtures,
+uses JDK 17, Python 3.12 and Android SDK 36. It stages checksum-verified native
+FFmpeg/LAME, QuickJS, LibVLC and model assets for ARM64/x86_64, checks backend and fixture media,
 runs lint and Android 10/15 instrumented queue/runtime/media tests, and captures
 the foreground app. See [android/README.md](../android/README.md).
 Main builds publish immutable versioned Android prereleases after these checks;
 pull requests produce temporary artifacts. Physical-phone testing and broad
 public-service compatibility remain outstanding.
+
+## Desktop packages and distribution
+
+The [Windows/Linux workflow](https://github.com/Brooth-C/blaze/actions/workflows/desktop-release.yml)
+freezes the Windows app and packages the Linux GTK installer. It installs and runs the actual packages,
+checks real model inference and edits/exports, then exercises local downloading, native playback,
+seeking and layout. Linux desktop targets Ubuntu 22.04 x86_64 with system GTK/WebKit and FFmpeg.
+The [Mac workflow](https://github.com/Brooth-C/blaze/actions/workflows/macos-app.yml) builds and tests
+Apple Silicon and Intel apps separately, including decoder formats and the rendered Cocoa interface.
+Main-branch native gates publish new immutable platform releases; PRs retain artifacts and screenshots.
+
+The [distribution workflow](https://github.com/Brooth-C/blaze/actions/workflows/distribution-release.yml)
+uses `tools/release_catalog.json` to bring the independently versioned packages together.
+`tools/promote_distribution.py` requires successful main-branch native runs, unchanged application,
+packaging and license inputs, matching release targets, and exact asset sizes and SHA256 hashes.
+It downloads and hashes each original binary before publishing a complete draft as GitHub Latest.
+It preserves old releases and refuses differing existing assets. The distribution version is separate
+from the terminal engine's version. `macos-promote.yml` is retained only as the manual historical
+0.6 promotion workflow; new distributions use the general publisher.
 

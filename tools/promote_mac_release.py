@@ -103,9 +103,34 @@ def find_release(tag):
         page += 1
 
 
+def verify_tag_target(tag, target, required=False):
+    reference = api(f"git/ref/tags/{tag}", optional=True)
+    if reference is None:
+        if required:
+            raise ValueError("The published source tag is absent")
+        return
+    obj = reference["object"]
+    seen = set()
+    while obj.get("type") == "tag":
+        sha = obj.get("sha")
+        if sha in seen or len(seen) >= 8:
+            raise ValueError("Invalid annotated source tag chain")
+        seen.add(sha)
+        obj = api(f"git/tags/{sha}")["object"]
+    if obj.get("type") != "commit" or obj.get("sha") != target:
+        raise ValueError("Existing source tag targets a different commit; it is preserved")
+
+
+def verify_release_source(existing, target, required=False):
+    if existing.get("target_commitish") != target:
+        raise ValueError("Existing release targets a different source commit; it is preserved")
+    verify_tag_target(existing["tag_name"], target, required)
+
+
 def publish(tag, title, expected, directory, notes, target, preview, main_sha):
     existing = find_release(tag)
     if existing is None:
+        verify_tag_target(tag, target)
         fresh(main_sha)
         arguments = ["release", "create", tag, *(str(directory / asset["name"]) for asset in expected),
                      "--repo", REPOSITORY, "--target", target, "--title", title,
@@ -116,6 +141,7 @@ def publish(tag, title, expected, directory, notes, target, preview, main_sha):
         existing = find_release(tag)
         if existing is None:
             raise ValueError("Created draft is absent from the release collection")
+    verify_release_source(existing, target)
     release.verify_target(existing, {"assets": expected}, require_all=False)
     present = {asset['name'] for asset in existing['assets']}
     missing = [asset for asset in expected if asset['name'] not in present]
@@ -129,6 +155,7 @@ def publish(tag, title, expected, directory, notes, target, preview, main_sha):
     if existing.get("prerelease") != preview:
         raise ValueError("Existing release has a different preview status; it is preserved")
     fresh(main_sha)
+    verify_release_source(existing, target)
     payload = directory / "publish-release.json"
     payload.write_text(json.dumps({"body": notes.read_text(encoding="utf-8"), "draft": False,
                                    "make_latest": "false" if preview else "true"}), encoding="utf-8")
@@ -136,6 +163,7 @@ def publish(tag, title, expected, directory, notes, target, preview, main_sha):
                "--method", "PATCH", "--input", str(payload))
     final = api(f"releases/{existing['id']}")
     release.verify_target(final, {"assets": expected}, require_all=True)
+    verify_release_source(final, target, required=True)
     if final.get("draft") or final.get("prerelease") != preview:
         raise ValueError("Published release status does not match the catalog")
 
