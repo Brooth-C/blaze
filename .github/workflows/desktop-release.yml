@@ -40,6 +40,8 @@ jobs:
         run: |
           from pathlib import Path
           import base64
+          import sys
+          sys.stdout.reconfigure(encoding='utf-8', errors='replace')
           root = Path('build/windows-checks')
           for path in root.rglob('*'):
               if path.suffix in ('.json', '.log'):
