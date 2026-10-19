@@ -4,7 +4,7 @@
 
 ## Windows app
 
-[Download Blaze for Windows](https://github.com/Brooth-C/blaze/releases/latest/download/Blaze-Windows.zip). Extract the entire ZIP, then open `Blaze.exe`. Music Studio is included inside Blaze.
+[Download Blaze for Windows](https://github.com/Brooth-C/blaze/releases/latest/download/Blaze-Windows.zip). Extract the entire ZIP, then open `Blaze.exe`. Music Studio is included inside Blaze. Windows 10/11 x64 and Microsoft Edge WebView2 Runtime are required. The executable is unsigned; release checksums are on the download page.
 
 ## Legacy Windows terminal setup - no Python needed beforehand
 
@@ -56,7 +56,11 @@ For updates, close Blaze and rerun the newer installer. Setup checks the new
 program before replacing the installed app and preserves settings and downloads.
 Setup verifies that Rich imports and aria2c runs before reporting success.
 
-## Linux setup - x86_64 and ARM64
+## Linux desktop preview - Ubuntu 22.04 x86_64
+
+Download the [desktop tar.gz](https://github.com/Brooth-C/blaze/releases/latest/download/Blaze-Linux-x86_64.tar.gz), extract it and run `bash Blaze/Install-Blaze.sh`. Setup needs system Python, GTK/WebKit and FFmpeg and internet for pinned Python dependencies. The [Linux desktop guide](LINUX-DESKTOP.md) lists prerequisites and installation paths.
+
+## Linux terminal setup - x86_64 and ARM64
 
 **[Download the Linux installer ZIP](https://github.com/Brooth-C/blaze/releases/latest/download/Blaze-Linux-Installer.zip)**
 

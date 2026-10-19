@@ -22,4 +22,4 @@ require login or block automated downloads. Blaze cannot guarantee those sites
 will accept a request. WAV/FLAC conversion cannot restore lost source quality.
 
 Save a copy of your media outside Blaze before uninstalling. An in-place upgrade
-requires the same signing key. See [build and licensing details](../android/README.md).
+requires the same signing key. Preview CI builds can use different debug keys, so Android may require uninstalling the older preview first. Export downloads with **Save a copy…** before doing that; uninstalling removes app-private data. See [build and licensing details](../android/README.md).

@@ -5,6 +5,7 @@
 | I want to… | Guide |
 | --- | --- |
 | Install on Windows, Mac or Linux | [Installation and requirements](INSTALLATION.md) |
+| Install the Linux desktop preview | [Linux desktop guide](LINUX-DESKTOP.md) |
 | Use the desktop terminal dashboard | [Usage and keyboard controls](USAGE.md) |
 | Install the Android app | [Android APK guide](ANDROID-APK.md) |
 | Use Blaze in Termux | [Termux guide](ANDROID.md) |

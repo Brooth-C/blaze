@@ -67,16 +67,17 @@ class ReleaseTests(unittest.TestCase):
         with patch.dict(r.os.environ, GH_REPO='Brooth-C/blaze'), patch.object(r, 'gh', side_effect=self.fake_gh):
             return r.mirror(self.catalog['tag'], self.catalog)
 
-    def test_real_catalog_has_six_explicit_platform_builds(self):
+    def test_real_catalog_has_seven_explicit_platform_builds(self):
         catalog = r.load_catalog()
-        self.assertEqual('v4.2.1', catalog['tag'])
+        self.assertEqual('v4.3.0', catalog['tag'])
         self.assertEqual(['Blaze-Windows.zip', 'Blaze-Android-Preview.apk', 'Blaze-Mac-arm64.zip', 'Blaze-Mac-x86_64.zip',
-                          'Blaze-Linux-Installer.zip', 'Blaze-Termux-Installer.zip'],
+                          'Blaze-Linux-x86_64.tar.gz', 'Blaze-Linux-Installer.zip', 'Blaze-Termux-Installer.zip'],
                          [asset['name'] for asset in catalog['assets']])
-        self.assertEqual(['windows-v0.6.0', 'android-v0.6.0-preview', 'macos-v0.6.0-preview', 'macos-v0.6.0-preview', 'v4.1.29', 'v4.1.29'],
+        self.assertEqual(['windows-v0.7.0', 'android-v0.7.0-preview', 'macos-v0.7.0-preview', 'macos-v0.7.0-preview', 'linux-v0.7.0-preview', 'v4.1.29', 'v4.1.29'],
                          [asset['source_tag'] for asset in catalog['assets']])
-        self.assertEqual(['0.6.0', '0.6.0-preview', '0.6.0-preview', '0.6.0-preview', '4.1.29', '4.1.29'],
+        self.assertEqual(['0.7.0', '0.7.0-preview', '0.7.0-preview', '0.7.0-preview', '0.7.0-preview', '4.1.29', '4.1.29'],
                          [asset['component_version'] for asset in catalog['assets']])
+        self.assertEqual({'desktop', 'macos', 'android'}, set(catalog['native_validation']))
         self.assertNotIn('Blaze-Windows-Installer.zip', [asset['name'] for asset in catalog['assets']])
 
     def test_notes_link_once_to_each_catalog_download_and_show_origins(self):
@@ -89,6 +90,9 @@ class ReleaseTests(unittest.TestCase):
         self.assertIn('Android remains\na preview', result)
         self.assertIn(self.catalog['android_native_sources']['url'], result)
         self.assertNotIn('SHA256SUMS', result)
+        self.assertIn('Download tar.gz', result)
+        self.assertIn('LINUX-DESKTOP.md', result)
+        self.assertIn('debug-signed', result)
 
     def test_component_versions_come_from_the_catalog(self):
         self.catalog['assets'][0]['component_version'] = '99.0.0'
@@ -142,7 +146,7 @@ class ReleaseTests(unittest.TestCase):
         self.assertEqual([], self.uploaded)
 
     def test_changed_origin_is_rejected_before_any_upload(self):
-        self.sources['windows-v0.6.0'][0]['digest'] = 'sha256:other'
+        self.sources[self.catalog['assets'][0]['source_tag']][0]['digest'] = 'sha256:other'
         with self.assertRaises(ValueError):
             self.mirror()
         self.assertEqual([], self.downloaded)
