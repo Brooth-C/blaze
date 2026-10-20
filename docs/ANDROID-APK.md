@@ -1,14 +1,15 @@
 # Blaze Android
 
-Install the preview APK on an Android 7+ ARM64 phone. Blaze has downloads,
+Install the [0.8.0 preview APK](https://github.com/Brooth-C/blaze/releases/download/android-v0.8.0-preview/Blaze-Android-Preview.apk)
+on an Android 7+ ARM64 phone. Blaze has downloads,
 local playback and Music Studio in one app.
 
 1. To download: paste a media link, choose Video or Audio and its format, and
-   tap Add to queue. Completed files are available in Files and History.
-2. To find chords: tap Music Studio near the top of the home screen, choose a
-   local audio/video file and tap Analyse. Completed downloads can also open in Studio.
+   tap Add to queue. Completed files are available in Library and History.
+2. To find chords: tap Studio in the bottom navigation, choose a
+   local audio/video file and tap Analyse chords. Completed downloads can also open in Studio through More.
 3. Play along with the smooth timeline and current/next piano or guitar diagrams.
-   Tap the timeline to seek. Choose Studio options for edits, loop, transposition,
+   Tap the timeline to seek. Choose Options for instruments, edits, loop, transposition,
    timing corrections and JSON/CSV exports.
 
 Advanced analysis and beat/downbeat detection run locally with pretrained models.
