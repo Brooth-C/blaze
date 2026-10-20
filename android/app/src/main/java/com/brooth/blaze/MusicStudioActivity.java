@@ -94,6 +94,7 @@ public class MusicStudioActivity extends VlcPlayerActivity {
         nextDiagram = new ChordDiagramView(this); nextDiagram.setTag("studio_next_diagram"); nextCard.addView(nextDiagram, new LinearLayout.LayoutParams(-1, 0, 1));
         countdown = ui.label("Discover the chords. Then play along.", 12, ui.secondary); countdown.setMaxLines(1);
         actionRow = new LinearLayout(this); actionRow.setGravity(android.view.Gravity.CENTER_VERTICAL);
+        actionRow.addOnLayoutChangeListener((view, left, top, right, bottom, oldLeft, oldTop, oldRight, oldBottom) -> checkStudioSpace());
         analyze = button(actionRow, "Analyse chords", () -> { automatic = true; startAnalysis(); }); analyze.setId(R.id.chord_analyze); ui.styleButton(analyze, true);
         cancel = button(actionRow, "Cancel", () -> { automatic = false; stopAnalysis(); state.setText("Analysis cancelled. Tap Analyse chords to retry."); }); cancel.setId(R.id.chord_cancel); cancel.setEnabled(false); cancel.setVisibility(View.GONE);
         Button options = button(actionRow, "Options", this::optionsDialog); options.setTag("studio_options"); options.setContentDescription("Studio options: instruments, chords, rhythm and export");
@@ -371,14 +372,17 @@ public class MusicStudioActivity extends VlcPlayerActivity {
             if (!studioPanel.isLaidOut() || studioPanel.isLayoutRequested() || root.isLayoutRequested() || studioPanel.getHeight() <= 0) return;
             boolean landscape = getResources().getConfiguration().orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE;
             int height = diagram.getHeight();
-            if (!landscape && height < dp(64) && instrumentRow.getParent() != null) {
+            android.graphics.Rect visibleActions = new android.graphics.Rect();
+            boolean actionsClipped = actionRow.getHeight() > 0
+                && (!actionRow.getGlobalVisibleRect(visibleActions) || visibleActions.height() < actionRow.getHeight() - 1);
+            if (!landscape && (height < dp(64) || actionsClipped) && instrumentRow.getParent() != null) {
                 hideInstrumentStrip = true; detach(instrumentRow); studioPanel.requestLayout();
                 return;
             }
             // Normal phone layouts keep both actions and the timeline on screen.
             // A real shortage after optional chrome is removed can use the same
             // scrolling workspace as accessibility text and short windows.
-            if (height < dp(landscape ? 30 : 48)) configureStudioScrolling(true);
+            if (height < dp(landscape ? 30 : 48) || actionsClipped) configureStudioScrolling(true);
         }));
     }
     private void margin(View view, int top, int bottom) {
