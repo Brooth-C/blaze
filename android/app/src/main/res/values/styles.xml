@@ -1,10 +1,26 @@
 <resources>
-    <style name="BlazeTheme" parent="android:style/Theme.Material.NoActionBar">
-        <item name="android:fontFamily">sans</item>
-        <item name="android:colorAccent">#FF8C42</item>
+    <style name="BlazeTheme" parent="android:style/Theme.Material.Light.NoActionBar">
+        <item name="android:fontFamily">sans-serif</item>
+        <item name="android:colorAccent">@color/blaze_accent</item>
+        <item name="android:colorControlHighlight">#18000000</item>
+        <item name="android:windowBackground">@color/blaze_background</item>
+        <item name="android:textColorPrimary">@color/blaze_text</item>
+        <item name="android:textColorSecondary">@color/blaze_secondary</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:statusBarColor">@color/blaze_background</item>
+        <item name="android:navigationBarColor">@color/blaze_background</item>
+        <item name="android:windowActionModeOverlay">true</item>
+    </style>
+    <style name="BlazeThemeDark" parent="android:style/Theme.Material.NoActionBar">
+        <item name="android:fontFamily">sans-serif</item>
+        <item name="android:colorAccent">@color/blaze_accent</item>
+        <item name="android:colorControlHighlight">#26FFFFFF</item>
+        <item name="android:windowBackground">@color/blaze_background</item>
+        <item name="android:textColorPrimary">@color/blaze_text</item>
+        <item name="android:textColorSecondary">@color/blaze_secondary</item>
         <item name="android:windowLightStatusBar">false</item>
-        <item name="android:statusBarColor">#10131C</item>
-        <item name="android:navigationBarColor">#10131C</item>
+        <item name="android:statusBarColor">@color/blaze_background</item>
+        <item name="android:navigationBarColor">@color/blaze_background</item>
         <item name="android:windowActionModeOverlay">true</item>
     </style>
 </resources>

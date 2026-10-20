@@ -35,7 +35,9 @@ public class PlayerActivity extends Activity {
     private SharedPreferences bookmarks;
 
     @Override public void onCreate(Bundle saved) {
+        BlazeUi.apply(this);
         super.onCreate(saved);
+        BlazeUi ui=new BlazeUi(this);
         setVolumeControlStream(android.media.AudioManager.STREAM_MUSIC);
         try {source=PlaybackSource.load(this,getIntent().getStringExtra("job"));}
         catch(IOException|RuntimeException error){Toast.makeText(this,"This completed file is no longer available.",Toast.LENGTH_LONG).show();finish();return;}
@@ -47,7 +49,11 @@ public class PlayerActivity extends Activity {
         WindowCompat.setDecorFitsSystemWindows(getWindow(),false);
         setContentView(R.layout.activity_player);
         view=findViewById(R.id.media_player);status=findViewById(R.id.player_status);
-        ((TextView)findViewById(R.id.player_title)).setText(source.title);
+        findViewById(R.id.player_root).setBackgroundColor(ui.background);
+        TextView title=findViewById(R.id.player_title);title.setText(source.title);title.setTextColor(ui.text);title.setTypeface(android.graphics.Typeface.create("sans-serif-medium",android.graphics.Typeface.NORMAL));
+        TextView caption=findViewById(R.id.player_caption);caption.setTextColor(ui.secondary);
+        android.widget.Button back=findViewById(R.id.player_back);ui.styleButton(back,false);back.setText("");back.setCompoundDrawablesRelativeWithIntrinsicBounds(ui.icon("back",ui.accent),null,null,null);back.setPadding(ui.dp(12),ui.dp(12),ui.dp(12),ui.dp(12));back.setContentDescription("Back to Blaze");
+        ui.styleButton(findViewById(R.id.player_retry),true);status.setTextColor(ui.secondary);status.setAccessibilityLiveRegion(View.ACCESSIBILITY_LIVE_REGION_POLITE);
         findViewById(R.id.player_back).setOnClickListener(v->back());
         findViewById(R.id.player_retry).setOnClickListener(v->{releasePlayer();startPlayer();});
         view.setShutterBackgroundColor(Color.BLACK);

@@ -83,9 +83,13 @@ public class StudioUsabilityTest {
                         assertFullyVisible(activity.root.findViewWithTag("studio_timeline"));
                         View diagram = activity.root.findViewWithTag("studio_current_diagram");
                         assertTrue("Piano diagram is too shallow", diagram.getHeight() >= dp(activity, 48)); assertFullyVisible(diagram);
-                        assertEquals("Now: Cmaj7", ((TextView)activity.findViewById(R.id.chord_current)).getText().toString());
+                        TextView chord = activity.findViewById(R.id.chord_current);
+                        assertEquals("Cmaj7", chord.getText().toString());
+                        assertNotNull("Current chord has no text layout", chord.getLayout());
+                        assertEquals("The chord name must remain readable", 0, chord.getLayout().getEllipsisCount(0));
+                        assertEquals("Current chord: Cmaj7", chord.getContentDescription().toString());
                         activity.onPlaybackTime(4200);
-                        assertEquals("Now: \u2014", ((TextView)activity.findViewById(R.id.chord_current)).getText().toString());
+                        assertEquals("\u2014", ((TextView)activity.findViewById(R.id.chord_current)).getText().toString());
                         assertFalse("Uncertainty leaked into the display", allText(activity.root).contains("Uncertain"));
                         activity.onPlaybackTime(1500);
                     });

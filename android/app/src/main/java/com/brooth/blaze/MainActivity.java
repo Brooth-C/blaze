@@ -23,7 +23,11 @@ public class MainActivity extends Activity {
     private CheckBox playlist;
     private TextView state;
     private ProgressBar bar;
-    private LinearLayout items,downloadComposer;
+    private LinearLayout items,downloadComposer,queuePanel,paging;
+    private ScrollView contentScroll;
+    private BlazeUi ui;
+    private TextView sectionSubtitle;
+    private Button resumeQueue;
     private TextView sectionTitle;
     private final Button[] sectionTabs=new Button[3];
     private Button stop,pause,previousPage,nextPage,openFile;
@@ -46,51 +50,52 @@ public class MainActivity extends Activity {
         }
     };
     @Override public void onCreate(Bundle saved) {
-        boolean dark=(getResources().getConfiguration().uiMode & android.content.res.Configuration.UI_MODE_NIGHT_MASK)==android.content.res.Configuration.UI_MODE_NIGHT_YES;
-        if(dark){orange=0xffff996b;background=0xff1c1c1e;foreground=0xfff5f5f7;muted=0xffb2b2ba;surface=0xff2c2c2f;selection=0xff39393d;}else setTheme(android.R.style.Theme_Material_Light_NoActionBar);
+        BlazeUi.apply(this);
         super.onCreate(saved);
-        getWindow().setStatusBarColor(background);getWindow().setNavigationBarColor(background);
-        int systemFlags=dark?0:View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR;
-        if(!dark&&Build.VERSION.SDK_INT>=26)systemFlags|=View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR;
-        getWindow().getDecorView().setSystemUiVisibility(systemFlags);
+        ui=new BlazeUi(this);orange=ui.accent;background=ui.background;foreground=ui.text;muted=ui.secondary;surface=ui.surface;selection=ui.softAccent;
         store=new JobStore(this);
         if(!DownloadService.busy)store.recoverInterrupted();
         if(!getPreferences(MODE_PRIVATE).getBoolean("legacyImported",false)){try{store.importLegacyFiles(DownloadService.folder(this));getPreferences(MODE_PRIVATE).edit().putBoolean("legacyImported",true).apply();}catch(IOException ignored){/* Retry after storage becomes available. */}}
-        ScrollView scroll=new ScrollView(this);scroll.setBackgroundColor(background);
-        LinearLayout root=new LinearLayout(this);root.setOrientation(LinearLayout.VERTICAL);root.setPadding(dp(20),dp(20),dp(20),dp(28));scroll.addView(root);setContentView(scroll);
-        if(Build.VERSION.SDK_INT>=35)scroll.setOnApplyWindowInsetsListener((view,insets)->{android.graphics.Insets safe=insets.getInsets(WindowInsets.Type.systemBars());view.setPadding(safe.left,safe.top,safe.right,safe.bottom);return insets;});
-        LinearLayout brand=new LinearLayout(this);brand.setGravity(Gravity.CENTER_VERTICAL);
-        ImageView logo=new ImageView(this);logo.setId(R.id.brand_logo);logo.setLayerType(View.LAYER_TYPE_SOFTWARE,null);logo.setImageResource(R.drawable.blaze_brand_mark);logo.setScaleType(ImageView.ScaleType.FIT_CENTER);logo.setBackgroundColor(Color.TRANSPARENT);logo.setContentDescription("Blaze logo");brand.addView(logo,new LinearLayout.LayoutParams(dp(52),dp(52)));
-        TextView title=text("Blaze",30);title.setTypeface(null,Typeface.BOLD);brand.addView(title);root.addView(brand);
-        root.addView(text("A link. A local copy. All yours.",14));gap(root,18);
-        Button chords=button("Music Studio · import a file",root);chords.setId(R.id.find_chords);chords.setOnClickListener(v->{try{startActivityForResult(new Intent(Intent.ACTION_OPEN_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE).setType("*/*").putExtra(Intent.EXTRA_MIME_TYPES,new String[]{"audio/*","video/*"}).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION),12);}catch(ActivityNotFoundException error){message("No file picker is available on this device.");}});
-        root.addView(text("Explore, learn, and play along. All analysis stays on this device.",12));gap(root,16);
-        sectionTitle=text("Downloads",26);sectionTitle.setTypeface(null,Typeface.BOLD);root.addView(sectionTitle);
-        downloadComposer=new LinearLayout(this);downloadComposer.setOrientation(LinearLayout.VERTICAL);root.addView(downloadComposer);
-        TextView label=text("Link",13);label.setLabelFor(R.id.url_input);downloadComposer.addView(label);
-        url=new EditText(this);url.setId(R.id.url_input);url.setSingleLine(true);url.setTextColor(foreground);url.setHintTextColor(muted);url.setHint("Paste an HTTPS link");url.setInputType(android.text.InputType.TYPE_CLASS_TEXT|android.text.InputType.TYPE_TEXT_VARIATION_URI);url.setPadding(dp(14),dp(10),dp(14),dp(10));url.setBackground(card());downloadComposer.addView(url);
-        modes=new RadioGroup(this);modes.setId(R.id.download_mode);modes.setOrientation(RadioGroup.HORIZONTAL);
-        for(int i=0;i<2;i++){RadioButton b=new RadioButton(this);b.setId(i==0?R.id.video_mode:R.id.audio_mode);b.setText(i==0?"Video":"Audio");b.setTextColor(foreground);b.setButtonTintList(ColorStateList.valueOf(orange));modes.addView(b);}modes.check(R.id.video_mode);downloadComposer.addView(modes);
-        TextView qualityLabel=text("Maximum video quality",13);downloadComposer.addView(qualityLabel);quality=spinner(new String[]{"Best available","2160p (4K)","1440p","1080p","720p","480p","360p"},downloadComposer);quality.setId(R.id.quality_choice);
-        TextView audioLabel=text("Audio format",13);downloadComposer.addView(audioLabel);audio=spinner(new String[]{"Original audio","MP3 · 192 kbps","M4A","WAV","FLAC"},downloadComposer);audio.setId(R.id.audio_choice);
-        modes.setOnCheckedChangeListener((group,id)->{boolean video=id==R.id.video_mode;quality.setVisibility(video?View.VISIBLE:View.GONE);qualityLabel.setVisibility(video?View.VISIBLE:View.GONE);audio.setVisibility(video?View.GONE:View.VISIBLE);audioLabel.setVisibility(video?View.GONE:View.VISIBLE);});audio.setVisibility(View.GONE);audioLabel.setVisibility(View.GONE);
-        playlist=new CheckBox(this);playlist.setId(R.id.playlist_choice);playlist.setText("Queue a playlist (up to 200 items)");playlist.setTextColor(foreground);playlist.setButtonTintList(ColorStateList.valueOf(orange));downloadComposer.addView(playlist);
-        Button add=button("Add to queue",downloadComposer);add.setId(R.id.add_queue);add.setBackgroundTintList(ColorStateList.valueOf(orange));add.setTextColor(dark?background:Color.WHITE);add.setOnClickListener(v->enqueue());
-        gap(downloadComposer,12);state=text(DownloadService.status,15);downloadComposer.addView(state);
-        bar=new ProgressBar(this,null,android.R.attr.progressBarStyleHorizontal);bar.setMax(100);bar.setProgressTintList(ColorStateList.valueOf(orange));bar.setIndeterminateTintList(ColorStateList.valueOf(orange));downloadComposer.addView(bar);
-        LinearLayout controls=new LinearLayout(this);controls.setOrientation(LinearLayout.HORIZONTAL);downloadComposer.addView(controls);
-        stop=smallButton("Stop item",controls);stop.setOnClickListener(v->{try{startService(new Intent(this,DownloadService.class).setAction("CANCEL_CURRENT").putExtra("job",DownloadService.activeId));}catch(RuntimeException error){message("Open Blaze again to manage the queue.");}});
-        pause=smallButton("Pause queue",controls);pause.setOnClickListener(v->control("PAUSE"));
-        Button resume=button("Resume queue",downloadComposer);resume.setOnClickListener(v->resume());
 
-        gap(root,18);LinearLayout tabs=new LinearLayout(this);root.addView(tabs,root.indexOfChild(sectionTitle));
-        String[] names={"Downloads","History","Library"};for(int i=0;i<3;i++){final int chosen=i;Button tab=smallButton(names[i],tabs);sectionTabs[i]=tab;tab.setOnClickListener(v->{filter=chosen;page=0;rendered="";renderJobs();});}
-        openFile=button("Open an audio or video file",root);openFile.setVisibility(View.GONE);openFile.setOnClickListener(v->{try{startActivityForResult(new Intent(Intent.ACTION_OPEN_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE).setType("*/*").addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION),11);}catch(ActivityNotFoundException error){message("No file picker is available on this device.");}});
-        LinearLayout paging=new LinearLayout(this);root.addView(paging);previousPage=smallButton("Previous",paging);nextPage=smallButton("Next",paging);pageLabel=text("",12);root.addView(pageLabel);
+        LinearLayout shell=ui.column();shell.setTag("blaze_shell");shell.setBackgroundColor(background);setContentView(shell);
+        if(Build.VERSION.SDK_INT>=35)shell.setOnApplyWindowInsetsListener((view,insets)->{android.graphics.Insets safe=insets.getInsets(WindowInsets.Type.systemBars()|WindowInsets.Type.ime());view.setPadding(safe.left,safe.top,safe.right,safe.bottom);return insets;});
+        LinearLayout brand=new LinearLayout(this);brand.setGravity(Gravity.CENTER_VERTICAL);brand.setPadding(dp(24),dp(8),dp(16),dp(8));
+        ImageView logo=new ImageView(this);logo.setId(R.id.brand_logo);logo.setLayerType(View.LAYER_TYPE_SOFTWARE,null);logo.setImageResource(R.drawable.blaze_brand_mark);logo.setScaleType(ImageView.ScaleType.FIT_CENTER);logo.setBackgroundColor(Color.TRANSPARENT);logo.setContentDescription("Blaze logo");brand.addView(logo,new LinearLayout.LayoutParams(dp(30),dp(34)));
+        TextView brandName=ui.heading("Blaze",21);LinearLayout.LayoutParams brandLabel=new LinearLayout.LayoutParams(0,-2,1);brandLabel.setMarginStart(dp(9));brand.addView(brandName,brandLabel);
+        Button about=ui.button("",false);about.setCompoundDrawablesWithIntrinsicBounds(null,null,ui.icon("more",foreground),null);about.setContentDescription("About Blaze and help");about.setOnClickListener(v->about());brand.addView(about,new LinearLayout.LayoutParams(dp(52),dp(48)));shell.addView(brand);
+
+        contentScroll=new ScrollView(this);contentScroll.setFillViewport(true);contentScroll.setClipToPadding(false);contentScroll.setVerticalScrollBarEnabled(false);shell.addView(contentScroll,new LinearLayout.LayoutParams(-1,0,1));
+        LinearLayout root=ui.column();root.setPadding(dp(24),dp(8),dp(24),dp(28));contentScroll.addView(root);
+        sectionTitle=ui.heading("Downloads",34);if(Build.VERSION.SDK_INT>=28)sectionTitle.setAccessibilityHeading(true);root.addView(sectionTitle);
+        sectionSubtitle=text("Keep what moves you.",15);root.addView(sectionSubtitle);gap(root,16);
+        downloadComposer=ui.card();downloadComposer.setPadding(dp(20),dp(20),dp(20),dp(20));root.addView(downloadComposer);
+        TextView composerTitle=ui.heading("Save from a link",20);downloadComposer.addView(composerTitle);gap(downloadComposer,14);
+        TextView label=text("Link",12);label.setLabelFor(R.id.url_input);downloadComposer.addView(label);
+        url=new EditText(this);url.setId(R.id.url_input);url.setSingleLine(true);url.setHint("Paste an HTTPS link");url.setInputType(android.text.InputType.TYPE_CLASS_TEXT|android.text.InputType.TYPE_TEXT_VARIATION_URI);url.setImeOptions(android.view.inputmethod.EditorInfo.IME_ACTION_DONE);ui.styleInput(url);downloadComposer.addView(url,new LinearLayout.LayoutParams(-1,-2));
+        gap(downloadComposer,16);modes=new RadioGroup(this);modes.setId(R.id.download_mode);modes.setOrientation(RadioGroup.HORIZONTAL);modes.setBackground(ui.shape(ui.background,14));modes.setPadding(dp(4),dp(4),dp(4),dp(4));
+        for(int i=0;i<2;i++){RadioButton b=new RadioButton(this);b.setId(i==0?R.id.video_mode:R.id.audio_mode);b.setText(i==0?"Video":"Audio");b.setTextSize(14);b.setGravity(Gravity.CENTER);b.setButtonDrawable((android.graphics.drawable.Drawable)null);b.setMinHeight(dp(48));b.setPadding(dp(10),dp(8),dp(10),dp(8));modes.addView(b,new RadioGroup.LayoutParams(0,-2,1));}
+        downloadComposer.addView(modes);modes.check(R.id.video_mode);styleModes();gap(downloadComposer,12);
+        TextView qualityLabel=text("Video quality",12);downloadComposer.addView(qualityLabel);quality=spinner(new String[]{"Best available","2160p (4K)","1440p","1080p","720p","480p","360p"},downloadComposer);quality.setId(R.id.quality_choice);qualityLabel.setLabelFor(R.id.quality_choice);
+        TextView audioLabel=text("Audio format",12);downloadComposer.addView(audioLabel);audio=spinner(new String[]{"Original audio","MP3 · 192 kbps","M4A","WAV","FLAC"},downloadComposer);audio.setId(R.id.audio_choice);audioLabel.setLabelFor(R.id.audio_choice);
+        modes.setOnCheckedChangeListener((group,id)->{boolean video=id==R.id.video_mode;quality.setVisibility(video?View.VISIBLE:View.GONE);qualityLabel.setVisibility(video?View.VISIBLE:View.GONE);audio.setVisibility(video?View.GONE:View.VISIBLE);audioLabel.setVisibility(video?View.GONE:View.VISIBLE);styleModes();});audio.setVisibility(View.GONE);audioLabel.setVisibility(View.GONE);
+        gap(downloadComposer,8);playlist=new CheckBox(this);playlist.setId(R.id.playlist_choice);playlist.setText("Include playlist");playlist.setTextSize(14);playlist.setTextColor(foreground);playlist.setMinHeight(dp(48));playlist.setButtonTintList(new ColorStateList(new int[][]{new int[]{android.R.attr.state_checked},new int[]{}},new int[]{orange,muted}));playlist.setContentDescription("Include playlist, up to 200 items");downloadComposer.addView(playlist);
+        gap(downloadComposer,12);Button add=ui.button("Add to queue",true);add.setId(R.id.add_queue);downloadComposer.addView(add,new LinearLayout.LayoutParams(-1,-2));add.setOnClickListener(v->enqueue());
+        url.setOnEditorActionListener((view,action,event)->{if(action==android.view.inputmethod.EditorInfo.IME_ACTION_DONE){enqueue();return true;}return false;});
+
+        gap(root,24);queuePanel=ui.card();queuePanel.setTag("queue_panel");root.addView(queuePanel);queuePanel.addView(ui.heading("Your queue",18));
+        state=text(DownloadService.status,13);state.setAccessibilityLiveRegion(View.ACCESSIBILITY_LIVE_REGION_POLITE);queuePanel.addView(state);
+        bar=new ProgressBar(this,null,android.R.attr.progressBarStyleHorizontal);bar.setMax(100);bar.setProgressTintList(ColorStateList.valueOf(orange));bar.setIndeterminateTintList(ColorStateList.valueOf(orange));queuePanel.addView(bar,new LinearLayout.LayoutParams(-1,dp(8)));gap(queuePanel,12);
+        LinearLayout controls=new LinearLayout(this);queuePanel.addView(controls);stop=smallButton("Stop item",controls);stop.setOnClickListener(v->{try{startService(new Intent(this,DownloadService.class).setAction("CANCEL_CURRENT").putExtra("job",DownloadService.activeId));}catch(RuntimeException error){message("Open Blaze again to manage the queue.");}});pause=smallButton("Pause queue",controls);pause.setOnClickListener(v->control("PAUSE"));
+        resumeQueue=button("Resume queue",queuePanel);resumeQueue.setTag("resume_queue");resumeQueue.setOnClickListener(v->resume());
+        openFile=button("Open a file",root);openFile.setCompoundDrawablesWithIntrinsicBounds(ui.icon("folder",orange),null,null,null);openFile.setCompoundDrawablePadding(dp(10));openFile.setVisibility(View.GONE);openFile.setOnClickListener(v->pickFile(11));
+        items=ui.column();root.addView(items);paging=new LinearLayout(this);root.addView(paging);previousPage=smallButton("Previous",paging);nextPage=smallButton("Next",paging);pageLabel=text("",12);root.addView(pageLabel);
         previousPage.setOnClickListener(v->{page=Math.max(0,page-1);rendered="";renderJobs();});nextPage.setOnClickListener(v->{page++;rendered="";renderJobs();});
-        items=new LinearLayout(this);items.setOrientation(LinearLayout.VERTICAL);root.addView(items);
-        gap(root,18);root.addView(text("Save a copy to keep files outside Blaze. Uninstalling removes app files. Android may pause background jobs; retry interrupted items.",12));
-        Button about=button("About & help",root);about.setOnClickListener(v->about());
+        gap(root,20);TextView localNote=text("Your files stay on this device. Save a copy to keep them after uninstalling Blaze.",12);localNote.setLineSpacing(dp(3),1);root.addView(localNote);
+
+        shell.addView(ui.divider(),new LinearLayout.LayoutParams(-1,dp(1)));LinearLayout navigation=new LinearLayout(this);navigation.setGravity(Gravity.CENTER_VERTICAL);navigation.setPadding(dp(10),dp(6),dp(10),dp(6));navigation.setBackgroundColor(surface);shell.addView(navigation);
+        String[] names={"Downloads","History","Library"},icons={"download","clock","library"};
+        for(int i=0;i<3;i++){final int chosen=i;Button tab=navigationButton(names[i],icons[i]);tab.setTag("nav_"+names[i].toLowerCase(Locale.ROOT));sectionTabs[i]=tab;navigation.addView(tab,new LinearLayout.LayoutParams(0,-2,1));tab.setOnClickListener(v->{filter=chosen;page=0;rendered="";renderJobs();contentScroll.smoothScrollTo(0,0);});}
+        Button studio=navigationButton("Studio","music");studio.setId(R.id.find_chords);studio.setContentDescription("Music Studio, import an audio or video file");navigation.addView(studio,new LinearLayout.LayoutParams(0,-2,1));studio.setOnClickListener(v->pickFile(12));
         SharedPreferences preferences=getPreferences(MODE_PRIVATE);
         quality.setSelection(preferences.getInt("quality",0));audio.setSelection(preferences.getInt("audio",1));
         if(saved!=null){url.setText(saved.getString("url",""));modes.check(saved.getInt("mode",R.id.video_mode));quality.setSelection(saved.getInt("quality",0));audio.setSelection(saved.getInt("audio",1));playlist.setChecked(saved.getBoolean("playlist"));filter=saved.getInt("filter");page=saved.getInt("page");exportPath=saved.getString("export","");exportToken=saved.getString("exportToken","");copyRequested=saved.getBoolean("copyRequested");}
@@ -117,29 +122,34 @@ public class MainActivity extends Activity {
     private void renderJobs() {
         downloadComposer.setVisibility(filter==0?View.VISIBLE:View.GONE);
         sectionTitle.setText(filter==0?"Downloads":filter==1?"History":"Library");
-        for(int i=0;i<sectionTabs.length;i++){boolean selected=i==filter;sectionTabs[i].setSelected(selected);sectionTabs[i].setTextColor(foreground);sectionTabs[i].setTypeface(null,selected?Typeface.BOLD:Typeface.NORMAL);sectionTabs[i].setBackgroundTintList(ColorStateList.valueOf(selected?selection:surface));}
+        sectionSubtitle.setText(filter==0?"Keep what moves you.":filter==1?"Every save, in one place.":"Your collection. Always with you.");
+        for(int i=0;i<sectionTabs.length;i++){boolean selected=i==filter;Button tab=sectionTabs[i];tab.setSelected(selected);tab.setTextColor(selected?orange:muted);tab.setTypeface(null,selected?Typeface.BOLD:Typeface.NORMAL);tab.setBackgroundTintList(null);tab.setBackground(ui.interactiveSurface(selected?selection:surface,14));String icon=i==0?"download":i==1?"clock":"library";tab.setCompoundDrawablesWithIntrinsicBounds(null,ui.icon(icon,selected?orange:muted),null,null);}
         openFile.setVisibility(filter==2?View.VISIBLE:View.GONE);
-        int total=store.count(filter);page=Math.max(0,Math.min(page,Math.max(0,(total-1)/50)));previousPage.setEnabled(page>0);nextPage.setEnabled((page+1)*50<total);pageLabel.setText(total==0?"":"Page "+(page+1)+" · "+total+" items");
+        boolean hasPending=store.count(0)>0;boolean active=DownloadService.busy||hasPending;queuePanel.setVisibility(filter==0&&active?View.VISIBLE:View.GONE);stop.setVisibility(DownloadService.activeId.isEmpty()?View.GONE:View.VISIBLE);pause.setVisibility(DownloadService.busy?View.VISIBLE:View.GONE);resumeQueue.setVisibility(!DownloadService.busy&&hasPending?View.VISIBLE:View.GONE);
+        int total=store.count(filter);page=Math.max(0,Math.min(page,Math.max(0,(total-1)/50)));previousPage.setEnabled(page>0);nextPage.setEnabled((page+1)*50<total);pageLabel.setText(total==0?"":"Page "+(page+1)+" · "+total+" items");paging.setVisibility(total>50?View.VISIBLE:View.GONE);pageLabel.setVisibility(total>50?View.VISIBLE:View.GONE);
         List<JobStore.Job> jobs=store.page(filter,page*50);StringBuilder key=new StringBuilder().append(filter).append(page).append(total);
         for(JobStore.Job job:jobs)key.append(job.id).append(job.state).append(job.title).append(job.path).append(job.error);
         if(key.toString().equals(rendered))return;rendered=key.toString();items.removeAllViews();int count=0;
         for(JobStore.Job job:jobs){boolean pending=Arrays.asList("queued","running","paused","interrupted").contains(job.state);if(filter==0&&!pending||filter==1&&pending||filter==2&&!"complete".equals(job.state))continue;count++;
-            LinearLayout panel=new LinearLayout(this);panel.setOrientation(LinearLayout.VERTICAL);panel.setPadding(dp(12),dp(10),dp(12),dp(10));panel.setBackground(card());gap(items,10);items.addView(panel);
-            TextView title=text(job.title,16);title.setTypeface(null,Typeface.BOLD);panel.addView(title);panel.addView(text(job.state.toUpperCase(Locale.ROOT)+" · "+job.mode,12));
+            LinearLayout panel=ui.card();gap(items,12);items.addView(panel);
+            TextView title=text(job.title,16);title.setTypeface(null,Typeface.BOLD);panel.addView(title);panel.addView(text(job.state.substring(0,1).toUpperCase(Locale.ROOT)+job.state.substring(1)+" · "+(job.mode.equals("audio")?"Audio":"Video"),12));
             if(!job.error.isEmpty())panel.addView(text(job.error,13));
             if(Arrays.asList("queued","paused","interrupted").contains(job.state)){button("Remove item & partial files",panel).setOnClickListener(v->new AlertDialog.Builder(this).setTitle("Remove this queued item?").setMessage("Its partial files inside Blaze will be discarded.").setNegativeButton("Keep",null).setPositiveButton("Remove",(dialog,choice)->new Thread(()->{try{try(JobStore removalStore=new JobStore(getApplicationContext())){removalStore.removeQueued(job.id,DownloadService.folder(getApplicationContext()));}handler.post(()->{if(!isFinishing()&&!isDestroyed()){rendered="";renderJobs();}});}catch(Exception error){handler.post(()->message("Could not remove this item; its files were kept."));}},"BlazeRemove").start()).show());}
             if(Arrays.asList("failed","stopped","interrupted").contains(job.state)){button("Retry",panel).setOnClickListener(v->{try{store.retry(job.id);filter=0;rendered="";renderJobs();resume();}catch(RuntimeException error){message(error.getMessage()==null?"Could not retry":error.getMessage());}});}
             if("complete".equals(job.state)){
                 File file=new File(job.path);panel.addView(text(file.exists()?String.format(Locale.ROOT,"%.1f MB · %s",file.length()/1048576.0,file.getName()):"File no longer available",12));
                 if(file.exists()){
-                    LinearLayout mediaActions=new LinearLayout(this);panel.addView(mediaActions);smallButton("Play",mediaActions).setOnClickListener(v->play(job.id));smallButton("Share",mediaActions).setOnClickListener(v->share(file));
-                    button("Open in Music Studio",panel).setOnClickListener(v->startActivity(new Intent(this,MusicStudioActivity.class).putExtra("job",job.id)));
-                    button("Save a copy…",panel).setOnClickListener(v->export(file,job.title));
-                    button("Delete local file",panel).setOnClickListener(v->new AlertDialog.Builder(this).setTitle("Delete this app file?").setMessage("Exported copies are kept. This removes the file stored inside Blaze.").setNegativeButton("Keep",null).setPositiveButton("Delete",(d,w)->{try{store.deleteCompleted(job.id,DownloadService.folder(this));rendered="";renderJobs();}catch(IOException error){message("Could not delete this file");}}).show());
+                    gap(panel,12);LinearLayout mediaActions=new LinearLayout(this);panel.addView(mediaActions);Button play=smallButton("Play",mediaActions);ui.styleButton(play,true);play.setOnClickListener(v->play(job.id));Button more=smallButton("More",mediaActions);more.setOnClickListener(v->fileActions(more,file,job));
+
                 }
             }
         }
-        if(count==0)items.addView(text(filter==0?"Your queue is empty.":filter==1?"Completed and stopped items will appear here.":"Completed files will appear here.",14));
+        if(count==0){
+            LinearLayout empty=ui.column();empty.setTag("empty_state");empty.setGravity(Gravity.CENTER);empty.setPadding(dp(18),dp(32),dp(18),dp(20));items.addView(empty);
+            ImageView illustration=new ImageView(this);illustration.setImageDrawable(ui.icon(filter==0?"download":filter==1?"clock":"library",muted));illustration.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);empty.addView(illustration,new LinearLayout.LayoutParams(dp(30),dp(30)));gap(empty,12);
+            TextView emptyTitle=ui.heading(filter==0?"Ready when you are":filter==1?"A fresh start":"Make room for your favourites",18);emptyTitle.setGravity(Gravity.CENTER);empty.addView(emptyTitle);
+            TextView hint=text(filter==0?"Add a link above. We’ll take it from here.":filter==1?"Completed and stopped downloads appear here.":"Your saved audio and video will live here.\nYou can also open a file from your device.",14);hint.setGravity(Gravity.CENTER);hint.setLineSpacing(dp(3),1);empty.addView(hint);
+        }
     }
     private void receive(Intent intent){if(Intent.ACTION_SEND.equals(intent.getAction())){CharSequence shared=intent.getCharSequenceExtra(Intent.EXTRA_TEXT);String value=shared==null?null:shared.toString();if(value!=null){java.util.regex.Matcher m=java.util.regex.Pattern.compile("https://[^\\s<>]+",java.util.regex.Pattern.CASE_INSENSITIVE).matcher(value);if(m.find())url.setText(m.group().replaceAll("[).,;]+$",""));}}}
     @Override protected void onNewIntent(Intent intent){super.onNewIntent(intent);setIntent(intent);receive(intent);}
@@ -154,13 +164,28 @@ public class MainActivity extends Activity {
     @Override protected void onActivityResult(int code,int result,Intent data){super.onActivityResult(code,result,data);if(code==11||code==12){if(result==RESULT_OK&&data!=null&&data.getData()!=null){try{startActivity(new Intent(this,code==12?MusicStudioActivity.class:VlcPlayerActivity.class).setData(data.getData()).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION));}catch(RuntimeException error){message("Could not open the selected file.");}}return;}if(code!=10)return;if(result==RESULT_OK&&data!=null&&data.getData()!=null&&!exportPath.isEmpty()){if(!ExportService.owns(exportToken))exportToken=ExportService.reserve();if(exportToken.isEmpty()){message("Another copy is running. Remove this empty destination and retry later.");return;}Intent intent=new Intent(this,ExportService.class).putExtra("path",exportPath).putExtra("uri",data.getData().toString()).putExtra("token",exportToken);try{copyRequested=true;if(Build.VERSION.SDK_INT>=26)startForegroundService(intent);else startService(intent);}catch(RuntimeException error){copyRequested=false;ExportService.abandon(exportToken);message("Copy could not start. Try again with Blaze open.");}}else ExportService.abandon(exportToken);exportPath="";exportToken="";}
     private void about(){try{String content=readNotice();new AlertDialog.Builder(this).setTitle("Blaze · Android").setMessage(content).setPositiveButton("Close",null).show();}catch(IOException error){message("Blaze · © 2026 Brooth-C");}}
     private String readNotice()throws IOException{try(InputStream in=getAssets().open("NOTICES.txt");ByteArrayOutputStream out=new ByteArrayOutputStream()){byte[] buffer=new byte[4096];int count;while((count=in.read(buffer))!=-1)out.write(buffer,0,count);return out.toString("UTF-8");}}
-    private Spinner spinner(String[] values,LinearLayout root){Spinner v=new Spinner(this);ArrayAdapter<String> adapter=new ArrayAdapter<>(this,android.R.layout.simple_spinner_item,values);adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);v.setAdapter(adapter);root.addView(v,new LinearLayout.LayoutParams(-1,dp(48)));return v;}
-    private TextView text(String value,int size){TextView v=new TextView(this);v.setText(value);v.setTextSize(size);v.setTextColor(size<=14?muted:foreground);v.setPadding(0,dp(5),0,dp(5));return v;}
-    private Button makeButton(String value){Button v=new Button(this);v.setText(value);v.setAllCaps(false);v.setTextColor(new ColorStateList(new int[][]{new int[]{-android.R.attr.state_enabled},new int[]{}},new int[]{muted,foreground}));v.setMinHeight(dp(48));v.setBackgroundTintList(ColorStateList.valueOf(surface));return v;}
-    private Button button(String value,LinearLayout parent){Button v=makeButton(value);parent.addView(v,new LinearLayout.LayoutParams(-1,-2));return v;}
-    private Button smallButton(String value,LinearLayout parent){Button v=makeButton(value);parent.addView(v,new LinearLayout.LayoutParams(0,-2,1));return v;}
-    private GradientDrawable card(){GradientDrawable d=new GradientDrawable();d.setColor(surface);d.setCornerRadius(dp(12));return d;}
-    private void gap(LinearLayout root,int size){root.addView(new View(this),new LinearLayout.LayoutParams(1,dp(size)));}
+    private void pickFile(int request){try{startActivityForResult(new Intent(Intent.ACTION_OPEN_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE).setType("*/*").putExtra(Intent.EXTRA_MIME_TYPES,new String[]{"audio/*","video/*"}).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION),request);}catch(ActivityNotFoundException error){message("No file picker is available on this device.");}}
+    private void styleModes(){for(int i=0;i<modes.getChildCount();i++){RadioButton choice=(RadioButton)modes.getChildAt(i);boolean selected=choice.isChecked();choice.setTextColor(selected?foreground:muted);choice.setTypeface(null,selected?Typeface.BOLD:Typeface.NORMAL);choice.setBackground(ui.interactiveSurface(selected?ui.surface:ui.background,11));}}
+    private Button navigationButton(String value,String icon){Button button=ui.button(value,false);button.setTextSize(11);button.setTextColor(muted);button.setTypeface(null,Typeface.NORMAL);button.setMinHeight(dp(64));button.setPadding(dp(2),dp(8),dp(2),dp(8));button.setCompoundDrawablePadding(dp(4));button.setCompoundDrawablesWithIntrinsicBounds(null,ui.icon(icon,muted),null,null);button.setBackgroundTintList(null);button.setBackground(ui.interactiveSurface(surface,14));return button;}
+    private void fileActions(View anchor,File file,JobStore.Job job){
+        PopupMenu menu=new PopupMenu(this,anchor);String[] actions={"Open in Music Studio","Share","Save a copy…","Delete local file"};for(int i=0;i<actions.length;i++)menu.getMenu().add(0,i,i,actions[i]);
+        menu.setOnMenuItemClickListener(item->{switch(item.getItemId()){
+            case 0:startActivity(new Intent(this,MusicStudioActivity.class).putExtra("job",job.id));break;
+            case 1:share(file);break;
+            case 2:export(file,job.title);break;
+            case 3:new AlertDialog.Builder(this).setTitle("Delete this app file?").setMessage("Exported copies are kept. This removes the file stored inside Blaze.").setNegativeButton("Keep",null).setPositiveButton("Delete",(d,w)->{try{store.deleteCompleted(job.id,DownloadService.folder(this));rendered="";renderJobs();}catch(IOException error){message("Could not delete this file");}}).show();break;
+            default:return false;
+        }return true;});menu.show();
+    }
+    private Spinner spinner(String[] values,LinearLayout root){Spinner v=new Spinner(this);ArrayAdapter<String> adapter=new ArrayAdapter<String>(this,android.R.layout.simple_spinner_item,values){
+        @Override public View getView(int position,View recycled,ViewGroup parent){TextView view=(TextView)super.getView(position,recycled,parent);view.setTextColor(foreground);view.setTextSize(15);view.setPadding(dp(14),dp(8),dp(12),dp(8));return view;}
+        @Override public View getDropDownView(int position,View recycled,ViewGroup parent){TextView view=(TextView)super.getDropDownView(position,recycled,parent);view.setTextColor(foreground);view.setTextSize(16);view.setPadding(dp(16),dp(16),dp(16),dp(16));return view;}
+    };adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);v.setAdapter(adapter);ui.styleSpinner(v);root.addView(v,new LinearLayout.LayoutParams(-1,-2));return v;}
+    private TextView text(String value,int size){TextView v=ui.label(value,size,size<=15?muted:foreground);v.setPadding(0,dp(4),0,dp(4));return v;}
+    private Button makeButton(String value){return ui.button(value,false);}
+    private Button button(String value,LinearLayout parent){Button v=makeButton(value);LinearLayout.LayoutParams layout=new LinearLayout.LayoutParams(-1,-2);layout.topMargin=dp(6);parent.addView(v,layout);return v;}
+    private Button smallButton(String value,LinearLayout parent){Button v=makeButton(value);LinearLayout.LayoutParams layout=new LinearLayout.LayoutParams(0,-2,1);layout.setMargins(dp(2),dp(3),dp(2),dp(3));parent.addView(v,layout);return v;}
+    private void gap(LinearLayout root,int size){ui.gap(root,size);}
     private int dp(int n){return Math.round(n*getResources().getDisplayMetrics().density);}
     private void message(String value){Toast.makeText(this,value,Toast.LENGTH_LONG).show();}
 }

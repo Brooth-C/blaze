@@ -33,9 +33,14 @@ public class VlcPlayerActivity extends Activity {
     VLCVideoLayout video;
     protected FrameLayout videoViewport;
     private TextView status, clock;
+    protected BlazeUi ui;
+    protected LinearLayout playbackHeader, playbackControls, playbackSettings;
+    protected TextView playbackTitle, playbackStatus;
     protected LinearLayout root;
     private LinearLayout header;
     Button toggle;
+    protected Button playbackMenu;
+    private Button fullscreenToggle;
     private SeekBar seek;
     private final Handler handler=new Handler(Looper.getMainLooper());
     private long position;
@@ -67,7 +72,8 @@ public class VlcPlayerActivity extends Activity {
     }};
 
     @Override public void onCreate(Bundle saved){
-        super.onCreate(saved);setVolumeControlStream(AudioManager.STREAM_MUSIC);
+        BlazeUi.apply(this);
+        super.onCreate(saved);ui=new BlazeUi(this);setVolumeControlStream(AudioManager.STREAM_MUSIC);
         try{
             String job=getIntent().getStringExtra("job");
             if(job!=null){source=PlaybackSource.load(this,job);mediaId=source.id;mediaTitle=source.title;}
@@ -80,29 +86,46 @@ public class VlcPlayerActivity extends Activity {
         if(!Float.isFinite(speed)||speed<0.5f||speed>2)speed=1;
         audio=(AudioManager)getSystemService(AUDIO_SERVICE);
         WindowCompat.setDecorFitsSystemWindows(getWindow(),false);
-        root=new LinearLayout(this);root.setOrientation(LinearLayout.VERTICAL);root.setBackgroundColor(0xff0d1117);
-        header=new LinearLayout(this);root.addView(header);
-        Button back=button(header,"Back",this::back);back.setLayoutParams(new LinearLayout.LayoutParams((int)(64*getResources().getDisplayMetrics().density),-2));TextView title=new TextView(this);title.setText(mediaTitle);title.setSingleLine(true);title.setEllipsize(android.text.TextUtils.TruncateAt.END);title.setTextColor(0xffeeeeee);header.addView(title,new LinearLayout.LayoutParams(0,-2,1));
-        video=new VLCVideoLayout(this);videoViewport=new FrameLayout(this);videoViewport.setClipChildren(true);videoViewport.setClipToPadding(true);videoViewport.addView(video,new FrameLayout.LayoutParams(-1,-1));root.addView(videoViewport,new LinearLayout.LayoutParams(-1,0,1));
-        status=new TextView(this);status.setTextColor(0xffeeeeee);root.addView(status);
-        clock=new TextView(this);clock.setTextColor(0xffeeeeee);root.addView(clock);
-        seek=new SeekBar(this);seek.setMax(1000);seek.setContentDescription("Seek through media");root.addView(seek);
-        seek.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener(){public void onStartTrackingTouch(SeekBar bar){}public void onProgressChanged(SeekBar bar,int value,boolean user){}public void onStopTrackingTouch(SeekBar bar){if(player!=null&&player.getLength()>0)seekPlayback(player.getLength()*bar.getProgress()/1000);}});
-        LinearLayout controls=new LinearLayout(this);root.addView(controls);
-        button(controls,"−10s",()->skip(-10000));toggle=button(controls,"Pause",()->{if(player!=null){if(!restoringFrame&&player.isPlaying())pause();else play();}});button(controls,"+10s",()->skip(10000));button(controls,"Full screen",()->fullscreen(!fullscreen));
-        LinearLayout extra=new LinearLayout(this);root.addView(extra);
+        root=ui.column();root.setBackgroundColor(ui.background);
+        header=new LinearLayout(this);playbackHeader=header;header.setGravity(android.view.Gravity.CENTER_VERTICAL);header.setPadding(ui.dp(16),ui.dp(8),ui.dp(16),ui.dp(8));root.addView(header);
+        Button back=ui.button("Back",false);back.setCompoundDrawablesRelativeWithIntrinsicBounds(ui.icon("back",ui.accent),null,null,null);back.setText("");back.setPadding(ui.dp(12),ui.dp(12),ui.dp(12),ui.dp(12));back.setContentDescription("Back to Blaze");back.setOnClickListener(v->back());header.addView(back,new LinearLayout.LayoutParams(ui.dp(48),ui.dp(48)));
+        playbackTitle=ui.heading(mediaTitle,18);playbackTitle.setMaxLines(2);playbackTitle.setEllipsize(android.text.TextUtils.TruncateAt.END);playbackTitle.setPadding(ui.dp(12),0,ui.dp(8),0);header.addView(playbackTitle,new LinearLayout.LayoutParams(0,-2,1));
+        Button options=ui.button("Options",false);playbackMenu=options;options.setCompoundDrawablesRelativeWithIntrinsicBounds(ui.icon("more",ui.accent),null,null,null);options.setText("");options.setPadding(ui.dp(12),ui.dp(12),ui.dp(12),ui.dp(12));options.setContentDescription("Playback options");options.setOnClickListener(v->showPlaybackOptions());header.addView(options,new LinearLayout.LayoutParams(ui.dp(48),ui.dp(48)));
+        video=new VLCVideoLayout(this);videoViewport=new FrameLayout(this);videoViewport.setBackgroundColor(android.graphics.Color.BLACK);videoViewport.setClipChildren(true);videoViewport.setClipToPadding(true);videoViewport.addView(video,new FrameLayout.LayoutParams(-1,-1));root.addView(videoViewport,new LinearLayout.LayoutParams(-1,0,1));
+        if(source!=null&&"audio".equals(source.mode)){
+            videoViewport.setBackgroundColor(ui.background);
+            LinearLayout artwork=ui.column();artwork.setGravity(android.view.Gravity.CENTER);artwork.setPadding(ui.dp(32),ui.dp(16),ui.dp(32),ui.dp(16));
+            android.widget.ImageView note=new android.widget.ImageView(this);note.setImageDrawable(ui.icon("music",ui.accent));note.setBackground(ui.shape(ui.softAccent,28));note.setPadding(ui.dp(28),ui.dp(28),ui.dp(28),ui.dp(28));note.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);artwork.addView(note,new LinearLayout.LayoutParams(ui.dp(132),ui.dp(132)));
+            TextView audioLabel=ui.label("Local audio",13,ui.secondary);audioLabel.setPadding(0,ui.dp(16),0,0);artwork.addView(audioLabel);videoViewport.addView(artwork,new FrameLayout.LayoutParams(-1,-1));
+        }
+        status=ui.label("Opening your file…",13,ui.secondary);playbackStatus=status;status.setPadding(ui.dp(24),ui.dp(10),ui.dp(24),ui.dp(2));status.setMaxLines(2);status.setAccessibilityLiveRegion(View.ACCESSIBILITY_LIVE_REGION_POLITE);root.addView(status);
+        playbackControls=ui.column();playbackControls.setPadding(ui.dp(20),ui.dp(4),ui.dp(20),ui.dp(16));root.addView(playbackControls);
+        clock=ui.label("0:00 / 0:00",12,ui.secondary);clock.setGravity(android.view.Gravity.CENTER_HORIZONTAL);clock.setTypeface(android.graphics.Typeface.create("sans-serif-medium",android.graphics.Typeface.NORMAL));playbackControls.addView(clock);
+        seek=new SeekBar(this);seek.setMax(1000);seek.setProgressTintList(android.content.res.ColorStateList.valueOf(ui.accent));seek.setThumbTintList(android.content.res.ColorStateList.valueOf(ui.accent));seek.setContentDescription("Seek through media");playbackControls.addView(seek,new LinearLayout.LayoutParams(-1,ui.dp(40)));
+        seek.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener(){public void onStartTrackingTouch(SeekBar bar){}public void onProgressChanged(SeekBar bar,int value,boolean user){if(user&&player!=null)clock.setText(time(player.getLength()*value/1000)+" / "+time(player.getLength()));}public void onStopTrackingTouch(SeekBar bar){if(player!=null&&player.getLength()>0)seekPlayback(player.getLength()*bar.getProgress()/1000);}});
+        LinearLayout controls=new LinearLayout(this);controls.setGravity(android.view.Gravity.CENTER_VERTICAL);playbackControls.addView(controls);
+        button(controls,"−10s",()->skip(-10000)).setContentDescription("Back ten seconds");toggle=button(controls,"Pause",()->{if(player!=null){if(!restoringFrame&&player.isPlaying())pause();else play();}});ui.styleButton(toggle,true);toggle.setPadding(ui.dp(8),ui.dp(12),ui.dp(8),ui.dp(12));button(controls,"+10s",()->skip(10000)).setContentDescription("Forward ten seconds");
+        fullscreenToggle=button(controls,"",()->fullscreen(!fullscreen));fullscreenToggle.setCompoundDrawablesRelativeWithIntrinsicBounds(ui.icon("expand",ui.accent),null,null,null);fullscreenToggle.setContentDescription("Enter full screen");fullscreenToggle.setPadding(ui.dp(12),ui.dp(12),ui.dp(12),ui.dp(12));LinearLayout.LayoutParams expandLayout=new LinearLayout.LayoutParams(ui.dp(48),ui.dp(50));expandLayout.setMargins(ui.dp(3),ui.dp(3),ui.dp(3),ui.dp(3));fullscreenToggle.setLayoutParams(expandLayout);
+        playbackSettings=ui.column();playbackSettings.setPadding(ui.dp(20),ui.dp(8),ui.dp(20),ui.dp(16));root.addView(playbackSettings);playbackSettings.setVisibility(View.GONE);
+        LinearLayout extra=new LinearLayout(this);playbackSettings.addView(extra);
         button(extra,"Speed",()->new AlertDialog.Builder(this).setTitle("Playback speed").setItems(new String[]{"0.5×","1×","1.5×","2×"},(d,i)->{speed=new float[]{.5f,1,1.5f,2}[i];if(player!=null)player.setRate(speed);}).show());
         button(extra,"Tracks",this::tracks);button(extra,"Repeat",()->{repeat=!repeat;Toast.makeText(this,repeat?"Repeat on":"Repeat off",Toast.LENGTH_SHORT).show();});
-        button(root,"Decoder: automatic / software",()->new AlertDialog.Builder(this).setTitle("Video decoding").setItems(new String[]{"Automatic (recommended)","Software (for unsupported hardware codecs)"},(d,i)->{remember();software=i==1;release();resume=true;start();}).show());
-        button(root,"Try again",()->{remember();release();resume=true;start();});
-        if(source!=null && !(this instanceof ChordActivity))button(root,"Use Android playback engine",()->{startActivity(new Intent(this,PlayerActivity.class).putExtra("job",source.id));finish();});
+        button(playbackSettings,"Decoder: automatic / software",()->new AlertDialog.Builder(this).setTitle("Video decoding").setItems(new String[]{"Automatic (recommended)","Software (for unsupported hardware codecs)"},(d,i)->{remember();software=i==1;release();resume=true;start();}).show());
+        button(playbackSettings,"Try again",()->{remember();release();resume=true;start();});
+        if(source!=null && !(this instanceof ChordActivity))button(playbackSettings,"Use Android playback engine",()->{startActivity(new Intent(this,PlayerActivity.class).putExtra("job",source.id));finish();});
         setContentView(root);
         video.setOnClickListener(v->{if(fullscreen)fullscreen(false);});
         fullscreen(fullscreen);
         ViewCompat.setOnApplyWindowInsetsListener(root,(v,insets)->{androidx.core.graphics.Insets safe=insets.getInsets(WindowInsetsCompat.Type.systemBars()|WindowInsetsCompat.Type.displayCutout());v.setPadding(safe.left,safe.top,safe.right,safe.bottom);return insets;});
         if(Build.VERSION.SDK_INT>=33)getOnBackInvokedDispatcher().registerOnBackInvokedCallback(android.window.OnBackInvokedDispatcher.PRIORITY_DEFAULT,this::back);
     }
-    private Button button(LinearLayout parent,String text,Runnable action){Button b=new Button(this);b.setText(text);b.setTextSize(12);b.setAllCaps(false);b.setMinWidth(0);b.setMinimumWidth(0);b.setMinHeight((int)(48*getResources().getDisplayMetrics().density));b.setOnClickListener(v->action.run());parent.addView(b,parent.getOrientation()==LinearLayout.HORIZONTAL?new LinearLayout.LayoutParams(0,-2,1):new LinearLayout.LayoutParams(-1,-2));return b;}
+    private void showPlaybackOptions(){
+        if(playbackSettings.getParent()!=null)((android.view.ViewGroup)playbackSettings.getParent()).removeView(playbackSettings);
+        playbackSettings.setVisibility(View.VISIBLE);ScrollView scroll=new ScrollView(this);scroll.addView(playbackSettings);
+        AlertDialog dialog=new AlertDialog.Builder(this).setTitle("Playback options").setView(scroll).setPositiveButton("Done",null).create();
+        dialog.setOnDismissListener(d->{scroll.removeView(playbackSettings);playbackSettings.setVisibility(View.GONE);if(playbackSettings.getParent()==null)root.addView(playbackSettings);});dialog.show();
+    }
+    private Button button(LinearLayout parent,String text,Runnable action){Button b=ui.button(text,false);b.setTextSize(13);b.setMinWidth(0);b.setMinimumWidth(0);b.setPadding(ui.dp(8),ui.dp(12),ui.dp(8),ui.dp(12));b.setOnClickListener(v->action.run());LinearLayout.LayoutParams layout=parent.getOrientation()==LinearLayout.HORIZONTAL?new LinearLayout.LayoutParams(0,-2,1):new LinearLayout.LayoutParams(-1,-2);layout.setMargins(ui.dp(3),ui.dp(3),ui.dp(3),ui.dp(3));parent.addView(b,layout);return b;}
     private void start(){
         if((source==null&&document==null)||player!=null||opening||isFinishing())return;
         if(document!=null){
@@ -138,7 +161,7 @@ public class VlcPlayerActivity extends Activity {
                             if(restoringFrame){player.setVolume(0);status.setText("Restoring paused frame…");handler.removeCallbacks(restoreTick);handler.post(restoreTick);}
                             else{player.pause();status.setText("Paused");}break;
                         }
-                        toggle.setText("Pause");status.setText("Playing in Blaze · LibVLC");video.setKeepScreenOn(player.getCurrentVideoTrack()!=null);break;
+                        toggle.setText("Pause");status.setText("Playing in Blaze");video.setKeepScreenOn(player.getCurrentVideoTrack()!=null);break;
                     case MediaPlayer.Event.Paused:
                         if(pendingSeek){pendingSeek=false;player.setRate(speed);}
                         player.setVolume(100);toggle.setText("Play");status.setText("Paused");video.setKeepScreenOn(false);
@@ -176,7 +199,7 @@ public class VlcPlayerActivity extends Activity {
     private void remember(){if(player!=null&&mediaId!=null){position=ended?0:restoringFrame?restorePosition:Math.max(0,player.getTime());getSharedPreferences("playback",MODE_PRIVATE).edit().putLong(mediaId,position).apply();}}
     private static void close(ParcelFileDescriptor value){if(value!=null)try{value.close();}catch(IOException ignored){}}
     @SuppressWarnings("deprecation") private void release(){restoringFrame=false;handler.removeCallbacks(restoreTick);generation++;opening=false;if(openingTask!=null){openingTask.cancel(true);openingTask=null;}handler.removeCallbacks(tick);if(noisyRegistered){unregisterReceiver(noisy);noisyRegistered=false;}if(player!=null){player.setEventListener(null);player.stop();player.detachViews();player.release();player=null;}if(engine!=null){engine.release();engine=null;}close(descriptor);descriptor=null;if(video!=null)video.setKeepScreenOn(false);if(focusGranted){audio.abandonAudioFocus(focus);focusGranted=false;}}
-    private void fullscreen(boolean value){fullscreen=value;for(int i=0;i<root.getChildCount();i++){View child=root.getChildAt(i);if(child!=playbackVideoContainer())child.setVisibility(value?View.GONE:View.VISIBLE);}WindowInsetsControllerCompat bars=WindowCompat.getInsetsController(getWindow(),root);bars.setSystemBarsBehavior(WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE);if(value)bars.hide(WindowInsetsCompat.Type.systemBars());else bars.show(WindowInsetsCompat.Type.systemBars());onFullscreenChanged(value);}
+    private void fullscreen(boolean value){fullscreen=value;if(fullscreenToggle!=null)fullscreenToggle.setContentDescription(value?"Exit full screen":"Enter full screen");for(int i=0;i<root.getChildCount();i++){View child=root.getChildAt(i);if(child!=playbackVideoContainer())child.setVisibility(value?View.GONE:View.VISIBLE);}WindowInsetsControllerCompat bars=WindowCompat.getInsetsController(getWindow(),root);bars.setSystemBarsBehavior(WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE);if(value)bars.hide(WindowInsetsCompat.Type.systemBars());else bars.show(WindowInsetsCompat.Type.systemBars());if(playbackSettings.getParent()==root)playbackSettings.setVisibility(View.GONE);onFullscreenChanged(value);}
     protected View playbackVideoContainer(){return videoViewport;}
     protected boolean videoViewsWanted(){return true;}
     protected boolean playbackFullscreen(){return fullscreen;}

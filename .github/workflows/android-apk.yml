@@ -94,18 +94,21 @@ jobs:
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
           script: |
+            # Each emulator-runner line is a separate shell command; keep this compound command intact.
+            # Android 10 locks theme changes to privileged UiAutomation callers in this test image.
+            if [ '${{ matrix.api }}' = '29' ]; then adb root && adb wait-for-device && test "$(adb shell id -u | tr -d '\r')" = '0'; fi
             adb install apk-tests/debug/app-debug.apk
             adb install apk-tests/androidTest/debug/app-debug-androidTest.apk
             adb shell am instrument -w -r com.brooth.blaze.test/androidx.test.runner.AndroidJUnitRunner | tee instrumentation.log
             adb logcat -d > android-logcat.txt
             mkdir -p screenshots
-            for name in Blaze-Android-Home Blaze-Android-Studio-Portrait Blaze-Android-Studio-Large-Text Blaze-Android-Studio-Landscape Blaze-Android-Studio-Options Blaze-Android-Studio-Layout-Diagnostic; do adb exec-out run-as com.brooth.blaze cat "files/$name.png" > "screenshots/$name.png"; done
+            for name in Blaze-Android-Home Blaze-Android-Studio-Portrait Blaze-Android-Studio-Large-Text Blaze-Android-Studio-Landscape Blaze-Android-Studio-Options Blaze-Android-Studio-Layout-Diagnostic Blaze-Android-Home-Light Blaze-Android-Home-Dark Blaze-Android-Studio-Light Blaze-Android-Studio-Dark Blaze-Android-Studio-Accessibility Blaze-Android-downloads Blaze-Android-library Blaze-Android-history; do adb exec-out run-as com.brooth.blaze cat "files/$name.png" > "screenshots/$name.png"; done
             grep -Eq '^OK \([0-9]+ tests?\)' instrumentation.log
       - name: Record rendered UI proof
         if: always()
         shell: bash
         run: |
-          for name in Blaze-Android-Home Blaze-Android-Studio-Portrait Blaze-Android-Studio-Large-Text Blaze-Android-Studio-Layout-Diagnostic; do
+          for name in Blaze-Android-Home Blaze-Android-Studio-Portrait Blaze-Android-Studio-Large-Text Blaze-Android-Studio-Landscape Blaze-Android-Studio-Options Blaze-Android-Studio-Layout-Diagnostic Blaze-Android-Home-Light Blaze-Android-Home-Dark Blaze-Android-Studio-Light Blaze-Android-Studio-Dark Blaze-Android-Studio-Accessibility Blaze-Android-library Blaze-Android-history; do
             if [ -s "screenshots/$name.png" ]; then printf 'BLAZE_UI_IMAGE:%s:' "$name"; base64 -w0 "screenshots/$name.png"; printf '\n'; fi
           done
       - uses: actions/upload-artifact@v7.0.2
