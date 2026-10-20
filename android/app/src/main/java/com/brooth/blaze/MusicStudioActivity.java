@@ -76,18 +76,20 @@ public class MusicStudioActivity extends VlcPlayerActivity {
         rhythmStatus = ui.label("Chord changes and rhythm will appear here", 12, ui.secondary);
         rhythmStatus.setMaxLines(1); rhythmStatus.setEllipsize(android.text.TextUtils.TruncateAt.END);
         instrumentRow = new LinearLayout(this); instrumentRow.setGravity(android.view.Gravity.CENTER_VERTICAL);
-        instrumentRow.setPadding(dp(4), dp(4), dp(4), dp(4)); instrumentRow.setBackground(ui.shape(ui.surface, 16));
+        instrumentRow.setPadding(dp(4), dp(4), dp(4), dp(4)); instrumentRow.setBackground(ui.shape(ui.elevated, 16));
         pianoChoice = button(instrumentRow, "Piano", () -> { guitar = false; updateInstrument(); onPlaybackTime(playbackTime); });
         guitarChoice = button(instrumentRow, "Guitar", () -> { guitar = true; updateInstrument(); onPlaybackTime(playbackTime); });
         videoChoice = button(instrumentRow, "Video", () -> { videoExpanded = !videoExpanded; updateInstrument(); onFullscreenChanged(playbackFullscreen()); });
         cardRow = new LinearLayout(this);
         LinearLayout nowCard = chordCard(cardRow, true);
-        current = ui.heading("Now: —", 29); current.setId(R.id.chord_current);
-        current.setTextColor(ui.accent); current.setMaxLines(1); current.setEllipsize(android.text.TextUtils.TruncateAt.END); nowCard.addView(current);
+        chordCaption(nowCard, "NOW");
+        current = chordValue("Current chord", 29); current.setId(R.id.chord_current);
+        current.setTextColor(ui.accent); nowCard.addView(current);
         diagram = new ChordDiagramView(this); diagram.setTag("studio_current_diagram");
         diagram.addOnLayoutChangeListener((view, left, top, right, bottom, oldLeft, oldTop, oldRight, oldBottom) -> checkStudioSpace()); nowCard.addView(diagram, new LinearLayout.LayoutParams(-1, 0, 1));
         LinearLayout nextCard = chordCard(cardRow, false);
-        next = ui.heading("Next: —", 22); next.setMaxLines(1); next.setEllipsize(android.text.TextUtils.TruncateAt.END); nextCard.addView(next);
+        chordCaption(nextCard, "UP NEXT");
+        next = chordValue("Next chord", 22); nextCard.addView(next);
         nextDiagram = new ChordDiagramView(this); nextDiagram.setTag("studio_next_diagram"); nextCard.addView(nextDiagram, new LinearLayout.LayoutParams(-1, 0, 1));
         countdown = ui.label("Discover the chords. Then play along.", 12, ui.secondary); countdown.setMaxLines(1);
         actionRow = new LinearLayout(this); actionRow.setGravity(android.view.Gravity.CENTER_VERTICAL);
@@ -107,6 +109,38 @@ public class MusicStudioActivity extends VlcPlayerActivity {
         if (active) layout.setMargins(0, 0, dp(6), 0); else layout.setMargins(dp(6), 0, 0, 0);
         parent.addView(card, layout); return card;
     }
+    private void chordCaption(LinearLayout card, String value) {
+        TextView caption = ui.label(value, 12, ui.secondary); caption.setLetterSpacing(.06f);
+        caption.setPadding(0, 0, 0, dp(4)); caption.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO); card.addView(caption);
+    }
+    private TextView chordValue(String role, int maximumSp) {
+        TextView label = ui.heading("—", maximumSp); label.setMaxLines(2); label.setEllipsize(null);
+        label.setContentDescription(role + ": —");
+        if (android.os.Build.VERSION.SDK_INT >= 26) label.setAutoSizeTextTypeUniformWithConfiguration(12, maximumSp, 1, android.util.TypedValue.COMPLEX_UNIT_SP);
+        else label.addOnLayoutChangeListener((view, left, top, right, bottom, oldLeft, oldTop, oldRight, oldBottom) -> fitLegacyChord(label, maximumSp));
+        return label;
+    }
+    private void showChord(TextView label, String chord, String role, int maximumSp) {
+        if (!chord.contentEquals(label.getText())) {
+            label.setText(chord); label.setContentDescription(role + ": " + chord);
+            if (android.os.Build.VERSION.SDK_INT < 26) fitLegacyChord(label, maximumSp);
+        }
+    }
+    /** API 24–25 keeps the same 12sp floor and can reflow exceptionally long slash chords. */
+    private void fitLegacyChord(TextView label, int maximumSp) {
+        label.post(() -> {
+            int width = label.getWidth() - label.getCompoundPaddingLeft() - label.getCompoundPaddingRight();
+            if (width <= 0 || isDestroyed()) return;
+            android.text.TextPaint measure = new android.text.TextPaint(label.getPaint());
+            int size = maximumSp;
+            for (; size > 12; size--) {
+                measure.setTextSize(android.util.TypedValue.applyDimension(android.util.TypedValue.COMPLEX_UNIT_SP, size, getResources().getDisplayMetrics()));
+                if (measure.measureText(label.getText().toString()) <= width) break;
+            }
+            float pixels = android.util.TypedValue.applyDimension(android.util.TypedValue.COMPLEX_UNIT_SP, size, getResources().getDisplayMetrics());
+            if (Math.abs(label.getTextSize() - pixels) > .1f) label.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, size);
+        });
+    }
     private void updateInstrument() {
         if (pianoChoice == null) return;
         Button[] choices = {pianoChoice, guitarChoice, videoChoice};
@@ -115,7 +149,7 @@ public class MusicStudioActivity extends VlcPlayerActivity {
             ui.styleButton(choices[i], false); choices[i].setTextSize(13);
             choices[i].setSelected(active[i]); choices[i].setTextColor(active[i] ? ui.text : ui.secondary);
             choices[i].setTypeface(null, active[i] ? android.graphics.Typeface.BOLD : android.graphics.Typeface.NORMAL);
-            if (active[i]) choices[i].setBackground(ui.interactiveSurface(ui.elevated, 12));
+            choices[i].setBackground(ui.interactiveSurface(active[i] ? ui.surface : ui.elevated, 12));
         }
     }
     private String mediaName() {
@@ -200,6 +234,7 @@ public class MusicStudioActivity extends VlcPlayerActivity {
         shift.setText("Transpose: " + (transpose > 0 ? "+" : "") + transpose);
         if (rows != null) rows.removeAllViews();
         if (result == null) return;
+        ui.styleButton(analyze, false);
         summary.setText(result.modelName + " · " + result.events.size() + " segments · Offline\nChords can be corrected by ear. Silent and unrecognised passages stay blank. Exports preserve the original model scores.");
         page = Math.max(0, Math.min(page, (result.events.size() - 1) / PAGE_SIZE));
         if (previous != null) { previous.setEnabled(page > 0); following.setEnabled((page + 1) * PAGE_SIZE < result.events.size()); }
@@ -229,8 +264,11 @@ public class MusicStudioActivity extends VlcPlayerActivity {
         int low = 0, high = result.events.size() - 1, index = -1;
         while (low <= high) { int mid = (low + high) >>> 1; ChordEngine.Event event = result.events.get(mid); if (millis < event.startMs) high = mid - 1; else if (millis >= event.endMs) low = mid + 1; else { index = mid; break; } }
         selected=index;
-        String now=index<0?"Now: —":"Now: "+(result.events.get(index).chord < 0 ? "—" : StudioChord.label(result.events.get(index).chord,transpose));if(!now.contentEquals(current.getText()))current.setText(now);
-        int following=nextKnownChord(index);String upcoming=following>=0&&following<result.events.size()?"Next: "+(result.events.get(following).chord < 0 ? "—" : StudioChord.label(result.events.get(following).chord,transpose)):"Next: —";if(!upcoming.contentEquals(next.getText()))next.setText(upcoming);
+        String now = index < 0 || result.events.get(index).chord < 0 ? "—" : StudioChord.label(result.events.get(index).chord, transpose);
+        showChord(current, now, "Current chord", 29);
+        int following = nextKnownChord(index);
+        String upcoming = following >= 0 && following < result.events.size() && result.events.get(following).chord >= 0 ? StudioChord.label(result.events.get(following).chord, transpose) : "—";
+        showChord(next, upcoming, "Next chord", 22);
         int chord = index < 0 ? -1 : result.events.get(index).chord;
         diagram.show(chord < 0 ? -1 : StudioChord.transpose(chord,transpose), guitar);
         int upcomingChord = following >= 0 && following < result.events.size() ? result.events.get(following).chord : -1;

@@ -19,6 +19,7 @@ final class StudioFlowView extends View {
     private float downX, downY;
     private boolean moved;
     private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG), text = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Path trackClip = new Path();
     private final Access access;
     private final BlazeUi ui;
     StudioFlowView(Context c) {
@@ -59,6 +60,7 @@ final class StudioFlowView extends View {
         super.onDraw(canvas); float top = dp(22), bottom = getHeight() - dp(8);
         paint.setColor(ui.surface); canvas.drawRoundRect(0, top, getWidth(), bottom, dp(16), dp(16), paint);
         if (timeline == null) { text.setColor(ui.secondary); text.setTextSize(sp(13)); text.setTypeface(Typeface.DEFAULT); String prompt = "Your chord timeline"; while(text.measureText(prompt) > getWidth() - dp(32) && text.getTextSize() > sp(10)) text.setTextSize(text.getTextSize() - 1); canvas.drawText(prompt, dp(16), (top + bottom - text.ascent() - text.descent()) / 2, text); return; }
+        trackClip.reset(); trackClip.addRoundRect(0, top, getWidth(), bottom, dp(16), dp(16), Path.Direction.CW);
         double centre = coordinate(position); int start = (int)Math.floor(centre - playhead() / cellWidth()) - 1, finish = (int)Math.ceil(centre + (getWidth() - playhead()) / cellWidth()) + 1;
         text.setTypeface(Typeface.DEFAULT); text.setTextSize(sp(11)); text.setColor(ui.secondary);
         for (int beat = start; beat <= finish; beat++) {
@@ -77,7 +79,11 @@ final class StudioFlowView extends View {
         for (int i = 0; i < timeline.chords.size(); i++) {
             ChordEngine.Event event = timeline.chords.get(i); String label = visibleChord(event.chord, transpose); boolean repeated = previous == event.chord; previous = event.chord;
             float left = x(event.startMs), right = x(event.endMs); if (label.isEmpty() || right < 0 || left > getWidth()) continue;
-            if (position >= event.startMs && position < event.endMs) { paint.setColor(ui.softAccent); canvas.drawRect(Math.max(0, left), top, Math.min(getWidth(), right), bottom, paint); }
+            if (position >= event.startMs && position < event.endMs) {
+                canvas.save(); canvas.clipPath(trackClip);
+                paint.setColor(ui.softAccent); canvas.drawRect(Math.max(0, left), top, Math.min(getWidth(), right), bottom, paint);
+                canvas.restore();
+            }
             if (repeated && left >= 0) continue;
             int next = i + 1; while (next < timeline.chords.size() && timeline.chords.get(next).chord == event.chord) next++;
             float nameX = Math.max(dp(8), left + dp(8)), available = getWidth() - dp(6) - nameX;

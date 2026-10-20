@@ -10,7 +10,10 @@ library rows. The offline analysis, download and playback engines are unchanged.
 - Piano diagrams show readable chord tones; guitar, timing, editing and export remain available.
 - Shared native controls include touch feedback, keyboard focus and accessible labels.
 
-Preview signing and physical-device limitations remain as described below.
+This is a debug-signed preview. Before replacing an older preview, export files
+that you want to keep: Android may require removing the old app when its signing
+key differs, and uninstalling removes files stored inside Blaze. Physical-device
+and OEM background behavior remain incompletely tested.
 
 # Blaze Android 0.7.0 preview
 

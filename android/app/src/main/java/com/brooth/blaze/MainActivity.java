@@ -59,15 +59,15 @@ public class MainActivity extends Activity {
 
         LinearLayout shell=ui.column();shell.setTag("blaze_shell");shell.setBackgroundColor(background);setContentView(shell);
         if(Build.VERSION.SDK_INT>=35)shell.setOnApplyWindowInsetsListener((view,insets)->{android.graphics.Insets safe=insets.getInsets(WindowInsets.Type.systemBars()|WindowInsets.Type.ime());view.setPadding(safe.left,safe.top,safe.right,safe.bottom);return insets;});
-        LinearLayout brand=new LinearLayout(this);brand.setGravity(Gravity.CENTER_VERTICAL);brand.setPadding(dp(24),dp(12),dp(16),dp(8));
+        LinearLayout brand=new LinearLayout(this);brand.setGravity(Gravity.CENTER_VERTICAL);brand.setPadding(dp(24),dp(8),dp(16),dp(8));
         ImageView logo=new ImageView(this);logo.setId(R.id.brand_logo);logo.setLayerType(View.LAYER_TYPE_SOFTWARE,null);logo.setImageResource(R.drawable.blaze_brand_mark);logo.setScaleType(ImageView.ScaleType.FIT_CENTER);logo.setBackgroundColor(Color.TRANSPARENT);logo.setContentDescription("Blaze logo");brand.addView(logo,new LinearLayout.LayoutParams(dp(30),dp(34)));
         TextView brandName=ui.heading("Blaze",21);LinearLayout.LayoutParams brandLabel=new LinearLayout.LayoutParams(0,-2,1);brandLabel.setMarginStart(dp(9));brand.addView(brandName,brandLabel);
         Button about=ui.button("",false);about.setCompoundDrawablesWithIntrinsicBounds(null,null,ui.icon("more",foreground),null);about.setContentDescription("About Blaze and help");about.setOnClickListener(v->about());brand.addView(about,new LinearLayout.LayoutParams(dp(52),dp(48)));shell.addView(brand);
 
         contentScroll=new ScrollView(this);contentScroll.setFillViewport(true);contentScroll.setClipToPadding(false);contentScroll.setVerticalScrollBarEnabled(false);shell.addView(contentScroll,new LinearLayout.LayoutParams(-1,0,1));
-        LinearLayout root=ui.column();root.setPadding(dp(24),dp(12),dp(24),dp(28));contentScroll.addView(root);
+        LinearLayout root=ui.column();root.setPadding(dp(24),dp(8),dp(24),dp(28));contentScroll.addView(root);
         sectionTitle=ui.heading("Downloads",34);if(Build.VERSION.SDK_INT>=28)sectionTitle.setAccessibilityHeading(true);root.addView(sectionTitle);
-        sectionSubtitle=text("Keep what moves you.",15);root.addView(sectionSubtitle);gap(root,24);
+        sectionSubtitle=text("Keep what moves you.",15);root.addView(sectionSubtitle);gap(root,16);
         downloadComposer=ui.card();downloadComposer.setPadding(dp(20),dp(20),dp(20),dp(20));root.addView(downloadComposer);
         TextView composerTitle=ui.heading("Save from a link",20);downloadComposer.addView(composerTitle);gap(downloadComposer,14);
         TextView label=text("Link",12);label.setLabelFor(R.id.url_input);downloadComposer.addView(label);
@@ -166,7 +166,7 @@ public class MainActivity extends Activity {
     private String readNotice()throws IOException{try(InputStream in=getAssets().open("NOTICES.txt");ByteArrayOutputStream out=new ByteArrayOutputStream()){byte[] buffer=new byte[4096];int count;while((count=in.read(buffer))!=-1)out.write(buffer,0,count);return out.toString("UTF-8");}}
     private void pickFile(int request){try{startActivityForResult(new Intent(Intent.ACTION_OPEN_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE).setType("*/*").putExtra(Intent.EXTRA_MIME_TYPES,new String[]{"audio/*","video/*"}).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION),request);}catch(ActivityNotFoundException error){message("No file picker is available on this device.");}}
     private void styleModes(){for(int i=0;i<modes.getChildCount();i++){RadioButton choice=(RadioButton)modes.getChildAt(i);boolean selected=choice.isChecked();choice.setTextColor(selected?foreground:muted);choice.setTypeface(null,selected?Typeface.BOLD:Typeface.NORMAL);choice.setBackground(ui.interactiveSurface(selected?ui.surface:ui.background,11));}}
-    private Button navigationButton(String value,String icon){Button button=ui.button(value,false);button.setTextSize(11);button.setTypeface(null,Typeface.NORMAL);button.setMinHeight(dp(64));button.setPadding(dp(2),dp(8),dp(2),dp(8));button.setCompoundDrawablePadding(dp(4));button.setCompoundDrawablesWithIntrinsicBounds(null,ui.icon(icon,muted),null,null);button.setBackgroundTintList(null);button.setBackground(ui.interactiveSurface(surface,14));return button;}
+    private Button navigationButton(String value,String icon){Button button=ui.button(value,false);button.setTextSize(11);button.setTextColor(muted);button.setTypeface(null,Typeface.NORMAL);button.setMinHeight(dp(64));button.setPadding(dp(2),dp(8),dp(2),dp(8));button.setCompoundDrawablePadding(dp(4));button.setCompoundDrawablesWithIntrinsicBounds(null,ui.icon(icon,muted),null,null);button.setBackgroundTintList(null);button.setBackground(ui.interactiveSurface(surface,14));return button;}
     private void fileActions(View anchor,File file,JobStore.Job job){
         PopupMenu menu=new PopupMenu(this,anchor);String[] actions={"Open in Music Studio","Share","Save a copy…","Delete local file"};for(int i=0;i<actions.length;i++)menu.getMenu().add(0,i,i,actions[i]);
         menu.setOnMenuItemClickListener(item->{switch(item.getItemId()){

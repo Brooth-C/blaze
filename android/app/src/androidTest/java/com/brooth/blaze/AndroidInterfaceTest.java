@@ -85,6 +85,7 @@ public class AndroidInterfaceTest {
                     assertTrue("Navigation lost after recreation", selected.isSelected());
                     assertVisibleTarget(activity.findViewById(R.id.find_chords));
                 });
+                awaitRenderedFrames(screen);
                 screenshot("Blaze-Android-" + tag.substring(4) + ".png");
             }
         }
@@ -118,9 +119,11 @@ public class AndroidInterfaceTest {
                     View diagram = activity.root.findViewWithTag("studio_current_diagram");
                     assertTrue("Chord diagram collapsed at large type", diagram.getHeight() >= Math.round(app.getResources().getDisplayMetrics().density * 48));
                     ScrollView fallback = activity.root.findViewWithTag("studio_scroll_fallback");
-                    fallback.setSmoothScrollingEnabled(false); fallback.fullScroll(View.FOCUS_DOWN);
+                    fallback.setSmoothScrollingEnabled(false);
+                    fallback.scrollTo(0, Math.max(0, fallback.getChildAt(0).getHeight() - fallback.getHeight() + fallback.getPaddingTop() + fallback.getPaddingBottom()));
                 });
                 instrumentation.waitForIdleSync();
+                awaitRenderedFrames(screen);
                 screen.onActivity(activity -> {
                     assertVisibleTarget(activity.findViewById(R.id.chord_analyze));
                     assertVisibleTarget(activity.root.findViewWithTag("studio_options"));
@@ -143,7 +146,7 @@ public class AndroidInterfaceTest {
             for (boolean dark : new boolean[]{false, true}) {
                 night(dark ? "yes" : "no");
                 try (ActivityScenario<MusicStudioActivity> screen = ActivityScenario.launch(new android.content.Intent(app, MusicStudioActivity.class).setData(uri))) {
-                    instrumentation.waitForIdleSync();
+                    waitForTheme(screen, dark);
                     screen.onActivity(activity -> {
                         if (activity.player != null && activity.player.isPlaying()) activity.toggle.performClick();
                         java.util.List<ChordEngine.Event> events = new java.util.ArrayList<>();
@@ -173,6 +176,7 @@ public class AndroidInterfaceTest {
                         assertVisibleTarget(activity.root.findViewWithTag("studio_options"));
                         assertNotNull(activity.root.findViewWithTag("studio_current_diagram"));
                     });
+                    awaitRenderedFrames(screen);
                     screenshot("Blaze-Android-Studio-" + (dark ? "Dark" : "Light") + ".png");
                 }
             }
@@ -203,6 +207,7 @@ public class AndroidInterfaceTest {
                         assertEquals(View.VISIBLE, activity.findViewById(R.id.audio_choice).getVisibility());
                         assertEquals(View.GONE, activity.findViewById(R.id.quality_choice).getVisibility());
                     });
+                    awaitRenderedFrames(screen);
                     screenshot("Blaze-Android-Home-" + (dark ? "Dark" : "Light") + ".png");
                 }
             }
@@ -211,13 +216,13 @@ public class AndroidInterfaceTest {
         }
     }
 
-    private void waitForTheme(ActivityScenario<MainActivity> screen, boolean dark) throws Exception {
+    private <T extends android.app.Activity> void waitForTheme(ActivityScenario<T> screen, boolean dark) throws Exception {
         AtomicBoolean ready = new AtomicBoolean();
         long end = android.os.SystemClock.uptimeMillis() + 8000;
         while (!ready.get() && android.os.SystemClock.uptimeMillis() < end) {
             instrumentation.waitForIdleSync();
             screen.onActivity(activity -> ready.set(((activity.getResources().getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES) == dark
-                && activity.findViewById(R.id.find_chords).isLaidOut()));
+                && activity.getWindow().getDecorView().isLaidOut()));
             if (!ready.get()) Thread.sleep(80);
         }
         assertTrue("System theme did not settle", ready.get());
@@ -233,9 +238,19 @@ public class AndroidInterfaceTest {
     }
 
     private void night(String value) throws Exception {
-        try (InputStream input = new ParcelFileDescriptor.AutoCloseInputStream(instrumentation.getUiAutomation().executeShellCommand("cmd uimode night " + value))) {
-            byte[] bytes = new byte[1024]; while (input.read(bytes) != -1) { /* Wait for settings command. */ }
-        }
+        String result = shell("cmd uimode night " + value).trim();
+        assertTrue("Emulator rejected night-mode request: " + result, result.contains("Night mode: " + value));
+    }
+
+    private <T extends android.app.Activity> void awaitRenderedFrames(ActivityScenario<T> screen) throws Exception {
+        java.util.concurrent.CountDownLatch frames = new java.util.concurrent.CountDownLatch(1);
+        screen.onActivity(activity -> {
+            View root = activity.getWindow().getDecorView();
+            root.postOnAnimation(() -> root.postOnAnimation(frames::countDown));
+            root.invalidate();
+        });
+        assertTrue("UI did not draw after scrolling", frames.await(3, java.util.concurrent.TimeUnit.SECONDS));
+        instrumentation.waitForIdleSync();
     }
 
     private String shell(String command) throws Exception {
