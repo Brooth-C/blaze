@@ -28,6 +28,45 @@ public class AndroidInterfaceTest {
     private final Instrumentation instrumentation = InstrumentationRegistry.getInstrumentation();
     private final Context app = instrumentation.getTargetContext();
 
+    @Test public void pausedAndInterruptedQueuesKeepResumeReachable() throws Exception {
+        try (JobStore store = new JobStore(app)) {
+            assertFalse("Use an idle disposable emulator", DownloadService.busy);
+            assertEquals("Fixture must be the only pending job", 0, store.count(0));
+            String id = store.enqueue("https://example.test/resume-ui/" + java.util.UUID.randomUUID(), "video", "{}", "Paused local fixture");
+            try {
+                android.content.ContentValues values = new android.content.ContentValues();
+                values.put("state", "paused");
+                store.getWritableDatabase().update("jobs", values, "id=?", new String[]{id});
+                assertFalse("Paused jobs are not queued", store.hasQueued());
+                try (ActivityScenario<MainActivity> screen = ActivityScenario.launch(MainActivity.class)) {
+                    assertResumeReachable(screen);
+                    values.put("state", "interrupted");
+                    store.getWritableDatabase().update("jobs", values, "id=?", new String[]{id});
+                    assertFalse("Interrupted jobs are not queued", store.hasQueued());
+                    screen.recreate();
+                    assertResumeReachable(screen);
+                }
+                assertFalse("Viewing queue controls must not start a download", store.hasQueued());
+            } finally {
+                store.getWritableDatabase().delete("jobs", "id=?", new String[]{id});
+            }
+        }
+    }
+
+    private void assertResumeReachable(ActivityScenario<MainActivity> screen) {
+        instrumentation.waitForIdleSync();
+        screen.onActivity(activity -> {
+            View panel = activity.getWindow().getDecorView().findViewWithTag("queue_panel");
+            View resume = activity.getWindow().getDecorView().findViewWithTag("resume_queue");
+            assertNotNull("Missing queue panel", panel); assertEquals(View.VISIBLE, panel.getVisibility());
+            assertNotNull("Missing Resume queue control", resume); assertEquals(View.VISIBLE, resume.getVisibility());
+            assertTrue("Resume queue should be enabled", resume.isEnabled());
+            resume.requestRectangleOnScreen(new Rect(0, 0, resume.getWidth(), resume.getHeight()), true);
+        });
+        instrumentation.waitForIdleSync();
+        screen.onActivity(activity -> assertVisibleTarget(activity.getWindow().getDecorView().findViewWithTag("resume_queue")));
+    }
+
     @Test public void libraryAndHistorySelectionSurviveRecreation() throws Exception {
         try (ActivityScenario<MainActivity> screen = ActivityScenario.launch(MainActivity.class)) {
             instrumentation.waitForIdleSync();
