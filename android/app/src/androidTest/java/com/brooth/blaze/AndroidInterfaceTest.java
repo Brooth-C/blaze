@@ -10,6 +10,7 @@ import android.graphics.Rect;
 import android.os.ParcelFileDescriptor;
 import android.view.View;
 import android.widget.RadioGroup;
+import android.widget.ScrollView;
 import androidx.test.core.app.ActivityScenario;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.platform.app.InstrumentationRegistry;
@@ -47,6 +48,50 @@ public class AndroidInterfaceTest {
                 });
                 screenshot("Blaze-Android-" + tag.substring(4) + ".png");
             }
+        }
+    }
+
+    @Test public void veryLargeTypeKeepsStudioActionsReachable() throws Exception {
+        String previous = shell("settings get system font_scale").trim();
+        File wave = File.createTempFile("studio-accessibility-", ".wav", DownloadService.folder(app));
+        MusicStudioTest.writeWave(wave, false, 12);
+        android.net.Uri uri = androidx.core.content.FileProvider.getUriForFile(app, app.getPackageName() + ".files", wave);
+        try {
+            shell("settings put system font_scale 2.0");
+            try (ActivityScenario<MusicStudioActivity> screen = ActivityScenario.launch(new android.content.Intent(app, MusicStudioActivity.class).setData(uri))) {
+                screen.onActivity(activity -> activity.setRequestedOrientation(android.content.pm.ActivityInfo.SCREEN_ORIENTATION_PORTRAIT));
+                AtomicBoolean ready = new AtomicBoolean();
+                long deadline = android.os.SystemClock.uptimeMillis() + 8000;
+                while (!ready.get() && android.os.SystemClock.uptimeMillis() < deadline) {
+                    instrumentation.waitForIdleSync();
+                    screen.onActivity(activity -> {
+                        View fallback = activity.root.findViewWithTag("studio_scroll_fallback");
+                        ready.set(activity.getResources().getConfiguration().orientation == Configuration.ORIENTATION_PORTRAIT
+                            && activity.getResources().getConfiguration().fontScale >= 1.9f
+                            && fallback instanceof ScrollView && fallback.isLaidOut() && !fallback.isLayoutRequested());
+                    });
+                    if (!ready.get()) Thread.sleep(80);
+                }
+                assertTrue("Studio needs a scrolling fallback at very large type", ready.get());
+                screen.onActivity(activity -> {
+                    if (activity.player != null && activity.player.isPlaying()) activity.toggle.performClick();
+                    assertVisibleTarget(activity.toggle);
+                    View diagram = activity.root.findViewWithTag("studio_current_diagram");
+                    assertTrue("Chord diagram collapsed at large type", diagram.getHeight() >= Math.round(app.getResources().getDisplayMetrics().density * 48));
+                    ScrollView fallback = activity.root.findViewWithTag("studio_scroll_fallback");
+                    fallback.setSmoothScrollingEnabled(false); fallback.fullScroll(View.FOCUS_DOWN);
+                });
+                instrumentation.waitForIdleSync();
+                screen.onActivity(activity -> {
+                    assertVisibleTarget(activity.findViewById(R.id.chord_analyze));
+                    assertVisibleTarget(activity.root.findViewWithTag("studio_options"));
+                });
+                screenshot("Blaze-Android-Studio-Accessibility.png");
+            }
+        } finally {
+            shell("settings put system font_scale " + (previous.isEmpty() || previous.equals("null") ? "1.0" : previous));
+            wave.delete();
+            app.getSharedPreferences("playback", Context.MODE_PRIVATE).edit().remove("document:" + uri).apply();
         }
     }
 
@@ -151,6 +196,15 @@ public class AndroidInterfaceTest {
     private void night(String value) throws Exception {
         try (InputStream input = new ParcelFileDescriptor.AutoCloseInputStream(instrumentation.getUiAutomation().executeShellCommand("cmd uimode night " + value))) {
             byte[] bytes = new byte[1024]; while (input.read(bytes) != -1) { /* Wait for settings command. */ }
+        }
+    }
+
+    private String shell(String command) throws Exception {
+        try (InputStream input = new ParcelFileDescriptor.AutoCloseInputStream(instrumentation.getUiAutomation().executeShellCommand(command));
+             java.io.ByteArrayOutputStream output = new java.io.ByteArrayOutputStream()) {
+            byte[] buffer = new byte[1024]; int count;
+            while ((count = input.read(buffer)) != -1) output.write(buffer, 0, count);
+            return output.toString("UTF-8");
         }
     }
 

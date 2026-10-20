@@ -22,7 +22,8 @@ public class MusicStudioActivity extends VlcPlayerActivity {
     private Button analyze, cancel, previous, following, pianoChoice, guitarChoice, videoChoice;
     private ChordDiagramView diagram, nextDiagram;
     private LinearLayout playbackOptions, studioPanel, instrumentRow, cardRow, actionRow;
-    private boolean videoExpanded, videoPresented;
+    private boolean videoExpanded, videoPresented, scrollFallback;
+    private ScrollView studioScroll;
     private FrameLayout videoHost;
     private TextView playerStatus;
     private final Runnable playerMessages = new Runnable() { public void run() {
@@ -83,7 +84,8 @@ public class MusicStudioActivity extends VlcPlayerActivity {
         LinearLayout nowCard = chordCard(cardRow, true);
         current = ui.heading("Now: —", 29); current.setId(R.id.chord_current);
         current.setTextColor(ui.accent); current.setMaxLines(1); current.setEllipsize(android.text.TextUtils.TruncateAt.END); nowCard.addView(current);
-        diagram = new ChordDiagramView(this); diagram.setTag("studio_current_diagram"); nowCard.addView(diagram, new LinearLayout.LayoutParams(-1, 0, 1));
+        diagram = new ChordDiagramView(this); diagram.setTag("studio_current_diagram");
+        diagram.addOnLayoutChangeListener((view, left, top, right, bottom, oldLeft, oldTop, oldRight, oldBottom) -> checkStudioSpace()); nowCard.addView(diagram, new LinearLayout.LayoutParams(-1, 0, 1));
         LinearLayout nextCard = chordCard(cardRow, false);
         next = ui.heading("Next: —", 22); next.setMaxLines(1); next.setEllipsize(android.text.TextUtils.TruncateAt.END); nextCard.addView(next);
         nextDiagram = new ChordDiagramView(this); nextDiagram.setTag("studio_next_diagram"); nextCard.addView(nextDiagram, new LinearLayout.LayoutParams(-1, 0, 1));
@@ -125,6 +127,9 @@ public class MusicStudioActivity extends VlcPlayerActivity {
         LinearLayout content = ui.column(); content.setPadding(dp(20), dp(8), dp(20), dp(16));
         if (summary.getParent() != null) ((android.view.ViewGroup)summary.getParent()).removeView(summary); content.addView(summary);
         button(content, "Instrument: " + (guitar ? "Guitar" : "Piano"), () -> new android.app.AlertDialog.Builder(this).setTitle("Chord diagrams").setItems(new String[]{"Piano", "Guitar"}, (dialog, choice) -> { guitar = choice == 1; updateInstrument(); onPlaybackTime(playbackTime); }).show());
+        boolean landscape = getResources().getConfiguration().orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE;
+        Button preview = button(content, landscape ? "Watch full screen" : videoExpanded ? "Hide video preview" : "Show video preview", () -> {});
+        preview.setTag("studio_video_preview");
         button(content, "Edit current chord", this::editChord);
         button(content, "Rhythm & timing", () -> rhythmDialog(false));
         button(content, "Chord list", this::chordListDialog);
@@ -133,7 +138,13 @@ public class MusicStudioActivity extends VlcPlayerActivity {
         LinearLayout transposition = new LinearLayout(this); content.addView(transposition); button(transposition, "− semitone", () -> transpose(-1)); button(transposition, "+ semitone", () -> transpose(1)); button(content, "Reset transposition", () -> { transpose = 0; render(); });
         if (playbackOptions.getParent() != null) ((android.view.ViewGroup)playbackOptions.getParent()).removeView(playbackOptions); playbackOptions.setVisibility(View.VISIBLE); content.addView(playbackOptions);
         ScrollView scroll = new ScrollView(this); scroll.addView(content);
-        new android.app.AlertDialog.Builder(this).setTitle("Studio options").setView(scroll).setPositiveButton("Close", null).show();
+        android.app.AlertDialog dialog = new android.app.AlertDialog.Builder(this).setTitle("Studio options").setView(scroll).setPositiveButton("Close", null).create();
+        preview.setOnClickListener(v -> {
+            dialog.dismiss();
+            if (landscape) setPlaybackFullscreen(true);
+            else { videoExpanded = !videoExpanded; updateInstrument(); onFullscreenChanged(playbackFullscreen()); checkStudioSpace(); }
+        });
+        dialog.show();
     }
     private void chordListDialog() {
         if (result == null) { state.setText("Analyse this file first."); return; }
@@ -276,6 +287,43 @@ public class MusicStudioActivity extends VlcPlayerActivity {
         (landscape ? left : right).addView(actionRow, new LinearLayout.LayoutParams(-1, -2));
         if (landscape) { state.setMaxLines(1); trackName.setVisibility(View.GONE); } else { state.setMaxLines(2); trackName.setVisibility(View.VISIBLE); }
         updateInstrument();
+        float scale = getResources().getConfiguration().fontScale;
+        int height = getResources().getConfiguration().screenHeightDp;
+        configureStudioScrolling(scale >= 1.8f || height < (landscape ? 280 : 520));
+        checkStudioSpace();
+    }
+    /** Keep transport anchored while large text or a short window can scroll the workspace. */
+    private void configureStudioScrolling(boolean enabled) {
+        boolean landscape = getResources().getConfiguration().orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE;
+        float extraScale = Math.max(0, getResources().getConfiguration().fontScale - 1);
+        if (enabled) {
+            if (studioScroll == null) {
+                studioScroll = new ScrollView(this); studioScroll.setTag("studio_scroll_fallback");
+                studioScroll.setFillViewport(true); studioScroll.setClipToPadding(false);
+            }
+            if (studioPanel.getParent() != studioScroll) {
+                int index = root.indexOfChild(studioPanel); detach(studioPanel);
+                root.addView(studioScroll, Math.max(0, index), new LinearLayout.LayoutParams(-1, 0, 1));
+                studioScroll.addView(studioPanel);
+            }
+            // A bounded chord row gives its weighted diagrams real height under unbounded scrolling.
+            // The horizontal arrangement also needs a bounded overall height for its two columns.
+            studioPanel.setLayoutParams(new ScrollView.LayoutParams(-1, landscape ? ui.dp(280 + extraScale * 120) : -2));
+            if (!landscape) cardRow.setLayoutParams(new LinearLayout.LayoutParams(-1, ui.dp(180 + extraScale * 40)));
+            studioPanel.setVisibility(View.VISIBLE);
+        } else if (studioPanel.getParent() == studioScroll && studioScroll != null) {
+            int index = root.indexOfChild(studioScroll); detach(studioPanel); root.removeView(studioScroll);
+            root.addView(studioPanel, Math.max(0, index), new LinearLayout.LayoutParams(-1, 0, 1));
+            studioPanel.setVisibility(View.VISIBLE);
+        }
+        scrollFallback = enabled;
+    }
+    private void checkStudioSpace() {
+        studioPanel.post(() -> {
+            if (isFinishing() || isDestroyed() || playbackFullscreen() || scrollFallback || diagram == null) return;
+            boolean landscape = getResources().getConfiguration().orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE;
+            if (studioPanel.getHeight() > 0 && diagram.getHeight() < dp(landscape ? 30 : 64)) configureStudioScrolling(true);
+        });
     }
     private void margin(View view, int top, int bottom) {
         LinearLayout.LayoutParams params = (LinearLayout.LayoutParams)view.getLayoutParams();

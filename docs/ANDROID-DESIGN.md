@@ -34,5 +34,5 @@ navigation. Diagram note descriptions complement the visual piano/guitar drawing
 Validation includes the existing playback, seek, fullscreen, analysis and export
 regressions, plus navigation restoration, light/dark contrast and visible controls.
 Emulator screenshots cover home, library/history, Studio portrait/landscape and
-1.5× text. Emulator coverage does not establish physical-device/OEM compatibility
+1.5× text, plus a scrollable workspace at 2× text. Emulator coverage does not establish physical-device/OEM compatibility
 or a complete accessibility certification.

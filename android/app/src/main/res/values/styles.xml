@@ -10,7 +10,6 @@
         <item name="android:statusBarColor">@color/blaze_background</item>
         <item name="android:navigationBarColor">@color/blaze_background</item>
         <item name="android:windowActionModeOverlay">true</item>
-        <item name="android:windowLightNavigationBar">true</item>
     </style>
     <style name="BlazeThemeDark" parent="android:style/Theme.Material.NoActionBar">
         <item name="android:fontFamily">sans-serif</item>
