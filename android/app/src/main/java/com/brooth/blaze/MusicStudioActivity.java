@@ -22,7 +22,8 @@ public class MusicStudioActivity extends VlcPlayerActivity {
     private Button analyze, cancel, previous, following, pianoChoice, guitarChoice, videoChoice;
     private ChordDiagramView diagram, nextDiagram;
     private LinearLayout playbackOptions, studioPanel, instrumentRow, cardRow, actionRow;
-    private boolean videoExpanded, videoPresented, scrollFallback;
+    private boolean videoExpanded, videoPresented, scrollFallback, hideInstrumentStrip;
+    private int spaceCheckGeneration;
     private ScrollView studioScroll;
     private FrameLayout videoHost;
     private TextView playerStatus;
@@ -114,24 +115,28 @@ public class MusicStudioActivity extends VlcPlayerActivity {
         caption.setPadding(0, 0, 0, dp(4)); caption.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO); card.addView(caption);
     }
     private TextView chordValue(String role, int maximumSp) {
-        TextView label = ui.heading("—", maximumSp); label.setMaxLines(2); label.setEllipsize(null);
+        TextView label = ui.heading("—", maximumSp); label.setMaxLines(1); label.setEllipsize(null);
         label.setContentDescription(role + ": —");
         if (android.os.Build.VERSION.SDK_INT >= 26) label.setAutoSizeTextTypeUniformWithConfiguration(12, maximumSp, 1, android.util.TypedValue.COMPLEX_UNIT_SP);
-        else label.addOnLayoutChangeListener((view, left, top, right, bottom, oldLeft, oldTop, oldRight, oldBottom) -> fitLegacyChord(label, maximumSp));
+        label.addOnLayoutChangeListener((view, left, top, right, bottom, oldLeft, oldTop, oldRight, oldBottom) -> fitChordLabel(label, maximumSp));
         return label;
     }
     private void showChord(TextView label, String chord, String role, int maximumSp) {
         if (!chord.contentEquals(label.getText())) {
             label.setText(chord); label.setContentDescription(role + ": " + chord);
-            if (android.os.Build.VERSION.SDK_INT < 26) fitLegacyChord(label, maximumSp);
+            fitChordLabel(label, maximumSp);
         }
     }
-    /** API 24–25 keeps the same 12sp floor and can reflow exceptionally long slash chords. */
-    private void fitLegacyChord(TextView label, int maximumSp) {
+    /** Keep common chords on one line; reflow only when even the 12sp floor cannot fit. */
+    private void fitChordLabel(TextView label, int maximumSp) {
         label.post(() -> {
             int width = label.getWidth() - label.getCompoundPaddingLeft() - label.getCompoundPaddingRight();
             if (width <= 0 || isDestroyed()) return;
             android.text.TextPaint measure = new android.text.TextPaint(label.getPaint());
+            measure.setTextSize(android.util.TypedValue.applyDimension(android.util.TypedValue.COMPLEX_UNIT_SP, 12, getResources().getDisplayMetrics()));
+            int lines = measure.measureText(label.getText().toString()) > width ? 2 : 1;
+            if (label.getMaxLines() != lines) label.setMaxLines(lines);
+            if (android.os.Build.VERSION.SDK_INT >= 26) return;
             int size = maximumSp;
             for (; size > 12; size--) {
                 measure.setTextSize(android.util.TypedValue.applyDimension(android.util.TypedValue.COMPLEX_UNIT_SP, size, getResources().getDisplayMetrics()));
@@ -285,7 +290,7 @@ public class MusicStudioActivity extends VlcPlayerActivity {
     @Override protected void onStop() { foreground=false;updates.removeCallbacks(playerMessages);stopFrame();stopAnalysis(); if (state != null && result == null) state.setText("Analysis paused while Blaze is closed. Tap Analyse to retry."); automatic = false; super.onStop(); }
     @Override protected void onDestroy() { foreground=false;stopFrame();stopAnalysis(); worker.shutdownNow(); updates.removeCallbacksAndMessages(null); super.onDestroy(); }
     @Override protected void onSaveInstanceState(Bundle saved) { saved.putInt("transpose", transpose); saved.putInt("chordPage", page); saved.putBoolean("chordAutomatic", result != null); saved.putBoolean("guitar", guitar); super.onSaveInstanceState(saved); }
-    @Override public void onConfigurationChanged(android.content.res.Configuration config) { super.onConfigurationChanged(config); arrangeStudio(); setPlaybackFullscreen(playbackFullscreen()); }
+    @Override public void onConfigurationChanged(android.content.res.Configuration config) { super.onConfigurationChanged(config); hideInstrumentStrip = false; arrangeStudio(); setPlaybackFullscreen(playbackFullscreen()); }
     @Override protected View playbackVideoContainer() { return videoHost == null ? videoViewport : videoHost; }
     @Override protected boolean videoViewsWanted() { return videoPresented; }
     @Override protected void onFullscreenChanged(boolean fullscreen) {
@@ -303,7 +308,7 @@ public class MusicStudioActivity extends VlcPlayerActivity {
         studioPanel.removeAllViews();
         boolean landscape = getResources().getConfiguration().orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE;
         boolean largeText = getResources().getConfiguration().fontScale > 1.35f;
-        boolean compact = getResources().getConfiguration().screenHeightDp < 680 || largeText;
+        boolean compact = getResources().getConfiguration().screenHeightDp < 760 || largeText;
         studioPanel.setOrientation(landscape ? LinearLayout.HORIZONTAL : LinearLayout.VERTICAL);
         LinearLayout left = studioPanel, right = studioPanel;
         if (landscape) {
@@ -319,7 +324,7 @@ public class MusicStudioActivity extends VlcPlayerActivity {
         left.addView(state, new LinearLayout.LayoutParams(-1, -2)); margin(state, 0, landscape ? 2 : 8);
         left.addView(flow, new LinearLayout.LayoutParams(-1, dp(landscape ? 64 : compact ? 72 : 84)));
         left.addView(rhythmStatus, new LinearLayout.LayoutParams(-1, -2)); margin(rhythmStatus, 2, landscape ? 4 : 8);
-        if (!landscape && !compact) { left.addView(instrumentRow, new LinearLayout.LayoutParams(-1, -2)); margin(instrumentRow, 0, 12); }
+        if (!landscape && !compact && !hideInstrumentStrip) { left.addView(instrumentRow, new LinearLayout.LayoutParams(-1, -2)); margin(instrumentRow, 0, 12); }
         right.addView(cardRow, new LinearLayout.LayoutParams(-1, 0, 1));
         right.addView(countdown, new LinearLayout.LayoutParams(-1, -2)); margin(countdown, 8, landscape ? 0 : 8);
         (landscape ? left : right).addView(actionRow, new LinearLayout.LayoutParams(-1, -2));
@@ -357,11 +362,24 @@ public class MusicStudioActivity extends VlcPlayerActivity {
         scrollFallback = enabled;
     }
     private void checkStudioSpace() {
-        studioPanel.post(() -> {
-            if (isFinishing() || isDestroyed() || playbackFullscreen() || scrollFallback || diagram == null) return;
+        if (studioPanel == null) return;
+        final int request = ++spaceCheckGeneration;
+        // Auto-size may request a second layout. Never make a permanent layout decision
+        // from its transient zero-height diagram between those passes.
+        studioPanel.postOnAnimation(() -> studioPanel.postOnAnimation(() -> {
+            if (request != spaceCheckGeneration || isFinishing() || isDestroyed() || playbackFullscreen() || scrollFallback || diagram == null) return;
+            if (!studioPanel.isLaidOut() || studioPanel.isLayoutRequested() || root.isLayoutRequested() || studioPanel.getHeight() <= 0) return;
             boolean landscape = getResources().getConfiguration().orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE;
-            if (studioPanel.getHeight() > 0 && diagram.getHeight() < dp(landscape ? 30 : 64)) configureStudioScrolling(true);
-        });
+            int height = diagram.getHeight();
+            if (!landscape && height < dp(64) && instrumentRow.getParent() != null) {
+                hideInstrumentStrip = true; detach(instrumentRow); studioPanel.requestLayout();
+                return;
+            }
+            // Normal phone layouts keep both actions and the timeline on screen.
+            // A real shortage after optional chrome is removed can use the same
+            // scrolling workspace as accessibility text and short windows.
+            if (height < dp(landscape ? 30 : 48)) configureStudioScrolling(true);
+        }));
     }
     private void margin(View view, int top, int bottom) {
         LinearLayout.LayoutParams params = (LinearLayout.LayoutParams)view.getLayoutParams();
