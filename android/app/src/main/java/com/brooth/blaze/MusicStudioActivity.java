@@ -17,9 +17,9 @@ public class MusicStudioActivity extends VlcPlayerActivity {
     private int generation, transpose, page;
     private boolean automatic = false;
     private long playbackTime;
-    private TextView state, current, next, summary, shift;
+    private TextView state, current, next, summary, shift, trackName;
     private LinearLayout rows;
-    private Button analyze, cancel, previous, following;
+    private Button analyze, cancel, previous, following, pianoChoice, guitarChoice, videoChoice;
     private ChordDiagramView diagram, nextDiagram;
     private LinearLayout playbackOptions, studioPanel, instrumentRow, cardRow, actionRow;
     private boolean videoExpanded, videoPresented;
@@ -51,46 +51,70 @@ public class MusicStudioActivity extends VlcPlayerActivity {
         super.onCreate(saved);
         if (root == null || isFinishing()) return;
         if (saved != null) { transpose = Math.max(-12, Math.min(12, saved.getInt("transpose"))); page = saved.getInt("chordPage"); automatic = saved.getBoolean("chordAutomatic", false); guitar = saved.getBoolean("guitar"); }
-        // Keep normal playback available; uncommon decoder/track options live in a dialog.
-        playbackOptions = new LinearLayout(this); playbackOptions.setOrientation(LinearLayout.VERTICAL);
-        while (root.getChildCount() > 6) { View extra = root.getChildAt(6); root.removeView(extra); playbackOptions.addView(extra); }
-        if (root.getChildAt(2) instanceof TextView) { playerStatus = (TextView)root.getChildAt(2); playerStatus.setTextSize(11); playerStatus.setMaxLines(2); playerStatus.setVisibility(View.GONE); }
-        // LibVLC resizes its surface frame. Contain it so it cannot consume the
-        // Studio's control area when audio is playing or the preview is collapsed.
+        // The player exposes explicit containers so Studio never depends on child indexes.
+        playbackOptions = playbackSettings;
+        detach(playbackOptions);
+        detach(playbackControls);
+        playerStatus = playbackStatus;
+        playerStatus.setTextSize(12); playerStatus.setMaxLines(2); playerStatus.setVisibility(View.GONE);
         videoHost = videoViewport;
-        videoHost.setLayoutParams(new LinearLayout.LayoutParams(-1, 0));
-        videoHost.setVisibility(View.GONE);
-        LinearLayout header = (LinearLayout)root.getChildAt(0);
-        if (header.getChildCount() > 1 && header.getChildAt(1) instanceof TextView) { TextView title = (TextView)header.getChildAt(1); title.setTextSize(16); title.setTypeface(null, android.graphics.Typeface.BOLD); title.setText(mediaName()); title.setContentDescription("Blaze Music Studio, " + mediaName()); }
-        LinearLayout panel = new LinearLayout(this); panel.setOrientation(LinearLayout.VERTICAL); studioPanel = panel; panel.setId(R.id.chord_panel); panel.setPadding(dp(12), dp(2), dp(12), dp(4));
-        root.addView(panel, new LinearLayout.LayoutParams(-1, 0, 1));
-        state = text(panel, "Ready · advanced offline chords", 13); state.setId(R.id.chord_status); state.setMaxLines(2); state.setAccessibilityLiveRegion(View.ACCESSIBILITY_LIVE_REGION_POLITE);
-        flow = new StudioFlowView(this); flow.setTag("studio_timeline"); flow.seek = this::seekPlayback; panel.addView(flow, new LinearLayout.LayoutParams(-1, dp(88)));
+        videoHost.setLayoutParams(new LinearLayout.LayoutParams(-1, 0)); videoHost.setVisibility(View.GONE);
+        playbackTitle.setText("Music Studio"); playbackTitle.setContentDescription("Blaze Music Studio");
+        playbackMenu.setOnClickListener(v -> optionsDialog()); playbackMenu.setContentDescription("Studio options");
+
+        studioPanel = ui.column(); studioPanel.setId(R.id.chord_panel);
+        studioPanel.setPadding(dp(20), dp(4), dp(20), dp(12));
+        root.addView(studioPanel, new LinearLayout.LayoutParams(-1, 0, 1));
+        root.addView(playbackControls, new LinearLayout.LayoutParams(-1, -2));
+        trackName = ui.heading(mediaName(), 16); trackName.setSingleLine(true);
+        trackName.setEllipsize(android.text.TextUtils.TruncateAt.END);
+        state = ui.label("Your music. Analysed on this device.", 12, ui.secondary);
+        state.setId(R.id.chord_status); state.setMaxLines(2); state.setAccessibilityLiveRegion(View.ACCESSIBILITY_LIVE_REGION_POLITE);
+        flow = new StudioFlowView(this); flow.setTag("studio_timeline"); flow.seek = this::seekPlayback;
         waveform = new StudioWaveformView(this); waveform.seek = this::seekPlayback; waveform.setVisibility(View.GONE);
-        rhythmStatus = text(panel, "Rhythm is detected during analysis", 12); rhythmStatus.setMaxLines(1); rhythmStatus.setEllipsize(android.text.TextUtils.TruncateAt.END);
-        LinearLayout instruments = new LinearLayout(this); instrumentRow = instruments; panel.addView(instruments);
-        button(instruments, "Piano", () -> { guitar = false; onPlaybackTime(playbackTime); });
-        button(instruments, "Guitar", () -> { guitar = true; onPlaybackTime(playbackTime); });
-        button(instruments, "Video", () -> { videoExpanded = !videoExpanded; onFullscreenChanged(playbackFullscreen()); });
-        LinearLayout cards = new LinearLayout(this); cardRow = cards; panel.addView(cards, new LinearLayout.LayoutParams(-1, 0, 1));
-        LinearLayout nowCard = chordCard(cards); current = text(nowCard, "Now: —", 23); current.setId(R.id.chord_current); current.setTypeface(null, android.graphics.Typeface.BOLD); current.setMaxLines(1); current.setEllipsize(android.text.TextUtils.TruncateAt.END);
+        rhythmStatus = ui.label("Chord changes and rhythm will appear here", 12, ui.secondary);
+        rhythmStatus.setMaxLines(1); rhythmStatus.setEllipsize(android.text.TextUtils.TruncateAt.END);
+        instrumentRow = new LinearLayout(this); instrumentRow.setGravity(android.view.Gravity.CENTER_VERTICAL);
+        instrumentRow.setPadding(dp(4), dp(4), dp(4), dp(4)); instrumentRow.setBackground(ui.shape(ui.surface, 16));
+        pianoChoice = button(instrumentRow, "Piano", () -> { guitar = false; updateInstrument(); onPlaybackTime(playbackTime); });
+        guitarChoice = button(instrumentRow, "Guitar", () -> { guitar = true; updateInstrument(); onPlaybackTime(playbackTime); });
+        videoChoice = button(instrumentRow, "Video", () -> { videoExpanded = !videoExpanded; updateInstrument(); onFullscreenChanged(playbackFullscreen()); });
+        cardRow = new LinearLayout(this);
+        LinearLayout nowCard = chordCard(cardRow, true);
+        current = ui.heading("Now: —", 29); current.setId(R.id.chord_current);
+        current.setTextColor(ui.accent); current.setMaxLines(1); current.setEllipsize(android.text.TextUtils.TruncateAt.END); nowCard.addView(current);
         diagram = new ChordDiagramView(this); diagram.setTag("studio_current_diagram"); nowCard.addView(diagram, new LinearLayout.LayoutParams(-1, 0, 1));
-        LinearLayout nextCard = chordCard(cards); next = text(nextCard, "Next: —", 21); next.setTypeface(null, android.graphics.Typeface.BOLD); next.setMaxLines(1); next.setEllipsize(android.text.TextUtils.TruncateAt.END);
+        LinearLayout nextCard = chordCard(cardRow, false);
+        next = ui.heading("Next: —", 22); next.setMaxLines(1); next.setEllipsize(android.text.TextUtils.TruncateAt.END); nextCard.addView(next);
         nextDiagram = new ChordDiagramView(this); nextDiagram.setTag("studio_next_diagram"); nextCard.addView(nextDiagram, new LinearLayout.LayoutParams(-1, 0, 1));
-        countdown = text(panel, "Tap Analyse chords to begin", 12); countdown.setMaxLines(1);
-        LinearLayout actions = new LinearLayout(this); actionRow = actions; panel.addView(actions);
-        analyze = button(actions, "Analyse", () -> { automatic = true; startAnalysis(); }); analyze.setId(R.id.chord_analyze); analyze.setBackgroundTintList(android.content.res.ColorStateList.valueOf(0xffff8c42)); analyze.setTextColor(0xff101820);
-        cancel = button(actions, "Cancel", () -> { automatic = false; stopAnalysis(); state.setText("Analysis cancelled. Tap Analyse chords to retry."); }); cancel.setId(R.id.chord_cancel); cancel.setEnabled(false); cancel.setVisibility(View.GONE);
-        button(actions, "Studio options", this::optionsDialog).setTag("studio_options");
-        summary = new TextView(this); summary.setTextColor(0xffa8b1c5); summary.setTextSize(13); summary.setText("Advanced chord analysis runs entirely on this device.\nImport audio or video from Blaze or your files. Transposition changes labels; playback keeps its original pitch.");
-        shift = new TextView(this); shift.setTextColor(0xffeeeeee);
-        arrangeStudio();
+        countdown = ui.label("Discover the chords. Then play along.", 12, ui.secondary); countdown.setMaxLines(1);
+        actionRow = new LinearLayout(this); actionRow.setGravity(android.view.Gravity.CENTER_VERTICAL);
+        analyze = button(actionRow, "Analyse chords", () -> { automatic = true; startAnalysis(); }); analyze.setId(R.id.chord_analyze); ui.styleButton(analyze, true);
+        cancel = button(actionRow, "Cancel", () -> { automatic = false; stopAnalysis(); state.setText("Analysis cancelled. Tap Analyse chords to retry."); }); cancel.setId(R.id.chord_cancel); cancel.setEnabled(false); cancel.setVisibility(View.GONE);
+        Button options = button(actionRow, "Options", this::optionsDialog); options.setTag("studio_options"); options.setContentDescription("Studio options: instruments, chords, rhythm and export");
+        summary = ui.label("Chord analysis stays on this device.\nTransposition changes chord labels; playback keeps its original pitch.", 14, ui.secondary);
+        shift = ui.label("", 14, ui.text);
+        updateInstrument(); arrangeStudio();
         setPlaybackFullscreen(saved != null && saved.getBoolean("fullscreen"));
     }
-    private LinearLayout chordCard(LinearLayout parent) {
-        LinearLayout card = new LinearLayout(this); card.setOrientation(LinearLayout.VERTICAL); card.setPadding(dp(6), dp(3), dp(6), dp(3));
-        android.graphics.drawable.GradientDrawable background = new android.graphics.drawable.GradientDrawable(); background.setColor(0xff17212b); background.setCornerRadius(dp(8)); card.setBackground(background);
-        LinearLayout.LayoutParams layout = new LinearLayout.LayoutParams(0, -1, 1); layout.setMargins(dp(2), dp(3), dp(2), dp(3)); parent.addView(card, layout); return card;
+    private static void detach(View view) { if (view != null && view.getParent() instanceof android.view.ViewGroup) ((android.view.ViewGroup)view.getParent()).removeView(view); }
+    private LinearLayout chordCard(LinearLayout parent, boolean active) {
+        LinearLayout card = ui.column(); card.setPadding(dp(12), dp(10), dp(12), dp(8));
+        card.setBackground(ui.shape(active ? ui.softAccent : ui.surface, 22));
+        LinearLayout.LayoutParams layout = new LinearLayout.LayoutParams(0, -1, 1);
+        if (active) layout.setMargins(0, 0, dp(6), 0); else layout.setMargins(dp(6), 0, 0, 0);
+        parent.addView(card, layout); return card;
+    }
+    private void updateInstrument() {
+        if (pianoChoice == null) return;
+        Button[] choices = {pianoChoice, guitarChoice, videoChoice};
+        boolean[] active = {!guitar, guitar, videoExpanded};
+        for (int i = 0; i < choices.length; i++) {
+            ui.styleButton(choices[i], false); choices[i].setTextSize(13);
+            choices[i].setSelected(active[i]); choices[i].setTextColor(active[i] ? ui.text : ui.secondary);
+            choices[i].setTypeface(null, active[i] ? android.graphics.Typeface.BOLD : android.graphics.Typeface.NORMAL);
+            if (active[i]) choices[i].setBackground(ui.interactiveSurface(ui.elevated, 12));
+        }
     }
     private String mediaName() {
         if (source != null) return source.title;
@@ -98,16 +122,16 @@ public class MusicStudioActivity extends VlcPlayerActivity {
         return "Music Studio";
     }
     private void optionsDialog() {
-        LinearLayout content = new LinearLayout(this); content.setOrientation(LinearLayout.VERTICAL); content.setPadding(dp(12), dp(6), dp(12), dp(6));
+        LinearLayout content = ui.column(); content.setPadding(dp(20), dp(8), dp(20), dp(16));
         if (summary.getParent() != null) ((android.view.ViewGroup)summary.getParent()).removeView(summary); content.addView(summary);
-        button(content, "Instrument: " + (guitar ? "Guitar" : "Piano"), () -> new android.app.AlertDialog.Builder(this).setTitle("Chord diagrams").setItems(new String[]{"Piano", "Guitar"}, (dialog, choice) -> { guitar = choice == 1; onPlaybackTime(playbackTime); }).show());
+        button(content, "Instrument: " + (guitar ? "Guitar" : "Piano"), () -> new android.app.AlertDialog.Builder(this).setTitle("Chord diagrams").setItems(new String[]{"Piano", "Guitar"}, (dialog, choice) -> { guitar = choice == 1; updateInstrument(); onPlaybackTime(playbackTime); }).show());
         button(content, "Edit current chord", this::editChord);
         button(content, "Rhythm & timing", () -> rhythmDialog(false));
         button(content, "Chord list", this::chordListDialog);
         LinearLayout exports = new LinearLayout(this); content.addView(exports); button(exports, "Export JSON", () -> export(false)); button(exports, "Export CSV", () -> export(true));
-        LinearLayout transposition = new LinearLayout(this); content.addView(transposition); button(transposition, "− semitone", () -> transpose(-1));
-        if (shift.getParent() != null) ((android.view.ViewGroup)shift.getParent()).removeView(shift); transposition.addView(shift, new LinearLayout.LayoutParams(0, -2, 1)); button(transposition, "+ semitone", () -> transpose(1)); button(content, "Reset transposition", () -> { transpose = 0; render(); });
-        if (playbackOptions.getParent() != null) ((android.view.ViewGroup)playbackOptions.getParent()).removeView(playbackOptions); content.addView(playbackOptions);
+        detach(shift); shift.setGravity(android.view.Gravity.CENTER_HORIZONTAL); shift.setPadding(0, dp(12), 0, dp(6)); content.addView(shift);
+        LinearLayout transposition = new LinearLayout(this); content.addView(transposition); button(transposition, "− semitone", () -> transpose(-1)); button(transposition, "+ semitone", () -> transpose(1)); button(content, "Reset transposition", () -> { transpose = 0; render(); });
+        if (playbackOptions.getParent() != null) ((android.view.ViewGroup)playbackOptions.getParent()).removeView(playbackOptions); playbackOptions.setVisibility(View.VISIBLE); content.addView(playbackOptions);
         ScrollView scroll = new ScrollView(this); scroll.addView(content);
         new android.app.AlertDialog.Builder(this).setTitle("Studio options").setView(scroll).setPositiveButton("Close", null).show();
     }
@@ -170,7 +194,7 @@ public class MusicStudioActivity extends VlcPlayerActivity {
         if (previous != null) { previous.setEnabled(page > 0); following.setEnabled((page + 1) * PAGE_SIZE < result.events.size()); }
         for (int i = page * PAGE_SIZE; rows != null && i < Math.min(result.events.size(), (page + 1) * PAGE_SIZE); i++) {
             ChordEngine.Event event = result.events.get(i);
-            Button row = new Button(this); row.setAllCaps(false); row.setTextColor(0xffff8c42);
+            Button row = ui.button("", false); row.setTextColor(ui.accent);
             row.setText(time(event.startMs) + " – " + time(event.endMs) + "   " + StudioFlowView.visibleChord(event.chord,transpose));
             row.setContentDescription("Seek to " + time(event.startMs) + ", chord " + StudioFlowView.visibleChord(event.chord,transpose));
             row.setOnClickListener(v -> { if (player != null) { seekPlayback(event.startMs); } });
@@ -225,24 +249,37 @@ public class MusicStudioActivity extends VlcPlayerActivity {
     }
     private void arrangeStudio() {
         if (studioPanel == null) return;
-        View[] views = {state, flow, rhythmStatus, instrumentRow, cardRow, countdown, actionRow};
-        for (View view : views) if (view.getParent() != null) ((android.view.ViewGroup)view.getParent()).removeView(view);
+        View[] views = {trackName, state, flow, rhythmStatus, instrumentRow, cardRow, countdown, actionRow};
+        for (View view : views) detach(view);
         studioPanel.removeAllViews();
         boolean landscape = getResources().getConfiguration().orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE;
+        boolean largeText = getResources().getConfiguration().fontScale > 1.35f;
+        boolean compact = getResources().getConfiguration().screenHeightDp < 680 || largeText;
         studioPanel.setOrientation(landscape ? LinearLayout.HORIZONTAL : LinearLayout.VERTICAL);
         LinearLayout left = studioPanel, right = studioPanel;
         if (landscape) {
-            left = new LinearLayout(this); left.setOrientation(LinearLayout.VERTICAL); right = new LinearLayout(this); right.setOrientation(LinearLayout.VERTICAL);
-            studioPanel.addView(left, new LinearLayout.LayoutParams(0, -1, 3)); studioPanel.addView(right, new LinearLayout.LayoutParams(0, -1, 2));
+            left = ui.column(); right = ui.column();
+            LinearLayout.LayoutParams leftSize = new LinearLayout.LayoutParams(0, -1, 1);
+            leftSize.setMargins(0, 0, dp(16), 0);
+            studioPanel.addView(left, leftSize); studioPanel.addView(right, new LinearLayout.LayoutParams(0, -1, 1));
             videoExpanded = false; videoHost.setLayoutParams(new LinearLayout.LayoutParams(-1, 0)); videoHost.setVisibility(View.GONE);
+        } else {
+            left.addView(trackName, new LinearLayout.LayoutParams(-1, -2));
+            margin(trackName, 0, 4);
         }
-        left.addView(state, new LinearLayout.LayoutParams(-1, -2)); left.addView(flow, new LinearLayout.LayoutParams(-1, dp(landscape ? 72 : 88)));
-        left.addView(rhythmStatus, new LinearLayout.LayoutParams(-1, -2));
-        if (getResources().getConfiguration().fontScale <= 1.35f) left.addView(instrumentRow, new LinearLayout.LayoutParams(-1, -2));
-        right.addView(cardRow, landscape ? new LinearLayout.LayoutParams(-1, 0, 1) : new LinearLayout.LayoutParams(-1, dp(164)));
-        right.addView(countdown, new LinearLayout.LayoutParams(-1, -2));
-        if (!landscape) right.addView(new Space(this), new LinearLayout.LayoutParams(-1, 0, 1));
-        right.addView(actionRow, new LinearLayout.LayoutParams(-1, -2));
+        left.addView(state, new LinearLayout.LayoutParams(-1, -2)); margin(state, 0, landscape ? 2 : 8);
+        left.addView(flow, new LinearLayout.LayoutParams(-1, dp(landscape ? 64 : compact ? 72 : 84)));
+        left.addView(rhythmStatus, new LinearLayout.LayoutParams(-1, -2)); margin(rhythmStatus, 2, landscape ? 4 : 8);
+        if (!landscape && !compact) { left.addView(instrumentRow, new LinearLayout.LayoutParams(-1, -2)); margin(instrumentRow, 0, 12); }
+        right.addView(cardRow, new LinearLayout.LayoutParams(-1, 0, 1));
+        right.addView(countdown, new LinearLayout.LayoutParams(-1, -2)); margin(countdown, 8, landscape ? 0 : 8);
+        (landscape ? left : right).addView(actionRow, new LinearLayout.LayoutParams(-1, -2));
+        if (landscape) { state.setMaxLines(1); trackName.setVisibility(View.GONE); } else { state.setMaxLines(2); trackName.setVisibility(View.VISIBLE); }
+        updateInstrument();
+    }
+    private void margin(View view, int top, int bottom) {
+        LinearLayout.LayoutParams params = (LinearLayout.LayoutParams)view.getLayoutParams();
+        params.topMargin = dp(top); params.bottomMargin = dp(bottom); view.setLayoutParams(params);
     }
     private void loadRhythm(){
         try{String saved=getSharedPreferences("studio-rhythm",MODE_PRIVATE).getString(result.sourceHash,"");rhythm=StudioRhythm.read(saved);musical=new StudioTimeline(result.durationMs,result.events,result.beats,result.downbeats,result.meter,rhythm);flow.show(musical,transpose);}
@@ -251,13 +288,15 @@ public class MusicStudioActivity extends VlcPlayerActivity {
     private void rhythmDialog(boolean change){
         if(result==null){state.setText("Analyse a recording first.");return;}
         LinearLayout form=new LinearLayout(this);form.setOrientation(LinearLayout.VERTICAL);form.setPadding(dp(18),dp(8),dp(18),dp(8));text(form,"Automatic rhythm uses this recording. You can correct the meter or set a manual grid.",12);
-        Spinner mode=new Spinner(this);mode.setAdapter(new ArrayAdapter<>(this,android.R.layout.simple_spinner_dropdown_item,new String[]{"Automatic rhythm", "Detected beats + corrected meter", "Manual fixed tempo", "Seconds only"}));mode.setSelection("beats".equals(rhythm.mode)?1:"grid".equals(rhythm.mode)?2:"unknown".equals(rhythm.mode)?3:0);form.addView(mode);
-        text(form,"Quarter-note BPM",12);EditText bpm=new EditText(this);bpm.setInputType(8194);bpm.setText(String.valueOf(Double.isFinite(result.tempo)&&"unknown".equals(rhythm.mode)?result.tempo:rhythm.bpm));form.addView(bpm);
-        text(form,"Meter numerator / denominator",12);LinearLayout meters=new LinearLayout(this);form.addView(meters);Spinner num=new Spinner(this),den=new Spinner(this);Integer[] nums={1,2,3,4,5,6,7,8,9,10,11,12};Integer[] dens={2,4,8,16};num.setAdapter(new ArrayAdapter<>(this,android.R.layout.simple_spinner_dropdown_item,nums));num.setSelection(rhythm.numerator-1);den.setAdapter(new ArrayAdapter<>(this,android.R.layout.simple_spinner_dropdown_item,dens));for(int i=0;i<dens.length;i++)if(dens[i]==rhythm.denominator)den.setSelection(i);meters.addView(num);meters.addView(den);
-        CheckBox compound=new CheckBox(this);compound.setText("Group eighth notes in threes");compound.setChecked(rhythm.compound);form.addView(compound);
-        text(form,"First downbeat (seconds)",12);EditText offset=new EditText(this);offset.setInputType(8194);offset.setText(String.format(Locale.ROOT,"%.3f",rhythm.offset/1000.0));form.addView(offset);button(form,"Use playback position",()->offset.setText(String.format(Locale.ROOT,"%.3f",playbackTime/1000.0)));
-        android.app.AlertDialog dialog=new android.app.AlertDialog.Builder(this).setTitle(change?"Set meter change here":"Rhythm correction").setView(form).setPositiveButton("Save",null).setNeutralButton(change?"Cancel":"Add meter change",null).setNegativeButton(change?"Close":"Revert rhythm",(d,w)->{if(!change){getSharedPreferences("studio-rhythm",MODE_PRIVATE).edit().remove(result.sourceHash).apply();loadRhythm();render();}}).create();
-        dialog.setOnShowListener(d->{dialog.getButton(-1).setOnClickListener(v->{try{StudioTimeline.Rhythm candidate=StudioRhythm.read(StudioRhythm.write(rhythm));int n=(Integer)num.getSelectedItem(),de=(Integer)den.getSelectedItem();if(change){if(("unknown".equals(candidate.mode) || "auto".equals(candidate.mode)))throw new IllegalArgumentException("Save the first meter/grid before adding a change.");candidate.changes.removeIf(c->c.time==playbackTime);candidate.changes.add(new StudioTimeline.Change(playbackTime,n,de,compound.isChecked()));candidate.changes.sort(java.util.Comparator.comparingLong(c->c.time));}else{candidate.mode=mode.getSelectedItemPosition()==1?"beats":mode.getSelectedItemPosition()==2?"grid":mode.getSelectedItemPosition()==3?"unknown":"auto";candidate.bpm=Double.parseDouble(bpm.getText().toString());candidate.numerator=n;candidate.denominator=de;candidate.offset=Math.round(Double.parseDouble(offset.getText().toString())*1000);candidate.compound=compound.isChecked();}new StudioTimeline(result.durationMs,result.events,result.beats,result.downbeats,result.meter,candidate);getSharedPreferences("studio-rhythm",MODE_PRIVATE).edit().putString(result.sourceHash,StudioRhythm.write(candidate)).apply();loadRhythm();render();dialog.dismiss();}catch(Exception error){state.setText(error.getMessage()==null?"Enter a valid rhythm grid.":error.getMessage());}});dialog.getButton(-3).setOnClickListener(v->{dialog.dismiss();if(!change)rhythmDialog(true);});});dialog.show();
+        Spinner mode=new Spinner(this);mode.setAdapter(new ArrayAdapter<>(this,android.R.layout.simple_spinner_dropdown_item,new String[]{"Automatic rhythm", "Detected beats + corrected meter", "Manual fixed tempo", "Seconds only"}));ui.styleSpinner(mode); mode.setContentDescription("Rhythm source");mode.setSelection("beats".equals(rhythm.mode)?1:"grid".equals(rhythm.mode)?2:"unknown".equals(rhythm.mode)?3:0);form.addView(mode);
+        text(form,"Quarter-note BPM",12);EditText bpm=new EditText(this);ui.styleInput(bpm); bpm.setContentDescription("Quarter-note beats per minute");bpm.setInputType(8194);bpm.setText(String.valueOf(Double.isFinite(result.tempo)&&"unknown".equals(rhythm.mode)?result.tempo:rhythm.bpm));form.addView(bpm);
+        text(form,"Meter numerator / denominator",12);LinearLayout meters=new LinearLayout(this);form.addView(meters);Spinner num=new Spinner(this),den=new Spinner(this);Integer[] nums={1,2,3,4,5,6,7,8,9,10,11,12};Integer[] dens={2,4,8,16};num.setAdapter(new ArrayAdapter<>(this,android.R.layout.simple_spinner_dropdown_item,nums));num.setSelection(rhythm.numerator-1);den.setAdapter(new ArrayAdapter<>(this,android.R.layout.simple_spinner_dropdown_item,dens));for(int i=0;i<dens.length;i++)if(dens[i]==rhythm.denominator)den.setSelection(i);ui.styleSpinner(num);ui.styleSpinner(den);num.setContentDescription("Meter numerator");den.setContentDescription("Meter denominator");meters.addView(num,new LinearLayout.LayoutParams(0,-2,1));meters.addView(den,new LinearLayout.LayoutParams(0,-2,1));
+        CheckBox compound=new CheckBox(this);compound.setText("Group eighth notes in threes");compound.setTextColor(ui.text);compound.setButtonTintList(android.content.res.ColorStateList.valueOf(ui.accent));compound.setMinHeight(dp(48));compound.setChecked(rhythm.compound);form.addView(compound);
+        text(form,"First downbeat (seconds)",12);EditText offset=new EditText(this);ui.styleInput(offset);offset.setContentDescription("First downbeat in seconds");offset.setInputType(8194);offset.setText(String.format(Locale.ROOT,"%.3f",rhythm.offset/1000.0));form.addView(offset);button(form,"Use playback position",()->offset.setText(String.format(Locale.ROOT,"%.3f",playbackTime/1000.0)));
+        TextView validation=ui.label("",13,ui.accent);validation.setAccessibilityLiveRegion(View.ACCESSIBILITY_LIVE_REGION_POLITE);form.addView(validation);
+        ScrollView formScroll=new ScrollView(this);formScroll.addView(form);
+        android.app.AlertDialog dialog=new android.app.AlertDialog.Builder(this).setTitle(change?"Set meter change here":"Rhythm correction").setView(formScroll).setPositiveButton("Save",null).setNeutralButton(change?"Cancel":"Add meter change",null).setNegativeButton(change?"Close":"Revert rhythm",(d,w)->{if(!change){getSharedPreferences("studio-rhythm",MODE_PRIVATE).edit().remove(result.sourceHash).apply();loadRhythm();render();}}).create();
+        dialog.setOnShowListener(d->{dialog.getButton(-1).setOnClickListener(v->{try{StudioTimeline.Rhythm candidate=StudioRhythm.read(StudioRhythm.write(rhythm));int n=(Integer)num.getSelectedItem(),de=(Integer)den.getSelectedItem();if(change){if(("unknown".equals(candidate.mode) || "auto".equals(candidate.mode)))throw new IllegalArgumentException("Save the first meter/grid before adding a change.");candidate.changes.removeIf(c->c.time==playbackTime);candidate.changes.add(new StudioTimeline.Change(playbackTime,n,de,compound.isChecked()));candidate.changes.sort(java.util.Comparator.comparingLong(c->c.time));}else{candidate.mode=mode.getSelectedItemPosition()==1?"beats":mode.getSelectedItemPosition()==2?"grid":mode.getSelectedItemPosition()==3?"unknown":"auto";candidate.bpm=Double.parseDouble(bpm.getText().toString());candidate.numerator=n;candidate.denominator=de;candidate.offset=Math.round(Double.parseDouble(offset.getText().toString())*1000);candidate.compound=compound.isChecked();}new StudioTimeline(result.durationMs,result.events,result.beats,result.downbeats,result.meter,candidate);getSharedPreferences("studio-rhythm",MODE_PRIVATE).edit().putString(result.sourceHash,StudioRhythm.write(candidate)).apply();loadRhythm();render();dialog.dismiss();}catch(Exception error){String message=error.getMessage()==null?"Enter a valid rhythm grid.":error.getMessage();validation.setText(message);state.setText(message);}});dialog.getButton(-3).setOnClickListener(v->{dialog.dismiss();if(!change)rhythmDialog(true);});});dialog.show();
     }
     private void applyEdits(){
         if(result==null||result.identity==null)return;
@@ -270,15 +309,19 @@ public class MusicStudioActivity extends VlcPlayerActivity {
         final int index = selected;
         LinearLayout form = new LinearLayout(this); form.setOrientation(LinearLayout.VERTICAL); form.setPadding(dp(18), dp(8), dp(18), dp(8));
         text(form, "Original chord · transposition does not affect this correction", 12);
-        Spinner rootChoice = new Spinner(this); rootChoice.setAdapter(new ArrayAdapter<>(this, android.R.layout.simple_spinner_dropdown_item, ChordEngine.NOTES)); form.addView(rootChoice); rootChoice.setContentDescription("Chord root");
+        text(form, "Chord root", 13);
+        Spinner rootChoice = new Spinner(this); rootChoice.setAdapter(new ArrayAdapter<>(this, android.R.layout.simple_spinner_dropdown_item, ChordEngine.NOTES)); ui.styleSpinner(rootChoice);form.addView(rootChoice); rootChoice.setContentDescription("Chord root");
         String[] qualities = new String[StudioChord.QUALITY.length];
         for (int i = 0; i < qualities.length; i++) qualities[i] = StudioChord.QUALITY[i].equals("maj") ? "Major" : StudioChord.QUALITY[i].equals("min") ? "Minor" : StudioChord.SUFFIX[i];
-        Spinner qualityChoice = new Spinner(this); qualityChoice.setAdapter(new ArrayAdapter<>(this, android.R.layout.simple_spinner_dropdown_item, qualities)); form.addView(qualityChoice); qualityChoice.setContentDescription("Chord quality");
+        text(form, "Chord quality", 13);
+        Spinner qualityChoice = new Spinner(this); qualityChoice.setAdapter(new ArrayAdapter<>(this, android.R.layout.simple_spinner_dropdown_item, qualities)); ui.styleSpinner(qualityChoice);form.addView(qualityChoice); qualityChoice.setContentDescription("Chord quality");
         String[] basses = new String[13]; basses[0] = "Root bass"; for (int i = 0; i < 12; i++) basses[i + 1] = ChordEngine.NOTES[i];
-        Spinner bassChoice = new Spinner(this); bassChoice.setAdapter(new ArrayAdapter<>(this, android.R.layout.simple_spinner_dropdown_item, basses)); form.addView(bassChoice); bassChoice.setContentDescription("Bass note for inversion");
+        text(form, "Bass note", 13);
+        Spinner bassChoice = new Spinner(this); bassChoice.setAdapter(new ArrayAdapter<>(this, android.R.layout.simple_spinner_dropdown_item, basses)); ui.styleSpinner(bassChoice);form.addView(bassChoice); bassChoice.setContentDescription("Bass note for inversion");
         int original = result.events.get(index).chord;
         if (original >= 0) { rootChoice.setSelection(StudioChord.root(original)); qualityChoice.setSelection(StudioChord.quality(original)); String name = StudioChord.canonical(original, 0); int slash = name.indexOf('/'); if (slash >= 0) for (int i = 1; i < basses.length; i++) if (basses[i].equals(name.substring(slash + 1))) bassChoice.setSelection(i); }
-        android.app.AlertDialog dialog = new android.app.AlertDialog.Builder(this).setTitle("Correct chord at " + time(result.events.get(index).startMs)).setView(form).setPositiveButton("Save", null).setNeutralButton("Clear chord", (d, w) -> saveChord(index, -1)).setNegativeButton("Cancel", null).create();
+        ScrollView formScroll = new ScrollView(this); formScroll.addView(form);
+        android.app.AlertDialog dialog = new android.app.AlertDialog.Builder(this).setTitle("Correct chord at " + time(result.events.get(index).startMs)).setView(formScroll).setPositiveButton("Save", null).setNeutralButton("Clear chord", (d, w) -> saveChord(index, -1)).setNegativeButton("Cancel", null).create();
         dialog.setOnShowListener(d -> dialog.getButton(-1).setOnClickListener(v -> {
             String name = ChordEngine.NOTES[rootChoice.getSelectedItemPosition()] + ":" + StudioChord.QUALITY[qualityChoice.getSelectedItemPosition()];
             if (bassChoice.getSelectedItemPosition() > 0) name += "/" + basses[bassChoice.getSelectedItemPosition()];
@@ -310,8 +353,12 @@ public class MusicStudioActivity extends VlcPlayerActivity {
         final byte[] bytes=exportBytes;exportBytes=null;final android.net.Uri uri=data.getData();final android.content.Context app=getApplicationContext();
         worker.submit(()->{try(java.io.OutputStream out=app.getContentResolver().openOutputStream(uri,"wt")){if(out==null)throw new java.io.IOException();out.write(bytes);updates.post(()->{if(!isDestroyed())state.setText("Chord export saved.");});}catch(Exception error){updates.post(()->{if(!isDestroyed())state.setText("Could not write chord export. Choose another location.");});}});
     }
-    private TextView text(LinearLayout parent, String value, int size) { TextView v = new TextView(this); v.setText(value); v.setTextSize(size); v.setTextColor(0xffeeeeee); parent.addView(v); return v; }
-    private Button button(LinearLayout parent, String label, Runnable action) { Button b = new Button(this); b.setText(label); b.setAllCaps(false); b.setTextSize(13); b.setMinHeight(dp(48)); b.setMinWidth(0); b.setMinimumWidth(0); b.setTextColor(0xffff8c42); b.setOnClickListener(v -> action.run()); parent.addView(b, parent.getOrientation() == LinearLayout.HORIZONTAL ? new LinearLayout.LayoutParams(0, -2, 1) : new LinearLayout.LayoutParams(-1, -2)); return b; }
+    private TextView text(LinearLayout parent, String value, int size) { TextView v = ui.label(value, size, ui.text); parent.addView(v); return v; }
+    private Button button(LinearLayout parent, String label, Runnable action) {
+        Button b = ui.button(label, false); b.setTextSize(14); b.setOnClickListener(v -> action.run());
+        LinearLayout.LayoutParams params = parent.getOrientation() == LinearLayout.HORIZONTAL ? new LinearLayout.LayoutParams(0, -2, 1) : new LinearLayout.LayoutParams(-1, -2);
+        params.setMargins(dp(3), dp(3), dp(3), dp(3)); parent.addView(b, params); return b;
+    }
     private int dp(int value) { return Math.round(value * getResources().getDisplayMetrics().density); }
     private static String time(long value) { return String.format(Locale.ROOT, "%d:%02d.%01d", value / 60000, value / 1000 % 60, value / 100 % 10); }
 }

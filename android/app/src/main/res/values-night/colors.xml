@@ -1,3 +1,12 @@
 <resources>
     <color name="logo_background">#000000</color>
+    <color name="blaze_background">#171816</color>
+    <color name="blaze_surface">#22231F</color>
+    <color name="blaze_elevated">#2E2F2A</color>
+    <color name="blaze_text">#F6F4EF</color>
+    <color name="blaze_secondary">#B7B4AC</color>
+    <color name="blaze_accent">#FFA876</color>
+    <color name="blaze_accent_text">#241710</color>
+    <color name="blaze_border">#3B3C36</color>
+    <color name="blaze_soft_accent">#3B2B22</color>
 </resources>

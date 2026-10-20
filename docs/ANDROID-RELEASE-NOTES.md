@@ -1,3 +1,17 @@
+# Blaze Android 0.8.0 preview
+
+A redesigned Android interface with a focused Music Studio, persistent navigation,
+warm light and charcoal dark themes, shared typography and controls, and quieter
+library rows. The offline analysis, download and playback engines are unchanged.
+
+- Downloads, History, Library and Studio remain within reach in the bottom navigation.
+- The link composer groups format choices and keeps inactive queue controls out of the way.
+- Studio gives the current chord, next chord, timeline and transport a clear hierarchy.
+- Piano diagrams show readable chord tones; guitar, timing, editing and export remain available.
+- Shared native controls include touch feedback, keyboard focus and accessible labels.
+
+Preview signing and physical-device limitations remain as described below.
+
 # Blaze Android 0.7.0 preview
 
 Updated home navigation, system light/dark appearance, clearer section selection and preserved offline Studio, downloads and saved-file controls. Built and instrumented on Android API 29 and 35 before publication. Debug-signed preview; physical-phone and OEM background behavior are not comprehensively tested.

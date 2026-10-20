@@ -20,8 +20,9 @@ final class StudioFlowView extends View {
     private boolean moved;
     private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG), text = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Access access;
+    private final BlazeUi ui;
     StudioFlowView(Context c) {
-        super(c); setFocusable(true); setImportantForAccessibility(IMPORTANT_FOR_ACCESSIBILITY_YES);
+        super(c); ui = new BlazeUi(c); setFocusable(true); setImportantForAccessibility(IMPORTANT_FOR_ACCESSIBILITY_YES);
         setContentDescription("Chord timeline. Swipe or tap to seek.");
         access = new Access(this); ViewCompat.setAccessibilityDelegate(this, access);
     }
@@ -55,39 +56,39 @@ final class StudioFlowView extends View {
     private long time(float x) { return Math.max(0, Math.min(timeline.duration, timeAt(coordinate(position) + (x - playhead()) / cellWidth()))); }
     static String visibleChord(int chord, int shift) { return chord < 0 ? "" : StudioChord.label(chord, shift); }
     @Override protected void onDraw(Canvas canvas) {
-        super.onDraw(canvas); float top = dp(23), bottom = getHeight() - dp(12);
-        paint.setColor(0xff19232e); canvas.drawRoundRect(0, top, getWidth(), bottom, dp(8), dp(8), paint);
-        if (timeline == null) { text.setColor(0xffa8b1c5); text.setTextSize(sp(14)); text.setTypeface(Typeface.DEFAULT); canvas.drawText("Analyse this file to see its chords", dp(12), (top + bottom) / 2 + dp(5), text); return; }
+        super.onDraw(canvas); float top = dp(22), bottom = getHeight() - dp(8);
+        paint.setColor(ui.surface); canvas.drawRoundRect(0, top, getWidth(), bottom, dp(16), dp(16), paint);
+        if (timeline == null) { text.setColor(ui.secondary); text.setTextSize(sp(13)); text.setTypeface(Typeface.DEFAULT); String prompt = "Your chord timeline"; while(text.measureText(prompt) > getWidth() - dp(32) && text.getTextSize() > sp(10)) text.setTextSize(text.getTextSize() - 1); canvas.drawText(prompt, dp(16), (top + bottom - text.ascent() - text.descent()) / 2, text); return; }
         double centre = coordinate(position); int start = (int)Math.floor(centre - playhead() / cellWidth()) - 1, finish = (int)Math.ceil(centre + (getWidth() - playhead()) / cellWidth()) + 1;
-        text.setTypeface(Typeface.DEFAULT); text.setTextSize(sp(11)); text.setColor(0xffa8b1c5);
+        text.setTypeface(Typeface.DEFAULT); text.setTextSize(sp(11)); text.setColor(ui.secondary);
         for (int beat = start; beat <= finish; beat++) {
             long timestamp = timeAt(beat); if (timestamp < 0 || timestamp >= timeline.duration) continue;
             float left = playhead() + (float)(beat - centre) * cellWidth();
-            paint.setColor(0xff344252); paint.setStrokeWidth(dp(1)); canvas.drawLine(left, top, left, bottom, paint);
+            paint.setColor(ui.border); paint.setStrokeWidth(dp(1)); canvas.drawLine(left, top, left, bottom, paint);
             if (!measured()) canvas.drawText((timestamp / 1000) + "s", left + dp(4), dp(16), text);
         }
         for (int i = 0; i < timeline.measures.size(); i++) {
             StudioTimeline.Measure measure = timeline.measures.get(i); if ("unknown".equals(measure.kind) || "lead-in".equals(measure.kind)) continue;
             float left = x(measure.start); if (left < 0 || left > getWidth()) continue;
-            paint.setColor(0xff7f92a7); paint.setStrokeWidth(dp(2)); canvas.drawLine(left, top, left, bottom, paint);
+            paint.setColor(ui.secondary); paint.setStrokeWidth(dp(2)); canvas.drawLine(left, top, left, bottom, paint);
             canvas.drawText("Bar " + measure.barNumber, left + dp(5), dp(16), text);
         }
         int previous = Integer.MIN_VALUE;
         for (int i = 0; i < timeline.chords.size(); i++) {
             ChordEngine.Event event = timeline.chords.get(i); String label = visibleChord(event.chord, transpose); boolean repeated = previous == event.chord; previous = event.chord;
             float left = x(event.startMs), right = x(event.endMs); if (label.isEmpty() || right < 0 || left > getWidth()) continue;
-            if (position >= event.startMs && position < event.endMs) { paint.setColor(0x444a2e1c); canvas.drawRect(Math.max(0, left), top, Math.min(getWidth(), right), bottom, paint); }
+            if (position >= event.startMs && position < event.endMs) { paint.setColor(ui.softAccent); canvas.drawRect(Math.max(0, left), top, Math.min(getWidth(), right), bottom, paint); }
             if (repeated && left >= 0) continue;
             int next = i + 1; while (next < timeline.chords.size() && timeline.chords.get(next).chord == event.chord) next++;
             float nameX = Math.max(dp(8), left + dp(8)), available = getWidth() - dp(6) - nameX;
             if (next < timeline.chords.size()) available = Math.min(available, x(timeline.chords.get(next).startMs) - nameX - dp(4));
             if (available < dp(12)) continue;
-            text.setTypeface(Typeface.create(Typeface.DEFAULT, Typeface.BOLD)); text.setTextSize(sp(30));
-            if (text.measureText(label) > available) text.setTextSize(Math.max(sp(16), sp(30) * available / text.measureText(label)));
-            text.setColor(position >= event.startMs && position < event.endMs ? 0xffff8c42 : 0xffedf0f6);
+            text.setTypeface(Typeface.create(Typeface.DEFAULT, Typeface.BOLD)); text.setTextSize(Math.min(sp(28), (bottom - top) * .64f));
+            if (text.measureText(label) > available) text.setTextSize(Math.max(sp(12), text.getTextSize() * available / text.measureText(label)));
+            text.setColor(position >= event.startMs && position < event.endMs ? ui.accent : ui.text);
             canvas.save(); canvas.clipRect(nameX, top, Math.max(nameX, nameX + available), bottom); canvas.drawText(label, nameX, (top + bottom - text.ascent() - text.descent()) / 2, text); canvas.restore();
         }
-        paint.setColor(0xffff8c42); paint.setStrokeWidth(dp(2)); canvas.drawLine(playhead(), top - dp(5), playhead(), bottom + dp(4), paint); canvas.drawCircle(playhead(), top - dp(5), dp(3), paint);
+        paint.setColor(ui.accent); paint.setStrokeWidth(dp(2)); canvas.drawLine(playhead(), top - dp(5), playhead(), bottom + dp(4), paint); canvas.drawCircle(playhead(), top - dp(5), dp(3), paint);
     }
     @Override public boolean onTouchEvent(MotionEvent event) {
         if (timeline == null || seek == null) return false;

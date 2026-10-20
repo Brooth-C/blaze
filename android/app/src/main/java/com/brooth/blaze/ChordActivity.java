@@ -29,21 +29,22 @@ public class ChordActivity extends VlcPlayerActivity {
         super.onCreate(saved);
         if (root == null || isFinishing()) return;
         if (saved != null) { transpose = Math.max(-12, Math.min(12, saved.getInt("transpose"))); page = saved.getInt("chordPage"); automatic = saved.getBoolean("chordAutomatic", true); guitar = saved.getBoolean("guitar"); }
-        LinearLayout panel = new LinearLayout(this); panel.setOrientation(LinearLayout.VERTICAL);
-        panel.setPadding(dp(12), dp(6), dp(12), dp(6));
+        playbackTitle.setText("Chord finder");
+        LinearLayout panel = ui.card();
+        panel.setPadding(dp(20), dp(16), dp(20), dp(16));
         // Keep the chord panel near the player. A bounded scroll area fits small screens.
-        ScrollView scroll = new ScrollView(this); scroll.setId(R.id.chord_panel); scroll.addView(panel);
+        ScrollView scroll = new ScrollView(this); scroll.setId(R.id.chord_panel);scroll.setFillViewport(true);scroll.setClipToPadding(false);scroll.setPadding(dp(16),dp(8),dp(16),dp(8));scroll.addView(panel);
         root.addView(scroll, 2, new LinearLayout.LayoutParams(-1, panelHeight()));
-        state = text(panel, "Offline chord finder", 14); state.setId(R.id.chord_status);
-        current = text(panel, "Now: —", 24); current.setId(R.id.chord_current);
+        state = text(panel, "Offline chord finder", 14); state.setId(R.id.chord_status);state.setTextColor(ui.secondary);state.setAccessibilityLiveRegion(View.ACCESSIBILITY_LIVE_REGION_POLITE);
+        current = text(panel, "Now: —", 28); current.setId(R.id.chord_current);current.setTypeface(android.graphics.Typeface.create("sans-serif-medium",android.graphics.Typeface.NORMAL));current.setPadding(0,dp(8),0,dp(4));
         next = text(panel, "Next: —", 16);
         LinearLayout instruments = new LinearLayout(this); panel.addView(instruments);
         button(instruments, "Piano", () -> { guitar = false; onPlaybackTime(playbackTime); });
         button(instruments, "Guitar", () -> { guitar = true; onPlaybackTime(playbackTime); });
         diagram = new ChordDiagramView(this); panel.addView(diagram, new LinearLayout.LayoutParams(-1, dp(150)));
-        summary = text(panel, "Estimated major/minor chords. N means no reliable chord. Check uncertain passages by ear.", 12);
+        summary = text(panel, "Estimated major/minor chords. N means no reliable chord. Check uncertain passages by ear.", 13);summary.setTextColor(ui.secondary);summary.setPadding(0,dp(8),0,dp(12));
         LinearLayout actions = new LinearLayout(this); panel.addView(actions);
-        analyze = button(actions, "Analyse", () -> { automatic = true; startAnalysis(); }); analyze.setId(R.id.chord_analyze);
+        analyze = button(actions, "Analyse", () -> { automatic = true; startAnalysis(); }); analyze.setId(R.id.chord_analyze);ui.styleButton(analyze,true);
         cancel = button(actions, "Cancel", () -> { automatic = false; stopAnalysis(); state.setText("Analysis cancelled. Tap Analyse to retry."); }); cancel.setId(R.id.chord_cancel); cancel.setEnabled(false);
         LinearLayout transposition = new LinearLayout(this); panel.addView(transposition);
         button(transposition, "−", () -> transpose(-1)); shift = text(transposition, "Transpose: " + transpose, 12);
@@ -105,7 +106,7 @@ public class ChordActivity extends VlcPlayerActivity {
         previous.setEnabled(page > 0); following.setEnabled((page + 1) * PAGE_SIZE < result.events.size());
         for (int i = page * PAGE_SIZE; i < Math.min(result.events.size(), (page + 1) * PAGE_SIZE); i++) {
             ChordEngine.Event event = result.events.get(i);
-            Button row = new Button(this); row.setAllCaps(false); row.setTextColor(0xffff8c42);
+            Button row = ui.button("", false);row.setGravity(android.view.Gravity.START|android.view.Gravity.CENTER_VERTICAL);
             row.setText(time(event.startMs) + " – " + time(event.endMs) + "   " + event.label(transpose));
             row.setContentDescription("Seek to " + time(event.startMs) + ", chord " + event.label(transpose));
             row.setOnClickListener(v -> { if (player != null) { player.setTime(event.startMs); onPlaybackTime(event.startMs); } });
@@ -129,8 +130,8 @@ public class ChordActivity extends VlcPlayerActivity {
     @Override protected void onSaveInstanceState(Bundle saved) { saved.putInt("transpose", transpose); saved.putInt("chordPage", page); saved.putBoolean("chordAutomatic", automatic || result != null); saved.putBoolean("guitar", guitar); super.onSaveInstanceState(saved); }
     @Override public void onConfigurationChanged(android.content.res.Configuration config) { super.onConfigurationChanged(config); View panel = findViewById(R.id.chord_panel); if (panel != null) { android.view.ViewGroup.LayoutParams layout = panel.getLayoutParams(); layout.height = panelHeight(); panel.setLayoutParams(layout); } }
     private int panelHeight() { return dp(Math.max(100, Math.min(240, getResources().getConfiguration().screenHeightDp / 3))); }
-    private TextView text(LinearLayout parent, String value, int size) { TextView v = new TextView(this); v.setText(value); v.setTextSize(size); v.setTextColor(0xffeeeeee); parent.addView(v); return v; }
-    private Button button(LinearLayout parent, String label, Runnable action) { Button b = new Button(this); b.setText(label); b.setAllCaps(false); b.setTextSize(12); b.setMinWidth(0); b.setMinimumWidth(0); b.setTextColor(0xffff8c42); b.setOnClickListener(v -> action.run()); parent.addView(b, new LinearLayout.LayoutParams(0, -2, 1)); return b; }
+    private TextView text(LinearLayout parent, String value, int size) { TextView v = ui.label(value,size,ui.text); parent.addView(v); return v; }
+    private Button button(LinearLayout parent, String label, Runnable action) { Button b = ui.button(label,false); b.setTextSize(13); b.setMinWidth(0); b.setMinimumWidth(0); b.setOnClickListener(v -> action.run()); LinearLayout.LayoutParams layout=new LinearLayout.LayoutParams(0,-2,1);layout.setMargins(dp(3),dp(3),dp(3),dp(3));parent.addView(b,layout); return b; }
     private int dp(int value) { return Math.round(value * getResources().getDisplayMetrics().density); }
     private static String time(long value) { return String.format(Locale.ROOT, "%d:%02d.%01d", value / 60000, value / 1000 % 60, value / 100 % 10); }
 }
