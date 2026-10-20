@@ -68,9 +68,17 @@ public class AndroidInterfaceTest {
                         activity.result = new StudioAnalyzer.Result(events, 12000, "C major", false, new float[]{.1f, .4f, .2f, .5f});
                         activity.result.identity = "instrumentation-theme-fixture";
                         activity.result.sourceHash = "instrumentation-theme-fixture";
+                        activity.result.tempo = 120;
+                        activity.result.beats = new long[25];
+                        for (int i = 0; i < 25; i++) activity.result.beats[i] = i * 500;
+                        activity.result.downbeats = new long[]{0, 2000, 4000, 6000, 8000, 10000, 12000};
+                        activity.result.meter = StudioMeter.estimate(activity.result.beats, activity.result.downbeats, 12000);
                         try {
-                            java.lang.reflect.Method render = MusicStudioActivity.class.getDeclaredMethod("render");
-                            render.setAccessible(true); render.invoke(activity); activity.onPlaybackTime(1500);
+                            for (String name : new String[]{"loadRhythm", "render"}) {
+                                java.lang.reflect.Method method = MusicStudioActivity.class.getDeclaredMethod(name);
+                                method.setAccessible(true); method.invoke(activity);
+                            }
+                            activity.onPlaybackTime(1500);
                         } catch (ReflectiveOperationException error) { throw new AssertionError(error); }
                     });
                     instrumentation.waitForIdleSync();

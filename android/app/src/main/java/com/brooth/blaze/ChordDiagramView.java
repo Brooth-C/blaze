@@ -55,7 +55,7 @@ final class ChordDiagramView extends View {
         StringBuilder notes = new StringBuilder();
         for (int n = 0; n < 12; n++) { int pitch = Math.floorMod(StudioChord.root(chord) + n, 12); if (contains(pitch)) notes.append(notes.length() == 0 ? "" : " · ").append(ChordEngine.NOTES[pitch]); }
         paint.setColor(ui.secondary);
-        paint.setTextSize(Math.min(11 * getResources().getDisplayMetrics().scaledDensity, 14 * unit));
+        paint.setTextSize(11 * getResources().getDisplayMetrics().scaledDensity);
         while (paint.measureText(notes.toString()) > getWidth() - 4 * unit && paint.getTextSize() > 8 * unit) paint.setTextSize(paint.getTextSize() - unit);
         canvas.drawText(notes.toString(), getWidth() / 2f, Math.min(getHeight() - 2 * unit, bottom + 17 * unit), paint);
     }
