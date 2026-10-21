@@ -13,7 +13,7 @@ class DistributionTests(unittest.TestCase):
     def setUp(self):
         self.head, self.main = 'a' * 40, 'b' * 40
         self.catalog = {
-            'repository': p.REPOSITORY, 'tag': 'v4.3.0',
+            'repository': p.REPOSITORY, 'tag': 'v4.3.1',
             'assets': [dict(name=name, source_tag=tag, size=10, sha256='c' * 64)
                        for name, tag in p.ORIGINS.items()],
             'native_validation': {key: dict(run_id=index, head_sha=self.head)
@@ -79,6 +79,23 @@ class DistributionTests(unittest.TestCase):
     def test_changed_app_inputs_are_rejected(self):
         with self.assertRaisesRegex(ValueError, 'inputs changed'):
             self.validate([dict(version='new'), dict(version='old')])
+
+    def test_android_only_update_retains_verified_desktop_packages(self):
+        current = {'music_studio': 'same', 'android': 'new', '.github/workflows/android-apk.yml': 'new'}
+        previous = {'music_studio': 'same', 'android': 'old', '.github/workflows/android-apk.yml': 'old'}
+        self.validate([current, previous, previous, current])
+
+    def test_android_update_still_requires_matching_android_proof(self):
+        current = {'music_studio': 'same', 'android': 'new'}
+        previous = {'music_studio': 'same', 'android': 'old'}
+        with self.assertRaisesRegex(ValueError, 'inputs changed'):
+            self.validate([current, previous, previous, previous])
+
+    def test_shared_engine_changes_invalidate_desktop_proof(self):
+        current = {'music_studio': 'new', 'android': 'new'}
+        previous = {'music_studio': 'old', 'android': 'old'}
+        with self.assertRaisesRegex(ValueError, 'inputs changed'):
+            self.validate([current, previous])
 
     def test_changed_platform_release_digest_or_target_is_rejected(self):
         source = self.sources['windows-v0.7.0']
