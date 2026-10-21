@@ -332,7 +332,7 @@ public final class ExploreView extends LinearLayout {
         if (item.durationMs > 0) detail += (detail.isEmpty() ? "" : " · ") + time(item.durationMs);
         TextView subtitle = ui.label(detail, 12, ui.secondary); subtitle.setMaxLines(2); subtitle.setEllipsize(TextUtils.TruncateAt.END); words.addView(subtitle);
         row.addView(words, new LinearLayout.LayoutParams(0, -2, 1));
-        Button options = icon("more", "More options for " + item.title, ui.secondary); options.setOnClickListener(v -> itemMenu(v, item, queue)); row.addView(options, new LinearLayout.LayoutParams(dp(42), dp(48)));
+        Button options = icon("more_vertical", "More options for " + item.title, ui.secondary); options.setOnClickListener(v -> itemMenu(v, item, queue)); row.addView(options, new LinearLayout.LayoutParams(dp(42), dp(48)));
         row.setContentDescription(item.title + (item.creator.isEmpty() ? "" : ", " + item.creator)); row.setFocusable(true);
         row.setOnClickListener(v -> openItem(item, queue)); return row;
     }
@@ -346,7 +346,7 @@ public final class ExploreView extends LinearLayout {
         row.addView(thumb, new LinearLayout.LayoutParams(dp(146), dp(86)));
         LinearLayout words = ui.column(); words.setPadding(dp(12), 0, 0, 0); TextView title = ui.heading(item.title, 13); title.setMaxLines(3); title.setEllipsize(TextUtils.TruncateAt.END); words.addView(title); ui.gap(words, 5);
         TextView creator = ui.label(item.creator, 12, ui.secondary); creator.setMaxLines(2); creator.setEllipsize(TextUtils.TruncateAt.END); words.addView(creator); row.addView(words, new LinearLayout.LayoutParams(0, -2, 1));
-        Button more = icon("more", "More options for " + item.title, ui.secondary); more.setOnClickListener(v -> itemMenu(v, item, playable(results))); row.addView(more, new LinearLayout.LayoutParams(dp(32), dp(48)));
+        Button more = icon("more_vertical", "More options for " + item.title, ui.secondary); more.setOnClickListener(v -> itemMenu(v, item, playable(results))); row.addView(more, new LinearLayout.LayoutParams(dp(32), dp(48)));
         row.setFocusable(true); row.setOnClickListener(v -> openItem(item, playable(results))); return row;
     }
 
@@ -416,17 +416,21 @@ public final class ExploreView extends LinearLayout {
         } return true; }); menu.show();
     }
 
-    private FrameLayout editorial(String title, String caption, int art, int height, Runnable open, Runnable play) { return mediaTile(title, caption, "", art, height, open, play); }
+    private FrameLayout editorial(String title, String caption, int art, int height, Runnable open, Runnable play) { return mediaTile(title, caption, "", art, height, open, play, true); }
     private FrameLayout mediaTile(String title, String caption, String url, int fallback, int height, Runnable open, Runnable play) {
+        return mediaTile(title, caption, url, fallback, height, open, play, false);
+    }
+    private FrameLayout mediaTile(String title, String caption, String url, int fallback, int height, Runnable open, Runnable play, boolean editorial) {
         FrameLayout tile = new FrameLayout(activity); tile.setBackground(ui.shape(ui.elevated, 14)); tile.setClipToOutline(true); tile.setFocusable(true); tile.setOnClickListener(v -> open.run()); tile.setContentDescription(title + ", " + caption);
         ImageView photo = artwork(url, fallback, 14); tile.addView(photo, new FrameLayout.LayoutParams(-1, -1));
         View shade = new View(activity); shade.setBackground(new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM, new int[]{0x00000000, 0x11000000, 0xdc000000})); tile.addView(shade, new FrameLayout.LayoutParams(-1, -1));
         LinearLayout labels = ui.column(); labels.setPadding(dp(16), dp(5), dp(height > 150 ? 62 : 12), dp(15));
-        TextView name = ui.heading(title, height > 150 ? 18 : 14); name.setTextColor(Color.WHITE); name.setMaxLines(2); name.setEllipsize(TextUtils.TruncateAt.END); labels.addView(name); ui.gap(labels, 5);
+        TextView name = ui.heading(title, height > 150 ? 20 : 12); name.setTextColor(Color.WHITE); name.setMaxLines(2); name.setEllipsize(TextUtils.TruncateAt.END); labels.addView(name); ui.gap(labels, 5);
         TextView description = ui.label(caption, height > 150 ? 13 : 10, Color.WHITE); description.setMaxLines(height > 150 ? 2 : 1); description.setEllipsize(TextUtils.TruncateAt.END); labels.addView(description);
         tile.addView(labels, new FrameLayout.LayoutParams(-1, -2, Gravity.BOTTOM));
-        Button button = icon("play", "Play " + title, height > 150 ? ui.accentText : Color.WHITE);
-        button.setBackground(ui.interactiveSurface(height > 150 ? ui.accent : 0x88ffffff, 28));
+        boolean primary = height > 150 && editorial;
+        Button button = icon("play", "Play " + title, primary ? ui.accentText : height > 150 ? ui.accent : Color.WHITE);
+        button.setBackground(ui.interactiveSurface(primary ? ui.accent : height > 150 ? Color.WHITE : 0x88ffffff, 28));
         FrameLayout.LayoutParams buttonSize = new FrameLayout.LayoutParams(dp(height > 150 ? 48 : 34), dp(height > 150 ? 48 : 34), Gravity.BOTTOM | Gravity.END);
         buttonSize.setMargins(0, 0, dp(height > 150 ? 14 : 10), dp(height > 150 ? 17 : 31)); tile.addView(button, buttonSize); button.setOnClickListener(v -> play.run());
         return tile;

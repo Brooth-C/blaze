@@ -71,9 +71,11 @@ public class AndroidInterfaceTest {
         try (ActivityScenario<MainActivity> screen = ActivityScenario.launch(AndroidTestScreens.downloads())) {
             instrumentation.waitForIdleSync();
             for (String tag : new String[]{"nav_library", "nav_history", "nav_queue"}) {
+                if (!tag.equals("nav_library")) {
+                    screen.onActivity(activity -> activity.getWindow().getDecorView().findViewWithTag("nav_downloads").performClick());
+                    awaitRenderedFrames(screen);
+                }
                 screen.onActivity(activity -> {
-                    if (!tag.equals("nav_library"))
-                        activity.getWindow().getDecorView().findViewWithTag("nav_downloads").performClick();
                     View selected = activity.getWindow().getDecorView().findViewWithTag(tag);
                     assertNotNull("Missing navigation destination " + tag, selected);
                     assertVisibleTarget(selected);

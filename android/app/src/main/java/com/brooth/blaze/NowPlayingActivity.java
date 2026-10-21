@@ -126,16 +126,19 @@ public final class NowPlayingActivity extends Activity {
         ImageButton queue = icon("queue", "Show playback queue", this::showQueue); nextRow.addView(queue, new LinearLayout.LayoutParams(dp(48), dp(48)));
         nextRow.setOnClickListener(view -> { if (playback.upNext() != null) playback.next(); });
         gap(content, 10);
-        quality = ui.label("Audio · Original quality", 11, ui.secondary); quality.setGravity(Gravity.CENTER); content.addView(quality, new LinearLayout.LayoutParams(-1, dp(28)));
+        quality = ui.label("Audio · Original quality", 11, ui.secondary); quality.setGravity(Gravity.CENTER);
+        android.graphics.drawable.Drawable wave = DiscoveryIcons.get(this, "studio", ui.secondary); wave.setBounds(0, 0, dp(14), dp(14));
+        quality.setCompoundDrawables(wave, null, null, null); quality.setCompoundDrawablePadding(dp(6)); content.addView(quality, new LinearLayout.LayoutParams(-1, dp(28)));
         status = ui.label("", 13, ui.secondary); status.setTag("now_status"); status.setGravity(Gravity.CENTER); status.setAccessibilityLiveRegion(View.ACCESSIBILITY_LIVE_REGION_POLITE); content.addView(status); status.setVisibility(View.GONE);
 
         shell.addView(ui.divider(), new LinearLayout.LayoutParams(-1, Math.max(1, dp(.5f))));
-        LinearLayout navigation = new LinearLayout(this); navigation.setPadding(dp(10), dp(4), dp(10), dp(4)); navigation.setGravity(Gravity.CENTER_VERTICAL); shell.addView(navigation);
+        LinearLayout navigation = new LinearLayout(this); navigation.setPadding(dp(8), 0, dp(8), 0); navigation.setGravity(Gravity.CENTER_VERTICAL); shell.addView(navigation);
         for (String destination : new String[]{"explore", "downloads", "library", "studio"}) {
             String text = destination.substring(0, 1).toUpperCase(Locale.ROOT) + destination.substring(1);
             Button tab = ui.button(text, false); tab.setTag("now_nav_" + destination); tab.setTextSize(10);
+            tab.setTypeface(android.graphics.Typeface.create("sans-serif", android.graphics.Typeface.NORMAL));
             tab.setMinHeight(dp(60)); tab.setMinimumHeight(dp(60)); tab.setMinWidth(0); tab.setMinimumWidth(0);
-            tab.setPadding(dp(2), dp(5), dp(2), dp(5)); tab.setCompoundDrawablePadding(dp(5));
+            tab.setPadding(dp(2), dp(5), dp(2), dp(5)); tab.setCompoundDrawablePadding(dp(3));
             int color = destination.equals("explore") ? ui.accent : ui.secondary; tab.setTextColor(color);
             tab.setCompoundDrawablesWithIntrinsicBounds(null, DiscoveryIcons.get(this, destination.equals("downloads") ? "download" : destination, color), null, null);
             tab.setBackground(ui.interactiveSurface(Color.TRANSPARENT, 12)); tab.setOnClickListener(view -> navigate(destination));

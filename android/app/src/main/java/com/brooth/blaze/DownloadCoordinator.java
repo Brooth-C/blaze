@@ -127,7 +127,7 @@ public final class DownloadCoordinator {
                 preferences.edit().putInt("audio-choice",formats.getSelectedItemPosition()).putInt("quality-choice",qualities.getSelectedItemPosition()).apply();
                 start(activity,result);dialog.dismiss();
                 if(result.complete&&forStudio) { preferences.edit().remove("studio:"+result.jobId).apply();openStudio(activity,result.jobId); }
-                else Toast.makeText(activity,result.complete?"This recording is already saved in your Library.":result.paused?"Added to paused queue.":result.existing?"This recording is already in your queue.":"Added to Downloads.",Toast.LENGTH_LONG).show();
+                else Toast.makeText(activity,result.complete?"This recording is already saved in your Library.":result.paused?"Added to paused queue.":result.existing?"This recording is already in your queue.":"Added to Downloads.",Toast.LENGTH_SHORT).show();
             } catch(Exception failure) { error.setText(failure.getMessage()==null?"Could not add this recording.":failure.getMessage()); }
         }));dialog.show();
     }

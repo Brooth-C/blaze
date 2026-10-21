@@ -81,6 +81,10 @@ public final class DiscoveryIcons {
                     ink.setStyle(Paint.Style.FILL);
                     canvas.drawCircle(5, 12, 1.6f, ink); canvas.drawCircle(12, 12, 1.6f, ink);
                     canvas.drawCircle(19, 12, 1.6f, ink); break;
+                case "more_vertical":
+                    ink.setStyle(Paint.Style.FILL);
+                    canvas.drawCircle(12, 5, 1.35f, ink); canvas.drawCircle(12, 12, 1.35f, ink);
+                    canvas.drawCircle(12, 19, 1.35f, ink); break;
                 case "heart": heart(canvas, false); break;
                 case "heart_filled": heart(canvas, true); break;
                 case "shuffle":

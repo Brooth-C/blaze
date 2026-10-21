@@ -95,9 +95,11 @@ public class DiscoveryInterfaceTest {
         String density = override(shell("wm density"), "density");
         String font = shell("settings get system font_scale").trim();
         int night = app.getSystemService(UiModeManager.class).getNightMode();
+        String navigation = activeNavigationOverlay(shell("cmd overlay list"));
         try {
-            shell("wm size 1080x2400"); shell("wm density 420");
+            shell("wm size 1080x2460"); shell("wm density 420");
             shell("settings put system font_scale 1.0"); setNight("no");
+            referenceGestureNavigation(navigation);
             try (ActivityScenario<MainActivity> screen = ActivityScenario.launch(exploreIntent())) {
                 screen.onActivity(activity -> activity.setRequestedOrientation(android.content.pm.ActivityInfo.SCREEN_ORIENTATION_PORTRAIT));
                 onMain(() -> PlaybackController.get(app).play(golden, Arrays.asList(golden, quiet)));
@@ -162,9 +164,16 @@ public class DiscoveryInterfaceTest {
             }
             assertEquals("Local playback unexpectedly used a remote resolver", 0, backend.resolves);
         } finally {
-            onMain(() -> PlaybackController.get(app).stop());
-            shell("wm size " + size); shell("wm density " + density);
-            shell("settings put system font_scale " + fontValue(font)); restoreNight(night);
+            try {
+                onMain(() -> PlaybackController.get(app).stop());
+                shell("wm size " + size); shell("wm density " + density);
+                shell("settings put system font_scale " + fontValue(font)); restoreNight(night);
+            } finally {
+                if (!navigation.isEmpty()) {
+                    shell("cmd overlay enable-exclusive --category " + navigation);
+                    assertTrue("Reference capture did not restore the navigation overlay", awaitNavigationOverlay(navigation));
+                }
+            }
         }
     }
 
@@ -239,6 +248,9 @@ public class DiscoveryInterfaceTest {
                 }
             }
             app.getSharedPreferences("queue", Context.MODE_PRIVATE).edit().putBoolean("paused", paused).commit();
+            // Both real save dialogs post short system Toasts, which Android may queue.
+            // Let both expire before the next test captures the reference interface.
+            Thread.sleep(4600);
         }
     }
 
@@ -473,6 +485,29 @@ public class DiscoveryInterfaceTest {
     private String override(String output, String kind) {
         Matcher match = Pattern.compile("Override " + kind + ":\\s*(\\d+(?:x\\d+)?)").matcher(output);
         return match.find() ? match.group(1) : "reset";
+    }
+    private String activeNavigationOverlay(String overlays) {
+        Matcher active = Pattern.compile("(?m)^\\s*\\[x\\]\\s+(com\\.android\\.internal\\.systemui\\.navbar\\.[A-Za-z0-9_.]+)\\s*$").matcher(overlays);
+        return active.find() ? active.group(1) : "";
+    }
+    private void referenceGestureNavigation(String original) throws Exception {
+        if (original.isEmpty()) return; // Keep native mode if its exact previous overlay is unknown.
+        String overlays = shell("cmd overlay list"), gestures = "com.android.internal.systemui.navbar.gestural";
+        if (original.equals(gestures) || !Pattern.compile("(?m)^\\s*\\[[x ]\\]\\s+" + Pattern.quote(gestures) + "\\s*$").matcher(overlays).find()) return;
+        shell("cmd overlay enable-exclusive --category " + gestures);
+        if (awaitNavigationOverlay(gestures)) return;
+        // Optional presentation setup may be unavailable on an emulator. Keep its native mode.
+        shell("cmd overlay enable-exclusive --category " + original);
+        assertTrue("Unavailable gesture overlay changed the original navigation mode", awaitNavigationOverlay(original));
+    }
+    private boolean awaitNavigationOverlay(String name) throws Exception {
+        Pattern enabled = Pattern.compile("(?m)^\\s*\\[x\\]\\s+" + Pattern.quote(name) + "\\s*$");
+        long deadline = SystemClock.uptimeMillis() + 3000;
+        do {
+            if (enabled.matcher(shell("cmd overlay list")).find()) return true;
+            Thread.sleep(80);
+        } while (SystemClock.uptimeMillis() < deadline);
+        return false;
     }
     private String fontValue(String value) { return value.isEmpty() || value.equals("null") ? "1.0" : value; }
     private void setNight(String value) throws Exception { assertTrue("Night mode command failed", shell("cmd uimode night " + value).contains("Night mode: " + value)); }
