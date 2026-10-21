@@ -60,6 +60,11 @@ public final class ExploreView extends LinearLayout {
     private EditText searchInput;
     private boolean home = true, loading, destroyed;
     private int generation, requestedLimit = 20;
+    private List<DiscoveryItem> homeItems = new ArrayList<>();
+    private String homeToken = "", homeProfile = "[]", homeSignature = "", homeError = "";
+    private boolean homeLoading;
+    private int homeGeneration;
+    private long homeCreated;
 
     public ExploreView(Activity activity, Actions actions) {
         super(activity);
@@ -77,8 +82,9 @@ public final class ExploreView extends LinearLayout {
     public void showHome() {
         cancelRequest(); home = true; collection = null; backStack.clear();
         hideKeyboard();
-        renderHome(); scroll.scrollTo(0, 0);
+        loadHome(false); scroll.scrollTo(0, 0);
     }
+    public void refreshRecommendations() { homeSignature = ""; if (home) loadHome(true); }
 
     public void showSearch(String value) {
         query = clean(value); submitted = query; collection = null; backStack.clear();
@@ -89,11 +95,11 @@ public final class ExploreView extends LinearLayout {
 
     public void onResume() {
         int y = scroll.getScrollY();
-        if (home) renderHome(); else renderSearch();
+        if (home) loadHome(false); else renderSearch();
         scroll.post(() -> scroll.scrollTo(0, y));
     }
 
-    public void onPause() { boolean interrupted = loading; cancelRequest(); if (interrupted && results.isEmpty()) error = "Search paused. Try again."; }
+    public void onPause() { boolean interrupted = loading; cancelRequest(); if (!home && interrupted && results.isEmpty()) error = "Search paused. Try again."; }
     public void onDestroy() { destroyed = true; cancelRequest(); }
 
     public boolean handleBack() {
@@ -172,27 +178,7 @@ public final class ExploreView extends LinearLayout {
         search.setCompoundDrawablePadding(dp(10)); search.setContentDescription("Search videos, songs and artists");
         search.setOnClickListener(v -> openSearch()); content.addView(search, new LinearLayout.LayoutParams(-1, dp(48)));
         gap(11); content.addView(homeSegments()); gap(10);
-        String heroTitle = "An evening at the keys", heroCaption = "A mix for slowing down", heroQuery = "piano evening live session";
-        int heroArt = R.drawable.discovery_piano;
-        if ("Videos".equals(homeLane)) { heroTitle = "Take the front row"; heroCaption = "Live sessions, wherever you are"; heroQuery = "acoustic live music session"; heroArt = R.drawable.discovery_acoustic; }
-        final String chosenQuery = heroQuery;
-        FrameLayout hero = editorial(heroTitle, heroCaption, heroArt, 190, () -> showSearch(chosenQuery), () -> playCurated(chosenQuery));
-        hero.setTag("explore_hero"); content.addView(hero, new LinearLayout.LayoutParams(-1, dp(190)));
-        LinearLayout dots = horizontal(); dots.setGravity(Gravity.CENTER);
-        for (int i = 0; i < 3; i++) {
-            View dot = new View(activity); dot.setBackground(ui.shape(i == 0 ? ui.accent : ui.border, 4));
-            LinearLayout.LayoutParams dotSize = new LinearLayout.LayoutParams(dp(6), dp(6)); dotSize.setMargins(dp(4), dp(7), dp(4), dp(7)); dots.addView(dot, dotSize);
-        }
-        content.addView(dots, new LinearLayout.LayoutParams(-1, dp(16)));
-        section("Made for you", () -> showSearch("acoustic jazz live sessions")); gap(10);
-        LinearLayout tiles = horizontal();
-        FrameLayout acoustic = editorial("Acoustic sessions", "A mix of mellow moments", R.drawable.discovery_acoustic, 132,
-                () -> showSearch("acoustic sessions"), () -> playCurated("acoustic sessions"));
-        FrameLayout jazz = editorial("Late-night jazz", "Smooth sounds, deeper nights", R.drawable.discovery_jazz, 132,
-                () -> showSearch("late night jazz"), () -> playCurated("late night jazz"));
-        LinearLayout.LayoutParams tile = new LinearLayout.LayoutParams(0, dp(132), 1); tile.setMargins(0, 0, dp(5), 0); tiles.addView(acoustic, tile);
-        LinearLayout.LayoutParams tile2 = new LinearLayout.LayoutParams(0, dp(132), 1); tile2.setMargins(dp(5), 0, 0, 0); tiles.addView(jazz, tile2);
-        content.addView(tiles); gap(23);
+        renderRecommendations();
         List<DiscoveryItem> history = PlaybackController.get(activity).history();
         section("Continue listening", history.isEmpty() ? this::openSearch : actions::onOpenPlayer); gap(8);
         if (!history.isEmpty()) {
@@ -204,6 +190,90 @@ public final class ExploreView extends LinearLayout {
             Button begin = icon("play", "Find something to play", ui.accent); begin.setOnClickListener(v -> openSearch()); empty.addView(begin, new LinearLayout.LayoutParams(dp(48), dp(48)));
             content.addView(empty);
         }
+        if (homeItems.size() > 3) {
+            gap(19); section("More to discover", null); gap(5);
+            for (int i = 3; i < homeItems.size(); i++) content.addView(trackRow(homeItems.get(i), homeItems));
+        }
+    }
+
+    private void renderRecommendations() {
+        LinearLayout context = horizontal(); context.setGravity(Gravity.CENTER_VERTICAL);
+        String detail = homeProfile.equals("[]") ? "Music from YouTube" : "Based on your listening in Blaze";
+        TextView reason = ui.label(detail, 12, ui.secondary); reason.setTag("recommendation_reason");
+        context.addView(reason, new LinearLayout.LayoutParams(0, -2, 1));
+        Button refresh = textButton("Refresh", ui.accent, Color.TRANSPARENT, 16);
+        refresh.setTag("recommendation_refresh"); refresh.setContentDescription("Refresh music recommendations");
+        refresh.setEnabled(!homeLoading); refresh.setOnClickListener(v -> loadHome(true));
+        context.addView(refresh, new LinearLayout.LayoutParams(dp(78), dp(40))); content.addView(context); gap(5);
+        if (homeLoading) {
+            ProgressBar progress = new ProgressBar(activity, null, android.R.attr.progressBarStyleHorizontal);
+            progress.setIndeterminate(true); progress.setIndeterminateTintList(android.content.res.ColorStateList.valueOf(ui.accent));
+            progress.setTag("recommendations_loading"); content.addView(progress, new LinearLayout.LayoutParams(-1, dp(3))); gap(7);
+        }
+        if (!homeItems.isEmpty()) {
+            FrameLayout hero = recommendationTile(homeItems.get(0), 190); hero.setTag("explore_hero");
+            content.addView(hero, new LinearLayout.LayoutParams(-1, dp(190))); gap(18);
+            if (homeItems.size() > 1) {
+                section(homeProfile.equals("[]") ? "Music to discover" : "Made for you", null); gap(10);
+                LinearLayout tiles = horizontal();
+                for (int i = 1; i < Math.min(3, homeItems.size()); i++) {
+                    LinearLayout.LayoutParams size = new LinearLayout.LayoutParams(0, dp(132), 1);
+                    if (i == 1 && homeItems.size() > 2) size.setMarginEnd(dp(5)); else if (i == 2) size.setMarginStart(dp(5));
+                    tiles.addView(recommendationTile(homeItems.get(i), 132), size);
+                }
+                content.addView(tiles); gap(14);
+            }
+        } else if (homeLoading) {
+            LinearLayout placeholder = ui.column(); placeholder.setGravity(Gravity.CENTER); placeholder.setBackground(ui.shape(ui.elevated, 14));
+            placeholder.addView(ui.heading("Finding your next favourite…", 18));
+            content.addView(placeholder, new LinearLayout.LayoutParams(-1, dp(190))); gap(12);
+        }
+        if (!homeError.isEmpty()) {
+            TextView status = ui.label((homeItems.isEmpty() ? "" : "Showing saved picks. ") + homeError, 13, ui.secondary);
+            status.setTag("recommendations_error"); status.setAccessibilityLiveRegion(View.ACCESSIBILITY_LIVE_REGION_POLITE); content.addView(status); gap(8);
+            Button retry = ui.button("Try again", false); retry.setTag("recommendations_retry"); retry.setEnabled(!homeLoading);
+            retry.setOnClickListener(v -> loadHome(true)); content.addView(retry); gap(13);
+        }
+        gap(7);
+    }
+
+    private FrameLayout recommendationTile(DiscoveryItem item, int height) {
+        FrameLayout tile = mediaTile(item.title, item.creator, item.thumbnail, 0, height,
+            () -> actions.onPlay(item, homeItems), () -> actions.onPlay(item, homeItems));
+        tile.setTag("explore_recommendation_" + item.id);
+        tile.getChildAt(0).setTag("recommendation_artwork_" + item.id);
+        return tile;
+    }
+
+    private void loadHome(boolean force) {
+        if (destroyed || !home) return;
+        String profile = RecommendationCache.profile(activity), lane = "Videos".equals(homeLane) ? "videos" : "music";
+        String signature = lane + profile;
+        if (!signature.equals(homeSignature)) {
+            cancelHomeRequest(); homeSignature = signature; homeProfile = profile; homeError = ""; homeItems = new ArrayList<>(); homeCreated = 0;
+            RecommendationCache.Snapshot cached = RecommendationCache.load(activity, lane, profile);
+            if (cached != null) { homeItems = cached.items; homeCreated = cached.created; }
+        }
+        if (homeLoading || (!force && !homeItems.isEmpty() && System.currentTimeMillis() - homeCreated < RecommendationCache.FRESH_MS)) { renderHome(); return; }
+        cancelHomeRequest(); final int active = ++homeGeneration;
+        homeLoading = true; homeError = ""; renderHome();
+        homeToken = repository.recommend(profile, lane, (items, failure) -> {
+            if (destroyed || !home || active != homeGeneration || !signature.equals(homeSignature)) return;
+            homeToken = ""; homeLoading = false; homeError = failure == null ? "" : failure;
+            LinkedHashMap<String, DiscoveryItem> unique = new LinkedHashMap<>();
+            if (items != null) for (DiscoveryItem item : items) {
+                if (item != null && !item.browsable() && DiscoveryItem.validSource(item.url) && unique.size() < 18) unique.put(item.key(), item);
+            }
+            if (homeError.isEmpty() && !unique.isEmpty()) {
+                homeItems = new ArrayList<>(unique.values()); homeCreated = System.currentTimeMillis();
+                RecommendationCache.save(activity, lane, profile, homeItems);
+            } else if (homeError.isEmpty()) homeError = "No new music picks were returned. Try again.";
+            int position = scroll.getScrollY(); renderHome(); scroll.post(() -> scroll.scrollTo(0, position));
+        });
+    }
+
+    private void cancelHomeRequest() {
+        homeGeneration++; if (!homeToken.isEmpty()) repository.cancel(homeToken); homeToken = ""; homeLoading = false;
     }
 
     private View homeSegments() {
@@ -211,8 +281,8 @@ public final class ExploreView extends LinearLayout {
         for (String label : new String[]{"For you", "Music", "Videos"}) {
             boolean selected = label.equals(homeLane);
             Button choice = textButton(label, selected ? ui.accent : ui.secondary, selected ? ui.softAccent : Color.TRANSPARENT, 20);
-            choice.setSelected(selected); choice.setContentDescription(label + (selected ? ", selected" : ""));
-            choice.setOnClickListener(v -> { homeLane = label; renderHome(); }); row.addView(choice, new LinearLayout.LayoutParams(0, dp(40), 1));
+            choice.setSelected(selected); choice.setTag("explore_lane_" + label); choice.setContentDescription(label + (selected ? ", selected" : ""));
+            choice.setOnClickListener(v -> { homeLane = label; loadHome(false); }); row.addView(choice, new LinearLayout.LayoutParams(0, dp(40), 1));
         }
         return row;
     }
@@ -367,7 +437,6 @@ public final class ExploreView extends LinearLayout {
     }
 
     private void selectFilter(String chosen) { filter = validFilter(chosen); collection = null; requestedLimit = 20; results = new ArrayList<>(); request(false); }
-    private void playCurated(String term) { home = false; query = submitted = term; filter = "Videos".equals(homeLane) ? "videos" : "songs"; collection = null; requestedLimit = 20; results = new ArrayList<>(); backStack.clear(); request(true); }
 
     private void browse(DiscoveryItem item) {
         browse(item, false);
@@ -400,7 +469,7 @@ public final class ExploreView extends LinearLayout {
         catch (RuntimeException failure) { loading = false; error = "Could not start this search. Try again."; renderSearch(); }
     }
 
-    private void cancelRequest() { generation++; if (!requestToken.isEmpty()) repository.cancel(requestToken); requestToken = ""; loading = false; }
+    private void cancelRequest() { cancelHomeRequest(); generation++; if (!requestToken.isEmpty()) repository.cancel(requestToken); requestToken = ""; loading = false; }
     private void openItem(DiscoveryItem item, List<DiscoveryItem> queue) { if (item.browsable()) browse(item); else actions.onPlay(item, queue.isEmpty() ? Collections.singletonList(item) : queue); }
 
     private void itemMenu(View anchor, DiscoveryItem item, List<DiscoveryItem> queue) {
@@ -416,7 +485,6 @@ public final class ExploreView extends LinearLayout {
         } return true; }); menu.show();
     }
 
-    private FrameLayout editorial(String title, String caption, int art, int height, Runnable open, Runnable play) { return mediaTile(title, caption, "", art, height, open, play, true); }
     private FrameLayout mediaTile(String title, String caption, String url, int fallback, int height, Runnable open, Runnable play) {
         return mediaTile(title, caption, url, fallback, height, open, play, false);
     }
@@ -436,7 +504,7 @@ public final class ExploreView extends LinearLayout {
         return tile;
     }
 
-    private ImageView artwork(String url, int fallback, int radius) { ImageView view = new ImageView(activity); view.setScaleType(ImageView.ScaleType.CENTER_CROP); view.setBackground(ui.shape(ui.elevated, radius)); view.setClipToOutline(true); view.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO); DiscoveryArtwork.load(view, url, fallback); return view; }
+    private ImageView artwork(String url, int fallback, int radius) { ImageView view = new ImageView(activity); view.setScaleType(ImageView.ScaleType.CENTER_CROP); view.setBackground(ui.shape(ui.elevated, radius)); view.setClipToOutline(true); view.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO); if (fallback == 0) view.setTag("artwork_placeholder_allowed"); DiscoveryArtwork.load(view, url, fallback); return view; }
     private Button icon(String name, String description, int color) { Button button = new IconButton(name, color); ui.styleButton(button, false); button.setPadding(0, 0, 0, 0); button.setMinWidth(0); button.setMinimumWidth(0); button.setMinHeight(0); button.setMinimumHeight(0); button.setBackground(ui.interactiveSurface(Color.TRANSPARENT, 24)); button.setContentDescription(description); expandTouchTarget(button); return button; }
     private Button textButton(String text, int color, int fill, int radius) { Button button = ui.button(text, false); button.setTextSize(12); button.setTextColor(color); button.setMinHeight(0); button.setMinimumHeight(0); button.setPadding(dp(8), 0, dp(8), 0); button.setBackground(ui.interactiveSurface(fill, radius)); return button; }
     private LinearLayout horizontal() { LinearLayout row = new LinearLayout(activity); row.setOrientation(HORIZONTAL); return row; }

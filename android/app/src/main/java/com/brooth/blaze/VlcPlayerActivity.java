@@ -50,6 +50,9 @@ public class VlcPlayerActivity extends Activity {
     private boolean software, repeat, fullscreen, resume=true, pendingSeek, wantedResume, ended, foreground;
     private AudioManager audio;
     private boolean focusGranted, noisyRegistered;
+    private DiscoveryItem recommendationItem;
+    private long listeningMillis, listeningTick;
+    private boolean listeningCounted;
     private final AudioManager.OnAudioFocusChangeListener focus=change->{if(change<0)pause();};
     private final BroadcastReceiver noisy=new BroadcastReceiver(){
         @Override public void onReceive(Context context,Intent intent){pause();}
@@ -59,6 +62,12 @@ public class VlcPlayerActivity extends Activity {
             if(!seek.isPressed())seek.setProgress(length>0?(int)(time*1000/length):0);
             clock.setText(time(time)+" / "+time(length));toggle.setText(!restoringFrame&&player.isPlaying()?"Pause":"Play");
             onPlaybackTime(time);
+            long now=SystemClock.elapsedRealtime();
+            if(foreground&&!restoringFrame&&player.isPlaying()&&recommendationItem!=null){
+                if(listeningTick>0)listeningMillis+=Math.max(0,Math.min(2000,now-listeningTick));
+                listeningTick=now;
+                if(!listeningCounted&&listeningMillis>=15000){listeningCounted=true;PlaybackController.get(VlcPlayerActivity.this).recordQualifiedListen(recommendationItem);}
+            }else listeningTick=0;
         }handler.postDelayed(this,500);
     }};
     private final Runnable restoreTick=new Runnable(){public void run(){
@@ -161,6 +170,8 @@ public class VlcPlayerActivity extends Activity {
                             if(restoringFrame){player.setVolume(0);status.setText("Restoring paused frame…");handler.removeCallbacks(restoreTick);handler.post(restoreTick);}
                             else{player.pause();status.setText("Paused");}break;
                         }
+                        if(recommendationItem==null)recommendationItem=PlaybackController.get(this).rememberSavedPlayback(source);
+                        listeningTick=SystemClock.elapsedRealtime();
                         toggle.setText("Pause");status.setText("Playing in Blaze");video.setKeepScreenOn(player.getCurrentVideoTrack()!=null);break;
                     case MediaPlayer.Event.Paused:
                         if(pendingSeek){pendingSeek=false;player.setRate(speed);}
@@ -169,7 +180,7 @@ public class VlcPlayerActivity extends Activity {
                     case MediaPlayer.Event.EndReached:
                         position=0;ended=!repeat;video.setKeepScreenOn(false);
                         getSharedPreferences("playback",MODE_PRIVATE).edit().remove(mediaId).apply();
-                        if(repeat){release();resume=true;start();}else{resume=false;status.setText("Playback finished");}break;
+                        if(repeat){listeningMillis=0;listeningTick=0;listeningCounted=false;release();resume=true;start();}else{resume=false;status.setText("Playback finished");}break;
                     case MediaPlayer.Event.EncounteredError:
                         restoringFrame=false;handler.removeCallbacks(restoreTick);video.setKeepScreenOn(false);status.setText("Could not decode this file. Try Software decoding. Damaged or encrypted files may not play.");break;
                     default: break;
@@ -186,7 +197,7 @@ public class VlcPlayerActivity extends Activity {
             ContextCompat.registerReceiver(this,noisy,new IntentFilter(AudioManager.ACTION_AUDIO_BECOMING_NOISY),ContextCompat.RECEIVER_NOT_EXPORTED);noisyRegistered=true;
         }catch(IOException|RuntimeException|UnsatisfiedLinkError error){android.util.Log.e("BlazePlayer","Player initialization failed",error);release();status.setText("Blaze could not open this file. Try again.");}
     }
-    private void play(){restoringFrame=false;handler.removeCallbacks(restoreTick);resume=true;wantedResume=true;if(ended){position=0;release();start();}else beginPlayback();}
+    private void play(){restoringFrame=false;handler.removeCallbacks(restoreTick);resume=true;wantedResume=true;if(ended){position=0;listeningMillis=0;listeningTick=0;listeningCounted=false;release();start();}else beginPlayback();}
     @SuppressWarnings("deprecation") private void beginPlayback(){if(player==null)return;if(!resume){player.setVolume(0);player.play();return;}focusGranted=audio.requestAudioFocus(focus,AudioManager.STREAM_MUSIC,AudioManager.AUDIOFOCUS_GAIN)==AudioManager.AUDIOFOCUS_REQUEST_GRANTED;if(focusGranted){player.setVolume(100);player.play();}else status.setText("Audio is in use by another app. Try Play again.");}
     private void pause(){restoringFrame=false;handler.removeCallbacks(restoreTick);resume=false;wantedResume=false;if(player!=null){player.pause();video.setKeepScreenOn(false);}}
     private void skip(long amount){if(player!=null)player.setTime(Math.max(0,Math.min(player.getLength(),player.getTime()+amount)));}
@@ -209,7 +220,7 @@ public class VlcPlayerActivity extends Activity {
     private void back(){if(fullscreen)fullscreen(false);else finish();}
     @Override public void onBackPressed(){back();}
     @Override protected void onResume(){super.onResume();foreground=true;if(player==null)start();else if(restoringFrame&&!resume){restoreDeadline=SystemClock.uptimeMillis()+5000;beginPlayback();}else if(!pendingSeek&&resume&&!player.isPlaying())play();}
-    @Override protected void onPause(){foreground=false;remember();handler.removeCallbacks(restoreTick);if(player!=null)player.pause();super.onPause();}
+    @Override protected void onPause(){foreground=false;listeningTick=0;remember();handler.removeCallbacks(restoreTick);if(player!=null)player.pause();super.onPause();}
     @Override protected void onStop(){release();super.onStop();}
     @Override protected void onDestroy(){release();documents.shutdownNow();super.onDestroy();}
     @Override protected void onSaveInstanceState(Bundle saved){remember();saved.putLong("position",position);saved.putFloat("speed",speed);saved.putBoolean("playing",resume);saved.putBoolean("software",software);saved.putBoolean("repeat",repeat);saved.putBoolean("fullscreen",fullscreen);super.onSaveInstanceState(saved);}

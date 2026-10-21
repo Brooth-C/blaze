@@ -1,4 +1,4 @@
-# Blaze Android 0.9 preview
+# Blaze Android 0.10
 
 Blaze combines Explore, downloads, playback and Music Studio in one Android app.
 Android 7+ ARM64 phones are supported; x86_64 is included for emulator testing.

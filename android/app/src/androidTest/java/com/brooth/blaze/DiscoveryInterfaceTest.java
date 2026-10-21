@@ -54,7 +54,7 @@ public class DiscoveryInterfaceTest {
     private FixtureBackend backend;
 
     @Before public void fixtures() throws Exception {
-        onMain(() -> PlaybackController.get(app).stop());
+        onMain(() -> { PlaybackController.get(app).stop(); PlaybackController.get(app).clearListeningHistory(); PlaybackController.get(app).setRepeat(false); });
         assertFalse("Use an idle disposable emulator", DownloadService.busy);
         try (JobStore store = new JobStore(app)) {
             assertEquals("Fixtures require an empty pending queue", 0, store.count(0));
@@ -68,12 +68,15 @@ public class DiscoveryInterfaceTest {
         video = new DiscoveryItem("BlazeRef004", "video", "An intimate live session", "Juniper",
             "https://www.youtube.com/watch?v=BlazeRef004", "", 1104000);
         backend = new FixtureBackend();
+        seedRecommendationArtwork();
         DiscoveryRepository.setTestBackend(backend);
     }
 
     @After public void cleanup() throws Exception {
         onMain(() -> {
             PlaybackController.get(app).stop();
+            PlaybackController.get(app).clearListeningHistory();
+            PlaybackController.get(app).setRepeat(false);
             for (Stage stage : new Stage[]{Stage.RESUMED, Stage.STARTED, Stage.CREATED}) {
                 for (Activity activity : new ArrayList<>(ActivityLifecycleMonitorRegistry.getInstance().getActivitiesInStage(stage))) {
                     if (activity instanceof NowPlayingActivity || activity instanceof VlcPlayerActivity) activity.finish();
@@ -193,6 +196,8 @@ public class DiscoveryInterfaceTest {
                         && activity.player.getAudioTracksCount() > 0 && Math.abs(activity.player.getLength() - 222000) < 1000;
                 });
                 waitMain("Discovery audio kept playing over Library playback", () -> !PlaybackController.get(app).isPlaying());
+                onMain(() -> assertEquals("Library playback did not update local listening history", golden.id,
+                    PlaybackController.get(app).history().get(0).id));
                 withForeground(VlcPlayerActivity.class, Activity::finish);
             }
             assertEquals("Local playback unexpectedly used a remote resolver", 0, backend.resolves);
@@ -240,6 +245,131 @@ public class DiscoveryInterfaceTest {
             waitScreen(screen, "Retry did not restore results", activity -> tagged(activity, "discovery_item_" + golden.id) != null
                 && tagged(activity, "discovery_error") == null);
         } finally { backend.releaseSlow.countDown(); }
+    }
+
+    @Test public void exploreRecommendationsUseProviderArtworkAndPlayTheirExactRecording() throws Exception {
+        try (ActivityScenario<MainActivity> screen = ActivityScenario.launch(exploreIntent())) {
+            waitScreen(screen, "Fresh Explore did not load real recommendation metadata", activity -> tagged(activity, "explore_hero") != null
+                && tagged(activity, "explore_recommendation_" + quiet.id) != null);
+            assertEquals("A fresh user should not send listening history", "[]", backend.profile);
+            screen.onActivity(activity -> {
+                assertTrue(text(activity).contains("Music from YouTube"));
+                assertFalse(text(activity).contains("An evening at the keys"));
+                assertFalse(text(activity).contains("Late-night jazz"));
+                assertFalse("Loading recommendations started playback", PlaybackController.get(app).isPlaying());
+                assertTrue(tagged(activity, "explore_hero").getContentDescription().toString().contains(golden.title));
+            });
+            waitScreen(screen, "The provider thumbnail was replaced by stock artwork", activity -> {
+                ImageView image = (ImageView)tagged(activity, "recommendation_artwork_" + golden.id);
+                if (image == null || !(image.getDrawable() instanceof android.graphics.drawable.BitmapDrawable)) return false;
+                Bitmap bitmap = ((android.graphics.drawable.BitmapDrawable)image.getDrawable()).getBitmap();
+                int pixel = bitmap.getPixel(bitmap.getWidth() / 2, bitmap.getHeight() / 2);
+                return android.graphics.Color.green(pixel) > android.graphics.Color.red(pixel) * 2;
+            });
+            screen.onActivity(activity -> tagged(activity, "explore_hero").performClick());
+            awaitPlayback(golden, true);
+            withForeground(NowPlayingActivity.class, activity -> assertEquals(golden.title, ((TextView)tagged(activity, "now_title")).getText().toString()));
+            onMain(() -> {
+                assertEquals(golden.id, PlaybackController.get(app).current().id);
+                assertEquals(golden.localJobId, PlaybackController.get(app).current().localJobId);
+                assertEquals(3, PlaybackController.get(app).queue().size());
+            });
+            assertEquals("A verified local recording unexpectedly resolved remotely", 0, backend.resolves);
+        }
+    }
+
+    @Test public void recommendationsLearnFromRealListeningAndKeepCachedPicksOffline() throws Exception {
+        try (ActivityScenario<MainActivity> screen = ActivityScenario.launch(exploreIntent())) {
+            waitScreen(screen, "Initial recommendations missing", activity -> tagged(activity, "explore_hero") != null);
+            onMain(() -> PlaybackController.get(app).play(golden, Arrays.asList(golden, quiet)));
+            awaitPlayback(golden, true);
+            onMain(() -> {
+                PlaybackController player = PlaybackController.get(app);
+                assertEquals("A play was counted before actual listening", 0, player.listenCount(golden));
+                player.seekTo(100000);
+                if (!player.isFavorite(golden)) player.toggleFavorite(golden);
+                player.pause();
+            });
+            screen.onActivity(activity -> explore(activity).showHome());
+            waitScreen(screen, "Listening history did not change the recommendation request", activity -> backend.profile.contains(golden.id)
+                && text(activity).contains("Based on your listening in Blaze") && tagged(activity, "explore_hero") != null);
+            org.json.JSONObject signal = new org.json.JSONArray(backend.profile).getJSONObject(0);
+            assertEquals(golden.creator, signal.getString("creator")); assertTrue(signal.getBoolean("favorite"));
+            assertFalse("A local file identity leaked into the recommendation profile", backend.profile.contains(golden.localJobId));
+            assertFalse("Playback or thumbnail URLs leaked into the local signals", backend.profile.contains("https://"));
+            int beforeRotation = backend.recommendations;
+            screen.recreate();
+            waitScreen(screen, "Rotation lost cached recommendations", activity -> tagged(activity, "explore_hero") != null);
+            assertEquals("A fresh profile cache was fetched again after rotation", beforeRotation, backend.recommendations);
+            backend.recommendationFailure = true;
+            screen.onActivity(activity -> tagged(activity, "recommendation_refresh").performClick());
+            waitScreen(screen, "Offline refresh hid cached picks or its retry action", activity -> tagged(activity, "recommendations_error") != null
+                && tagged(activity, "recommendations_retry") != null && tagged(activity, "explore_hero") != null
+                && text(activity).contains("Showing saved picks"));
+            onMain(() -> {
+                PlaybackController player = PlaybackController.get(app);
+                if (player.isFavorite(golden)) player.toggleFavorite(golden);
+            });
+        }
+    }
+
+    @Test public void coldRecommendationFailureHasAnHonestRetryAndVideoLaneUsesVideoResults() throws Exception {
+        backend.recommendationFailure = true;
+        try (ActivityScenario<MainActivity> screen = ActivityScenario.launch(exploreIntent())) {
+            waitScreen(screen, "Provider failure did not offer recovery", activity -> tagged(activity, "recommendations_retry") != null);
+            screen.onActivity(activity -> assertNull("Failed recommendations invented a featured recording", tagged(activity, "explore_hero")));
+            backend.recommendationFailure = false;
+            screen.onActivity(activity -> tagged(activity, "recommendations_retry").performClick());
+            waitScreen(screen, "Recommendation retry did not restore provider cards", activity -> tagged(activity, "explore_recommendation_" + quiet.id) != null);
+            screen.onActivity(activity -> tagged(activity, "explore_lane_Videos").performClick());
+            waitScreen(screen, "Videos did not replace music recommendations", activity -> tagged(activity, "explore_hero") != null
+                && tagged(activity, "explore_hero").getContentDescription().toString().contains(video.title));
+            screen.onActivity(activity -> assertFalse("Changing lanes started playback", PlaybackController.get(app).isPlaying()));
+        }
+    }
+
+    @Test public void repeatSignalsRequireActualListeningRatherThanSeekingOrPauseResume() throws Exception {
+        try (ActivityScenario<MainActivity> screen = ActivityScenario.launch(exploreIntent())) {
+            onMain(() -> PlaybackController.get(app).play(golden, Arrays.asList(golden, quiet)));
+            awaitPlayback(golden, true);
+            onMain(() -> {
+                PlaybackController player = PlaybackController.get(app);
+                player.seekTo(170000);
+                assertEquals("Seeking fabricated a repeat-listening signal", 0, player.listenCount(golden));
+            });
+            long deadline = SystemClock.uptimeMillis() + 22000;
+            AtomicBoolean counted = new AtomicBoolean();
+            do {
+                onMain(() -> counted.set(PlaybackController.get(app).listenCount(golden) == 1));
+                if (!counted.get()) Thread.sleep(150);
+            } while (!counted.get() && SystemClock.uptimeMillis() < deadline);
+            assertTrue("15 seconds of real playback did not contribute to personalization", counted.get());
+            onMain(() -> { PlaybackController.get(app).pause(); PlaybackController.get(app).toggle(); });
+            awaitPlayback(golden, true);
+            onMain(() -> assertEquals("Pause/resume was counted as another listen", 1, PlaybackController.get(app).listenCount(golden)));
+            onMain(() -> { PlaybackController.get(app).setRepeat(true); PlaybackController.get(app).seekTo(221500); });
+            waitMain("Repeat did not restart the recording", () -> PlaybackController.get(app).isPlaying() && PlaybackController.get(app).position() < 10000);
+            deadline = SystemClock.uptimeMillis() + 22000; counted.set(false);
+            do {
+                onMain(() -> counted.set(PlaybackController.get(app).listenCount(golden) == 2));
+                if (!counted.get()) Thread.sleep(150);
+            } while (!counted.get() && SystemClock.uptimeMillis() < deadline);
+            assertTrue("A repeated recording did not qualify a second real listen", counted.get());
+            onMain(() -> PlaybackController.get(app).setRepeat(false));
+        }
+    }
+
+    private void seedRecommendationArtwork() throws Exception {
+        File cache = new File(app.getCacheDir(), "discovery-artwork"); assertTrue(cache.isDirectory() || cache.mkdirs());
+        int[] colors = {0xff167738, 0xff245999, 0xff8c3699}; int index = 0;
+        for (DiscoveryItem item : Arrays.asList(golden, quiet, stay)) {
+            String url = "https://i.ytimg.com/vi/" + item.id + "/mqdefault.jpg";
+            byte[] hash = java.security.MessageDigest.getInstance("SHA-256").digest(url.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            StringBuilder name = new StringBuilder(); for (byte value : hash) name.append(String.format(java.util.Locale.ROOT, "%02x", value & 255));
+            Bitmap image = Bitmap.createBitmap(320, 180, Bitmap.Config.ARGB_8888); image.eraseColor(colors[index++]);
+            try (FileOutputStream out = new FileOutputStream(new File(cache, name + ".img"))) { assertTrue(image.compress(Bitmap.CompressFormat.PNG, 100, out)); }
+            finally { image.recycle(); }
+        }
     }
 
     @Test public void discoveredRecordingUsesPausedQueueAndKeepsDuplicateIdentity() throws Exception {
@@ -332,6 +462,18 @@ public class DiscoveryInterfaceTest {
         final CountDownLatch slowEntered = new CountDownLatch(1), releaseSlow = new CountDownLatch(1), slowFinished = new CountDownLatch(1);
         volatile boolean fail = true;
         volatile int resolves;
+        volatile int recommendations;
+        volatile String profile = "";
+        volatile boolean recommendationFailure;
+        @Override public List<DiscoveryItem> recommend(String signals, String lane, int limit) throws Exception {
+            recommendations++; profile = signals;
+            if (recommendationFailure) throw new java.io.IOException("Synthetic offline recommendations");
+            if (lane.equals("videos")) return Collections.singletonList(video);
+            List<DiscoveryItem> picks = new ArrayList<>();
+            for (DiscoveryItem item : tracks()) picks.add(new DiscoveryItem(item.id, item.kind, item.title, item.creator,
+                item.url, "https://i.ytimg.com/vi/" + item.id + "/mqdefault.jpg", item.durationMs));
+            return picks;
+        }
         @Override public List<DiscoveryItem> search(String query, String filter, int limit) throws Exception {
             if (query.equals("slow query")) {
                 slowEntered.countDown();
@@ -469,7 +611,10 @@ public class DiscoveryInterfaceTest {
     }
     private boolean artworkReady(View view) {
         if (!view.isShown()) return true;
-        if (view instanceof ImageView && ((ImageView)view).getDrawable() instanceof GradientDrawable) return false;
+        if (view instanceof ImageView && ((ImageView)view).getDrawable() instanceof GradientDrawable) {
+            Object tag = view.getTag();
+            if (!(tag instanceof String) || !(tag.equals("artwork_placeholder_allowed") || ((String)tag).startsWith("recommendation_artwork_"))) return false;
+        }
         if (view instanceof ViewGroup) for (int i = 0; i < ((ViewGroup)view).getChildCount(); i++)
             if (!artworkReady(((ViewGroup)view).getChildAt(i))) return false;
         return true;

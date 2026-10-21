@@ -50,6 +50,8 @@ public final class PlaybackController {
     private boolean wantedPlayback, resolving, shuffle, repeat, refreshAttempted;
     private long rememberedPosition, lastCheckpoint;
     private String resolutionToken = "", failure = "";
+    private long listeningMillis, listeningTick;
+    private boolean listeningCounted;
 
     private PlaybackController(Context context) {
         app = context;
@@ -85,6 +87,36 @@ public final class PlaybackController {
     }
     public List<DiscoveryItem> queue() { return Collections.unmodifiableList(new ArrayList<>(queue)); }
     public List<DiscoveryItem> history() { return Collections.unmodifiableList(new ArrayList<>(recent)); }
+    int listenCount(DiscoveryItem item) {
+        return Math.max(0, Math.min(1000, preferences.getInt("plays_" + item.id, 0)));
+    }
+    void recordQualifiedListen(DiscoveryItem item) {
+        if (item != null && DiscoveryItem.validSource(item.url))
+            preferences.edit().putInt("plays_" + item.id, Math.min(1000, listenCount(item) + 1)).apply();
+    }
+    DiscoveryItem rememberSavedPlayback(PlaybackSource source) {
+        if (source == null) return null;
+        try (JobStore store = new JobStore(app)) {
+            JobStore.Job job = store.completed(source.id);
+            if (job == null || !DiscoveryItem.validSource(job.url)) return null;
+            Uri uri = Uri.parse(job.url);
+            String id = "youtu.be".equals(uri.getHost()) ? uri.getLastPathSegment() : uri.getQueryParameter("v");
+            if (id == null || !id.matches("[A-Za-z0-9_-]{11}")) return null;
+            DiscoveryItem item = null;
+            for (DiscoveryItem previous : recent) if (previous.id.equals(id)) { item = previous; break; }
+            if (item == null) item = new DiscoveryItem(id, "video".equals(job.mode) ? "video" : "song", job.title, "",
+                "https://www.youtube.com/watch?v=" + id, "https://i.ytimg.com/vi/" + id + "/mqdefault.jpg", -1);
+            rememberItem(item); changed(); return item;
+        } catch (RuntimeException ignored) { return null; }
+    }
+    public void clearListeningHistory() {
+        onMain(() -> {
+            recent.clear(); SharedPreferences.Editor edit = preferences.edit().remove("history");
+            for (String key : preferences.getAll().keySet()) if (key.startsWith("plays_")) edit.remove(key);
+            edit.apply(); app.getSharedPreferences("recommendations", Context.MODE_PRIVATE).edit().clear().apply();
+            listeningMillis = 0; listeningCounted = false; changed();
+        });
+    }
     public boolean isPlaying() { return player != null && player.isPlaying(); }
     public boolean isLoading() { return resolving || (player != null && player.getPlaybackState() == Player.STATE_BUFFERING); }
     public boolean shuffle() { return shuffle; }
@@ -125,6 +157,7 @@ public final class PlaybackController {
     }
 
     private void begin(DiscoveryItem item, long position, boolean play) {
+        listeningMillis = 0; listeningTick = 0; listeningCounted = false;
         cancelResolution(); generation++; preparedGeneration = -1;
         current = preferLocalCopy(item);
         if (index >= 0 && index < queue.size() && queue.get(index).key().equals(current.key())) queue.set(index, current);
@@ -326,14 +359,20 @@ public final class PlaybackController {
     boolean wantsPlayback() { return wantedPlayback; }
 
     private final Player.Listener playerEvents = new Player.Listener() {
-        @Override public void onIsPlayingChanged(boolean playing) { if (playing) rememberPlayed(); changed(); }
+        @Override public void onIsPlayingChanged(boolean playing) {
+            listeningTick = playing ? android.os.SystemClock.elapsedRealtime() : 0;
+            if (playing) rememberPlayed(); changed();
+        }
         @Override public void onPlayWhenReadyChanged(boolean playWhenReady, int reason) {
             if (preparedGeneration == generation) wantedPlayback = playWhenReady;
             changed();
         }
         @Override public void onPlaybackStateChanged(int state) {
             if (state == Player.STATE_ENDED && current != null) {
-                if (repeat) { seekTo(0); wantedPlayback = true; if (player != null) player.play(); }
+                if (repeat) {
+                    listeningMillis = 0; listeningTick = 0; listeningCounted = false;
+                    seekTo(0); wantedPlayback = true; if (player != null) player.play();
+                }
                 else if (index + 1 < queue.size() || (shuffle && queue.size() > 1)) advance(true);
                 else { wantedPlayback = false; saveSnapshot(); }
             }
@@ -363,11 +402,18 @@ public final class PlaybackController {
 
     private void rememberPlayed() {
         if (current == null) return;
-        recent.removeIf(item -> item.key().equals(current.key())); recent.add(0, current);
+        rememberItem(current); saveSnapshot();
+    }
+    private void rememberItem(DiscoveryItem played) {
+        recent.removeIf(item -> item.key().equals(played.key())); recent.add(0, played);
         while (recent.size() > 30) recent.remove(recent.size() - 1);
         JSONArray items = new JSONArray();
         for (DiscoveryItem item : recent) try { items.put(new org.json.JSONObject(item.toJson())); } catch (Exception ignored) { }
-        preferences.edit().putString("history", items.toString()).apply(); saveSnapshot();
+        SharedPreferences.Editor edit = preferences.edit().putString("history", items.toString());
+        // Keep repeat-listening counters bounded by the retained history too.
+        Set<String> retained = new LinkedHashSet<>(); for (DiscoveryItem item : recent) retained.add("plays_" + item.id);
+        for (String key : preferences.getAll().keySet()) if (key.startsWith("plays_") && !retained.contains(key)) edit.remove(key);
+        edit.apply();
     }
     private void saveSnapshot() {
         if (current == null) return;
@@ -385,6 +431,15 @@ public final class PlaybackController {
     }
     private final Runnable tick = new Runnable() {
         @Override public void run() {
+            long now = android.os.SystemClock.elapsedRealtime();
+            if (current != null && isPlaying()) {
+                if (listeningTick > 0) listeningMillis += Math.max(0, Math.min(2000, now - listeningTick));
+                listeningTick = now;
+                if (!listeningCounted && listeningMillis >= 15000) {
+                    listeningCounted = true;
+                    recordQualifiedListen(current);
+                }
+            } else listeningTick = 0;
             if (player != null && android.os.SystemClock.uptimeMillis() - lastCheckpoint > 15000) saveSnapshot();
             for (Listener listener : new ArrayList<>(listeners)) listener.onPlaybackChanged();
             startTicker();
