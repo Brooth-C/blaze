@@ -153,4 +153,4 @@ jobs:
           cp docs/ANDROID-RELEASE-NOTES.md RELEASE.txt
           printf '\nAPK SHA256: `%s`\n' "$(sha256sum Blaze-Android-Preview.apk | cut -d ' ' -f 1)" >> RELEASE.txt
           printf '\nNative screenshots use demonstration metadata and local synthetic audio for reproducible UI checks.\n' >> RELEASE.txt
-          gh release create "$TAG" Blaze-Android-Preview.apk rendered-ui/screenshots/Blaze-Android-Explore.png rendered-ui/screenshots/Blaze-Android-Search.png rendered-ui/screenshots/Blaze-Android-Now-Playing.png --target "$GITHUB_SHA" --title "Blaze Android $VERSION" --notes-file RELEASE.txt --prerelease --latest=false
+          gh release create "$TAG" Blaze-Android-Preview.apk rendered-ui/screenshots/Blaze-Android-Explore.png rendered-ui/screenshots/Blaze-Android-Search.png rendered-ui/screenshots/Blaze-Android-Now-Playing.png --target "$GITHUB_SHA" --title "Blaze Android $VERSION" --notes-file RELEASE.txt --latest=false

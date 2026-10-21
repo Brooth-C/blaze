@@ -1,3 +1,28 @@
+# Blaze Android 0.10.0
+
+Explore's fixed promotional cards are replaced by real YouTube music metadata
+and provider thumbnails. Tap a recommendation to play that exact recording.
+
+- New users get general music picks immediately, without a YouTube account.
+- Recommendations adapt to recent listening, favourites and repeat listening in
+  Blaze. Repeat counts require 15 seconds of actual playback; seeking does not count.
+- Candidate results exclude recently heard recordings and duplicate titles,
+  limit repeated artists, and mix in general discovery. This is Blaze's local
+  personalization, not a signed-in YouTube recommendation feed.
+- Music and Videos have separate recommendations, with refresh, loading and retry
+  states. Cached metadata can keep picks visible after an offline refresh fails.
+- Listening history stays on-device; short artist/song queries go to YouTube.
+  The Explore profile menu explains this and can reset listening history.
+
+Online results and playback depend on YouTube availability. Native UI tests use
+deterministic metadata, thumbnail fixtures and real local audio, not live provider
+availability. The unchanged downloader and offline Studio remain connected.
+
+This GitHub release is not marked as a prerelease. The APK remains debug-signed:
+export your saved files before uninstalling an older build if Android rejects an
+in-place update due to a different signing key. Physical-device and OEM background
+behavior remain incompletely tested.
+
 # Blaze Android 0.9.0 preview
 
 A native Android Explore, search and Now Playing interface based on the selected

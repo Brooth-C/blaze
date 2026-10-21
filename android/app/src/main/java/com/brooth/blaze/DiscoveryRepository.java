@@ -30,6 +30,9 @@ public final class DiscoveryRepository {
         List<DiscoveryItem> search(String query, String filter, int limit) throws Exception;
         List<DiscoveryItem> browse(DiscoveryItem item, int limit) throws Exception;
         Stream resolve(DiscoveryItem item) throws Exception;
+        default List<DiscoveryItem> recommend(String profile, String lane, int limit) throws Exception {
+            return search("popular music", "videos".equals(lane) ? "videos" : "songs", limit);
+        }
     }
     public static final class Stream {
         public final String url, mimeType, audioUrl, audioMimeType;
@@ -91,6 +94,11 @@ public final class DiscoveryRepository {
         }
         return listOperation("browse", "", "all", item, Math.max(1, Math.min(limit, 60)), callback);
     }
+    public String recommend(String profile, String lane, Callback callback) {
+        if (profile == null || profile.length() > 32768 || !("music".equals(lane) || "videos".equals(lane)))
+            throw new IllegalArgumentException("Invalid recommendation request");
+        return listOperation("recommend", profile, lane, null, 18, callback);
+    }
     private String listOperation(String method, String query, String filter, DiscoveryItem item, int limit, Callback callback) {
         String token = UUID.randomUUID().toString(); Operation operation = new Operation(); operations.put(token, operation);
         try { operation.future = workers.submit(() -> {
@@ -98,10 +106,11 @@ public final class DiscoveryRepository {
             try {
                 if (operation.cancelled.get()) return;
                 Backend override = testBackend;
-                if (override != null) items = method.equals("search") ? override.search(query, filter, limit) : override.browse(item, limit);
+                if (override != null) items = method.equals("search") ? override.search(query, filter, limit)
+                    : method.equals("recommend") ? override.recommend(query, filter, limit) : override.browse(item, limit);
                 else {
                     operation.module = PythonRuntime.get(app).getModule("blaze_discovery");
-                    String output = operation.module.callAttr(method, method.equals("search") ? query : item.toJson(), filter, limit, token, operation).toString();
+                    String output = operation.module.callAttr(method, method.equals("browse") ? item.toJson() : query, filter, limit, token, operation).toString();
                     if (output.length() > 262144) throw new IllegalStateException("Response too large");
                     JSONObject value = new JSONObject(output);
                     if (!value.optString("error").isEmpty()) error = value.optString("error");

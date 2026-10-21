@@ -320,6 +320,89 @@ def _result(value):
     return encoded
 
 
+def _recommendation_plan(history, lane):
+    """Rank local listening signals; send only small search terms to YouTube."""
+    artists, heard, titles = {}, set(), []
+    for index, row in enumerate(history[:30]):
+        if not isinstance(row, dict) or not _VIDEO.fullmatch(str(row.get('id') or '')):
+            continue
+        heard.add(row['id'])
+        creator, title = _text(row.get('creator'), 120), _text(row.get('title'), 120)
+        plays = row.get('plays', 0)
+        plays = min(20, max(0, plays)) if type(plays) is int else 0
+        weight = 1 / (index + 1) + plays * .15 + (1.5 if row.get('favorite') is True else 0)
+        if creator:
+            key = creator.casefold()
+            previous = artists.get(key, (creator, 0))
+            artists[key] = (creator, previous[1] + weight)
+        elif title:
+            titles.append(title)
+    ranked = sorted(artists.values(), key=lambda artist: artist[1], reverse=True)
+    suffix = ' official music video' if lane == 'videos' else ' songs'
+    queries = [name + suffix for name, _weight in ranked[:2]]
+    if not queries and titles:
+        queries.append(titles[0] + ' music')
+    # Anonymous discovery, not a claim to reproduce a signed-in YouTube feed or chart.
+    year = time.gmtime().tm_year
+    general = [f'popular music {year}', f'new songs {year}', 'popular international songs']
+    queries.append(general[int(time.time() // 86400) % len(general)] + (' official music video' if lane == 'videos' else ''))
+    if len(queries) == 1:
+        queries.append(general[(int(time.time() // 86400) + 1) % len(general)])
+    return queries[:3], heard
+
+
+def recommend(profile_json, lane, limit, token, callback):
+    """Anonymous bounded candidate retrieval, local seeds, diversity and recent exclusions."""
+    try:
+        if not isinstance(profile_json, str) or len(profile_json) > 32768 or lane not in ('music', 'videos'):
+            raise ValueError('Invalid recommendation profile')
+        history = json.loads(profile_json)
+        if not isinstance(history, list):
+            raise ValueError('Invalid recommendation history')
+        limit = max(1, min(int(limit), 18))
+        queries, heard = _recommendation_plan(history, lane)
+        scope = 'videos' if lane == 'videos' else 'songs'
+        buckets, failure = [], None
+        with _session(token, callback) as operation:
+            for query in queries:
+                try:
+                    operation.check()
+                    target = (f'ytsearch12:{query}' if scope == 'videos' else
+                              'https://music.youtube.com/search?q=' + quote(query) + '#songs')
+                    buckets.append(_list(target, scope, 12, operation))
+                except DiscoveryCancelled as error:
+                    failure = error
+                    break
+                except Exception as error:
+                    failure = error
+            picked, identities, names, creators = [], set(), set(), {}
+            # Round-robin seed and general results, rather than filling every slot
+            # with a single artist. At most two recordings from the same creator.
+            for candidates in itertools.zip_longest(*buckets):
+                for candidate in candidates:
+                    if not isinstance(candidate, dict) or candidate.get('kind') not in ('song', 'video'):
+                        continue
+                    identity = candidate.get('id')
+                    if identity in heard or identity in identities or not _VIDEO.fullmatch(str(identity or '')):
+                        continue
+                    duration = candidate.get('durationMs', -1)
+                    if duration >= 0 and not 30000 <= duration <= 1800000:
+                        continue
+                    creator = _text(candidate.get('creator'), 200).casefold()
+                    title = re.sub(r'[^\w]+', ' ', _text(candidate.get('title'), 300).casefold()).strip()
+                    name = (creator, title)
+                    if name in names or (creator and creators.get(creator, 0) >= 2):
+                        continue
+                    identities.add(identity); names.add(name)
+                    creators[creator] = creators.get(creator, 0) + 1
+                    picked.append(candidate)
+                    if len(picked) == limit:
+                        return _result({'items': picked, 'error': ''})
+            return _result({'items': picked, 'error': _failure(failure) if not picked and failure else ''})
+    except Exception as error:
+        return _result({'items': [], 'error': _failure(error)})
+
+
 def search(query, filter_name, limit, token, callback):
     try:
         if not isinstance(query, str) or not 1 <= len(query.strip()) <= 256 or any(ord(c) < 32 for c in query):

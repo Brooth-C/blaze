@@ -37,6 +37,78 @@ class DiscoveryTests(unittest.TestCase):
         self.assertEqual(d._sessions, {}, 'Discovery operation leaked')
         self.assertEqual(mobile._sessions, {}, 'Stream resolution leaked native session')
 
+    def test_cold_recommendations_fetch_anonymous_music_metadata_and_never_download(self):
+        with patch.object(d, 'DiscoveryYDL') as engine:
+            client = engine.return_value.__enter__.return_value
+            client.extract_info.return_value = {'_type': 'playlist', 'entries': [
+                {'id': VIDEO, 'title': 'Fresh music', 'artist': 'An artist', 'duration': 180}]}
+            result = json.loads(d.recommend('[]', 'music', 18, 'cold-picks', callback()))
+            self.assertEqual(result['error'], '')
+            self.assertEqual([row['id'] for row in result['items']], [VIDEO])
+            self.assertEqual(result['items'][0]['thumbnail'], f'https://i.ytimg.com/vi/{VIDEO}/mqdefault.jpg')
+            self.assertEqual(client.extract_info.call_count, 2)
+            for call in client.extract_info.call_args_list:
+                self.assertTrue(call.args[0].startswith('https://music.youtube.com/search?q='))
+                self.assertTrue(call.args[0].endswith('#songs'))
+                self.assertEqual(call.kwargs, {'download': False})
+            client.download.assert_not_called(); client.process_info.assert_not_called()
+            self.assertEqual(engine.call_args.args[0]['playlist_items'], '1:12')
+
+    def test_recommendation_seeds_weight_repeat_listening_and_favourites_without_sending_history(self):
+        profile = [dict(id=VIDEO, creator='Recent artist', title='Recent song', plays=0),
+                   dict(id=OTHER, creator='Favourite artist', title='Older song', plays=10, favorite=True)]
+        queries, heard = d._recommendation_plan(profile, 'music')
+        self.assertEqual(queries[0], 'Favourite artist songs')
+        self.assertEqual(heard, {VIDEO, OTHER})
+        self.assertEqual(len(queries), 3)
+        self.assertNotIn(VIDEO, ' '.join(queries))
+        with patch.object(d, '_list', return_value=[]) as fetch:
+            d.recommend(json.dumps(profile), 'music', 18, 'personal-picks', callback())
+            self.assertEqual(fetch.call_count, 3)
+            for call in fetch.call_args_list:
+                self.assertNotIn(VIDEO, call.args[0]); self.assertNotIn('favorite', call.args[0])
+
+    def test_recommendations_exclude_recent_duplicates_short_clips_and_limit_creator_repetition(self):
+        def row(identity, title, creator='Same artist', seconds=180):
+            return d.normalize(dict(id=identity, title=title, artist=creator, duration=seconds), 'songs')
+        candidates = [row(VIDEO, 'Already heard'), row(OTHER, 'New song'), row('vvvvvvvvvvv', 'NEW SONG'),
+                      row('wwwwwwwwwww', 'Another song'), row('xxxxxxxxxxx', 'Artist overflow'),
+                      row('yyyyyyyyyyy', 'Short clip', 'Other artist', 10), row('zzzzzzzzzzz', 'Different', 'New artist')]
+        with patch.object(d, '_list', return_value=candidates):
+            result = json.loads(d.recommend(json.dumps([dict(id=VIDEO, creator='Same artist')]), 'music', 18, 'diverse', callback()))
+        self.assertEqual([item['id'] for item in result['items']], [OTHER, 'wwwwwwwwwww', 'zzzzzzzzzzz'])
+
+    def test_recommendations_keep_partial_provider_success_and_sanitize_total_failure(self):
+        candidate = d.normalize(dict(id=OTHER, title='Available song', duration=180), 'songs')
+        with patch.object(d, '_list', side_effect=[RuntimeError('Blocked ' + STREAM), [candidate]]):
+            result = json.loads(d.recommend('[]', 'music', 18, 'partial-picks', callback()))
+            self.assertEqual(result['error'], ''); self.assertEqual(result['items'][0]['id'], OTHER)
+        with patch.object(d, '_list', side_effect=RuntimeError(STREAM)):
+            result = d.recommend('[]', 'music', 18, 'failed-picks', callback())
+            self.assertTrue(json.loads(result)['error']); self.assertNotIn('stream-token', result)
+
+    def test_recommendation_cancellation_and_malformed_profile_do_not_reach_provider(self):
+        with patch.object(d, '_list') as fetch:
+            self.assertTrue(json.loads(d.recommend('[]', 'music', 18, 'cancel-picks', callback(True)))['error'])
+            self.assertTrue(json.loads(d.recommend('{}', 'music', 18, 'bad-picks', callback()))['error'])
+            self.assertTrue(json.loads(d.recommend('[' * 40000, 'music', 18, 'huge-picks', callback()))['error'])
+            fetch.assert_not_called()
+
+    def test_video_recommendations_use_video_catalogue_and_bound_history_and_result_count(self):
+        history = [dict(id=VIDEO, creator='Preferred artist')] * 1000
+        with patch.object(d, '_list', return_value=[]) as fetch:
+            d.recommend(json.dumps(history[:30]), 'videos', 999, 'video-picks', callback())
+            self.assertLessEqual(fetch.call_count, 3)
+            for call in fetch.call_args_list:
+                self.assertTrue(call.args[0].startswith('ytsearch12:'))
+                self.assertEqual(call.args[1], 'videos'); self.assertEqual(call.args[2], 12)
+        queries, heard = d._recommendation_plan(history, 'videos')
+        self.assertLessEqual(len(queries), 3); self.assertEqual(heard, {VIDEO})
+
+    def test_recommendations_without_artist_can_use_recent_song_title(self):
+        queries, _heard = d._recommendation_plan([dict(id=VIDEO, title='A song title')], 'music')
+        self.assertEqual(queries[0], 'A song title music')
+
     def test_video_identity_is_canonical_and_tracking_is_not_persisted(self):
         result = d.normalize({'id': VIDEO, 'url': f'https://music.youtube.com/watch?v={VIDEO}&list=RDABC&tracking=one',
                               'title': 'A\nrecording', 'channel': 'Creator', 'duration': 42.5})
