@@ -369,7 +369,10 @@ public final class PlaybackController {
         }
         @Override public void onPlaybackStateChanged(int state) {
             if (state == Player.STATE_ENDED && current != null) {
-                if (repeat) { seekTo(0); wantedPlayback = true; if (player != null) player.play(); }
+                if (repeat) {
+                    listeningMillis = 0; listeningTick = 0; listeningCounted = false;
+                    seekTo(0); wantedPlayback = true; if (player != null) player.play();
+                }
                 else if (index + 1 < queue.size() || (shuffle && queue.size() > 1)) advance(true);
                 else { wantedPlayback = false; saveSnapshot(); }
             }

@@ -390,7 +390,7 @@ def recommend(profile_json, lane, limit, token, callback):
                         continue
                     creator = _text(candidate.get('creator'), 200).casefold()
                     title = re.sub(r'[^\w]+', ' ', _text(candidate.get('title'), 300).casefold()).strip()
-                    name = (creator, title)
+                    name = title
                     if name in names or (creator and creators.get(creator, 0) >= 2):
                         continue
                     identities.add(identity); names.add(name)

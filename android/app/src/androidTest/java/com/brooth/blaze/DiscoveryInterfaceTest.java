@@ -54,7 +54,7 @@ public class DiscoveryInterfaceTest {
     private FixtureBackend backend;
 
     @Before public void fixtures() throws Exception {
-        onMain(() -> { PlaybackController.get(app).stop(); PlaybackController.get(app).clearListeningHistory(); });
+        onMain(() -> { PlaybackController.get(app).stop(); PlaybackController.get(app).clearListeningHistory(); PlaybackController.get(app).setRepeat(false); });
         assertFalse("Use an idle disposable emulator", DownloadService.busy);
         try (JobStore store = new JobStore(app)) {
             assertEquals("Fixtures require an empty pending queue", 0, store.count(0));
@@ -76,6 +76,7 @@ public class DiscoveryInterfaceTest {
         onMain(() -> {
             PlaybackController.get(app).stop();
             PlaybackController.get(app).clearListeningHistory();
+            PlaybackController.get(app).setRepeat(false);
             for (Stage stage : new Stage[]{Stage.RESUMED, Stage.STARTED, Stage.CREATED}) {
                 for (Activity activity : new ArrayList<>(ActivityLifecycleMonitorRegistry.getInstance().getActivitiesInStage(stage))) {
                     if (activity instanceof NowPlayingActivity || activity instanceof VlcPlayerActivity) activity.finish();
@@ -346,6 +347,15 @@ public class DiscoveryInterfaceTest {
             onMain(() -> { PlaybackController.get(app).pause(); PlaybackController.get(app).toggle(); });
             awaitPlayback(golden, true);
             onMain(() -> assertEquals("Pause/resume was counted as another listen", 1, PlaybackController.get(app).listenCount(golden)));
+            onMain(() -> { PlaybackController.get(app).setRepeat(true); PlaybackController.get(app).seekTo(221500); });
+            waitMain("Repeat did not restart the recording", () -> PlaybackController.get(app).isPlaying() && PlaybackController.get(app).position() < 10000);
+            deadline = SystemClock.uptimeMillis() + 22000; counted.set(false);
+            do {
+                onMain(() -> counted.set(PlaybackController.get(app).listenCount(golden) == 2));
+                if (!counted.get()) Thread.sleep(150);
+            } while (!counted.get() && SystemClock.uptimeMillis() < deadline);
+            assertTrue("A repeated recording did not qualify a second real listen", counted.get());
+            onMain(() -> PlaybackController.get(app).setRepeat(false));
         }
     }
 

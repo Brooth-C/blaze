@@ -72,6 +72,7 @@ class DiscoveryTests(unittest.TestCase):
         def row(identity, title, creator='Same artist', seconds=180):
             return d.normalize(dict(id=identity, title=title, artist=creator, duration=seconds), 'songs')
         candidates = [row(VIDEO, 'Already heard'), row(OTHER, 'New song'), row('vvvvvvvvvvv', 'NEW SONG'),
+                      row('qqqqqqqqqqq', 'New song', 'Alternate channel'),
                       row('wwwwwwwwwww', 'Another song'), row('xxxxxxxxxxx', 'Artist overflow'),
                       row('yyyyyyyyyyy', 'Short clip', 'Other artist', 10), row('zzzzzzzzzzz', 'Different', 'New artist')]
         with patch.object(d, '_list', return_value=candidates):
