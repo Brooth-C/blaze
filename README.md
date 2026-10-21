@@ -23,7 +23,7 @@ Windows · macOS · Linux · Android
 | macOS 13+ · Intel, preview | [Blaze Mac app](https://github.com/Brooth-C/blaze/releases/latest/download/Blaze-Mac-x86_64.zip) |
 | Linux desktop · Ubuntu 22.04 x86_64, preview | [Blaze Linux desktop](https://github.com/Brooth-C/blaze/releases/latest/download/Blaze-Linux-x86_64.tar.gz) |
 | Linux terminal · x86_64 / ARM64, glibc | [Linux ZIP](https://github.com/Brooth-C/blaze/releases/latest/download/Blaze-Linux-Installer.zip) |
-| Android 7+ · ARM64, 0.8.0 preview | [Android APK](https://github.com/Brooth-C/blaze/releases/download/android-v0.8.0-preview/Blaze-Android-Preview.apk) |
+| Android 7+ · ARM64, 0.9.0 preview | [Android APK](https://github.com/Brooth-C/blaze/releases/download/android-v0.9.0-preview/Blaze-Android-Preview.apk) |
 
 Download one file for your platform using the links above. For Windows, extract
 the ZIP and run Blaze.exe. On Mac, extract the ZIP and move Blaze.app to Applications. Tap the Android APK to install. Linux and Termux installer setup needs an internet connection; follow the matching guide.
@@ -50,8 +50,8 @@ The [Windows terminal installer](https://github.com/Brooth-C/blaze/releases/down
 The [Android app](docs/ANDROID-APK.md) has a built-in audio/video player, touch controls, history, playlists and
 MP3/M4A/WAV/FLAC conversion. It is a debug-signed preview; physical-phone testing
 is still needed.
-Android 0.8.0 adds a redesigned Music Studio, persistent navigation and shared
-light/dark themes. Its [preview release](https://github.com/Brooth-C/blaze/releases/tag/android-v0.8.0-preview)
+Android 0.9.0 adds Explore, in-app search, a shared Now Playing screen and
+mini-player, plus direct Download and offline Studio actions. Its [preview release](https://github.com/Brooth-C/blaze/releases/tag/android-v0.9.0-preview)
 is published separately from the desktop downloads.
 
 ## Find your way
