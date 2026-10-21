@@ -18,7 +18,7 @@ public class LogoThemeTest {
         Context app=InstrumentationRegistry.getInstrumentation().getTargetContext();
         UiModeManager modes=app.getSystemService(UiModeManager.class);int previous=modes.getNightMode();
         android.app.UiAutomation automation=InstrumentationRegistry.getInstrumentation().getUiAutomation();
-        try(ActivityScenario<MainActivity> screen=ActivityScenario.launch(MainActivity.class)){
+        try(ActivityScenario<MainActivity> screen=ActivityScenario.launch(AndroidTestScreens.downloads())){
             night(automation,"yes");expect(screen,Color.TRANSPARENT);
             night(automation,"no");expect(screen,Color.TRANSPARENT);
             night(automation,"yes");expect(screen,Color.TRANSPARENT);

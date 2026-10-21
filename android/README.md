@@ -1,7 +1,18 @@
-# Blaze Android 0.6 preview
+# Blaze Android 0.9 preview
 
-Blaze combines downloads, local playback and Music Studio in one Android app.
+Blaze combines Explore, downloads, playback and Music Studio in one Android app.
 Android 7+ ARM64 phones are supported; x86_64 is included for emulator testing.
+
+Explore offers For you, Music and Videos entry points. Search inside Blaze and
+filter by All, Songs, Videos, Artists or Playlists; open supported collections
+without copying a link from another app. Results come from upstream providers.
+Discovery and online playback depend on network access, provider availability
+and the bundled, pinned yt-dlp extractor.
+
+Select a recording to play through the shared Media3 player. Open Now Playing
+from the mini-player for seeking and queue controls, with video available for
+supported recordings. Download adds the recording to Blaze's durable queue.
+Completed files remain available in Library for local playback or offline Studio.
 
 Music Studio defaults to the same verified BTC-170/MusicXLab advanced ensemble
 as Windows, using shared NumPy CQT and sequence decoding and native ONNX Runtime.
@@ -25,7 +36,8 @@ Blaze releases; their build recipes/provenance remain available.
 ```sh
 python tools/stage_android_studio.py --work build/android-released-assets
 python tools/sync_android_harmony.py
-python -m pip install numpy==1.26.4 onnxruntime==1.20.1
+python -m pip install numpy==1.26.4 onnxruntime==1.20.1 yt-dlp==2026.8.19
+python tests/Blaze-Discovery-Tests.py
 python tests/Blaze-Android-Harmony-Tests.py
 python tests/Blaze-Android-Rhythm-Frontend-Tests.py
 cd android

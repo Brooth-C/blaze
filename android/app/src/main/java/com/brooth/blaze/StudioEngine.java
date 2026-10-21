@@ -32,7 +32,7 @@ final class StudioEngine implements AutoCloseable {
         File marker=File.createTempFile("studio-harmony-",".work",context.getCacheDir());if(!marker.delete()||!marker.mkdir())throw new IOException("Could not prepare local analysis.");
         work=marker;audio=new File(work,"audio.f32");weightedFile=new File(work,"weighted.f32");baselineFile=new File(work,"baseline.f32");
         pcmOutput=new BufferedOutputStream(new FileOutputStream(audio),65536);weighted=new RandomAccessFile(weightedFile,"rw");
-        synchronized(Python.class){if(!Python.isStarted())Python.start(new AndroidPlatform(context.getApplicationContext()));}
+        PythonRuntime.get(context);
     }
     void sample(double value)throws Exception{
         if(samples%16384==0)check.run();

@@ -77,7 +77,7 @@ public class DownloadService extends Service {
                     Engine override=engineOverride;
                     if(override!=null)output=override.run(job,directory,this);
                     else {
-                        if(!Python.isStarted())Python.start(new AndroidPlatform(getApplicationContext()));
+                        PythonRuntime.get(getApplicationContext());
                         File lib=new File(getApplicationInfo().nativeLibraryDir);
                         output=Python.getInstance().getModule("blaze_mobile").callAttr("download",job.url,job.mode,directory.getAbsolutePath(),this,job.options,new File(lib,"libblaze_ffmpeg.so").getAbsolutePath(),new File(lib,"libblaze_qjs.so").getAbsolutePath(),token).toString();
                     }
@@ -144,7 +144,7 @@ public class DownloadService extends Service {
         else startForeground(1,notification);
     }
     private Notification notification() {
-        PendingIntent open=PendingIntent.getActivity(this,0,new Intent(this,MainActivity.class),PendingIntent.FLAG_IMMUTABLE|PendingIntent.FLAG_UPDATE_CURRENT);
+        PendingIntent open=PendingIntent.getActivity(this,0,new Intent(this,MainActivity.class).putExtra("destination","downloads"),PendingIntent.FLAG_IMMUTABLE|PendingIntent.FLAG_UPDATE_CURRENT);
         PendingIntent pause=PendingIntent.getService(this,1,new Intent(this,DownloadService.class).setAction("PAUSE"),PendingIntent.FLAG_IMMUTABLE);
         Notification.Builder builder=Build.VERSION.SDK_INT>=26?new Notification.Builder(this,CHANNEL):new Notification.Builder(this);
         builder.setContentTitle("Blaze downloads").setContentText(status).setSmallIcon(R.drawable.ic_notification).setContentIntent(open).setOngoing(true).setOnlyAlertOnce(true).addAction(0,"Pause queue",pause);

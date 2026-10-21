@@ -21,7 +21,7 @@ public class StudioUsabilityTest {
     private final Context app = instrumentation.getTargetContext();
 
     @Test public void importIsVisibleAndAudioChoicesAreClear() throws Exception {
-        try (ActivityScenario<MainActivity> screen = ActivityScenario.launch(MainActivity.class)) {
+        try (ActivityScenario<MainActivity> screen = ActivityScenario.launch(AndroidTestScreens.downloads())) {
             instrumentation.waitForIdleSync();
             screen.onActivity(activity -> {
                 View studio = activity.findViewById(R.id.find_chords);
