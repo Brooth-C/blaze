@@ -1,10 +1,10 @@
 name: Android offline Studio validation
 on:
   pull_request:
-    paths: ['android/**', 'music_studio/lv_frontend.py', 'music_studio/structured.py', 'tests/Blaze-Android*-Tests.py', 'tests/Blaze-Mobile*-Tests.py', 'tests/java/**', 'tools/stage_android_studio.py', 'tools/sync_android_harmony.py', '.github/workflows/android-apk.yml']
+    paths: ['android/**', 'music_studio/lv_frontend.py', 'music_studio/structured.py', 'tests/Blaze-Android*-Tests.py', 'tests/Blaze-Mobile*-Tests.py', 'tests/Blaze-Discovery-Tests.py', 'tests/java/**', 'tools/stage_android_studio.py', 'tools/sync_android_harmony.py', '.github/workflows/android-apk.yml']
   push:
     branches: [main]
-    paths: ['android/**', 'music_studio/lv_frontend.py', 'music_studio/structured.py', 'tests/Blaze-Android*-Tests.py', 'tests/Blaze-Mobile*-Tests.py', 'tests/java/**', 'tools/stage_android_studio.py', 'tools/sync_android_harmony.py', '.github/workflows/android-apk.yml']
+    paths: ['android/**', 'music_studio/lv_frontend.py', 'music_studio/structured.py', 'tests/Blaze-Android*-Tests.py', 'tests/Blaze-Mobile*-Tests.py', 'tests/Blaze-Discovery-Tests.py', 'tests/java/**', 'tools/stage_android_studio.py', 'tools/sync_android_harmony.py', '.github/workflows/android-apk.yml']
   workflow_dispatch:
 permissions:
   contents: read
@@ -41,6 +41,7 @@ jobs:
       - name: Engine and backend checks
         run: |
           python -m pip install numpy==1.26.4 onnxruntime==1.20.1 yt-dlp==2026.8.19 cryptography imageio-ffmpeg ruff==0.14.0
+          python tests/Blaze-Discovery-Tests.py
           python tests/Blaze-Mobile-Tests.py
           python tests/Blaze-Mobile-Integration-Tests.py
           python tests/Blaze-Mobile-Chord-Tests.py
@@ -102,13 +103,13 @@ jobs:
             adb shell am instrument -w -r com.brooth.blaze.test/androidx.test.runner.AndroidJUnitRunner | tee instrumentation.log
             adb logcat -d > android-logcat.txt
             mkdir -p screenshots
-            for name in Blaze-Android-Home Blaze-Android-Studio-Portrait Blaze-Android-Studio-Large-Text Blaze-Android-Studio-Landscape Blaze-Android-Studio-Options Blaze-Android-Studio-Layout-Diagnostic Blaze-Android-Home-Light Blaze-Android-Home-Dark Blaze-Android-Studio-Light Blaze-Android-Studio-Dark Blaze-Android-Studio-Accessibility Blaze-Android-downloads Blaze-Android-library Blaze-Android-history; do adb exec-out run-as com.brooth.blaze cat "files/$name.png" > "screenshots/$name.png"; done
+            for name in Blaze-Android-Explore Blaze-Android-Search Blaze-Android-Now-Playing Blaze-Android-Search-Dark Blaze-Android-Now-Playing-Large-Text Blaze-Android-Home Blaze-Android-Studio-Portrait Blaze-Android-Studio-Large-Text Blaze-Android-Studio-Landscape Blaze-Android-Studio-Options Blaze-Android-Studio-Layout-Diagnostic Blaze-Android-Home-Light Blaze-Android-Home-Dark Blaze-Android-Studio-Light Blaze-Android-Studio-Dark Blaze-Android-Studio-Accessibility Blaze-Android-downloads Blaze-Android-library Blaze-Android-history; do adb exec-out run-as com.brooth.blaze cat "files/$name.png" > "screenshots/$name.png"; done
             grep -Eq '^OK \([0-9]+ tests?\)' instrumentation.log
       - name: Record rendered UI proof
         if: always()
         shell: bash
         run: |
-          for name in Blaze-Android-Home Blaze-Android-Studio-Portrait Blaze-Android-Studio-Large-Text Blaze-Android-Studio-Landscape Blaze-Android-Studio-Options Blaze-Android-Studio-Layout-Diagnostic Blaze-Android-Home-Light Blaze-Android-Home-Dark Blaze-Android-Studio-Light Blaze-Android-Studio-Dark Blaze-Android-Studio-Accessibility Blaze-Android-library Blaze-Android-history; do
+          for name in Blaze-Android-Explore Blaze-Android-Search Blaze-Android-Now-Playing Blaze-Android-Search-Dark Blaze-Android-Now-Playing-Large-Text Blaze-Android-Home Blaze-Android-Studio-Portrait Blaze-Android-Studio-Large-Text Blaze-Android-Studio-Landscape Blaze-Android-Studio-Options Blaze-Android-Studio-Layout-Diagnostic Blaze-Android-Home-Light Blaze-Android-Home-Dark Blaze-Android-Studio-Light Blaze-Android-Studio-Dark Blaze-Android-Studio-Accessibility Blaze-Android-library Blaze-Android-history; do
             if [ -s "screenshots/$name.png" ]; then printf 'BLAZE_UI_IMAGE:%s:' "$name"; base64 -w0 "screenshots/$name.png"; printf '\n'; fi
           done
       - uses: actions/upload-artifact@v7.0.2

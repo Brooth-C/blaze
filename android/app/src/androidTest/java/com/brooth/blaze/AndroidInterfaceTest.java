@@ -38,7 +38,7 @@ public class AndroidInterfaceTest {
                 values.put("state", "paused");
                 store.getWritableDatabase().update("jobs", values, "id=?", new String[]{id});
                 assertFalse("Paused jobs are not queued", store.hasQueued());
-                try (ActivityScenario<MainActivity> screen = ActivityScenario.launch(MainActivity.class)) {
+                try (ActivityScenario<MainActivity> screen = ActivityScenario.launch(AndroidTestScreens.downloads())) {
                     assertResumeReachable(screen);
                     values.put("state", "interrupted");
                     store.getWritableDatabase().update("jobs", values, "id=?", new String[]{id});
@@ -68,10 +68,12 @@ public class AndroidInterfaceTest {
     }
 
     @Test public void libraryAndHistorySelectionSurviveRecreation() throws Exception {
-        try (ActivityScenario<MainActivity> screen = ActivityScenario.launch(MainActivity.class)) {
+        try (ActivityScenario<MainActivity> screen = ActivityScenario.launch(AndroidTestScreens.downloads())) {
             instrumentation.waitForIdleSync();
-            for (String tag : new String[]{"nav_library", "nav_history", "nav_downloads"}) {
+            for (String tag : new String[]{"nav_library", "nav_history", "nav_queue"}) {
                 screen.onActivity(activity -> {
+                    if (!tag.equals("nav_library"))
+                        activity.getWindow().getDecorView().findViewWithTag("nav_downloads").performClick();
                     View selected = activity.getWindow().getDecorView().findViewWithTag(tag);
                     assertNotNull("Missing navigation destination " + tag, selected);
                     assertVisibleTarget(selected);
@@ -83,10 +85,12 @@ public class AndroidInterfaceTest {
                 screen.onActivity(activity -> {
                     View selected = activity.getWindow().getDecorView().findViewWithTag(tag);
                     assertTrue("Navigation lost after recreation", selected.isSelected());
+                    View destination = activity.getWindow().getDecorView().findViewWithTag(tag.equals("nav_library") ? "nav_library" : "nav_downloads");
+                    assertTrue("Top-level destination lost after recreation", destination.isSelected());
                     assertVisibleTarget(activity.findViewById(R.id.find_chords));
                 });
                 awaitRenderedFrames(screen);
-                screenshot("Blaze-Android-" + tag.substring(4) + ".png");
+                screenshot("Blaze-Android-" + (tag.equals("nav_queue") ? "downloads" : tag.substring(4)) + ".png");
             }
         }
     }
@@ -193,7 +197,7 @@ public class AndroidInterfaceTest {
         try {
             for (boolean dark : new boolean[]{false, true}) {
                 night(dark ? "yes" : "no");
-                try (ActivityScenario<MainActivity> screen = ActivityScenario.launch(MainActivity.class)) {
+                try (ActivityScenario<MainActivity> screen = ActivityScenario.launch(AndroidTestScreens.downloads())) {
                     waitForTheme(screen, dark);
                     screen.onActivity(activity -> {
                         BlazeUi ui = new BlazeUi(activity);

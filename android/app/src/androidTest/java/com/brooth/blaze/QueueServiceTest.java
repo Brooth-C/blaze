@@ -27,7 +27,7 @@ public class QueueServiceTest {
             try(InputStream in=InstrumentationRegistry.getInstrumentation().getContext().getAssets().open("fixture-video.mp4");OutputStream out=new FileOutputStream(output)){byte[] b=new byte[4096];int n;while((n=in.read(b))!=-1)out.write(b,0,n);}
             return new JSONObject().put("title","Synthetic fixture").put("path",output.getAbsolutePath()).toString();
         };
-        try(ActivityScenario<MainActivity> screen=ActivityScenario.launch(MainActivity.class)){
+        try(ActivityScenario<MainActivity> screen=ActivityScenario.launch(AndroidTestScreens.downloads())){
             ids.add(store.enqueue("https://example.test/first","video","{}","First"));ids.add(store.enqueue("https://example.test/second","video","{}","Second"));
             Intent resume=new Intent(app,DownloadService.class).setAction("RESUME");if(Build.VERSION.SDK_INT>=26)app.startForegroundService(resume);else app.startService(resume);
             waitFor(()->attempts.get()==1&&DownloadService.busy);screen.recreate();assertTrue(DownloadService.busy);

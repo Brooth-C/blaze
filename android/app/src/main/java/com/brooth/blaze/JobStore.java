@@ -100,6 +100,13 @@ public final class JobStore extends SQLiteOpenHelper {
             return c.moveToFirst()?read(c):null;
         }
     }
+    public synchronized Job matching(String url,String mode,String options,boolean completedOnly) {
+        String states=completedOnly?"state='complete'":"state IN ('queued','running','paused','interrupted')";
+        try(Cursor c=getReadableDatabase().query("jobs",null,"url=? AND mode=? AND options=? AND "+states,
+                new String[]{url,mode,options},null,null,"updated DESC,rowid DESC","1")) {
+            return c.moveToFirst()?read(c):null;
+        }
+    }
     public synchronized int count(int filter){try(Cursor c=getReadableDatabase().rawQuery("SELECT COUNT(*) FROM jobs WHERE "+filterWhere(filter),null)){c.moveToFirst();return c.getInt(0);}}
     public synchronized List<Job> page(int filter,int offset){List<Job> out=new ArrayList<>();String order=filter==0?"CASE state WHEN 'running' THEN 0 ELSE 1 END,created ASC,rowid ASC":"updated DESC,rowid DESC";try(Cursor c=getReadableDatabase().query("jobs",null,filterWhere(filter),null,null,null,order,Math.max(0,offset)+",50")){while(c.moveToNext())out.add(read(c));}return out;}
     public synchronized void importLegacyFiles(File root)throws java.io.IOException{

@@ -39,7 +39,7 @@ final class StudioBeatDetector {
         long duration = Math.round(samples * 1000.0 / 22050);
         File features = File.createTempFile("blaze-rhythm-", ".f32", app.getCacheDir());
         try {
-            if (!Python.isStarted()) Python.start(new AndroidPlatform(app));
+            PythonRuntime.get(app);
             PyObject bridge = Python.getInstance().getModule("blaze_rhythm");
             progress.update("Finding beats and meter offline…");
             JSONObject prepared = new JSONObject(bridge.callAttr("prepare_rhythm", pcm.getAbsolutePath(), frontend, features.getAbsolutePath(), samples, check).toString());
