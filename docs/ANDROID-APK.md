@@ -1,18 +1,23 @@
 # Blaze Android
 
-Install the [0.9.0 preview APK](https://github.com/Brooth-C/blaze/releases/download/android-v0.9.0-preview/Blaze-Android-Preview.apk)
+Install the [0.10.0 Android APK](https://github.com/Brooth-C/blaze/releases/latest/download/Blaze-Android-Preview.apk)
 on an Android 7+ ARM64 phone. Explore, downloads, playback and Music Studio live in one app.
 
-1. Open Explore to search for songs, videos, artists and playlists without copying a link from another app. Use the search filters or open a supported collection.
+1. Open Explore for real YouTube music picks and thumbnails, or search for songs, videos, artists and playlists without copying links. New users get general music discovery; listening, favourites and repeat listening inside Blaze personalize later picks without YouTube login. Use Music/Videos or Refresh to update recommendations. The profile button explains this and can reset listening history.
 2. Tap a recording to play it. Now Playing and the mini-player share the same listening session, with seek, queue and playback controls.
 3. Tap Download to choose audio/video and a format. Downloads keeps the durable queue and its History; Library contains completed files. You can also paste a supported HTTPS media link in Downloads.
 4. Tap Open in Studio for a saved recording, or save an online recording for Studio first. The Studio tab also imports local audio/video. Tap Analyse chords after opening the local file.
 5. Play along with the timeline and current/next piano or guitar diagrams. Tap the timeline to seek. Choose Options for instruments, edits, loop, transposition, timing corrections and JSON/CSV exports.
 
-See the native [Explore](https://github.com/Brooth-C/blaze/releases/download/android-v0.9.0-preview/Blaze-Android-Explore.png),
-[Search](https://github.com/Brooth-C/blaze/releases/download/android-v0.9.0-preview/Blaze-Android-Search.png) and
-[Now Playing](https://github.com/Brooth-C/blaze/releases/download/android-v0.9.0-preview/Blaze-Android-Now-Playing.png) captures.
-They use demonstration metadata and local synthetic audio for reproducible UI checks.
+See the native [Explore](https://github.com/Brooth-C/blaze/releases/download/android-v0.10.0/Blaze-Android-Explore.png),
+[Search](https://github.com/Brooth-C/blaze/releases/download/android-v0.10.0/Blaze-Android-Search.png) and
+[Now Playing](https://github.com/Brooth-C/blaze/releases/download/android-v0.10.0/Blaze-Android-Now-Playing.png) captures.
+They use demonstration metadata, thumbnail fixtures and local synthetic audio for reproducible UI checks.
+
+Listening history and repeat counts stay on-device. Blaze sends short artist/song
+queries to YouTube, then filters and diversifies the returned candidates; it does
+not copy a signed-in YouTube feed. Recommendations exclude recently heard tracks.
+Six-hour metadata caches can preserve picks during offline refresh failures.
 
 Advanced analysis and beat/downbeat detection run locally with pretrained models.
 Nothing needs training and no microphone is used. Blank chord cells indicate

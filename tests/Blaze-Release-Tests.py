@@ -69,13 +69,13 @@ class ReleaseTests(unittest.TestCase):
 
     def test_real_catalog_has_seven_explicit_platform_builds(self):
         catalog = r.load_catalog()
-        self.assertEqual('v4.3.1', catalog['tag'])
+        self.assertEqual('v4.3.2', catalog['tag'])
         self.assertEqual(['Blaze-Windows.zip', 'Blaze-Android-Preview.apk', 'Blaze-Mac-arm64.zip', 'Blaze-Mac-x86_64.zip',
                           'Blaze-Linux-x86_64.tar.gz', 'Blaze-Linux-Installer.zip', 'Blaze-Termux-Installer.zip'],
                          [asset['name'] for asset in catalog['assets']])
-        self.assertEqual(['windows-v0.7.0', 'android-v0.9.0-preview', 'macos-v0.7.0-preview', 'macos-v0.7.0-preview', 'linux-v0.7.0-preview', 'v4.1.29', 'v4.1.29'],
+        self.assertEqual(['windows-v0.7.0', 'android-v0.10.0', 'macos-v0.7.0-preview', 'macos-v0.7.0-preview', 'linux-v0.7.0-preview', 'v4.1.29', 'v4.1.29'],
                          [asset['source_tag'] for asset in catalog['assets']])
-        self.assertEqual(['0.7.0', '0.9.0-preview', '0.7.0-preview', '0.7.0-preview', '0.7.0-preview', '4.1.29', '4.1.29'],
+        self.assertEqual(['0.7.0', '0.10.0', '0.7.0-preview', '0.7.0-preview', '0.7.0-preview', '4.1.29', '4.1.29'],
                          [asset['component_version'] for asset in catalog['assets']])
         self.assertEqual({'desktop', 'macos', 'android'}, set(catalog['native_validation']))
         self.assertNotIn('Blaze-Windows-Installer.zip', [asset['name'] for asset in catalog['assets']])
@@ -87,7 +87,7 @@ class ReleaseTests(unittest.TestCase):
             self.assertIn(asset['sha256'], result)
             self.assertIn(f"/releases/tag/{asset['source_tag']}", result)
         self.assertIn('distribution refresh', result)
-        self.assertIn('Android remains\na preview', result)
+        self.assertIn('Android is debug-signed', result)
         self.assertIn(self.catalog['android_native_sources']['url'], result)
         self.assertNotIn('SHA256SUMS', result)
         self.assertIn('Download tar.gz', result)
