@@ -16,7 +16,7 @@ NATIVE_SOURCES = dict(name='Blaze-Android-Native-Sources.tar.gz', source_tag='v4
                       size=374676937, sha256='c2eeadf7bbc8be426ead9248fa69e4a5ce5c490c5484669495e684a3081d226e')
 ORIGINS = {
     'Blaze-Windows.zip': 'windows-v0.7.0',
-    'Blaze-Android-Preview.apk': 'android-v0.7.0-preview',
+    'Blaze-Android-Preview.apk': 'android-v0.9.0-preview',
     'Blaze-Mac-arm64.zip': 'macos-v0.7.0-preview',
     'Blaze-Mac-x86_64.zip': 'macos-v0.7.0-preview',
     'Blaze-Linux-x86_64.tar.gz': 'linux-v0.7.0-preview',
@@ -38,6 +38,17 @@ INPUTS = (
     '.github/workflows/desktop-release.yml', '.github/workflows/macos-app.yml',
     '.github/workflows/android-apk.yml', 'docs/assets/blaze-logo.png',
 )
+# These inputs cannot affect the unchanged Windows, Linux or macOS packages.
+# Android still compares the complete input tree with its newer native proof.
+ANDROID_ONLY_INPUTS = {
+    'android', 'tools/stage_android_studio.py', 'tools/sync_android_harmony.py',
+    '.github/workflows/android-apk.yml',
+}
+
+
+def platform_tree(tree, platform):
+    return {path: entry for path, entry in tree.items()
+            if platform == 'android' or path not in ANDROID_ONLY_INPUTS}
 
 
 def input_tree(commit):
@@ -50,7 +61,7 @@ def input_tree(commit):
 
 
 def validate(catalog, main_sha):
-    if (catalog['repository'] != REPOSITORY or catalog['tag'] != 'v4.3.0'
+    if (catalog['repository'] != REPOSITORY or catalog['tag'] != 'v4.3.1'
             or os.environ.get('GH_REPO', REPOSITORY) != REPOSITORY
             or os.environ.get('GITHUB_REPOSITORY', REPOSITORY) != REPOSITORY
             or {a['name']: a['source_tag'] for a in catalog['assets']} != ORIGINS):
@@ -78,7 +89,7 @@ def validate(catalog, main_sha):
             raise ValueError('Required native jobs or publication did not pass')
         if key == 'android' and not {'Android tests / API 29', 'Android tests / API 35'} <= passed:
             raise ValueError('Both Android emulator versions must pass')
-        if input_tree(head) != main_tree:
+        if platform_tree(input_tree(head), key) != platform_tree(main_tree, key):
             raise ValueError('Application inputs changed after native validation')
     for tag in set(ORIGINS.values()):
         source = publisher.api(f'releases/tags/{tag}')
@@ -118,7 +129,7 @@ def promote(catalog):
         release.verify_files(directory, catalog['assets'])
         notes = directory / 'release-notes.md'
         notes.write_text(release.page(catalog), encoding='utf-8')
-        publisher.publish(catalog['tag'], 'Blaze 4.3.0 · desktop and Android refresh',
+        publisher.publish(catalog['tag'], 'Blaze 4.3.1 · Android discovery update',
                           catalog['assets'], directory, notes, main_sha, False, main_sha)
         if publisher.api('releases/latest')['tag_name'] != catalog['tag']:
             raise ValueError('The verified distribution is not GitHub Latest')
