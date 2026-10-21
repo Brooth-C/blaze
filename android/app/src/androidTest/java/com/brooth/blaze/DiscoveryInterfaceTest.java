@@ -76,7 +76,7 @@ public class DiscoveryInterfaceTest {
             PlaybackController.get(app).stop();
             for (Stage stage : new Stage[]{Stage.RESUMED, Stage.STARTED, Stage.CREATED}) {
                 for (Activity activity : new ArrayList<>(ActivityLifecycleMonitorRegistry.getInstance().getActivitiesInStage(stage))) {
-                    if (activity instanceof NowPlayingActivity || activity instanceof MusicStudioActivity) activity.finish();
+                    if (activity instanceof NowPlayingActivity || activity instanceof VlcPlayerActivity) activity.finish();
                 }
             }
         });
@@ -91,6 +91,9 @@ public class DiscoveryInterfaceTest {
     }
 
     @Test public void referenceScreensConnectSearchRealPlaybackAndStudio() throws Exception {
+        PlaybackSource savedAudio = PlaybackSource.load(app, golden.localJobId);
+        assertTrue("The platform playback probe rejected the real PCM recording", PlaybackController.supportsPlatformPlayback(savedAudio, false));
+        assertFalse("An audio-only recording satisfied video playback", PlaybackController.supportsPlatformPlayback(savedAudio, true));
         String size = override(shell("wm size"), "size");
         String density = override(shell("wm density"), "density");
         String font = shell("settings get system font_scale").trim();
@@ -161,6 +164,36 @@ public class DiscoveryInterfaceTest {
                     assertEquals(quiet.localJobId, activity.source.id);
                 });
                 waitMain("Remote session kept playing over Studio", () -> !PlaybackController.get(app).isPlaying());
+                withForeground(MusicStudioActivity.class, Activity::finish);
+                withForeground(NowPlayingActivity.class, activity -> tagged(activity, "now_nav_library").performClick());
+                waitScreen(screen, "Now Playing did not return to the saved Library", activity -> tagged(activity, "nav_library").isSelected()
+                    && tagged(activity, "saved_play_" + golden.localJobId) != null);
+                screen.onActivity(activity -> {
+                    View savedPlay = tagged(activity, "saved_play_" + golden.localJobId);
+                    savedPlay.requestRectangleOnScreen(new Rect(0, 0, savedPlay.getWidth(), savedPlay.getHeight()), true);
+                });
+                awaitFrames(screen);
+                onMain(() -> PlaybackController.get(app).toggle());
+                awaitPlayback(quiet, true);
+                screen.onActivity(activity -> {
+                    View savedPlay = tagged(activity, "saved_play_" + golden.localJobId);
+                    visible(savedPlay, true); savedPlay.performClick();
+                });
+                AtomicReference<VlcPlayerActivity> localPlayer = new AtomicReference<>();
+                withForeground(VlcPlayerActivity.class, activity -> {
+                    assertEquals("Library playback changed its decoder route", VlcPlayerActivity.class, activity.getClass());
+                    assertEquals(golden.localJobId, activity.getIntent().getStringExtra("job"));
+                    assertNotNull("Library lost the owned recording", activity.source);
+                    assertEquals(golden.localJobId, activity.source.id);
+                    localPlayer.set(activity);
+                });
+                waitMain("Library VLC player did not decode the actual saved recording", () -> {
+                    VlcPlayerActivity activity = localPlayer.get();
+                    return activity.player != null && activity.player.isPlaying() && activity.player.getTime() > 100
+                        && activity.player.getAudioTracksCount() > 0 && Math.abs(activity.player.getLength() - 222000) < 1000;
+                });
+                waitMain("Discovery audio kept playing over Library playback", () -> !PlaybackController.get(app).isPlaying());
+                withForeground(VlcPlayerActivity.class, Activity::finish);
             }
             assertEquals("Local playback unexpectedly used a remote resolver", 0, backend.resolves);
         } finally {

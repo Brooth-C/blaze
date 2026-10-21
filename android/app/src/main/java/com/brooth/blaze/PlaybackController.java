@@ -4,6 +4,9 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.database.Cursor;
+import android.media.MediaCodecList;
+import android.media.MediaExtractor;
+import android.media.MediaFormat;
 import android.net.Uri;
 import android.os.Handler;
 import android.os.Looper;
@@ -145,7 +148,8 @@ public final class PlaybackController {
                 while (copies.moveToNext()) {
                     String jobId = copies.getString(0);
                     try {
-                        PlaybackSource.load(app, jobId);
+                        PlaybackSource local = PlaybackSource.load(app, jobId);
+                        if (!supportsPlatformPlayback(local, selected.kind.equals("video"))) continue;
                         return new DiscoveryItem(selected.id, selected.kind, selected.title, selected.creator,
                             selected.url, selected.thumbnail, selected.durationMs, jobId);
                     } catch (java.io.IOException ignored) { /* A removed copy must not block fresh playback. */ }
@@ -153,6 +157,32 @@ public final class PlaybackController {
             }
         } catch (RuntimeException ignored) { /* An unavailable library must not block source resolution. */ }
         return selected;
+    }
+
+    /** Container names do not establish codec support: inspect every audio/video track. */
+    static boolean supportsPlatformPlayback(PlaybackSource source, boolean requireVideo) {
+        MediaExtractor extractor = new MediaExtractor();
+        try (java.io.FileInputStream input = new java.io.FileInputStream(source.file)) {
+            extractor.setDataSource(input.getFD());
+            int count = extractor.getTrackCount();
+            if (count < 1 || count > 64) return false;
+            MediaCodecList codecs = new MediaCodecList(MediaCodecList.REGULAR_CODECS);
+            boolean audiovisual = false, video = false;
+            for (int track = 0; track < count; track++) {
+                MediaFormat format = extractor.getTrackFormat(track);
+                String mime = format.getString(MediaFormat.KEY_MIME);
+                if (mime == null) return false;
+                boolean isVideo = mime.startsWith("video/");
+                if (!isVideo && !mime.startsWith("audio/")) continue;
+                audiovisual = true; video |= isVideo;
+                // Media3 plays uncompressed PCM without a MediaCodec decoder.
+                if (!mime.equals("audio/raw") && codecs.findDecoderForFormat(format) == null) return false;
+            }
+            return audiovisual && (!requireVideo || video);
+        } catch (java.io.IOException | RuntimeException unsupported) {
+            // Includes containers unsupported by the platform extractor, even if VLC can open them.
+            return false;
+        } finally { extractor.release(); }
     }
 
     public void toggle() {
@@ -314,7 +344,9 @@ public final class PlaybackController {
             if (current != null && current.localJobId.isEmpty() && !refreshAttempted && expiredResponse(error)) {
                 refreshAttempted = true; rememberedPosition = position();
                 preparedGeneration = -1; cancelResolution(); resolving = true; prepare();
-            } else failed(generation, "Playback was interrupted. Check your connection or try saving this recording.");
+            } else failed(generation, current != null && !current.localJobId.isEmpty()
+                ? "Use the file player for this recording."
+                : "Playback was interrupted. Check your connection or try saving this recording.");
         }
         @Override public void onEvents(Player value, Player.Events events) { changed(); }
     };

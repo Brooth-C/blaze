@@ -35,6 +35,7 @@ public final class NowPlayingActivity extends Activity {
     private TextView title, creator, elapsed, duration, nextTitle, nextCreator, quality, status;
     private ImageButton toggle, favorite, shuffle, repeat;
     private SeekBar seek;
+    private Button fileFallback;
     private LinearLayout nextCard;
     private FrameLayout mediaHost;
     private boolean scrubbing;
@@ -130,6 +131,8 @@ public final class NowPlayingActivity extends Activity {
         android.graphics.drawable.Drawable wave = DiscoveryIcons.get(this, "studio", ui.secondary); wave.setBounds(0, 0, dp(14), dp(14));
         quality.setCompoundDrawables(wave, null, null, null); quality.setCompoundDrawablePadding(dp(6)); content.addView(quality, new LinearLayout.LayoutParams(-1, dp(28)));
         status = ui.label("", 13, ui.secondary); status.setTag("now_status"); status.setGravity(Gravity.CENTER); status.setAccessibilityLiveRegion(View.ACCESSIBILITY_LIVE_REGION_POLITE); content.addView(status); status.setVisibility(View.GONE);
+        fileFallback = action("Open file player", "play", this::openFilePlayer); fileFallback.setTag("now_file_player");
+        content.addView(fileFallback, new LinearLayout.LayoutParams(-1, -2)); fileFallback.setVisibility(View.GONE);
 
         shell.addView(ui.divider(), new LinearLayout.LayoutParams(-1, Math.max(1, dp(.5f))));
         LinearLayout navigation = new LinearLayout(this); navigation.setPadding(dp(8), 0, dp(8), 0); navigation.setGravity(Gravity.CENTER_VERTICAL); shell.addView(navigation);
@@ -175,6 +178,7 @@ public final class NowPlayingActivity extends Activity {
             seek.setProgress(0); elapsed.setText("0:00"); duration.setText("0:00");
             nextTitle.setText("Your queue is clear"); nextCreator.setText("Find something in Explore"); nextArtwork.setVisibility(View.GONE);
             status.setVisibility(View.GONE);
+            fileFallback.setVisibility(View.GONE);
             return;
         }
         toggle.setEnabled(true); favorite.setEnabled(true); seek.setEnabled(playback.duration() > 0);
@@ -211,6 +215,7 @@ public final class NowPlayingActivity extends Activity {
         if (detail == null || detail.isEmpty()) detail = playback.isLoading() ? "Opening recording…" : "";
         if (!detail.contentEquals(status.getText())) status.setText(detail);
         status.setVisibility(detail.isEmpty() ? View.GONE : View.VISIBLE);
+        fileFallback.setVisibility(!playback.error().isEmpty() && !item.localJobId.isEmpty() ? View.VISIBLE : View.GONE);
     }
 
     private void openStudio() {
@@ -224,7 +229,24 @@ public final class NowPlayingActivity extends Activity {
     }
     private void showMenu(View anchor) {
         PopupMenu menu = new PopupMenu(this, anchor); menu.getMenu().add(0, 1, 0, "Show queue"); menu.getMenu().add(0, 2, 1, "Stop playback");
-        menu.setOnMenuItemClickListener(item -> { if (item.getItemId() == 1) showQueue(); else { playback.stop(); finish(); } return true; }); menu.show();
+        DiscoveryItem current = playback.current();
+        if (current != null && !current.localJobId.isEmpty()) menu.getMenu().add(0, 3, 2, "Open file player");
+        menu.setOnMenuItemClickListener(item -> {
+            if (item.getItemId() == 1) showQueue();
+            else if (item.getItemId() == 3) openFilePlayer();
+            else { playback.stop(); finish(); }
+            return true;
+        }); menu.show();
+    }
+    private void openFilePlayer() {
+        DiscoveryItem item = playback.current();
+        if (item == null || item.localJobId.isEmpty()) return;
+        try {
+            PlaybackSource.load(this, item.localJobId); playback.pause();
+            startActivity(new Intent(this, VlcPlayerActivity.class).putExtra("job", item.localJobId));
+        } catch (Exception unavailable) {
+            new AlertDialog.Builder(this).setTitle("Saved recording unavailable").setMessage("The saved file is missing. Choose another recording in Library.").setPositiveButton("Close", null).show();
+        }
     }
     private void showQueue() {
         List<DiscoveryItem> queue = playback.queue();
