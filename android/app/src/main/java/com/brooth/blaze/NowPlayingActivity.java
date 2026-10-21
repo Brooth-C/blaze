@@ -129,7 +129,8 @@ public final class NowPlayingActivity extends Activity {
         gap(content, 10);
         quality = ui.label("Audio · Original quality", 11, ui.secondary); quality.setGravity(Gravity.CENTER);
         android.graphics.drawable.Drawable wave = DiscoveryIcons.get(this, "studio", ui.secondary); wave.setBounds(0, 0, dp(14), dp(14));
-        quality.setCompoundDrawables(wave, null, null, null); quality.setCompoundDrawablePadding(dp(6)); content.addView(quality, new LinearLayout.LayoutParams(-1, dp(28)));
+        quality.setCompoundDrawables(wave, null, null, null); quality.setCompoundDrawablePadding(dp(6));
+        LinearLayout.LayoutParams qualitySize = new LinearLayout.LayoutParams(-2, dp(28)); qualitySize.gravity = Gravity.CENTER_HORIZONTAL; content.addView(quality, qualitySize);
         status = ui.label("", 13, ui.secondary); status.setTag("now_status"); status.setGravity(Gravity.CENTER); status.setAccessibilityLiveRegion(View.ACCESSIBILITY_LIVE_REGION_POLITE); content.addView(status); status.setVisibility(View.GONE);
         fileFallback = action("Open file player", "play", this::openFilePlayer); fileFallback.setTag("now_file_player");
         content.addView(fileFallback, new LinearLayout.LayoutParams(-1, -2)); fileFallback.setVisibility(View.GONE);
