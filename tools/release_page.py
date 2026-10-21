@@ -79,12 +79,12 @@ Blaze; install the Android APK directly. Linux desktop uses the tar.gz installer
 {rows}
 
 {desktop} include Music Studio with advanced offline chord analysis,
-audio/video import, playback and automatic beat/meter detection. Android remains
-a preview. {terminals} retain the existing terminal app.
+audio/video import, playback and automatic beat/meter detection.
+{terminals} retain the existing terminal app.
 {mac_note}
 {linux_note}
 Windows requires Microsoft Edge WebView2 Runtime and is not Authenticode-signed.
-Android is a debug-signed preview; physical-phone validation remains outstanding.
+Android is debug-signed; physical-phone validation remains outstanding.
 
 **{catalog['tag']} is a distribution refresh:** it brings these existing platform
 builds together. Component versions: {versions}.

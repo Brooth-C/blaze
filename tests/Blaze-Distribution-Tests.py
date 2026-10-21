@@ -13,7 +13,7 @@ class DistributionTests(unittest.TestCase):
     def setUp(self):
         self.head, self.main = 'a' * 40, 'b' * 40
         self.catalog = {
-            'repository': p.REPOSITORY, 'tag': 'v4.3.1',
+            'repository': p.REPOSITORY, 'tag': 'v4.3.2',
             'assets': [dict(name=name, source_tag=tag, size=10, sha256='c' * 64)
                        for name, tag in p.ORIGINS.items()],
             'native_validation': {key: dict(run_id=index, head_sha=self.head)
