@@ -79,7 +79,7 @@ public class VlcPlayerActivity extends Activity {
         try{org.videolan.libvlc.interfaces.IMedia.Stats stats=media==null?null:media.getStats();
             rendered=stats!=null&&(videoViewsWanted()&&player.getVideoTracksCount()>0?stats.displayedPictures>restorePictures:stats.decodedAudio>0);
         }finally{if(media!=null)media.release();}
-        if(rendered||SystemClock.uptimeMillis()>=restoreDeadline){restoringFrame=false;player.pause();player.setTime(restorePosition);status.setText(!rendered&&videoViewsWanted()?"Video preview unavailable. Try Software decoding.":"Paused");video.setKeepScreenOn(false);}
+        if(rendered||SystemClock.uptimeMillis()>=restoreDeadline){restoringFrame=false;player.pause();player.setTime(restorePosition);if(rendered&&videoViewsWanted())player.updateVideoSurfaces();status.setText(!rendered&&videoViewsWanted()?"Video preview unavailable. Try Software decoding.":"Paused");video.setKeepScreenOn(false);}
         else handler.postDelayed(this,50);
     }};
 
@@ -188,7 +188,7 @@ public class VlcPlayerActivity extends Activity {
                         toggle.setText("Pause");status.setText("Playing in Blaze");video.setKeepScreenOn(player.getCurrentVideoTrack()!=null);break;
                     case MediaPlayer.Event.Paused:
                         if(pendingSeek){pendingSeek=false;player.setRate(speed);}
-                        player.setVolume(100);toggle.setText("Play");status.setText("Paused");video.setKeepScreenOn(false);
+                        player.setVolume(restoringFrame?0:100);toggle.setText("Play");status.setText("Paused");video.setKeepScreenOn(false);
                         if(foreground&&resume&&wantedResume)beginPlayback();break;
                     case MediaPlayer.Event.EndReached:
                         if(restoringFrame&&!resume&&!wantedResume){
