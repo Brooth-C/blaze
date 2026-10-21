@@ -307,6 +307,7 @@ public class MusicStudioActivity extends VlcPlayerActivity {
         boolean showing = fullscreen || videoExpanded;
         videoHost.setVisibility(showing ? View.VISIBLE : View.GONE);
         if (videoPresented != showing) { videoPresented = showing; refreshVideoPresentation(); }
+        else if (showing) refreshVideoPresentation();
         if (studioPanel != null) {
             if (studioScroll != null && studioPanel.getParent() == studioScroll) studioScroll.setVisibility(fullscreen ? View.GONE : View.VISIBLE);
             else studioPanel.setVisibility(fullscreen ? View.GONE : View.VISIBLE);

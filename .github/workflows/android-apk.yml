@@ -106,6 +106,7 @@ jobs:
             for name in Blaze-Android-Explore Blaze-Android-Search Blaze-Android-Now-Playing Blaze-Android-Search-Dark Blaze-Android-Now-Playing-Large-Text Blaze-Android-Home Blaze-Android-Studio-Portrait Blaze-Android-Studio-Large-Text Blaze-Android-Studio-Landscape Blaze-Android-Studio-Options Blaze-Android-Studio-Layout-Diagnostic Blaze-Android-Home-Light Blaze-Android-Home-Dark Blaze-Android-Studio-Light Blaze-Android-Studio-Dark Blaze-Android-Studio-Accessibility Blaze-Android-downloads Blaze-Android-library Blaze-Android-history; do adb exec-out run-as com.brooth.blaze cat "files/$name.png" > "screenshots/$name.png"; done
             adb exec-out run-as com.brooth.blaze cat files/Blaze-Android-Search-Frames.txt > Blaze-Android-Search-Frames.txt
             adb exec-out run-as com.brooth.blaze cat files/Studio-Frames.txt > Studio-Frames.txt
+            for name in Blaze-Android-Studio-Video-Preview Blaze-Android-Studio-Video-Fullscreen; do adb exec-out run-as com.brooth.blaze cat "files/$name.png" > "screenshots/$name.png"; done
             grep -Eq '^OK \([0-9]+ tests?\)' instrumentation.log
       - name: Record rendered UI proof
         if: always()

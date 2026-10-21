@@ -79,6 +79,7 @@ public class StudioUsabilityTest {
             shell("dumpsys gfxinfo com.brooth.blaze reset");
             screen.onActivity(activity -> videoChoice(activity).performClick());
             waitForVideoFrame(screen, original.get());
+            screenshot("Blaze-Android-Studio-Video-Preview.png");
             screen.onActivity(activity -> {
                 assertSame("Showing the preview must not reopen the media", original.get(), activity.player);
                 assertFalse("Showing video must preserve a user's pause", activity.player.isPlaying());
@@ -86,6 +87,7 @@ public class StudioUsabilityTest {
                 activity.setPlaybackFullscreen(true);
             });
             waitForVideoFrame(screen, original.get());
+            screenshot("Blaze-Android-Studio-Video-Fullscreen.png");
             screen.onActivity(activity -> {
                 assertSame(original.get(), activity.player); assertFalse(activity.player.isPlaying());
                 activity.setPlaybackFullscreen(false); videoChoice(activity).performClick();
@@ -136,7 +138,8 @@ public class StudioUsabilityTest {
     private void waitForVideoFrame(ActivityScenario<MusicStudioActivity> screen, org.videolan.libvlc.MediaPlayer expected) throws Exception {
         long deadline = android.os.SystemClock.uptimeMillis() + 10000; boolean rendered = false;
         while (!rendered && android.os.SystemClock.uptimeMillis() < deadline) {
-            Rect bounds = new Rect(); screen.onActivity(activity -> { assertSame(expected, activity.player); activity.video.getGlobalVisibleRect(bounds); });
+            Rect bounds = new Rect(); java.util.concurrent.atomic.AtomicBoolean paused = new java.util.concurrent.atomic.AtomicBoolean();
+            screen.onActivity(activity -> { assertSame(expected, activity.player); paused.set(!activity.player.isPlaying()); activity.video.getGlobalVisibleRect(bounds); });
             Bitmap image = instrumentation.getUiAutomation().takeScreenshot(); assertNotNull(image);
             try {
                 int red = 0;
@@ -144,7 +147,7 @@ public class StudioUsabilityTest {
                     for (int x = Math.max(0, bounds.left); x < Math.min(image.getWidth(), bounds.right); x += 2) {
                         int color = image.getPixel(x, y); if (Color.red(color) > 150 && Color.red(color) > Color.blue(color) * 2) red++;
                     }
-                rendered = red > 100;
+                rendered = red > 100 && paused.get();
             } finally { image.recycle(); }
             if (!rendered) Thread.sleep(100);
         }

@@ -1,11 +1,13 @@
-# Blaze Android 0.10
+# Blaze Android 0.11
 
 Blaze combines Explore, downloads, playback and Music Studio in one Android app.
 Android 7+ ARM64 phones are supported; x86_64 is included for emulator testing.
 
 Explore offers For you, Music and Videos entry points. Search inside Blaze and
 filter by All, Songs, Videos, Artists or Playlists; open supported collections
-without copying a link from another app. Results come from upstream providers.
+without copying a link from another app. Typing searches after a short pause while
+keeping the editor and cursor attached; All includes ordinary YouTube videos,
+channels and playlists. Results come from upstream providers.
 Discovery and online playback depend on network access, provider availability
 and the bundled, pinned yt-dlp extractor.
 

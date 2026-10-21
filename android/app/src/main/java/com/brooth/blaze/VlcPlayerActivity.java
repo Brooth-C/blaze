@@ -45,6 +45,7 @@ public class VlcPlayerActivity extends Activity {
     private final Handler handler=new Handler(Looper.getMainLooper());
     private long position;
     private long restorePosition,restoreDeadline;
+    private int restorePictures;
     private boolean restoringFrame;
     private float speed=1;
     private boolean software, repeat, fullscreen, resume=true, pendingSeek, wantedResume, ended, foreground;
@@ -53,7 +54,7 @@ public class VlcPlayerActivity extends Activity {
     private DiscoveryItem recommendationItem;
     private long listeningMillis, listeningTick;
     private boolean listeningCounted;
-    private boolean videoAttached, scrubbing;
+    private boolean videoAttached, scrubbing, previewAtEnd;
     private long scrubPosition, pendingPosition = -1, seekDeadline;
     private final AudioManager.OnAudioFocusChangeListener focus=change->{if(change<0)pause();};
     private final BroadcastReceiver noisy=new BroadcastReceiver(){
@@ -76,9 +77,9 @@ public class VlcPlayerActivity extends Activity {
         if(player==null||!foreground||!restoringFrame||resume||wantedResume)return;
         org.videolan.libvlc.interfaces.IMedia media=player.getMedia();boolean rendered=false;
         try{org.videolan.libvlc.interfaces.IMedia.Stats stats=media==null?null:media.getStats();
-            rendered=stats!=null&&(player.getVideoTracksCount()>0?stats.displayedPictures>0:stats.decodedAudio>0);
+            rendered=stats!=null&&(videoViewsWanted()&&player.getVideoTracksCount()>0?stats.displayedPictures>restorePictures:stats.decodedAudio>0);
         }finally{if(media!=null)media.release();}
-        if(rendered||SystemClock.uptimeMillis()>=restoreDeadline){restoringFrame=false;player.pause();player.setTime(restorePosition);status.setText("Paused");video.setKeepScreenOn(false);}
+        if(rendered||SystemClock.uptimeMillis()>=restoreDeadline){restoringFrame=false;player.pause();player.setTime(restorePosition);status.setText(!rendered&&videoViewsWanted()?"Video preview unavailable. Try Software decoding.":"Paused");video.setKeepScreenOn(false);}
         else handler.postDelayed(this,50);
     }};
 
@@ -164,11 +165,17 @@ public class VlcPlayerActivity extends Activity {
             engine=new LibVLC(this,options);
             boolean showVideo=videoViewsWanted();
             player=new MediaPlayer(engine);videoAttached=false;if(showVideo){player.attachViews(video,null,true,false);videoAttached=true;}pendingSeek=true;wantedResume=resume;ended=false;
-            restoringFrame=!resume;restorePosition=position;restoreDeadline=SystemClock.uptimeMillis()+5000;
+            restoringFrame=!resume;restorePosition=position;restorePictures=0;restoreDeadline=SystemClock.uptimeMillis()+5000;
             MediaPlayer active=player;
             player.setEventListener(event->{if(player!=active)return;
                 switch(event.type){
+                    case MediaPlayer.Event.ESAdded:
+                        // Preview may be opened before the demuxer discovers its tracks.
+                        if(videoViewsWanted())refreshVideoPresentation();else player.setVideoTrackEnabled(false);
+                        break;
                     case MediaPlayer.Event.Playing:
+                        if(previewAtEnd){previewAtEnd=false;player.setTime(position);}
+                        player.setVideoTrackEnabled(videoViewsWanted());
                         if(pendingSeek){pendingSeek=false;player.setRate(speed);}
                         if(!foreground){player.pause();video.setKeepScreenOn(false);break;}
                         if(!resume||!wantedResume){
@@ -184,6 +191,11 @@ public class VlcPlayerActivity extends Activity {
                         player.setVolume(100);toggle.setText("Play");status.setText("Paused");video.setKeepScreenOn(false);
                         if(foreground&&resume&&wantedResume)beginPlayback();break;
                     case MediaPlayer.Event.EndReached:
+                        if(restoringFrame&&!resume&&!wantedResume){
+                            // A silent preview near EOF must not repeat or reopen the file.
+                            restoringFrame=false;handler.removeCallbacks(restoreTick);position=restorePosition;
+                            previewAtEnd=true;player.pause();video.setKeepScreenOn(false);status.setText("Paused");break;
+                        }
                         position=0;ended=!repeat;video.setKeepScreenOn(false);
                         getSharedPreferences("playback",MODE_PRIVATE).edit().remove(mediaId).apply();
                         if(repeat){listeningMillis=0;listeningTick=0;listeningCounted=false;release();resume=true;start();}else{resume=false;status.setText("Playback finished");}break;
@@ -214,9 +226,9 @@ public class VlcPlayerActivity extends Activity {
         String[] names=new String[choices.length];for(int n=0;n<names.length;n++)names[n]=choices[n].name;
         new AlertDialog.Builder(this).setTitle(i==0?"Audio track":"Subtitles").setItems(names,(dialog,n)->{if(player!=null){if(i==0)player.setAudioTrack(choices[n].id);else player.setSpuTrack(choices[n].id);}}).show();
     }).show();}
-    private void remember(){if(player!=null&&mediaId!=null){position=ended?0:restoringFrame?restorePosition:Math.max(0,player.getTime());getSharedPreferences("playback",MODE_PRIVATE).edit().putLong(mediaId,position).apply();}}
+    private void remember(){if(player!=null&&mediaId!=null){position=ended?0:playbackPosition();getSharedPreferences("playback",MODE_PRIVATE).edit().putLong(mediaId,position).apply();}}
     private static void close(ParcelFileDescriptor value){if(value!=null)try{value.close();}catch(IOException ignored){}}
-    @SuppressWarnings("deprecation") private void release(){restoringFrame=false;handler.removeCallbacks(restoreTick);generation++;opening=false;if(openingTask!=null){openingTask.cancel(true);openingTask=null;}handler.removeCallbacks(tick);scrubbing=false;pendingPosition=-1;videoAttached=false;if(noisyRegistered){unregisterReceiver(noisy);noisyRegistered=false;}if(player!=null){player.setEventListener(null);player.stop();player.detachViews();player.release();player=null;}if(engine!=null){engine.release();engine=null;}close(descriptor);descriptor=null;if(video!=null)video.setKeepScreenOn(false);if(focusGranted){audio.abandonAudioFocus(focus);focusGranted=false;}}
+    @SuppressWarnings("deprecation") private void release(){restoringFrame=false;handler.removeCallbacks(restoreTick);generation++;opening=false;if(openingTask!=null){openingTask.cancel(true);openingTask=null;}handler.removeCallbacks(tick);scrubbing=false;pendingPosition=-1;videoAttached=false;previewAtEnd=false;if(noisyRegistered){unregisterReceiver(noisy);noisyRegistered=false;}if(player!=null){player.setEventListener(null);player.stop();player.detachViews();player.release();player=null;}if(engine!=null){engine.release();engine=null;}close(descriptor);descriptor=null;if(video!=null)video.setKeepScreenOn(false);if(focusGranted){audio.abandonAudioFocus(focus);focusGranted=false;}}
     private void fullscreen(boolean value){fullscreen=value;if(fullscreenToggle!=null)fullscreenToggle.setContentDescription(value?"Exit full screen":"Enter full screen");for(int i=0;i<root.getChildCount();i++){View child=root.getChildAt(i);if(child!=playbackVideoContainer())child.setVisibility(value?View.GONE:View.VISIBLE);}WindowInsetsControllerCompat bars=WindowCompat.getInsetsController(getWindow(),root);bars.setSystemBarsBehavior(WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE);if(value)bars.hide(WindowInsetsCompat.Type.systemBars());else bars.show(WindowInsetsCompat.Type.systemBars());if(playbackSettings.getParent()==root)playbackSettings.setVisibility(View.GONE);onFullscreenChanged(value);}
     protected View playbackVideoContainer(){return videoViewport;}
     protected boolean videoViewsWanted(){return true;}
@@ -227,8 +239,26 @@ public class VlcPlayerActivity extends Activity {
         if(videoViewsWanted()){
             if(!videoAttached){player.attachViews(video,null,true,false);videoAttached=true;}
             MediaPlayer active=player;
-            video.post(()->{if(player!=active||!videoViewsWanted())return;active.setVideoTrackEnabled(true);active.updateVideoSurfaces();if(!active.isPlaying())active.setTime(playbackPosition());});
-        }else if(videoAttached){player.detachViews();videoAttached=false;video.setKeepScreenOn(false);}
+            video.post(()->{
+                if(player!=active||!foreground||!videoViewsWanted())return;
+                active.setVideoTrackEnabled(true);active.updateVideoSurfaces();
+                if(!resume&&!wantedResume&&!restoringFrame)restorePausedVideoFrame();
+            });
+        }else if(videoAttached){
+            player.detachViews();videoAttached=false;video.setKeepScreenOn(false);
+            if(restoringFrame&&!resume){restoringFrame=false;handler.removeCallbacks(restoreTick);player.pause();player.setTime(restorePosition);}
+        }
+    }
+    /** A newly attached paused output needs one decoded frame; prime it silently on the same player. */
+    private void restorePausedVideoFrame(){
+        if(player==null||!foreground||resume||wantedResume)return;
+        restorePosition=playbackPosition();restorePictures=0;
+        org.videolan.libvlc.interfaces.IMedia media=player.getMedia();
+        try{org.videolan.libvlc.interfaces.IMedia.Stats stats=media==null?null:media.getStats();if(stats!=null)restorePictures=stats.displayedPictures;}
+        finally{if(media!=null)media.release();}
+        restoringFrame=true;restoreDeadline=SystemClock.uptimeMillis()+5000;
+        player.setVolume(0);player.setTime(restorePosition);player.play();
+        handler.removeCallbacks(restoreTick);handler.postDelayed(restoreTick,50);
     }
     protected void setPlaybackFullscreen(boolean value){fullscreen(value);}
     protected void onFullscreenChanged(boolean fullscreen){}
@@ -243,7 +273,7 @@ public class VlcPlayerActivity extends Activity {
     private static String time(long millis){long seconds=Math.max(0,millis)/1000;return String.format(Locale.ROOT,"%d:%02d",seconds/60,seconds%60);}
     protected long playbackPosition(){
         if(scrubbing)return scrubPosition;
-        if(player==null)return position;
+        if(player==null||previewAtEnd)return position;
         if(restoringFrame)return restorePosition;
         long actual=Math.max(0,player.getTime());
         if(pendingPosition>=0){if(Math.abs(actual-pendingPosition)<300||SystemClock.uptimeMillis()>=seekDeadline)pendingPosition=-1;else return pendingPosition;}
