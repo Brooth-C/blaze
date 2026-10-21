@@ -1,3 +1,28 @@
+# Blaze Android 0.11.0
+
+Targeted playback and search polish, keeping the existing interface and engines.
+
+- Studio video preview and fullscreen switch the video output without reopening
+  the media file. Pause and playback position remain with the same player.
+- Larger inline preview, stable timeline dragging, one decoder seek on release,
+  and scrub feedback that does not jump back while the player catches up.
+- Search starts after a short typing pause and retains the editor, focus and
+  cursor when results arrive. Old requests cannot overwrite a newer query.
+- All searches ordinary YouTube videos, channels and playlists; Songs remains
+  music-specific. All returned video rows remain available instead of only two.
+- Recent successful search pages have a bounded in-memory cache; stream resolution
+  has its own worker pool so busy searches do not hold up a selected recording.
+- Local-copy lookup and codec checks run off the UI thread. Invisible Library
+  refreshes and unchanged playback-control redraws no longer interrupt Explore.
+
+Native checks use deterministic metadata and real local audio/video decoding.
+Frame captures are emulator diagnostics, not a physical-device smoothness benchmark.
+Online results and playback still depend on YouTube and network availability.
+
+This GitHub release is not marked as a prerelease. The APK remains debug-signed:
+export saved files before uninstalling an older build if a changed signing key
+prevents an in-place update. Physical-device and OEM behavior need broader testing.
+
 # Blaze Android 0.10.0
 
 Explore's fixed promotional cards are replaced by real YouTube music metadata

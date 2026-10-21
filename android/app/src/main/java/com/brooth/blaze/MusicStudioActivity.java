@@ -52,7 +52,7 @@ public class MusicStudioActivity extends VlcPlayerActivity {
     @Override public void onCreate(Bundle saved) {
         super.onCreate(saved);
         if (root == null || isFinishing()) return;
-        if (saved != null) { transpose = Math.max(-12, Math.min(12, saved.getInt("transpose"))); page = saved.getInt("chordPage"); automatic = saved.getBoolean("chordAutomatic", false); guitar = saved.getBoolean("guitar"); }
+        if (saved != null) { transpose = Math.max(-12, Math.min(12, saved.getInt("transpose"))); page = saved.getInt("chordPage"); automatic = saved.getBoolean("chordAutomatic", false); guitar = saved.getBoolean("guitar"); videoExpanded = saved.getBoolean("studioVideoExpanded", false); }
         // The player exposes explicit containers so Studio never depends on child indexes.
         playbackOptions = playbackSettings;
         detach(playbackOptions);
@@ -72,7 +72,11 @@ public class MusicStudioActivity extends VlcPlayerActivity {
         trackName.setEllipsize(android.text.TextUtils.TruncateAt.END);
         state = ui.label("Your music. Analysed on this device.", 12, ui.secondary);
         state.setId(R.id.chord_status); state.setMaxLines(2); state.setAccessibilityLiveRegion(View.ACCESSIBILITY_LIVE_REGION_POLITE);
-        flow = new StudioFlowView(this); flow.setTag("studio_timeline"); flow.seek = this::seekPlayback;
+        flow = new StudioFlowView(this); flow.setTag("studio_timeline"); flow.seek = new StudioFlowView.Seek() {
+            public void to(long time) { seekPlayback(time); }
+            public void preview(long time) { previewPlaybackPosition(time); }
+            public void cancelPreview() { endPlaybackPositionPreview(); }
+        };
         waveform = new StudioWaveformView(this); waveform.seek = this::seekPlayback; waveform.setVisibility(View.GONE);
         rhythmStatus = ui.label("Chord changes and rhythm will appear here", 12, ui.secondary);
         rhythmStatus.setMaxLines(1); rhythmStatus.setEllipsize(android.text.TextUtils.TruncateAt.END);
@@ -80,7 +84,8 @@ public class MusicStudioActivity extends VlcPlayerActivity {
         instrumentRow.setPadding(dp(4), dp(4), dp(4), dp(4)); instrumentRow.setBackground(ui.shape(ui.elevated, 16));
         pianoChoice = button(instrumentRow, "Piano", () -> { guitar = false; updateInstrument(); onPlaybackTime(playbackTime); });
         guitarChoice = button(instrumentRow, "Guitar", () -> { guitar = true; updateInstrument(); onPlaybackTime(playbackTime); });
-        videoChoice = button(instrumentRow, "Video", () -> { videoExpanded = !videoExpanded; updateInstrument(); onFullscreenChanged(playbackFullscreen()); });
+        videoChoice = button(instrumentRow, "Video", () -> { videoExpanded = !videoExpanded; updateInstrument(); onFullscreenChanged(playbackFullscreen()); checkStudioSpace(); });
+        videoChoice.setTag("studio_video_choice");
         cardRow = new LinearLayout(this);
         LinearLayout nowCard = chordCard(cardRow, true);
         chordCaption(nowCard, "NOW");
@@ -288,19 +293,29 @@ public class MusicStudioActivity extends VlcPlayerActivity {
         return -1;
     }
     @Override protected void onResume() { foreground=true;super.onResume();updates.removeCallbacks(playerMessages);updates.post(playerMessages);scheduleFrame(); if (state != null && result == null && automatic) startAnalysis(); }
+    @Override protected void onPause() { foreground=false;updates.removeCallbacks(playerMessages);stopFrame();super.onPause(); }
     @Override protected void onStop() { foreground=false;updates.removeCallbacks(playerMessages);stopFrame();stopAnalysis(); if (state != null && result == null) state.setText("Analysis paused while Blaze is closed. Tap Analyse to retry."); automatic = false; super.onStop(); }
     @Override protected void onDestroy() { foreground=false;stopFrame();stopAnalysis(); worker.shutdownNow(); updates.removeCallbacksAndMessages(null); super.onDestroy(); }
-    @Override protected void onSaveInstanceState(Bundle saved) { saved.putInt("transpose", transpose); saved.putInt("chordPage", page); saved.putBoolean("chordAutomatic", result != null); saved.putBoolean("guitar", guitar); super.onSaveInstanceState(saved); }
+    @Override protected void onSaveInstanceState(Bundle saved) { saved.putInt("transpose", transpose); saved.putInt("chordPage", page); saved.putBoolean("chordAutomatic", result != null); saved.putBoolean("guitar", guitar); saved.putBoolean("studioVideoExpanded", videoExpanded); super.onSaveInstanceState(saved); }
     @Override public void onConfigurationChanged(android.content.res.Configuration config) { super.onConfigurationChanged(config); hideInstrumentStrip = false; arrangeStudio(); setPlaybackFullscreen(playbackFullscreen()); }
     @Override protected View playbackVideoContainer() { return videoHost == null ? videoViewport : videoHost; }
     @Override protected boolean videoViewsWanted() { return videoPresented; }
     @Override protected void onFullscreenChanged(boolean fullscreen) {
         if (videoHost == null) return;
         videoHost.setLayoutParams(fullscreen ? new LinearLayout.LayoutParams(-1, 0, 1)
-            : new LinearLayout.LayoutParams(-1, videoExpanded ? dp(90) : 0));
+            : new LinearLayout.LayoutParams(-1, videoExpanded ? previewHeight() : 0));
         boolean showing = fullscreen || videoExpanded;
         videoHost.setVisibility(showing ? View.VISIBLE : View.GONE);
         if (videoPresented != showing) { videoPresented = showing; refreshVideoPresentation(); }
+        if (studioPanel != null) {
+            if (studioScroll != null && studioPanel.getParent() == studioScroll) studioScroll.setVisibility(fullscreen ? View.GONE : View.VISIBLE);
+            else studioPanel.setVisibility(fullscreen ? View.GONE : View.VISIBLE);
+        }
+    }
+    private int previewHeight() {
+        int available = getResources().getConfiguration().screenHeightDp;
+        boolean largeText = getResources().getConfiguration().fontScale > 1.35f;
+        return dp(largeText || available < 680 ? 112 : available < 800 ? 144 : 180);
     }
     private void arrangeStudio() {
         if (studioPanel == null) return;

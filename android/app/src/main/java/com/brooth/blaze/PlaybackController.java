@@ -27,6 +27,11 @@ import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.Future;
+import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 
 /** One application-owned listening session. Persist identities, never resolved stream URLs. */
 @androidx.annotation.OptIn(markerClass = androidx.media3.common.util.UnstableApi.class)
@@ -41,6 +46,14 @@ public final class PlaybackController {
     private final Context app;
     private final Handler main = new Handler(Looper.getMainLooper());
     private final SharedPreferences preferences;
+    // File validation and platform codec discovery can involve SQLite, disk and
+    // binder calls. Keep them off the tap/navigation thread and retain only the
+    // newest pending choice if a previous probe is still unwinding.
+    private final ThreadPoolExecutor localFiles = new ThreadPoolExecutor(1, 1, 30, TimeUnit.SECONDS,
+        new ArrayBlockingQueue<>(1), action -> {
+            Thread thread = new Thread(action, "Blaze local playback"); thread.setDaemon(true); return thread;
+        }, new ThreadPoolExecutor.AbortPolicy());
+    private Future<?> localLookup;
     private final Set<Listener> listeners = new LinkedHashSet<>();
     private final ArrayList<DiscoveryItem> queue = new ArrayList<>(), recent = new ArrayList<>();
     private ExoPlayer player;
@@ -159,8 +172,7 @@ public final class PlaybackController {
     private void begin(DiscoveryItem item, long position, boolean play) {
         listeningMillis = 0; listeningTick = 0; listeningCounted = false;
         cancelResolution(); generation++; preparedGeneration = -1;
-        current = preferLocalCopy(item);
-        if (index >= 0 && index < queue.size() && queue.get(index).key().equals(current.key())) queue.set(index, current);
+        current = item;
         rememberedPosition = Math.max(0, position); wantedPlayback = play;
         resolving = true; refreshAttempted = false; failure = "";
         if (player != null) { player.pause(); player.stop(); player.clearMediaItems(); }
@@ -179,6 +191,7 @@ public final class PlaybackController {
                     new String[]{canonical, selected.kind.equals("video") ? "video" : "audio"},
                     null, null, "updated DESC,rowid DESC", "10")) {
                 while (copies.moveToNext()) {
+                    if (Thread.currentThread().isInterrupted()) return selected;
                     String jobId = copies.getString(0);
                     try {
                         PlaybackSource local = PlaybackSource.load(app, jobId);
@@ -296,17 +309,39 @@ public final class PlaybackController {
     }
 
     private void prepare() {
-        if (current == null || player == null || !resolutionToken.isEmpty()) return;
+        if (current == null || player == null || !resolutionToken.isEmpty() || localLookup != null) return;
         final int request = generation;
         final DiscoveryItem selected = current;
         resolving = true; failure = ""; changed();
-        if (!selected.localJobId.isEmpty()) {
-            try {
-                PlaybackSource local = PlaybackSource.load(app, selected.localJobId);
-                configure(Uri.fromFile(local.file).toString(), "", Collections.emptyMap(), "", "", request);
-            } catch (Exception error) { failed(request, "The saved file is missing. Choose another recording or save it again."); }
-            return;
+        try {
+            localLookup = localFiles.submit(() -> {
+                DiscoveryItem preferred = preferLocalCopy(selected);
+                String localUrl = "";
+                boolean missing = false;
+                if (!preferred.localJobId.isEmpty()) {
+                    try { localUrl = Uri.fromFile(PlaybackSource.load(app, preferred.localJobId).file).toString(); }
+                    catch (Exception unavailable) { missing = true; }
+                }
+                if (Thread.currentThread().isInterrupted()) return;
+                final String location = localUrl;
+                final boolean unavailable = missing;
+                main.post(() -> {
+                    if (request != generation || player == null || current == null || !current.key().equals(selected.key())) return;
+                    localLookup = null;
+                    if (unavailable) { failed(request, "The saved file is missing. Choose another recording or save it again."); return; }
+                    current = preferred;
+                    if (index >= 0 && index < queue.size() && queue.get(index).key().equals(current.key())) queue.set(index, current);
+                    saveSnapshot();
+                    if (!location.isEmpty()) configure(location, "", Collections.emptyMap(), "", "", request);
+                    else resolveRemote(preferred, request);
+                });
+            });
+        } catch (RejectedExecutionException busy) {
+            failed(request, "Playback is busy. Try again in a moment.");
         }
+    }
+
+    private void resolveRemote(DiscoveryItem selected, int request) {
         resolutionToken = DiscoveryRepository.get(app).resolve(selected, (stream, error) -> {
             if (request != generation || player == null || current == null || !current.key().equals(selected.key())) return;
             resolutionToken = "";
@@ -347,6 +382,8 @@ public final class PlaybackController {
         if (service != null) service.playbackFailed();
     }
     private void cancelResolution() {
+        if (localLookup != null) localLookup.cancel(true);
+        localLookup = null; localFiles.purge();
         if (!resolutionToken.isEmpty()) DiscoveryRepository.get(app).cancel(resolutionToken);
         resolutionToken = "";
     }

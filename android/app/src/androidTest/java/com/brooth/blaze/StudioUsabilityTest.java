@@ -58,6 +58,98 @@ public class StudioUsabilityTest {
             screenshot("Blaze-Android-Studio-Real-Analysis.png");
         } finally {wave.delete();app.getSharedPreferences("playback",Context.MODE_PRIVATE).edit().remove("document:"+uri).apply();}
     }
+    @Test public void studioVideoSwitchesKeepTheSamePlayerAndPausedFrame() throws Exception {
+        File video = File.createTempFile("studio-video-", ".mkv", DownloadService.folder(app));
+        try (InputStream input = instrumentation.getContext().getAssets().open("player-hevc.mkv"); OutputStream output = new FileOutputStream(video)) {
+            byte[] bytes = new byte[8192]; int count; while ((count = input.read(bytes)) != -1) output.write(bytes, 0, count);
+        }
+        android.net.Uri uri = androidx.core.content.FileProvider.getUriForFile(app, app.getPackageName() + ".files", video);
+        try (ActivityScenario<MusicStudioActivity> screen = ActivityScenario.launch(new Intent(app, MusicStudioActivity.class).setData(uri).putExtra("software", true))) {
+            java.util.concurrent.atomic.AtomicBoolean ready = new java.util.concurrent.atomic.AtomicBoolean();
+            long deadline = android.os.SystemClock.uptimeMillis() + 20000;
+            while (!ready.get() && android.os.SystemClock.uptimeMillis() < deadline) {
+                screen.onActivity(activity -> ready.set(activity.player != null && activity.player.isPlaying() && activity.player.getTime() > 100 && activity.player.getLength() > 1500)); Thread.sleep(50);
+            }
+            assertTrue("Collapsed Studio must play the original video's audio", ready.get());
+            java.util.concurrent.atomic.AtomicReference<org.videolan.libvlc.MediaPlayer> original = new java.util.concurrent.atomic.AtomicReference<>();
+            screen.onActivity(activity -> {
+                activity.toggle.performClick(); activity.seekPlayback(1000); original.set(activity.player);
+                assertTrue(activity.player.getAudioTracksCount() > 0);
+            });
+            shell("dumpsys gfxinfo com.brooth.blaze reset");
+            screen.onActivity(activity -> videoChoice(activity).performClick());
+            waitForVideoFrame(screen, original.get());
+            screen.onActivity(activity -> {
+                assertSame("Showing the preview must not reopen the media", original.get(), activity.player);
+                assertFalse("Showing video must preserve a user's pause", activity.player.isPlaying());
+                assertTrue(activity.videoViewport.getHeight() >= dp(activity, 112));
+                activity.setPlaybackFullscreen(true);
+            });
+            waitForVideoFrame(screen, original.get());
+            screen.onActivity(activity -> {
+                assertSame(original.get(), activity.player); assertFalse(activity.player.isPlaying());
+                activity.setPlaybackFullscreen(false); videoChoice(activity).performClick();
+                assertSame("Hiding video must retain the audio player", original.get(), activity.player);
+                activity.toggle.performClick();
+            });
+            ready.set(false); deadline = android.os.SystemClock.uptimeMillis() + 5000;
+            while (!ready.get() && android.os.SystemClock.uptimeMillis() < deadline) {
+                screen.onActivity(activity -> ready.set(activity.player == original.get() && activity.player.isPlaying() && activity.player.getTime() > 1100)); Thread.sleep(50);
+            }
+            assertTrue("Audio must continue from the same point after hiding video", ready.get());
+            try (OutputStream output = new FileOutputStream(new File(app.getFilesDir(), "Studio-Frames.txt"))) {
+                output.write(("Flow: Studio HEVC preview/fullscreen toggle, pause preserved, then resume.\n" + shell("dumpsys gfxinfo com.brooth.blaze") + "\n" + shell("dumpsys gfxinfo com.brooth.blaze framestats")).getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            }
+        } finally { video.delete(); app.getSharedPreferences("playback", Context.MODE_PRIVATE).edit().remove("document:" + uri).apply(); }
+    }
+    @Test public void timelineDragPreviewsWithoutRepeatedDecoderSeeks() throws Exception {
+        File wave = File.createTempFile("studio-drag-", ".wav", DownloadService.folder(app)); MusicStudioTest.writeWave(wave, false, 12);
+        android.net.Uri uri = androidx.core.content.FileProvider.getUriForFile(app, app.getPackageName() + ".files", wave);
+        try (ActivityScenario<MusicStudioActivity> screen = ActivityScenario.launch(new Intent(app, MusicStudioActivity.class).setData(uri))) {
+            instrumentation.waitForIdleSync();
+            screen.onActivity(activity -> {
+                if (activity.player != null && activity.player.isPlaying()) activity.toggle.performClick(); inject(activity);
+                StudioFlowView flow = (StudioFlowView)activity.root.findViewWithTag("studio_timeline");
+                final int[] commits = {0}, previews = {0}; final long[] selected = {-1};
+                flow.seek = new StudioFlowView.Seek() {
+                    public void to(long time) { commits[0]++; selected[0] = time; }
+                    public void preview(long time) { previews[0]++; }
+                };
+                float origin = flow.getWidth() * .32f, cell = Math.max(dp(activity, 64), flow.getWidth() / 5f), y = flow.getHeight() / 2f;
+                long start = android.os.SystemClock.uptimeMillis();
+                touch(flow, start, MotionEvent.ACTION_DOWN, origin, y);
+                for (int step = 1; step <= 10; step++) touch(flow, start, MotionEvent.ACTION_MOVE, origin + cell * step / 10f, y);
+                assertEquals("Dragging must not flood LibVLC with seeks", 0, commits[0]); assertTrue(previews[0] > 0);
+                touch(flow, start, MotionEvent.ACTION_UP, origin + cell, y);
+                assertEquals(1, commits[0]); assertEquals("Drag stays anchored to the starting beat", 2000, selected[0]);
+            });
+        } finally { wave.delete(); app.getSharedPreferences("playback", Context.MODE_PRIVATE).edit().remove("document:" + uri).apply(); }
+    }
+    private void touch(View view, long start, int action, float x, float y) {
+        MotionEvent event = MotionEvent.obtain(start, android.os.SystemClock.uptimeMillis(), action, x, y, 0);
+        try { view.onTouchEvent(event); } finally { event.recycle(); }
+    }
+    private Button videoChoice(MusicStudioActivity activity) {
+        try { java.lang.reflect.Field field = MusicStudioActivity.class.getDeclaredField("videoChoice"); field.setAccessible(true); return (Button)field.get(activity); }
+        catch (Exception failure) { throw new AssertionError(failure); }
+    }
+    private void waitForVideoFrame(ActivityScenario<MusicStudioActivity> screen, org.videolan.libvlc.MediaPlayer expected) throws Exception {
+        long deadline = android.os.SystemClock.uptimeMillis() + 10000; boolean rendered = false;
+        while (!rendered && android.os.SystemClock.uptimeMillis() < deadline) {
+            Rect bounds = new Rect(); screen.onActivity(activity -> { assertSame(expected, activity.player); activity.video.getGlobalVisibleRect(bounds); });
+            Bitmap image = instrumentation.getUiAutomation().takeScreenshot(); assertNotNull(image);
+            try {
+                int red = 0;
+                for (int y = Math.max(0, bounds.top); y < Math.min(image.getHeight(), bounds.bottom); y += 2)
+                    for (int x = Math.max(0, bounds.left); x < Math.min(image.getWidth(), bounds.right); x += 2) {
+                        int color = image.getPixel(x, y); if (Color.red(color) > 150 && Color.red(color) > Color.blue(color) * 2) red++;
+                    }
+                rendered = red > 100;
+            } finally { image.recycle(); }
+            if (!rendered) Thread.sleep(100);
+        }
+        assertTrue("Studio must display the decoded HEVC picture, including while paused", rendered);
+    }
     @Test public void studioFitsPhoneAndLargeTextWithoutScrolling() throws Exception {
         String oldFont = shell("settings get system font_scale").trim();
         File wave = new File(DownloadService.folder(app), "studio-ui-" + UUID.randomUUID() + ".wav");

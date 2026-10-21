@@ -4,6 +4,7 @@ import android.content.Context;
 import android.net.Uri;
 import android.os.Handler;
 import android.os.Looper;
+import android.os.SystemClock;
 import com.chaquo.python.PyObject;
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -21,6 +22,7 @@ import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
 
 /** Bounded discovery operations, separate from the durable download worker. */
 public final class DiscoveryRepository {
@@ -54,8 +56,20 @@ public final class DiscoveryRepository {
     private final Context app;
     private final Handler main = new Handler(Looper.getMainLooper());
     private final ThreadPoolExecutor workers = executor(2, 4, "Blaze discovery");
+    // A selected recording must not wait behind slow catalogue requests or a
+    // cancelled transport which is still unwinding its socket timeout.
+    private final ThreadPoolExecutor playback = executor(2, 2, "Blaze stream resolve");
     private final ThreadPoolExecutor cancellation = executor(1, 8, "Blaze discovery cancel");
     private final ConcurrentHashMap<String, Operation> operations = new ConcurrentHashMap<>();
+    private final LinkedHashMap<String, CachedList> metadataCache = new LinkedHashMap<>(16, .75f, true);
+    private final AtomicLong cacheEpoch = new AtomicLong();
+    private static final long METADATA_CACHE_MS = 120000;
+    private static final int METADATA_CACHE_ENTRIES = 12;
+    private static final class CachedList {
+        final List<DiscoveryItem> items;
+        final long created = SystemClock.elapsedRealtime();
+        CachedList(List<DiscoveryItem> items) { this.items = items; }
+    }
     public static final class Operation {
         final AtomicBoolean cancelled = new AtomicBoolean();
         volatile Future<?> future;
@@ -69,8 +83,24 @@ public final class DiscoveryRepository {
         }
         return instance;
     }
-    public static void setTestBackend(Backend backend) { testBackend = backend; }
-    public static void clearTestBackend() { testBackend = null; }
+    public static void setTestBackend(Backend backend) { testBackend = backend; if (instance != null) instance.clearMetadataCache(); }
+    public static void clearTestBackend() { setTestBackend(null); }
+
+    private synchronized void clearMetadataCache() { cacheEpoch.incrementAndGet(); metadataCache.clear(); }
+    private synchronized List<DiscoveryItem> cached(String key) {
+        if (key.isEmpty()) return null;
+        CachedList entry = metadataCache.get(key);
+        if (entry == null) return null;
+        if (SystemClock.elapsedRealtime() - entry.created >= METADATA_CACHE_MS) { metadataCache.remove(key); return null; }
+        return entry.items;
+    }
+    private synchronized void cache(String key, List<DiscoveryItem> items, long epoch) {
+        // No failures, signed streams or recommendation refreshes are cached.
+        // This cache exists only in process and is bounded to twelve result pages.
+        if (key.isEmpty() || items.isEmpty() || cacheEpoch.get() != epoch) return;
+        metadataCache.put(key, new CachedList(items));
+        while (metadataCache.size() > METADATA_CACHE_ENTRIES) metadataCache.remove(metadataCache.keySet().iterator().next());
+    }
 
     private static ThreadPoolExecutor executor(int count, int capacity, String name) {
         return new ThreadPoolExecutor(count, count, 30, TimeUnit.SECONDS, new ArrayBlockingQueue<>(capacity), task -> {
@@ -101,11 +131,18 @@ public final class DiscoveryRepository {
     }
     private String listOperation(String method, String query, String filter, DiscoveryItem item, int limit, Callback callback) {
         String token = UUID.randomUUID().toString(); Operation operation = new Operation(); operations.put(token, operation);
+        String cacheKey = "recommend".equals(method) ? "" : method + "\n" + filter + "\n" + limit + "\n" + (item == null ? query : item.key());
+        long epoch = cacheEpoch.get();
+        List<DiscoveryItem> saved = cached(cacheKey);
+        if (saved != null) {
+            main.post(() -> { operations.remove(token); if (!operation.cancelled.get()) callback.onResult(saved, null); });
+            return token;
+        }
+        Backend override = testBackend;
         try { operation.future = workers.submit(() -> {
             List<DiscoveryItem> items = Collections.emptyList(); String error = null;
             try {
                 if (operation.cancelled.get()) return;
-                Backend override = testBackend;
                 if (override != null) items = method.equals("search") ? override.search(query, filter, limit)
                     : method.equals("recommend") ? override.recommend(query, filter, limit) : override.browse(item, limit);
                 else {
@@ -125,12 +162,13 @@ public final class DiscoveryRepository {
                 }
                 if (items == null) items = Collections.emptyList();
                 items = Collections.unmodifiableList(new ArrayList<>(items.subList(0, Math.min(items.size(), limit))));
+                if (!operation.cancelled.get() && error == null) cache(cacheKey, items, epoch);
             } catch (Exception failure) { error = "Discovery is unavailable right now. Check your connection and try again."; }
             finally { if (operation.cancelled.get()) operations.remove(token); }
             List<DiscoveryItem> delivered = items; String detail = safeMessage(error);
             main.post(() -> { operations.remove(token); if (!operation.cancelled.get()) callback.onResult(delivered, detail); });
         }); } catch (RejectedExecutionException busy) {
-            operations.remove(token); main.post(() -> callback.onResult(Collections.emptyList(), "Finish the current search or try again in a moment."));
+            main.post(() -> { operations.remove(token); if (!operation.cancelled.get()) callback.onResult(Collections.emptyList(), "Finish the current search or try again in a moment."); });
         }
         return token;
     }
@@ -140,7 +178,7 @@ public final class DiscoveryRepository {
             main.post(() -> callback.onResolved(null, "This recording cannot be streamed.")); return "";
         }
         String token = UUID.randomUUID().toString(); Operation operation = new Operation(); operations.put(token, operation);
-        try { operation.future = workers.submit(() -> {
+        try { operation.future = playback.submit(() -> {
             Stream stream = null; String error = null;
             try {
                 if (operation.cancelled.get()) return;
@@ -181,7 +219,7 @@ public final class DiscoveryRepository {
             Stream delivered = stream; String detail = safeMessage(error);
             main.post(() -> { operations.remove(token); if (!operation.cancelled.get()) callback.onResolved(delivered, detail); });
         }); } catch (RejectedExecutionException busy) {
-            operations.remove(token); main.post(() -> callback.onResolved(null, "Playback is busy. Try again in a moment."));
+            main.post(() -> { operations.remove(token); if (!operation.cancelled.get()) callback.onResolved(null, "Playback is busy. Try again in a moment."); });
         }
         return token;
     }
@@ -190,7 +228,7 @@ public final class DiscoveryRepository {
         if (token == null || token.isEmpty()) return;
         Operation operation = operations.remove(token); if (operation == null) return;
         operation.cancelled.set(true); if (operation.future != null) operation.future.cancel(true);
-        workers.purge();
+        workers.purge(); playback.purge();
         if (operation.module != null) try { cancellation.execute(() -> { try { operation.module.callAttr("cancel", token); } catch (Exception ignored) { } }); }
         catch (RejectedExecutionException ignored) { /* Callback flag and Python deadline still stop this operation. */ }
     }

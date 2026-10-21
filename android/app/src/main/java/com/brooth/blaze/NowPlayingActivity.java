@@ -39,7 +39,7 @@ public final class NowPlayingActivity extends Activity {
     private LinearLayout nextCard;
     private FrameLayout mediaHost;
     private boolean scrubbing;
-    private String renderedKey = "", renderedNext = "";
+    private String renderedKey = "", renderedNext = "", renderedControls = "";
     private final PlaybackController.Listener listener = this::render;
 
     @Override public void onCreate(Bundle saved) {
@@ -171,7 +171,7 @@ public final class NowPlayingActivity extends Activity {
         if (ui == null || playback == null || title == null || isFinishing()) return;
         DiscoveryItem item = playback.current();
         if (item == null) {
-            renderedKey = ""; renderedNext = "";
+            renderedKey = ""; renderedNext = ""; renderedControls = "";
             video.setPlayer(null); video.setVisibility(View.GONE); artwork.setVisibility(View.VISIBLE);
             title.setText("Choose a recording"); creator.setText("Find videos and music in Explore");
             DiscoveryArtwork.load(artwork, "", R.drawable.discovery_sunset); toggle.setEnabled(false); favorite.setEnabled(false); seek.setEnabled(false);
@@ -190,34 +190,40 @@ public final class NowPlayingActivity extends Activity {
         boolean watching = item.kind.equals("video");
         video.setVisibility(watching ? View.VISIBLE : View.GONE); artwork.setVisibility(watching ? View.GONE : View.VISIBLE);
         if (video.getPlayer() != (watching ? playback.player() : null)) video.setPlayer(watching ? playback.player() : null);
-        boolean playing = playback.isPlaying();
-        toggle.setImageDrawable(DiscoveryIcons.get(this, playing ? "pause" : "play", ui.accentText));
-        toggle.setContentDescription(playing || (playback.isLoading() && playback.wantsPlayback()) ? "Pause" : "Play");
-        boolean liked = playback.isFavorite(item);
-        favorite.setImageDrawable(DiscoveryIcons.get(this, liked ? "heart_filled" : "heart", liked ? ui.accent : ui.text));
-        favorite.setContentDescription(liked ? "Remove from favourites" : "Add to favourites");
-        shuffle.setImageDrawable(DiscoveryIcons.get(this, "shuffle", playback.shuffle() ? ui.accent : ui.text));
-        shuffle.setContentDescription(playback.shuffle() ? "Shuffle on" : "Shuffle off");
-        repeat.setImageDrawable(DiscoveryIcons.get(this, "repeat", playback.repeat() ? ui.accent : ui.text));
-        repeat.setContentDescription(playback.repeat() ? "Repeat current recording on" : "Repeat off");
+        boolean playing = playback.isPlaying(), liked = playback.isFavorite(item);
+        String controls = playing + ":" + liked + ":" + playback.shuffle() + ":" + playback.repeat()
+            + ":" + playback.isLoading() + ":" + playback.wantsPlayback();
+        if (!controls.equals(renderedControls)) {
+            renderedControls = controls;
+            toggle.setImageDrawable(DiscoveryIcons.get(this, playing ? "pause" : "play", ui.accentText));
+            toggle.setContentDescription(playing || (playback.isLoading() && playback.wantsPlayback()) ? "Pause" : "Play");
+            favorite.setImageDrawable(DiscoveryIcons.get(this, liked ? "heart_filled" : "heart", liked ? ui.accent : ui.text));
+            favorite.setContentDescription(liked ? "Remove from favourites" : "Add to favourites");
+            shuffle.setImageDrawable(DiscoveryIcons.get(this, "shuffle", playback.shuffle() ? ui.accent : ui.text));
+            shuffle.setContentDescription(playback.shuffle() ? "Shuffle on" : "Shuffle off");
+            repeat.setImageDrawable(DiscoveryIcons.get(this, "repeat", playback.repeat() ? ui.accent : ui.text));
+            repeat.setContentDescription(playback.repeat() ? "Repeat current recording on" : "Repeat off");
+        }
         if (!scrubbing) {
             long position = playback.position(), length = playback.duration();
             seek.setProgress(length > 0 ? (int)Math.min(1000, position * 1000 / length) : 0);
-            elapsed.setText(time(position)); duration.setText(time(length));
+            setTextIfChanged(elapsed, time(position)); setTextIfChanged(duration, time(length));
         }
         DiscoveryItem next = playback.upNext();
-        if (next == null) { nextTitle.setText("Your queue is clear"); nextCreator.setText("Find something in Explore"); nextArtwork.setVisibility(View.GONE); }
+        if (next == null) { renderedNext = ""; setTextIfChanged(nextTitle, "Your queue is clear"); setTextIfChanged(nextCreator, "Find something in Explore"); nextArtwork.setVisibility(View.GONE); }
         else {
-            nextArtwork.setVisibility(View.VISIBLE); nextTitle.setText(next.title); nextCreator.setText(next.creator);
+            nextArtwork.setVisibility(View.VISIBLE); setTextIfChanged(nextTitle, next.title); setTextIfChanged(nextCreator, next.creator);
             if (!renderedNext.equals(next.key())) { renderedNext = next.key(); DiscoveryArtwork.load(nextArtwork, next.thumbnail, R.drawable.discovery_acoustic); }
         }
-        quality.setText(watching ? "Video · Source quality" : "Audio · Original quality");
+        setTextIfChanged(quality, watching ? "Video · Source quality" : "Audio · Original quality");
         String detail = playback.error();
         if (detail == null || detail.isEmpty()) detail = playback.isLoading() ? "Opening recording…" : "";
         if (!detail.contentEquals(status.getText())) status.setText(detail);
         status.setVisibility(detail.isEmpty() ? View.GONE : View.VISIBLE);
         fileFallback.setVisibility(!playback.error().isEmpty() && !item.localJobId.isEmpty() ? View.VISIBLE : View.GONE);
     }
+
+    private static void setTextIfChanged(TextView view, String value) { if (!value.contentEquals(view.getText())) view.setText(value); }
 
     private void openStudio() {
         DiscoveryItem item = playback.current(); if (item == null) return;

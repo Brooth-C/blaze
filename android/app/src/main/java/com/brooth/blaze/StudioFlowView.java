@@ -11,13 +11,19 @@ import java.util.*;
 
 /** Continuous player-driven chord strip. Beat cells use measured timestamps. */
 final class StudioFlowView extends View {
-    interface Seek { void to(long time); }
+    interface Seek {
+        void to(long time);
+        default void preview(long time) { }
+        default void cancelPreview() { }
+    }
     Seek seek;
     private StudioTimeline timeline;
     private long position;
     private int transpose;
     private float downX, downY;
-    private boolean moved;
+    private boolean moved, dragging;
+    private double dragCoordinate;
+    private long dragTarget;
     private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG), text = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Path trackClip = new Path();
     private final Access access;
@@ -29,7 +35,7 @@ final class StudioFlowView extends View {
     }
     void show(StudioTimeline map, int shift) { timeline = map; transpose = shift; invalidate(); access.invalidateRoot(); }
     void position(long time) {
-        if (timeline == null) return;
+        if (timeline == null || dragging) return;
         long next = Math.max(0, Math.min(timeline.duration, time)); if (next == position) return;
         boolean changed = timeline.state(next).chord != timeline.state(position).chord;
         position = next; invalidate(); if (changed) access.invalidateRoot();
@@ -98,10 +104,34 @@ final class StudioFlowView extends View {
     }
     @Override public boolean onTouchEvent(MotionEvent event) {
         if (timeline == null || seek == null) return false;
-        if (event.getAction() == MotionEvent.ACTION_DOWN) { downX = event.getX(); downY = event.getY(); moved = false; return true; }
-        if (event.getAction() == MotionEvent.ACTION_MOVE) { if (Math.hypot(event.getX() - downX, event.getY() - downY) > ViewConfiguration.get(getContext()).getScaledTouchSlop()) moved = true; if (moved) { seek.to(time(event.getX())); getParent().requestDisallowInterceptTouchEvent(true); } return true; }
-        if (event.getAction() == MotionEvent.ACTION_UP) { if (!moved) performClick(); seek.to(time(event.getX())); return true; }
-        return event.getAction() == MotionEvent.ACTION_CANCEL;
+        if (event.getAction() == MotionEvent.ACTION_DOWN) {
+            downX = event.getX(); downY = event.getY(); moved = false; dragging = true;
+            dragCoordinate = coordinate(position); dragTarget = position; return true;
+        }
+        if (event.getAction() == MotionEvent.ACTION_MOVE) {
+            if (!moved && Math.hypot(event.getX() - downX, event.getY() - downY) > ViewConfiguration.get(getContext()).getScaledTouchSlop()) {
+                // Let a scrolling workspace own vertical gestures.
+                if (Math.abs(event.getY() - downY) > Math.abs(event.getX() - downX)) { dragging = false; seek.cancelPreview(); return false; }
+                moved = true; getParent().requestDisallowInterceptTouchEvent(true);
+            }
+            if (moved) {
+                // Anchor the gesture to its initial timeline coordinate. Feeding each preview
+                // back into time(x) moved the origin and made a small drag jump far ahead.
+                dragTarget = Math.max(0, Math.min(timeline.duration, timeAt(dragCoordinate + (event.getX() - playhead()) / cellWidth())));
+                position = dragTarget; invalidate(); seek.preview(dragTarget);
+            }
+            return true;
+        }
+        if (event.getAction() == MotionEvent.ACTION_UP) {
+            if (!dragging) return false;
+            long target = moved ? dragTarget : time(event.getX()); dragging = false;
+            if (!moved) performClick(); getParent().requestDisallowInterceptTouchEvent(false);
+            seek.to(target); access.invalidateRoot(); return true;
+        }
+        if (event.getAction() == MotionEvent.ACTION_CANCEL) {
+            dragging = false; getParent().requestDisallowInterceptTouchEvent(false); seek.cancelPreview(); return true;
+        }
+        return false;
     }
     @Override public boolean performClick() { super.performClick(); return true; }
     @Override public boolean onKeyDown(int code, KeyEvent event) {

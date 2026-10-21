@@ -411,14 +411,19 @@ def search(query, filter_name, limit, token, callback):
             raise ValueError('Invalid scope')
         limit = max(1, min(int(limit), 60))
         query = query.strip()
-        if filter_name == 'videos':
+        if filter_name == 'all':
+            # All is the ordinary YouTube catalogue, not YouTube Music's narrower
+            # music-only result set. Keep its native relevance order and typed
+            # video/channel/playlist metadata in a single flat, bounded request.
+            target = 'https://www.youtube.com/results?' + urlencode({'search_query': query})
+        elif filter_name == 'videos':
             target = f'ytsearch{limit}:{query}'
         elif filter_name == 'artists':
             target = 'https://www.youtube.com/results?' + urlencode({'search_query': query, 'sp': 'EgIQAg=='})
         elif filter_name == 'playlists':
             target = 'https://www.youtube.com/results?' + urlencode({'search_query': query, 'sp': 'EgIQAw=='})
         else:
-            target = 'https://music.youtube.com/search?q=' + quote(query) + ('#songs' if filter_name == 'songs' else '')
+            target = 'https://music.youtube.com/search?q=' + quote(query) + '#songs'
         with _session(token, callback) as operation:
             items = _list(target, filter_name, limit, operation)
             operation.check()
