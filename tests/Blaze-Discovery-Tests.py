@@ -188,6 +188,22 @@ class DiscoveryTests(unittest.TestCase):
             d.search('pianist', 'artists', 20, 'artist', callback())
             self.assertIn('sp=EgIQAg%3D%3D', client.extract_info.call_args.args[0])
 
+    def test_all_search_uses_general_youtube_and_keeps_non_music_video_results(self):
+        with patch.object(d, 'DiscoveryYDL') as engine:
+            client = engine.return_value.__enter__.return_value
+            client.extract_info.return_value = {'_type': 'playlist', 'entries': [
+                {'id': VIDEO, 'title': 'How to build a chair', 'channel': 'Woodworking'},
+                {'id': CHANNEL, 'url': f'https://www.youtube.com/channel/{CHANNEL}', 'title': 'Woodworking'},
+                {'id': PLAYLIST, 'url': f'https://www.youtube.com/playlist?list={PLAYLIST}', 'title': 'Workshop videos'}]}
+            result = json.loads(d.search('build a chair & table', 'all', 20, 'general-search', callback()))
+            self.assertEqual(result['error'], '')
+            self.assertEqual([row['kind'] for row in result['items']], ['video', 'artist', 'playlist'])
+            self.assertEqual(result['items'][0]['title'], 'How to build a chair')
+            client.extract_info.assert_called_once_with(
+                'https://www.youtube.com/results?search_query=build+a+chair+%26+table', download=False)
+            self.assertEqual(engine.call_args.args[0]['playlist_items'], '1:20')
+            client.download.assert_not_called(); client.process_info.assert_not_called()
+
     def test_cancel_before_start_does_not_construct_network_engine(self):
         with patch.object(d, 'DiscoveryYDL') as engine:
             result = json.loads(d.search('query', 'all', 20, 'cancelled', callback(True)))

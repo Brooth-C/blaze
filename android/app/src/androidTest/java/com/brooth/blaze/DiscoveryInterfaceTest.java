@@ -31,6 +31,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
@@ -229,7 +230,8 @@ public class DiscoveryInterfaceTest {
                 assertEquals("acoustic sessions", ((EditText)tagged(activity, "discovery_search")).getText().toString());
                 tagged(activity, "search_filter_songs").performClick();
             });
-            waitScreen(screen, "Songs filter did not settle", activity -> tagged(activity, "search_filter_songs").isSelected());
+            waitScreen(screen, "Songs filter did not settle", activity -> tagged(activity, "search_filter_songs").isSelected()
+                && tagged(activity, "discovery_loading") == null && tagged(activity, "discovery_item_" + golden.id) != null);
             screen.recreate();
             waitScreen(screen, "Search state lost after recreation", activity -> tagged(activity, "discovery_item_" + golden.id) != null
                 && "acoustic sessions".equals(((EditText)tagged(activity, "discovery_search")).getText().toString())
@@ -245,6 +247,170 @@ public class DiscoveryInterfaceTest {
             waitScreen(screen, "Retry did not restore results", activity -> tagged(activity, "discovery_item_" + golden.id) != null
                 && tagged(activity, "discovery_error") == null);
         } finally { backend.releaseSlow.countDown(); }
+    }
+
+    @Test public void typingCoalescesSearchAndKeepsTheFocusedFieldAcrossResultsAndFilters() throws Exception {
+        try (ActivityScenario<MainActivity> screen = ActivityScenario.launch(exploreIntent())) {
+            screen.onActivity(activity -> tagged(activity, "discovery_search").performClick());
+            AtomicReference<EditText> field = new AtomicReference<>();
+            shell("dumpsys gfxinfo com.brooth.blaze reset");
+            screen.onActivity(activity -> {
+                EditText input = (EditText)tagged(activity, "discovery_search"); field.set(input);
+                input.requestFocus(); input.setText("a");
+            });
+            Thread.sleep(90);
+            screen.onActivity(activity -> field.get().append("coustic"));
+            Thread.sleep(90);
+            screen.onActivity(activity -> {
+                assertTrue("Typing sent an intermediate query immediately", backend.searches.isEmpty());
+                field.get().append(" sessions"); field.get().setSelection(8);
+            });
+            waitScreen(screen, "Typing never submitted the final search", activity -> backend.searches.contains("acoustic sessions|all|20")
+                && tagged(activity, "discovery_loading") == null && tagged(activity, "discovery_item_" + golden.id) != null);
+            screen.onActivity(activity -> {
+                assertSame("Search completion replaced the input view", field.get(), tagged(activity, "discovery_search"));
+                assertTrue("Search completion dismissed input focus", field.get().hasFocus());
+                assertEquals("Search completion moved the cursor", 8, field.get().getSelectionStart());
+                assertEquals("Typing fetched more than the final query", Collections.singletonList("acoustic sessions|all|20"), backend.searches);
+                tagged(activity, "search_filter_videos").performClick();
+            });
+            waitScreen(screen, "Videos filter did not return the recording", activity -> backend.searches.contains("acoustic sessions|videos|20")
+                && tagged(activity, "discovery_loading") == null && tagged(activity, "discovery_item_" + video.id) != null);
+            screen.onActivity(activity -> {
+                assertSame("Changing filters rebuilt the focused input", field.get(), tagged(activity, "discovery_search"));
+                assertEquals("Changing filters changed the query", "acoustic sessions", field.get().getText().toString());
+                assertNull("Videos filter retained a song row", tagged(activity, "discovery_item_" + golden.id));
+            });
+            instrumentation.waitForIdleSync();
+            String evidence = "Flow: focus search; type a, acoustic, acoustic sessions with 90ms gaps; await result; choose Videos; await result.\n"
+                + "Build: debug; API " + android.os.Build.VERSION.SDK_INT + "; deterministic metadata and cached/local artwork.\n"
+                + "Single emulator capture, not a device FPS benchmark. No network latency is measured.\n\n"
+                + shell("dumpsys gfxinfo com.brooth.blaze") + "\nFRAMES\n" + shell("dumpsys gfxinfo com.brooth.blaze framestats");
+            try (FileOutputStream out = new FileOutputStream(new File(app.getFilesDir(), "Blaze-Android-Search-Frames.txt"))) {
+                out.write(evidence.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            }
+        }
+    }
+
+    @Test public void editingAnInFlightSearchCannotPublishItsOldResults() throws Exception {
+        try (ActivityScenario<MainActivity> screen = ActivityScenario.launch(exploreIntent())) {
+            screen.onActivity(activity -> explore(activity).showSearch("slow query"));
+            assertTrue("Slow search did not start", backend.slowEntered.await(4, TimeUnit.SECONDS));
+            AtomicReference<EditText> field = new AtomicReference<>();
+            screen.onActivity(activity -> {
+                field.set((EditText)tagged(activity, "discovery_search")); field.get().requestFocus();
+                field.get().setText("acoustic sessions"); field.get().setSelection(5);
+            });
+            backend.releaseSlow.countDown();
+            assertTrue("Cancelled old request did not finish", backend.slowFinished.await(4, TimeUnit.SECONDS));
+            instrumentation.waitForIdleSync();
+            screen.onActivity(activity -> assertFalse("Old results appeared under newly typed text", text(activity).contains("Outdated result")));
+            waitScreen(screen, "Typed replacement search did not complete", activity -> tagged(activity, "discovery_item_" + golden.id) != null
+                && tagged(activity, "discovery_loading") == null);
+            screen.onActivity(activity -> {
+                assertSame(field.get(), tagged(activity, "discovery_search"));
+                assertEquals("acoustic sessions", field.get().getText().toString());
+                assertEquals(5, field.get().getSelectionStart());
+                assertFalse(text(activity).contains("Outdated result"));
+            });
+        } finally { backend.releaseSlow.countDown(); }
+    }
+
+    @Test public void allSearchKeepsEveryReturnedVideoAndDispatchesTheExactSelection() throws Exception {
+        backend.extraVideos = true;
+        AtomicReference<ExploreView> custom = new AtomicReference<>();
+        AtomicReference<DiscoveryItem> selected = new AtomicReference<>();
+        AtomicReference<List<DiscoveryItem>> selectedQueue = new AtomicReference<>();
+        try (ActivityScenario<MainActivity> screen = ActivityScenario.launch(exploreIntent())) {
+            screen.onActivity(activity -> {
+                explore(activity).onDestroy();
+                ExploreView view = new ExploreView(activity, new ExploreView.Actions() {
+                    @Override public void onPlay(DiscoveryItem item, List<DiscoveryItem> queue) { selected.set(item); selectedQueue.set(queue); }
+                    @Override public void onDownload(DiscoveryItem item, boolean forStudio) { fail("Selecting a video queued a download"); }
+                    @Override public void onOpenPlayer() { fail("Selecting a video lost its recording identity"); }
+                    @Override public void onSettings() { }
+                });
+                custom.set(view); activity.setContentView(view); view.showSearch("four live videos");
+            });
+            waitScreen(screen, "All search hid the third or fourth returned video", activity -> tagged(activity, "discovery_item_BlazeVid006") != null
+                && tagged(activity, "discovery_item_BlazeVid007") != null);
+            screen.onActivity(activity -> {
+                assertNotNull(tagged(activity, "discovery_item_" + video.id));
+                assertNotNull(tagged(activity, "discovery_item_BlazeVid005"));
+                assertFalse("Search started playback without selecting a recording", PlaybackController.get(app).isPlaying());
+                tagged(activity, "discovery_item_BlazeVid007").performClick();
+                assertNotNull("Selected video was not dispatched", selected.get());
+                assertEquals("BlazeVid007", selected.get().id); assertEquals("video", selected.get().kind);
+                assertTrue("The selected recording was missing from its queue", selectedQueue.get().stream().anyMatch(item -> item.id.equals("BlazeVid007")));
+            });
+        } finally { onMain(() -> { if (custom.get() != null) custom.get().onDestroy(); }); }
+    }
+
+    @Test public void repeatedSearchCachesOnlyExactSuccessfulRequestsAndCancelledHitsStaySilent() throws Exception {
+        searchOnce("repeat catalogue", "all", 20, false);
+        searchOnce("repeat catalogue", "all", 20, false);
+        assertEquals("Repeating a fresh search fetched the provider again", 1, backend.searches.size());
+        searchOnce("repeat catalogue", "videos", 20, false);
+        searchOnce("repeat catalogue", "all", 10, false);
+        assertEquals("Filter or limit reused an incompatible cached response", 3, backend.searches.size());
+        searchOnce("offline fixture", "all", 20, true);
+        searchOnce("offline fixture", "all", 20, true);
+        assertEquals("A provider failure was cached instead of retried", 5, backend.searches.size());
+        AtomicBoolean callback = new AtomicBoolean();
+        onMain(() -> {
+            String token = DiscoveryRepository.get(app).search("repeat catalogue", "all", 20, (items, error) -> callback.set(true));
+            DiscoveryRepository.get(app).cancel(token);
+        });
+        instrumentation.waitForIdleSync(); assertFalse("A cancelled cache hit delivered its callback", callback.get());
+        backend = new FixtureBackend(); DiscoveryRepository.setTestBackend(backend);
+        searchOnce("repeat catalogue", "all", 20, false);
+        assertEquals("Resetting the provider reused a previous provider's cache", 1, backend.searches.size());
+    }
+
+    @Test public void streamResolutionDoesNotWaitBehindTwoBlockedSearches() throws Exception {
+        CountDownLatch entered = new CountDownLatch(2), release = new CountDownLatch(1), searchesDone = new CountDownLatch(2);
+        List<String> tokens = new ArrayList<>();
+        DiscoveryRepository repository = DiscoveryRepository.get(app);
+        DiscoveryRepository.setTestBackend(new DiscoveryRepository.Backend() {
+            @Override public List<DiscoveryItem> search(String query, String filter, int limit) throws Exception {
+                entered.countDown();
+                try { release.await(8, TimeUnit.SECONDS); return Collections.singletonList(stay); }
+                finally { searchesDone.countDown(); }
+            }
+            @Override public List<DiscoveryItem> browse(DiscoveryItem item, int limit) { return Collections.emptyList(); }
+            @Override public DiscoveryRepository.Stream resolve(DiscoveryItem item) {
+                return new DiscoveryRepository.Stream("https://fixture.googlevideo.com/audio", "audio/mp4", 1000, Collections.emptyMap());
+            }
+        });
+        try {
+            onMain(() -> {
+                tokens.add(repository.search("blocked one", "all", 20, (items, error) -> { }));
+                tokens.add(repository.search("blocked two", "all", 20, (items, error) -> { }));
+            });
+            assertTrue("Both metadata workers did not block", entered.await(4, TimeUnit.SECONDS));
+            CountDownLatch resolved = new CountDownLatch(1); AtomicReference<DiscoveryRepository.Stream> stream = new AtomicReference<>();
+            onMain(() -> tokens.add(repository.resolve(stay, (value, error) -> { stream.set(value); resolved.countDown(); })));
+            assertTrue("Playback resolution waited behind background searches", resolved.await(3, TimeUnit.SECONDS));
+            assertNotNull("Playback resolution failed while search was busy", stream.get());
+            assertEquals("The searches completed before priority was established", 2, searchesDone.getCount());
+        } finally {
+            release.countDown();
+            assertTrue("Blocked search fixtures did not finish", searchesDone.await(5, TimeUnit.SECONDS));
+            onMain(() -> { for (String token : tokens) repository.cancel(token); });
+            DiscoveryRepository.setTestBackend(backend);
+        }
+    }
+
+    private List<DiscoveryItem> searchOnce(String query, String filter, int limit, boolean failureExpected) throws Exception {
+        CountDownLatch done = new CountDownLatch(1); AtomicReference<List<DiscoveryItem>> result = new AtomicReference<>();
+        AtomicReference<String> failure = new AtomicReference<>();
+        onMain(() -> DiscoveryRepository.get(app).search(query, filter, limit, (items, error) -> {
+            result.set(items); failure.set(error); done.countDown();
+        }));
+        assertTrue("Repository request never completed", done.await(5, TimeUnit.SECONDS));
+        if (failureExpected) assertNotNull("Provider failure was hidden", failure.get());
+        else assertNull("Repository search failed", failure.get());
+        return result.get();
     }
 
     @Test public void exploreRecommendationsUseProviderArtworkAndPlayTheirExactRecording() throws Exception {
@@ -465,6 +631,8 @@ public class DiscoveryInterfaceTest {
         volatile int recommendations;
         volatile String profile = "";
         volatile boolean recommendationFailure;
+        volatile boolean extraVideos;
+        final List<String> searches = new CopyOnWriteArrayList<>();
         @Override public List<DiscoveryItem> recommend(String signals, String lane, int limit) throws Exception {
             recommendations++; profile = signals;
             if (recommendationFailure) throw new java.io.IOException("Synthetic offline recommendations");
@@ -475,6 +643,7 @@ public class DiscoveryInterfaceTest {
             return picks;
         }
         @Override public List<DiscoveryItem> search(String query, String filter, int limit) throws Exception {
+            searches.add(query + "|" + filter + "|" + limit);
             if (query.equals("slow query")) {
                 slowEntered.countDown();
                 try { releaseSlow.await(4, TimeUnit.SECONDS); } catch (InterruptedException ignored) { /* Model a transport that returns after cancellation. */ }
@@ -488,7 +657,12 @@ public class DiscoveryInterfaceTest {
             if (filter.equals("artists")) return Collections.singletonList(new DiscoveryItem("UC_BLAZE_REFERENCE", "artist", "The Northlights", "Artist",
                 "https://www.youtube.com/channel/UC_BLAZE_REFERENCE", "", -1));
             if (filter.equals("playlists")) return Collections.singletonList(playlist);
-            return Arrays.asList(playlist, catalogue(golden), catalogue(quiet), stay, video);
+            List<DiscoveryItem> found = new ArrayList<>(Arrays.asList(playlist, catalogue(golden), catalogue(quiet), stay, video));
+            if (extraVideos) for (String id : Arrays.asList("BlazeVid005", "BlazeVid006", "BlazeVid007")) {
+                found.add(new DiscoveryItem(id, "video", "Live video " + id, "Fixture",
+                    "https://www.youtube.com/watch?v=" + id, "", 120000));
+            }
+            return found;
         }
         @Override public List<DiscoveryItem> browse(DiscoveryItem item, int limit) { return tracks(); }
         private List<DiscoveryItem> tracks() { return Arrays.asList(catalogue(golden), catalogue(quiet), stay); }

@@ -31,7 +31,7 @@ public class MainActivity extends Activity {
     private TextView miniTitle,miniCreator;
     private ImageButton miniToggle;
     private ProgressBar miniProgress;
-    private String destination="explore",miniImageKey="";
+    private String destination="explore",miniImageKey="",miniControls="",renderedNavigation="";
     private final PlaybackController.Listener playbackListener=()->renderMiniPlayer();
     private ScrollView contentScroll;
     private BlazeUi ui;
@@ -144,6 +144,8 @@ public class MainActivity extends Activity {
     }
     private void control(String action){try{startService(new Intent(this,DownloadService.class).setAction(action));}catch(RuntimeException error){message("Open Blaze again to manage the queue.");}}
     private void renderJobs() {
+        // Do not query and bind an invisible Library/Downloads page while typing in Explore.
+        if ("explore".equals(destination)) return;
         downloadComposer.setVisibility(filter==0?View.VISIBLE:View.GONE);
         sectionTitle.setText(filter==0?"Downloads":filter==1?"History":"Library");
         sectionSubtitle.setText(filter==0?"Keep what moves you.":filter==1?"Every save, in one place.":"Your collection. Always with you.");
@@ -208,10 +210,11 @@ public class MainActivity extends Activity {
         boolean discovering="explore".equals(chosen);
         brandHeader.setVisibility(discovering?View.GONE:View.VISIBLE);contentScroll.setVisibility(discovering?View.GONE:View.VISIBLE);explore.setVisibility(discovering?View.VISIBLE:View.GONE);
         if(wasExplore&&!discovering)explore.onPause();else if(!wasExplore&&discovering)explore.onResume();
-        getPreferences(MODE_PRIVATE).edit().putString("lastDestination",chosen).apply();rendered="";renderJobs();renderMiniPlayer();
+        getPreferences(MODE_PRIVATE).edit().putString("lastDestination",chosen).apply();rendered="";updateNavigation();renderJobs();renderMiniPlayer();
         if(openStudio)pickFile(12);
     }
     private void updateNavigation(){
+        String key=destination+":"+filter;if(key.equals(renderedNavigation))return;renderedNavigation=key;
         Button[] tabs={exploreTab,sectionTabs[0],sectionTabs[2],studioTab};String[] values={"explore","downloads","library","studio"},icons={"explore","download","library","studio"};
         for(int i=0;i<tabs.length;i++){Button tab=tabs[i];if(tab==null)continue;boolean selected=values[i].equals(destination);tab.setSelected(selected);tab.setTextColor(selected?orange:muted);tab.setCompoundDrawablesWithIntrinsicBounds(null,DiscoveryIcons.get(this,icons[i],selected?orange:muted),null,null);}
         if(queueTab!=null){queueTab.setSelected(filter==0);sectionTabs[1].setSelected(filter==1);ui.styleButton(queueTab,filter==0);ui.styleButton(sectionTabs[1],filter==1);}
@@ -228,10 +231,13 @@ public class MainActivity extends Activity {
     }
     private void renderMiniPlayer(){
         if(miniPlayer==null)return;PlaybackController player=PlaybackController.get(this);DiscoveryItem item=player.current();miniPlayer.setVisibility(item==null?View.GONE:View.VISIBLE);if(item==null)return;
-        miniTitle.setText(item.title);miniCreator.setText(player.error().isEmpty()?item.creator:"Tap to retry playback");
+        setTextIfChanged(miniTitle,item.title);setTextIfChanged(miniCreator,player.error().isEmpty()?item.creator:"Tap to retry playback");
         String imageKey=item.key()+item.thumbnail;if(!imageKey.equals(miniImageKey)){miniImageKey=imageKey;DiscoveryArtwork.load(miniArt,item.thumbnail,R.drawable.discovery_sunset);}
-        miniToggle.setImageDrawable(DiscoveryIcons.get(this,player.isPlaying()?"pause":"play",foreground));miniToggle.setContentDescription(player.isPlaying()?"Pause":"Play");miniToggle.setEnabled(!player.isLoading());long duration=player.duration();miniProgress.setProgress(duration>0?(int)Math.min(1000,player.position()*1000/duration):0);
+        String controls=player.isPlaying()+":"+player.isLoading()+":"+player.wantsPlayback();
+        if(!controls.equals(miniControls)){miniControls=controls;miniToggle.setImageDrawable(DiscoveryIcons.get(this,player.isPlaying()?"pause":"play",foreground));miniToggle.setContentDescription(player.isPlaying()||player.isLoading()&&player.wantsPlayback()?"Pause":"Play");miniToggle.setEnabled(true);}
+        long duration=player.duration();miniProgress.setProgress(duration>0?(int)Math.min(1000,player.position()*1000/duration):0);
     }
+    private static void setTextIfChanged(TextView view,String value){if(!value.contentEquals(view.getText()))view.setText(value);}
     private void playDiscovery(DiscoveryItem item,List<DiscoveryItem> queue){PlaybackController.get(this).play(item,queue);openNowPlaying();}
     private void openNowPlaying(){if(PlaybackController.get(this).current()!=null)startActivity(new Intent(this,NowPlayingActivity.class));}
     private void fileActions(View anchor,File file,JobStore.Job job){

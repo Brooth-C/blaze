@@ -58,7 +58,9 @@ public final class ExploreView extends LinearLayout {
     private String homeLane = "For you";
     private DiscoveryItem collection;
     private EditText searchInput;
-    private boolean home = true, loading, destroyed;
+    private boolean home = true, loading, destroyed, updatingInput;
+    private Runnable pendingSearch;
+    private static final long SEARCH_DELAY_MS = 350;
     private int generation, requestedLimit = 20;
     private List<DiscoveryItem> homeItems = new ArrayList<>();
     private String homeToken = "", homeProfile = "[]", homeSignature = "", homeError = "";
@@ -299,24 +301,36 @@ public final class ExploreView extends LinearLayout {
     }
 
     private void renderSearch() {
-        content.removeAllViews(); content.setTag("discovery_results");
-        LinearLayout top = horizontal(); top.setGravity(Gravity.CENTER_VERTICAL);
-        Button back = icon("back", "Back to Explore", ui.text); back.setOnClickListener(v -> handleBack());
-        LinearLayout.LayoutParams backSize = new LinearLayout.LayoutParams(dp(40), dp(48)); backSize.setMargins(dp(-8), 0, dp(5), 0); top.addView(back, backSize);
-        LinearLayout field = horizontal(); field.setGravity(Gravity.CENTER_VERTICAL); field.setPadding(dp(12), 0, 0, 0); field.setBackground(ui.shape(ui.elevated, 24));
-        ImageView magnifier = new ImageView(activity); magnifier.setImageDrawable(DiscoveryIcons.get(activity, "search", ui.text)); magnifier.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
-        field.addView(magnifier, new LinearLayout.LayoutParams(dp(21), dp(21)));
-        searchInput = new EditText(activity); searchInput.setTag("discovery_search"); searchInput.setSingleLine(true); searchInput.setTextSize(14);
-        searchInput.setFilters(new InputFilter[]{new InputFilter.LengthFilter(256)});
-        searchInput.setTextColor(ui.text); searchInput.setHintTextColor(ui.secondary); searchInput.setHint("Search videos, songs, artists…"); searchInput.setText(query);
-        searchInput.setBackgroundColor(Color.TRANSPARENT); searchInput.setPadding(dp(9), 0, dp(2), 0); searchInput.setImeOptions(EditorInfo.IME_ACTION_SEARCH);
-        searchInput.setContentDescription("Search videos, songs and artists");
-        searchInput.addTextChangedListener(new TextWatcher() { public void beforeTextChanged(CharSequence s, int a, int count, int after) {} public void onTextChanged(CharSequence s, int start, int before, int count) { query = s.toString(); } public void afterTextChanged(Editable value) {} });
-        searchInput.setOnEditorActionListener((view, action, event) -> { if (action == EditorInfo.IME_ACTION_SEARCH || (event != null && event.getKeyCode() == android.view.KeyEvent.KEYCODE_ENTER)) { submitInput(); return true; } return false; });
-        field.addView(searchInput, new LinearLayout.LayoutParams(0, dp(48), 1));
-        Button clear = icon("close", "Clear search", ui.secondary); clear.setOnClickListener(v -> { cancelRequest(); query = ""; submitted = ""; collection = null; backStack.clear(); requestedLimit = 20; results = new ArrayList<>(); error = ""; renderSearch(); });
-        field.addView(clear, new LinearLayout.LayoutParams(dp(42), dp(48))); top.addView(field, new LinearLayout.LayoutParams(0, dp(48), 1));
-        content.addView(top, new LinearLayout.LayoutParams(-1, dp(52))); gap(14);
+        // Keep the editor attached: loading/results must not reset focus, cursor or IME.
+        if (searchInput == null || !"discovery_results".equals(content.getTag())) {
+            content.removeAllViews(); content.setTag("discovery_results");
+            LinearLayout top = horizontal(); top.setGravity(Gravity.CENTER_VERTICAL);
+            Button back = icon("back", "Back to Explore", ui.text); back.setOnClickListener(v -> handleBack());
+            LinearLayout.LayoutParams backSize = new LinearLayout.LayoutParams(dp(40), dp(48)); backSize.setMargins(dp(-8), 0, dp(5), 0); top.addView(back, backSize);
+            LinearLayout field = horizontal(); field.setGravity(Gravity.CENTER_VERTICAL); field.setPadding(dp(12), 0, 0, 0); field.setBackground(ui.shape(ui.elevated, 24));
+            ImageView magnifier = new ImageView(activity); magnifier.setImageDrawable(DiscoveryIcons.get(activity, "search", ui.text)); magnifier.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
+            field.addView(magnifier, new LinearLayout.LayoutParams(dp(21), dp(21)));
+            searchInput = new EditText(activity); searchInput.setTag("discovery_search"); searchInput.setSingleLine(true); searchInput.setTextSize(14);
+            searchInput.setFilters(new InputFilter[]{new InputFilter.LengthFilter(256)});
+            searchInput.setTextColor(ui.text); searchInput.setHintTextColor(ui.secondary); searchInput.setHint("Search videos, songs, artists…"); searchInput.setText(query);
+            searchInput.setBackgroundColor(Color.TRANSPARENT); searchInput.setPadding(dp(9), 0, dp(2), 0); searchInput.setImeOptions(EditorInfo.IME_ACTION_SEARCH);
+            searchInput.setContentDescription("Search videos, songs and artists");
+            searchInput.addTextChangedListener(new TextWatcher() { public void beforeTextChanged(CharSequence s, int a, int count, int after) {} public void onTextChanged(CharSequence s, int start, int before, int count) { if (!updatingInput) inputChanged(s.toString()); } public void afterTextChanged(Editable value) {} });
+            searchInput.setOnEditorActionListener((view, action, event) -> { if (action == EditorInfo.IME_ACTION_SEARCH || (event != null && event.getAction() == android.view.KeyEvent.ACTION_UP && event.getKeyCode() == android.view.KeyEvent.KEYCODE_ENTER)) { submitInput(); return true; } return false; });
+            field.addView(searchInput, new LinearLayout.LayoutParams(0, dp(48), 1));
+            Button clear = icon("close", "Clear search", ui.secondary); clear.setOnClickListener(v -> { searchInput.setText(""); searchInput.requestFocus(); });
+            field.addView(clear, new LinearLayout.LayoutParams(dp(42), dp(48))); top.addView(field, new LinearLayout.LayoutParams(0, dp(48), 1));
+            content.addView(top, new LinearLayout.LayoutParams(-1, dp(52)));
+        } else {
+            // Only the result body changes. The existing editor retains its selection.
+            while (content.getChildCount() > 1) content.removeViewAt(content.getChildCount() - 1);
+            if (!query.contentEquals(searchInput.getText())) {
+                updatingInput = true;
+                searchInput.setText(query); searchInput.setSelection(searchInput.length());
+                updatingInput = false;
+            }
+        }
+        gap(14);
         TextView heading = ui.heading(collection == null ? "Search results" : collection.title, 23); heading.setMaxLines(2); content.addView(heading); gap(5);
         if (collection == null) { content.addView(searchFilters()); gap(9); }
         else { content.addView(ui.label(collection.creator.isEmpty() ? kindLabel(collection.kind) : collection.creator, 13, ui.secondary)); gap(13); }
@@ -361,7 +375,7 @@ public final class ExploreView extends LinearLayout {
             label.setBackground(ui.shape(selected ? ui.accent : ui.elevated, 20)); label.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
             touch.addView(label, new FrameLayout.LayoutParams(-2, dp(34), Gravity.CENTER));
             LinearLayout.LayoutParams size = new LinearLayout.LayoutParams(-2, dp(48)); size.setMargins(0, 0, dp(6), 0); touch.setMinimumWidth(dp(54)); row.addView(touch, size);
-            touch.setOnClickListener(v -> { filter = key; collection = null; requestedLimit = 20; results = new ArrayList<>(); submitted = clean(query); request(false); });
+            touch.setOnClickListener(v -> selectFilter(key));
         }
         scroller.addView(row); return scroller;
     }
@@ -377,7 +391,7 @@ public final class ExploreView extends LinearLayout {
         }
         List<DiscoveryItem> songs = ofKind("song", "local"), videos = ofKind("video"), artists = ofKind("artist"), playlists = ofKind("playlist");
         if (!songs.isEmpty()) renderTrackGroup("Songs", songs, 3, () -> selectFilter("songs"));
-        if (!videos.isEmpty()) { if (!songs.isEmpty()) gap(14); section("Videos", () -> selectFilter("videos")); gap(8); for (int i = 0; i < Math.min(2, videos.size()); i++) content.addView(videoRow(videos.get(i))); }
+        if (!videos.isEmpty()) { if (!songs.isEmpty()) gap(14); section("Videos", () -> selectFilter("videos")); gap(8); for (DiscoveryItem item : videos) content.addView(videoRow(item)); }
         if (!artists.isEmpty()) { gap(16); section("Artists", () -> selectFilter("artists")); gap(8); for (int i = 0; i < Math.min(3, artists.size()); i++) content.addView(collectionRow(artists.get(i))); }
         if (!playlists.isEmpty() && (feature == null || playlists.size() > 1)) {
             gap(16); section("Playlists", () -> selectFilter("playlists")); gap(8);
@@ -430,13 +444,30 @@ public final class ExploreView extends LinearLayout {
         row.setFocusable(true); row.setContentDescription("Open " + kindLabel(item.kind).toLowerCase(Locale.ROOT) + ", " + item.title); row.setOnClickListener(v -> browse(item)); return row;
     }
 
+    private void inputChanged(String value) {
+        boolean waiting = loading && results.isEmpty() && error.isEmpty() && collection == null;
+        query = value; cancelRequest(); collection = null; backStack.clear(); requestedLimit = 20;
+        results = new ArrayList<>(); error = "";
+        final String term = clean(value);
+        if (term.length() < 2) { submitted = ""; renderSearch(); return; }
+        submitted = term; loading = true; if (!waiting) renderSearch();
+        final int expectedGeneration = generation;
+        pendingSearch = () -> {
+            pendingSearch = null;
+            if (destroyed || home || expectedGeneration != generation) return;
+            submitted = term; request(false);
+        };
+        postDelayed(pendingSearch, SEARCH_DELAY_MS);
+    }
+
     private void submitInput() {
         String term = clean(query); if (term.isEmpty()) return;
         if (searchInput != null) { InputMethodManager keyboard = (InputMethodManager) activity.getSystemService(Activity.INPUT_METHOD_SERVICE); if (keyboard != null) keyboard.hideSoftInputFromWindow(searchInput.getWindowToken(), 0); searchInput.clearFocus(); }
+        if (term.equals(submitted) && collection == null && (loading || !results.isEmpty()) && pendingSearch == null) return;
         submitted = term; query = term; collection = null; backStack.clear(); requestedLimit = 20; results = new ArrayList<>(); request(false);
     }
 
-    private void selectFilter(String chosen) { filter = validFilter(chosen); collection = null; requestedLimit = 20; results = new ArrayList<>(); request(false); }
+    private void selectFilter(String chosen) { filter = validFilter(chosen); submitted = clean(query); collection = null; requestedLimit = 20; results = new ArrayList<>(); request(false); }
 
     private void browse(DiscoveryItem item) {
         browse(item, false);
@@ -449,7 +480,7 @@ public final class ExploreView extends LinearLayout {
     }
 
     private void request(boolean playFirst) {
-        cancelRequest(); home = false; submitted = clean(submitted.isEmpty() ? query : submitted); query = submitted;
+        cancelRequest(); home = false; submitted = clean(submitted.isEmpty() ? query : submitted);
         if (collection == null && submitted.isEmpty()) { renderSearch(); return; }
         final int currentGeneration = ++generation; final int previousScroll = requestedLimit > 20 ? scroll.getScrollY() : 0;
         loading = true; error = ""; renderSearch();
@@ -469,7 +500,7 @@ public final class ExploreView extends LinearLayout {
         catch (RuntimeException failure) { loading = false; error = "Could not start this search. Try again."; renderSearch(); }
     }
 
-    private void cancelRequest() { cancelHomeRequest(); generation++; if (!requestToken.isEmpty()) repository.cancel(requestToken); requestToken = ""; loading = false; }
+    private void cancelRequest() { if (pendingSearch != null) { removeCallbacks(pendingSearch); pendingSearch = null; } cancelHomeRequest(); generation++; if (!requestToken.isEmpty()) repository.cancel(requestToken); requestToken = ""; loading = false; }
     private void openItem(DiscoveryItem item, List<DiscoveryItem> queue) { if (item.browsable()) browse(item); else actions.onPlay(item, queue.isEmpty() ? Collections.singletonList(item) : queue); }
 
     private void itemMenu(View anchor, DiscoveryItem item, List<DiscoveryItem> queue) {
