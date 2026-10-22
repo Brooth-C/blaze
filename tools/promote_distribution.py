@@ -15,21 +15,23 @@ REPOSITORY = 'Brooth-C/blaze'
 NATIVE_SOURCES = dict(name='Blaze-Android-Native-Sources.tar.gz', source_tag='v4.1.29',
                       size=374676937, sha256='c2eeadf7bbc8be426ead9248fa69e4a5ce5c490c5484669495e684a3081d226e')
 ORIGINS = {
-    'Blaze-Windows.zip': 'windows-v0.7.0',
+    'Blaze-Windows.zip': 'windows-v0.8.0',
     'Blaze-Android-Preview.apk': 'android-v0.11.0',
-    'Blaze-Mac-arm64.zip': 'macos-v0.7.0-preview',
-    'Blaze-Mac-x86_64.zip': 'macos-v0.7.0-preview',
-    'Blaze-Linux-x86_64.tar.gz': 'linux-v0.7.0-preview',
+    'Blaze-Mac-arm64.zip': 'macos-v0.8.0-preview',
+    'Blaze-Mac-x86_64.zip': 'macos-v0.8.0-preview',
+    'Blaze-Linux-x86_64.tar.gz': 'linux-v0.8.0-preview',
     'Blaze-Linux-Installer.zip': 'v4.1.29',
     'Blaze-Termux-Installer.zip': 'v4.1.29',
 }
 WORKFLOWS = {
     'desktop': ('Windows and Linux desktop packages', {'windows', 'linux', 'publish'}),
-    'macos': ('Blaze macOS app', {'Mac app / arm64', 'Mac app / x86_64', 'Publish tested Mac app'}),
+    'macos': ('Blaze macOS app', {'Mac app / arm64', 'Mac app / x86_64', 'Mac native glass / macOS 26', 'Publish tested Mac app'}),
     'android': ('Android offline Studio validation', {'Build Android APK', 'Publish Android preview'}),
 }
 INPUTS = (
     'music_studio', 'android', 'blaze.py', 'installers/linux-desktop',
+    'music_studio/chords.py', 'music_studio/evidence.py',
+    'music_studio/lv_frontend.py', 'music_studio/structured.py', 'music_studio/models',
     'LICENSE.txt', 'THIRD-PARTY-NOTICES.md', 'docs/LINUX-DESKTOP.md',
     'tools/build_windows_studio.py', 'tools/build_linux_studio.py', 'tools/stage_desktop_release.py',
     'tools/publish_desktop_release.py', 'tests/Blaze-Desktop-Package-Tests.py', 'tests/Blaze-Mac-Package-Tests.py',
@@ -39,16 +41,30 @@ INPUTS = (
     '.github/workflows/android-apk.yml', 'docs/assets/blaze-logo.png',
 )
 # These inputs cannot affect the unchanged Windows, Linux or macOS packages.
-# Android still compares the complete input tree with its newer native proof.
 ANDROID_ONLY_INPUTS = {
     'android', 'tools/stage_android_studio.py', 'tools/sync_android_harmony.py',
     '.github/workflows/android-apk.yml',
 }
+# sync_android_harmony.py copies exactly these four Python modules. The complete
+# Android tree covers the Gradle build, app sources, embedded assets and tests;
+# stage_android_studio.py pins the native/model releases and Java bindings.
+# Include the local model tree conservatively for parity/provenance, along with
+# common licensing and branding. Desktop hosts, web assets and desktop packaging
+# do not feed the APK, so their parent music_studio tree is not an Android input.
+ANDROID_INPUTS = ANDROID_ONLY_INPUTS | {
+    'music_studio/chords.py', 'music_studio/evidence.py',
+    'music_studio/lv_frontend.py', 'music_studio/structured.py', 'music_studio/models',
+    'LICENSE.txt', 'THIRD-PARTY-NOTICES.md', 'docs/assets/blaze-logo.png',
+}
 
 
 def platform_tree(tree, platform):
+    if platform == 'android':
+        if not ANDROID_INPUTS <= tree.keys():
+            raise ValueError('Incomplete Android application input tree')
+        return {path: tree[path] for path in ANDROID_INPUTS}
     return {path: entry for path, entry in tree.items()
-            if platform == 'android' or path not in ANDROID_ONLY_INPUTS}
+            if path not in ANDROID_ONLY_INPUTS}
 
 
 def input_tree(commit):
@@ -61,7 +77,7 @@ def input_tree(commit):
 
 
 def validate(catalog, main_sha):
-    if (catalog['repository'] != REPOSITORY or catalog['tag'] != 'v4.3.3'
+    if (catalog['repository'] != REPOSITORY or catalog['tag'] != 'v4.4.0'
             or os.environ.get('GH_REPO', REPOSITORY) != REPOSITORY
             or os.environ.get('GITHUB_REPOSITORY', REPOSITORY) != REPOSITORY
             or {a['name']: a['source_tag'] for a in catalog['assets']} != ORIGINS):
@@ -129,7 +145,7 @@ def promote(catalog):
         release.verify_files(directory, catalog['assets'])
         notes = directory / 'release-notes.md'
         notes.write_text(release.page(catalog), encoding='utf-8')
-        publisher.publish(catalog['tag'], 'Blaze 4.3.3 · smoother Android search and video playback',
+        publisher.publish(catalog['tag'], 'Blaze 4.4.0 · discover and listen across desktop',
                           catalog['assets'], directory, notes, main_sha, False, main_sha)
         if publisher.api('releases/latest')['tag_name'] != catalog['tag']:
             raise ValueError('The verified distribution is not GitHub Latest')

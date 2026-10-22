@@ -18,12 +18,14 @@ Windows · macOS · Linux · Android
 
 | Platform | Download |
 | --- | --- |
-| Windows 10/11 · x64 | [Blaze Windows app](https://github.com/Brooth-C/blaze/releases/latest/download/Blaze-Windows.zip) |
-| macOS 13+ · Apple Silicon, preview | [Blaze Mac app](https://github.com/Brooth-C/blaze/releases/latest/download/Blaze-Mac-arm64.zip) |
-| macOS 13+ · Intel, preview | [Blaze Mac app](https://github.com/Brooth-C/blaze/releases/latest/download/Blaze-Mac-x86_64.zip) |
-| Linux desktop · Ubuntu 22.04 x86_64, preview | [Blaze Linux desktop](https://github.com/Brooth-C/blaze/releases/latest/download/Blaze-Linux-x86_64.tar.gz) |
+| Windows 10/11 · x64, 0.8.0 | [Blaze Windows app](https://github.com/Brooth-C/blaze/releases/latest/download/Blaze-Windows.zip) |
+| macOS 13+ · Apple Silicon, 0.8.0 preview | [Blaze Mac app](https://github.com/Brooth-C/blaze/releases/latest/download/Blaze-Mac-arm64.zip) |
+| macOS 13+ · Intel, 0.8.0 preview | [Blaze Mac app](https://github.com/Brooth-C/blaze/releases/latest/download/Blaze-Mac-x86_64.zip) |
+| Linux desktop · Ubuntu 22.04 x86_64, 0.8.0 preview | [Blaze Linux desktop](https://github.com/Brooth-C/blaze/releases/latest/download/Blaze-Linux-x86_64.tar.gz) |
 | Linux terminal · x86_64 / ARM64, glibc | [Linux ZIP](https://github.com/Brooth-C/blaze/releases/latest/download/Blaze-Linux-Installer.zip) |
 | Android 7+ · ARM64, 0.11.0 | [Android APK](https://github.com/Brooth-C/blaze/releases/latest/download/Blaze-Android-Preview.apk) |
+
+Blaze 4.4.0 Latest includes desktop 0.8.0 and the tested Android 0.11.0 APK.
 
 Download one file for your platform using the links above. For Windows, extract
 the ZIP and run Blaze.exe. On Mac, extract the ZIP and move Blaze.app to Applications. Tap the Android APK to install. Linux and Termux installer setup needs an internet connection; follow the matching guide.
