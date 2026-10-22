@@ -36,8 +36,10 @@ jobs:
           python tests/Blaze-Mac-Package-Tests.py --app build/mac26-app/Blaze.app --work build/glass/packaged --arch arm64
       - name: Exercise real glass and navigation in light and dark appearances
         run: |
-          python tests/Blaze-Mac-Glass-Native.py --appearance light --output build/glass/light
-          python tests/Blaze-Mac-Glass-Native.py --appearance dark --output build/glass/dark
+          defaults write com.apple.universalaccess reduceTransparency -bool false
+          defaults write com.apple.universalaccess increaseContrast -bool false
+          python tests/Blaze-Mac-Glass-Native.py --appearance light --expect-standard-material --output build/glass/light
+          python tests/Blaze-Mac-Glass-Native.py --appearance dark --expect-standard-material --output build/glass/dark
       - name: Exercise system accessibility material adaptation
         run: |
           defaults write com.apple.universalaccess reduceTransparency -bool true

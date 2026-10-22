@@ -39,6 +39,7 @@ def main():
     parser.add_argument('--appearance', choices=('light', 'dark'), default='light')
     parser.add_argument('--expect-reduced-transparency', action='store_true')
     parser.add_argument('--expect-increased-contrast', action='store_true')
+    parser.add_argument('--expect-standard-material', action='store_true')
     args = parser.parse_args()
     args.output.mkdir(parents=True, exist_ok=True)
     import AppKit
@@ -81,6 +82,8 @@ def main():
                         assert receipt['reduce_transparency'], 'Reduce Transparency was not enabled in the test session.'
                     if args.expect_increased_contrast:
                         assert receipt['increase_contrast'], 'Increase Contrast was not enabled in the test session.'
+                    if args.expect_standard_material:
+                        assert not receipt['reduce_transparency'] and not receipt['increase_contrast'], 'Standard material preferences were not enabled in the test session.'
                     adapter.control.setSelectedSegment_(1)
                     adapter.control.sendAction_to_(adapter.control.action(), adapter.control.target())
                     stage = 1
