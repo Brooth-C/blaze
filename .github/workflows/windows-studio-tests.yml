@@ -10,7 +10,7 @@ permissions:
 jobs:
   music-studio:
     name: Music Studio timing and evidence
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 12
     steps:
       - uses: actions/checkout@v7.0.1

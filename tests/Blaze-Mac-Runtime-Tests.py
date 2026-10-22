@@ -116,7 +116,9 @@ class MacRuntimeTests(unittest.TestCase):
         webview = SimpleNamespace(settings={}, create_window=Mock(return_value=window), start=Mock())
         server_module = SimpleNamespace(Studio=Mock(return_value=studio), create_server=Mock(return_value=server))
         downloader_module = SimpleNamespace(Downloads=Mock())
-        modules = {'webview': webview, 'music_studio.server': server_module, 'music_studio.downloads': downloader_module}
+        chrome_module = SimpleNamespace(attach_navigation=Mock())
+        modules = {'webview': webview, 'music_studio.server': server_module,
+                   'music_studio.downloads': downloader_module, 'music_studio.mac_chrome': chrome_module}
         return studio, server, window, webview, server_module, downloader_module, modules
 
     def test_native_window_and_model_paths_match_the_package(self):
@@ -128,6 +130,8 @@ class MacRuntimeTests(unittest.TestCase):
                                               'song.wav', self.root / 'music_studio' / 'models')
         downloader.Downloads.assert_called_once_with(self.root / 'data', self.root / 'bin', args.downloads_dir)
         self.assertEqual(webview.create_window.call_args.args, ('Blaze', 'http://127.0.0.1:12345/'))
+        modules['music_studio.mac_chrome'].attach_navigation.assert_called_once_with(
+            webview.create_window.return_value, {})
         self.assertEqual(webview.start.call_args.kwargs['gui'], 'cocoa')
         self.assertFalse(webview.start.call_args.kwargs['private_mode'])
         self.assertEqual(webview.start.call_args.kwargs['storage_path'], str(self.root / 'data' / 'webview'))
