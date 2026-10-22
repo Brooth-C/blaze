@@ -2,9 +2,9 @@ name: Windows and Linux desktop packages
 on:
   push:
     branches: [main]
-    paths: ['music_studio/**', 'tools/build*studio.py', 'tools/stage_desktop_release.py', 'tools/publish_desktop_release.py', 'installers/linux-desktop/**', 'tests/Blaze-Desktop*', '.github/workflows/desktop-release.yml']
+    paths: ['music_studio/**', 'tests/media/**', 'tools/build*studio.py', 'tools/stage_desktop_release.py', 'tools/publish_desktop_release.py', 'installers/linux-desktop/**', 'tests/Blaze-Desktop*', '.github/workflows/desktop-release.yml']
   pull_request:
-    paths: ['music_studio/**', 'tools/build*studio.py', 'tools/stage_desktop_release.py', 'tools/publish_desktop_release.py', 'installers/linux-desktop/**', 'tests/Blaze-Desktop*', '.github/workflows/desktop-release.yml']
+    paths: ['music_studio/**', 'tests/media/**', 'tools/build*studio.py', 'tools/stage_desktop_release.py', 'tools/publish_desktop_release.py', 'installers/linux-desktop/**', 'tests/Blaze-Desktop*', '.github/workflows/desktop-release.yml']
   workflow_dispatch:
 permissions:
   contents: read
@@ -74,7 +74,7 @@ jobs:
         with:
           python-version: '3.12'
       - name: Install system rendering and media dependencies
-        run: sudo apt-get update && sudo apt-get install -y python3-venv python3-gi python3-gi-cairo gir1.2-webkit2-4.1 ffmpeg xvfb dbus-x11 pulseaudio scrot
+        run: sudo apt-get update && sudo apt-get install -y python3-venv python3-gi python3-gi-cairo gir1.2-webkit2-4.1 gstreamer1.0-libav gstreamer1.0-plugins-good ffmpeg xvfb dbus-x11 pulseaudio scrot
       - uses: actions/cache@v6.1.0
         with:
           path: build/linux-assets

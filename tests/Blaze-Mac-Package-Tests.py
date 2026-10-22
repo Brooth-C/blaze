@@ -6,6 +6,7 @@ import argparse
 import json
 import math
 import platform
+import shutil
 import struct
 import subprocess
 import threading
@@ -82,6 +83,9 @@ def main():
         server.shutdown()
         server.server_close()
     receipt_path = work / 'native-ui.json'
+    preview = work / 'ui-smoke-data/downloads/blaze-video-fixture.mp4'
+    preview.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(Path(__file__).parent / 'media/playback-avc-aac.mp4', preview)
     process = subprocess.Popen([str(binary), str(audio), '--ui-smoke', str(receipt_path)])
     try:
         process.wait(timeout=300)
@@ -95,6 +99,7 @@ def main():
         if log.is_file(): print(log.read_text(encoding='utf-8')[-6000:], flush=True)
     assert process.returncode == 0, receipt
     assert receipt['ok'], receipt
+    assert receipt['video']['decoded_pixels'] and receipt['video']['studio_return']
     navigation = receipt['native_navigation']
     expected_material = 'liquid-glass' if int(platform.mac_ver()[0].split('.')[0]) >= 26 else 'system-vibrancy'
     assert navigation['material'] == expected_material, navigation

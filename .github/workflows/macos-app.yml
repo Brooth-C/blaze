@@ -1,10 +1,10 @@
 name: Blaze macOS app
 on:
   pull_request:
-    paths: ['music_studio/**', 'tools/*macos*', 'tools/macos_decoder/**', 'tests/Blaze-Mac-*-Tests.py', '.github/workflows/macos-app.yml']
+    paths: ['music_studio/**', 'tests/media/**', 'tools/*macos*', 'tools/macos_decoder/**', 'tests/Blaze-Mac-*-Tests.py', 'tests/Blaze-Mac-Glass-Native.py', '.github/workflows/macos-app.yml']
   push:
     branches: [main]
-    paths: ['music_studio/**', 'tools/*macos*', 'tools/macos_decoder/**', 'tests/Blaze-Mac-*-Tests.py', '.github/workflows/macos-app.yml']
+    paths: ['music_studio/**', 'tests/media/**', 'tools/*macos*', 'tools/macos_decoder/**', 'tests/Blaze-Mac-*-Tests.py', 'tests/Blaze-Mac-Glass-Native.py', '.github/workflows/macos-app.yml']
   workflow_dispatch:
 permissions:
   contents: read

@@ -18,7 +18,7 @@ Reset listening history clears that profile.
 
 The Mac build also trials native navigation chrome: macOS 26 can use Apple's Liquid Glass for that control surface, with an older-system material fallback. Studio's notation and timeline retain readable content surfaces. This does not turn the shared web content into native SwiftUI controls.
 
-The recognition models and reviewed decoder assets are unchanged. Chord analysis runs locally; transpose changes notation rather than the recording's pitch. Video codec support still depends on each platform's web view. Browser regressions use controlled metadata and real local media, so they do not establish live YouTube availability or physical-device performance.
+The recognition models and reviewed decoder assets are unchanged. Chord analysis runs locally; transpose changes notation rather than the recording's pitch. Video codec support still depends on each platform's web view. Browser regressions use controlled metadata and real local media; native package checks exercise AVC/AAC video in the platform webview. These checks do not establish live YouTube availability or physical-device performance.
 
 Windows requires Microsoft Edge WebView2; the app is not Authenticode-signed. Mac requires macOS 13 or newer and remains ad-hoc signed without Apple notarization. Linux is an Ubuntu 22.04 x86_64 desktop preview with the documented GTK/WebKit, FFmpeg and one-time Python installation requirements. Updating preserves the existing media and analysis locations. The Android APK and terminal installers retain their own versions.
 

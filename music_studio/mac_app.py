@@ -301,6 +301,27 @@ def ui_smoke(window, studio, destination, receipt, probe, timeout=240):
         if not screenshot.is_file() or screenshot.stat().st_size == 0:
             raise RuntimeError('Native screenshot capture did not produce an image.')
         receipt['screenshot'] = str(screenshot)
+        # Use the real platform webview to decode the format prepared by the
+        # online player. Chromium test builds can omit these codecs entirely.
+        probe.run(window, "window.BlazeDesktop.selectSection('library')")
+        video_button = "document.querySelector('button[aria-label=\"Play blaze-video-fixture.mp4\"]')"
+        wait_for('!!' + video_button)
+        probe.run(window, "window.blazeSmokeVideo = document.getElementById('media'); " + video_button + ".click()")
+        wait_for("(() => {const m=document.getElementById('media'); return m.videoWidth===160 && m.videoHeight===90 && !m.paused && m.currentTime>.1;})()")
+        pixels = probe.probe(window, """(() => {
+          const c=document.createElement('canvas');c.width=32;c.height=18;
+          const g=c.getContext('2d');g.drawImage(document.getElementById('media'),0,0,32,18);
+          return g.getImageData(0,0,32,18).data.some((v,i)=>i%4!==3&&v>100);
+        })()""")
+        if not pixels:
+            raise RuntimeError('The native AVC/AAC video frame was blank.')
+        probe.run(window, "document.getElementById('now-play').click(); document.getElementById('media').currentTime=1")
+        wait_for("(() => {const m=document.getElementById('media');return m.paused&&!m.seeking&&Math.abs(m.currentTime-1)<.1;})()")
+        capture_screenshot(target.with_name('native-video.png'))
+        probe.run(window, "document.getElementById('now-studio').click()")
+        wait_for("(() => {const m=document.getElementById('media');return m===window.blazeSmokeVideo && m.parentElement.classList.contains('preview-panel') && m.paused && Math.abs(m.currentTime-1)<.1;})()")
+        receipt['video'] = {'codec': 'AVC/AAC', 'decoded_pixels': True, 'studio_return': True,
+                            'width': 160, 'height': 90, 'paused_position': 1}
         receipt['ok'] = True
     except Exception as error:
         receipt.update(ok=False, error=str(error))

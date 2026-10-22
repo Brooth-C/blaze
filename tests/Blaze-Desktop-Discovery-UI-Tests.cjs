@@ -95,12 +95,12 @@ with tempfile.TemporaryDirectory(prefix='blaze-discovery-ui-') as directory:
         output.setparams((1, 2, 22050, 0, 'NONE', 'not compressed'))
         for i in range(22050 * 30):
             output.writeframesraw(struct.pack('<h', int(2500 * math.sin(i * 2 * math.pi * 220 / 22050))))
-    video = audio.with_suffix('.mp4')
+    video = audio.with_suffix('.webm')
     decoder = shutil.which('ffmpeg')
     if not decoder: raise RuntimeError('Install FFmpeg for the real local video fixture.')
     subprocess.run([decoder, '-y', '-v', 'error', '-f', 'lavfi', '-i', 'testsrc2=size=320x180:rate=10',
-                    '-i', str(audio), '-t', '10', '-c:v', 'libx264', '-preset', 'ultrafast',
-                    '-pix_fmt', 'yuv420p', '-c:a', 'aac', '-movflags', '+faststart', str(video)],
+                    '-i', str(audio), '-t', '10', '-c:v', 'libvpx', '-deadline', 'realtime',
+                    '-cpu-used', '8', '-pix_fmt', 'yuv420p', '-c:a', 'libopus', str(video)],
                    check=True, timeout=30)
     studio = Studio(directory, 'ffmpeg')
     studio.discovery = FixtureDiscovery(audio, video)
