@@ -43,10 +43,20 @@ class Downloads:
         allowed = {'.wav', '.mp3', '.flac', '.m4a', '.ogg', '.opus', '.aac', '.mp4', '.mkv', '.webm', '.mov'}
         if not self.output.is_dir():
             return []
-        files = [p for p in self.output.rglob('*') if p.is_file() and p.suffix.lower() in allowed
-                 and p.resolve().is_relative_to(self.output)]
-        files.sort(key=lambda p: p.stat().st_mtime, reverse=True)
-        return [{'id': p.relative_to(self.output).as_posix(), 'name': p.name} for p in files[:200]]
+        files = []
+        for path in self.output.rglob('*'):
+            try:
+                if (path.suffix.lower() not in allowed or '.temp.' in path.name.lower()
+                        or not path.is_file() or not path.resolve().is_relative_to(self.output)):
+                    continue
+                # Downloads can rename or remove a conversion output between
+                # directory enumeration and stat. Keep one consistent snapshot.
+                modified = path.stat().st_mtime
+                files.append((modified, {'id': path.relative_to(self.output).as_posix(), 'name': path.name}))
+            except OSError:
+                continue
+        files.sort(key=lambda entry: entry[0], reverse=True)
+        return [entry[1] for entry in files[:200]]
 
     def select(self, identity):
         if not isinstance(identity, str):

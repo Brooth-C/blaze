@@ -35,14 +35,22 @@ Prefer a terminal on Android? Download the [Termux ZIP](https://github.com/Broot
 
 ## What you can do
 
+- Find songs and videos inside Explore, then play or download them.
+- Get music recommendations from listening inside Blaze, without YouTube login.
 - Download audio or video and choose quality and format.
 - Track downloads, keep a queue and resume supported partial files.
 - Convert audio and merge separate video/audio streams.
 - Keep downloads on your device and open or export completed files.
 
-The Windows, Mac and Linux desktop apps include Downloads, Library and offline Music Studio, with a redesigned interface, saved appearance, library search and direct timeline seeking.
+The Windows, Mac and Linux desktop apps bring Android's Explore → listen →
+download → Library/Studio workflow to a desktop sidebar. A persistent player
+keeps the current media across sections. Selecting an online result first
+prepares a local playback copy with progress and cancellation; Download keeps a
+permanent library copy. Saved appearance, library search and offline chord
+analysis remain available. See the [desktop 0.8.0 notes](docs/RELEASE-0.8.0.md).
 
-![Blaze Downloads](docs/assets/0.7.0/downloads.png)
+The Mac build trials native Liquid Glass navigation on macOS 26 with an older
+system fallback. Discovery needs internet; local analysis stays on the device.
 
 [Windows player and build guide](music_studio/README.md).
 The Linux and Termux terminal installers retain the keyboard-controlled dashboard. The previous Mac terminal installer remains in v4.1.29.

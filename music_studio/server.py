@@ -15,6 +15,10 @@ from .engine import ModelBundle, Analyzer, AnalysisCancelled, MAX_BYTES
 from .store import Store, export_json, export_csv
 
 
+def media_kind(source):
+    return 'video' if source and Path(source).suffix.lower() in ('.mp4', '.mkv', '.webm', '.mov', '.avi', '.m4v') else 'audio'
+
+
 class LoopbackHTTPServer(ThreadingHTTPServer):
     """Keep numeric loopback serving independent of local DNS discovery."""
     def server_bind(self):
@@ -40,6 +44,9 @@ class Studio:
         self.analyzer = None
         self.worker = None
         self.downloader = None
+        self.discovery = None
+        self.source_revision = 0
+        self.state.update(discoveryItem=None, sourceRevision=0, mediaKind=media_kind(self.source))
         self.appearance_path = self.directory / 'appearance.json'
         self.appearance = 'system'
         try:
@@ -111,6 +118,8 @@ class Studio:
         self.worker.start()
 
     def close(self):
+        if self.discovery:
+            self.discovery.close()
         if self.downloader:
             self.downloader.close()
         if self.analyzer:
@@ -123,6 +132,14 @@ class Studio:
 
 def create_server(studio, port=0):
     assets = Path(__file__).parent / 'web'
+    def discovery():
+        with studio.lock:
+            if studio.discovery is None:
+                from .discovery import Discovery
+                tools = studio.downloader.tools if studio.downloader else Path(studio.ffmpeg).parent
+                studio.discovery = Discovery(studio.directory, tools, studio.ffmpeg)
+            return studio.discovery
+
     class Handler(BaseHTTPRequestHandler):
         protocol_version = 'HTTP/1.1'
         def log_message(self, *_):
@@ -174,6 +191,21 @@ def create_server(studio, port=0):
             if not self.permitted(token=True):
                 self.json({'error': 'Access denied.'}, 403)
                 return
+            if path.startswith('/api/discovery'):
+                try:
+                    query = parse_qs(urlsplit(self.path).query)
+                    if path == '/api/discovery':
+                        self.json(discovery().status(query.get('id', [''])[0]))
+                    elif path == '/api/discovery-history':
+                        self.json({'items': discovery().history()})
+                    elif path == '/api/discovery-image':
+                        data, content_type = discovery().image(query.get('id', [''])[0])
+                        self.send(data, content_type=content_type)
+                    else:
+                        self.json({'error': 'Not found.'}, 404)
+                except (ValueError, OSError, TypeError):
+                    self.json({'error': 'This discovery request expired or is unavailable. Try again.'}, 400)
+                return
             if path == '/api/state':
                 with studio.lock:
                     self.json(studio.state)
@@ -204,9 +236,12 @@ def create_server(studio, port=0):
             self.json({'error': 'Not found.'}, 404)
 
         def media(self):
+            revision = parse_qs(urlsplit(self.path).query).get('sourceRevision', [None])[0]
             with studio.lock:
+                if revision is not None and revision != str(studio.source_revision):
+                    self.json({'error': 'The selected recording changed.'}, 409)
+                    return
                 source = studio.source
-                name = studio.name
             if source is None or not source.is_file():
                 self.json({'error': 'No selected media.'}, 404)
                 return
@@ -223,7 +258,7 @@ def create_server(studio, port=0):
                     self.json({'error': 'Invalid media range.'}, 416)
                     return
             self.send_response(206 if header else 200)
-            self.send_header('Content-Type', mimetypes.guess_type(name)[0] or 'application/octet-stream')
+            self.send_header('Content-Type', mimetypes.guess_type(str(source))[0] or 'application/octet-stream')
             self.send_header('Accept-Ranges', 'bytes')
             self.send_header('Cache-Control', 'no-store')
             self.send_header('Content-Length', str(end - begin + 1))
@@ -269,7 +304,10 @@ def create_server(studio, port=0):
                             if studio.imported and studio.source:
                                 studio.source.unlink(missing_ok=True)
                             studio.source, studio.name, studio.imported = temporary, name, True
-                            studio.state.update(name=name, result=None, error=None, progress='Ready to analyse offline.')
+                            studio.source_revision += 1
+                            studio.state.update(name=name, result=None, error=None, progress='Ready to analyse offline.',
+                                                discoveryItem=None, sourceRevision=studio.source_revision,
+                                                mediaKind=media_kind(temporary))
                     except Exception:
                         temporary.unlink(missing_ok=True)
                         raise
@@ -278,6 +316,39 @@ def create_server(studio, port=0):
                 if not 0 <= length <= 65536:
                     raise ValueError('The request is too large.')
                 body = json.loads(self.rfile.read(length) or b'{}')
+                if not isinstance(body, dict):
+                    raise ValueError('Choose a supported action.')
+                if path.startswith('/api/discovery'):
+                    manager = discovery()
+                    if path == '/api/discovery':
+                        self.json(manager.request(body))
+                    elif path == '/api/discovery-prepare':
+                        self.json(manager.prepare(body))
+                    elif path == '/api/discovery-select':
+                        with studio.lock:
+                            if studio.state['busy']:
+                                raise ValueError('Finish or cancel chord analysis first.')
+                            source, item = manager.select(body.get('requestId'))
+                            if studio.imported and studio.source:
+                                studio.source.unlink(missing_ok=True)
+                            studio.source, studio.name, studio.imported = source, item['title'], False
+                            studio.source_revision += 1
+                            studio.state.update(name=item['title'], result=None, error=None,
+                                                progress='Ready to analyse offline.', discoveryItem=item,
+                                                sourceRevision=studio.source_revision, mediaKind=media_kind(source))
+                        self.json({'name': item['title'], 'item': item, 'mediaKind': media_kind(source)})
+                    elif path == '/api/discovery-cancel':
+                        manager.cancel(body.get('requestId'))
+                        self.json({'ok': True})
+                    elif path == '/api/discovery-listened':
+                        manager.listened(body)
+                        self.json({'ok': True})
+                    elif path == '/api/discovery-reset':
+                        manager.reset()
+                        self.json({'ok': True})
+                    else:
+                        self.json({'error': 'Not found.'}, 404)
+                    return
                 if path == '/api/appearance':
                     studio.set_appearance(body.get('appearance'))
                     self.json({'appearance': studio.appearance})
@@ -303,7 +374,10 @@ def create_server(studio, port=0):
                                 raise ValueError('Finish or cancel chord analysis first.')
                             source = studio.downloader.select(body.get('id'))
                             studio.source, studio.name, studio.imported = source, source.name, False
-                            studio.state.update(name=source.name, result=None, error=None, progress='Ready to analyse offline.')
+                            studio.source_revision += 1
+                            studio.state.update(name=source.name, result=None, error=None, progress='Ready to analyse offline.',
+                                                discoveryItem=None, sourceRevision=studio.source_revision,
+                                                mediaKind=media_kind(source))
                     else:
                         raise ValueError('Unknown download action.')
                 elif path == '/api/analyze':

@@ -1,13 +1,13 @@
 # Blaze for macOS
 
-Blaze includes Downloads, Music Studio and Library in one native macOS app.
+Blaze includes Explore, Downloads, Library and Music Studio in one macOS app.
 Music Studio uses the same advanced offline chord ensemble and beat/meter engine
 as the Windows release. Its models and decoder are bundled; no Python, Homebrew
 or model installation is required to use the app.
 
 ## Install
 
-Download one ZIP from the [Mac release](https://github.com/Brooth-C/blaze/releases/tag/macos-v0.6.0-preview):
+Download one ZIP from the [Mac 0.8.0 release](https://github.com/Brooth-C/blaze/releases/tag/macos-v0.8.0-preview):
 
 - **Blaze-Mac-arm64.zip** for Apple Silicon (M1 and newer).
 - **Blaze-Mac-x86_64.zip** for Intel Macs.
@@ -19,15 +19,27 @@ This preview is ad-hoc signed, without an Apple Developer ID or notarization.
 macOS may ask you to allow the first launch through System Settings → Privacy
 & Security → Open Anyway. Do not turn off Gatekeeper globally.
 
-Open Downloads to paste a link and choose audio/video and format. Open Music
-Studio to import a local audio/video file, analyse it, then play along with the
+Explore offers music recommendations and search inside Blaze. Choose a song or
+video to prepare a local playback copy, with progress and cancellation. The same
+player continues between sections. Use Download for a saved library copy or Open
+in Studio to analyse the selected media. Recommendations use local listening
+history without a YouTube login; requests still send search terms to the provider.
+Reset the listening profile in Explore to start over.
+
+Downloads also accepts pasted links and format choices. Open Music Studio to
+import a local audio/video file, analyse it, then play along with the
 chord timeline and piano/guitar voicings. Advanced chord analysis is the default.
 Video playback depends on the system web view's supported codecs; the bundled
 decoder can analyse additional formats even when the preview cannot play them.
 YouTube and other sites can independently require authentication or reject a
 download. This is not removed by the offline chord engine.
 
-Settings and saved analyses live in `~/Library/Application Support/Blaze`.
+The native Mac navigation surface trials Liquid Glass on macOS 26, with an older
+system material fallback. The shared content and Studio timeline retain readable
+surfaces. Native glass is limited to the Mac chrome rather than applied to every
+card or chord cell.
+
+Settings, listening history, playback cache and saved analyses live in `~/Library/Application Support/Blaze`.
 Downloads default to `~/Downloads/Blaze`. Updating the app bundle preserves them.
 
 ## Rebuild and third-party materials
@@ -36,7 +48,8 @@ The `.github/workflows/macos-app.yml` workflow builds and tests native Apple
 Silicon and Intel packages separately. Models are copied from the checksum-pinned
 Windows release, not retrained. `tools/stage_macos_studio.py` pins Node 22.20.0
 and builds the plain yt-dlp 2026.8.19 plus EJS 0.8.0 downloader, excluding optional GPL libraries. The build uses Python 3.12.10, PyInstaller 6.16.0,
-pywebview 6.1, NumPy 1.26.4 and ONNX Runtime 1.20.1.
+pywebview 6.1, NumPy 1.26.4 and ONNX Runtime 1.20.1. The Cocoa bridge is isolated
+from the shared interface and guards newer native classes at runtime.
 
 `tools/macos_decoder` builds FFmpeg 7.1.3 with LGPL-compatible options and exact
 LAME/Ogg/Vorbis/Opus sources. GPL, nonfree and version3 components are disabled.

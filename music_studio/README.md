@@ -1,7 +1,31 @@
-# Blaze for Windows
+# Blaze desktop
 
-Music Studio, Downloads and Library stay inside Blaze. The Windows GUI release is
-`windows-v0.6.0`; terminal installers keep their separate version and behavior.
+Explore, Downloads, Library and Music Studio share one desktop app on Windows,
+Mac and Linux. Desktop 0.8.0 brings Android's discovery and listening workflow to
+a sidebar layout. Terminal installers keep their separate version and behavior.
+
+## Discover and listen
+
+Open Explore for general music recommendations, or search for songs and videos
+without copying a link from another app. Recommendations use listening inside
+Blaze without a YouTube login. History stays on this device; recommendation
+requests send search terms to the provider. Choose Reset listening history in
+Explore to start over.
+
+Choose a result to prepare a local playback copy, then listen through the same
+player while navigating the app. Preparation needs internet and can be cancelled.
+Use Download to choose a format and save a permanent copy in the regular download
+folder, or Open in Studio to analyse the current copy. Provider restrictions, network speed and the
+available source determine whether preparation succeeds. The playback cache is
+bounded and is separate from Library's saved downloads.
+
+Playback preparation selects AAC audio or AVC/AAC video up to 720p for renderer
+compatibility; Downloads retains the wider quality choices. Preparation is
+limited to 512 MiB and two minutes per item. The cache keeps up to six copies
+within 1 GiB while preserving the selected media.
+
+Library still searches and filters completed downloads. Import file in Studio
+opens audio or video already on your device; no network is needed for analysis.
 
 Import local audio/video and analyse it offline. The default advanced recognizer
 combines the original MIT BTC-170 model with Music X Lab's verified five-model
@@ -17,13 +41,14 @@ downbeats locally. Consistent runs determine bar grouping; weak runs remain ungr
 Pulse counts do not always identify a notation denominator. Manual timing overrides
 and chord corrections remain available through Settings.
 
-The main player fits its window without vertical page scrolling. In compact windows,
-video and song details open in a dialog. Transpose changes chord labels and diagrams,
+In compact Studio windows, video and song details open in a dialog. Transpose changes chord labels and diagrams,
 not the recording's pitch. Piano/guitar diagrams show suggested voicings.
 
 ## Rebuilding
 
-Use Python 3.12 on Windows x64 in a private environment. Runtime dependencies:
+For the Windows package, use Python 3.12 on Windows x64 in a private environment.
+See the [Mac](../docs/MACOS.md) and [Linux](../docs/LINUX-DESKTOP.md) guides for
+their native packaging requirements. Windows runtime dependencies:
 
 ```
 numpy==1.26.4
@@ -59,8 +84,9 @@ an LGPL-only build; matching FFmpeg, LAME, Ogg, Vorbis and Opus sources, configu
 build recipe and notices are included in the downloadable ZIP. It is replaceable
 independently of Blaze. Third-party files retain their own licenses.
 
-Run the focused Python evidence/meter/sequence tests and JavaScript timing tests in
-`tests/`. Local checks covered ONNX and frontend parity, synthetic chord comparisons,
-the selected real recording, silence, timing, cancellation, edits/exports, six audio
-formats, 4K remux/decode and packaged executable operation. Annotated real-song chord
-accuracy and physical-device Android behavior are not established by these checks.
+Run the focused Python evidence/meter/sequence and desktop discovery tests, plus
+JavaScript timing and Playwright workflow tests in `tests/`. Discovery UI tests
+use controlled provider metadata and real local media. Native package workflows
+exercise their actual renderer separately. These checks do not establish live
+provider availability, annotated real-song chord accuracy or physical-device
+frame rates.

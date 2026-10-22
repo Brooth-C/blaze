@@ -38,6 +38,12 @@ with tempfile.TemporaryDirectory(prefix='blaze-ui-test-') as directory:
     fixture=ThreadingHTTPServer(('127.0.0.1',0),functools.partial(QuietSource,directory=str(output)))
     threading.Thread(target=fixture.serve_forever,daemon=True).start()
     studio=Studio(root,decoder)
+    class LocalOnlyCatalogue:
+        def request(self, body): return {'requestId': 'local-ui-fixture'}
+        def status(self, identity): return {'status': 'ready', 'items': []}
+        def cancel(self, identity): pass
+        def close(self): pass
+    studio.discovery=LocalOnlyCatalogue()
     studio.downloader=Downloads(root,root/'tools',output)
     server=create_server(studio)
     print('http://127.0.0.1:'+str(server.server_port)+'\\nFIXTURE=http://127.0.0.1:'+str(fixture.server_port)+'/Practice.wav',flush=True)
@@ -55,7 +61,8 @@ let stderr='';server.stderr.on('data',chunk=>stderr+=chunk);
         page.on('pageerror',error=>errors.push(error.message));
         await page.goto(base);
         await page.waitForFunction(()=>!document.getElementById('download-start').disabled);
-        assert.equal(await page.locator('[role=tab][aria-selected=true]').textContent(),'Downloads');
+        assert.equal(await page.locator('[role=tab][aria-selected=true]').textContent(),'Explore');
+        await page.locator('#tab-downloads').click();
         if(screenshots)await page.screenshot({path:path.join(screenshots,'downloads.png')});
         await page.locator('#download-start').click();
         assert.match(await page.locator('#download-error').textContent(),/Paste a link/);
@@ -89,6 +96,19 @@ let stderr='';server.stderr.on('data',chunk=>stderr+=chunk);
         await page.locator('#guitar').click();assert.equal(await page.locator('#instrument').inputValue(),'guitar');
         await page.locator('#piano').click();await page.locator('#reset').click();
         if(screenshots)await page.screenshot({path:path.join(screenshots,'studio-fixture.png')});
+        // Approximate the actual Mac host's 44-pixel native navigation region.
+        // This is layout evidence, not proof of native Liquid Glass rendering.
+        await page.evaluate(()=>{document.body.dataset.nativeNavigation='true';dispatchEvent(new Event('resize'));});
+        for(const [width,height] of [[1500,916],[780,556]]){
+            await page.setViewportSize({width,height});
+            await page.waitForFunction(()=>document.querySelectorAll('.diagram-card canvas').length===3);
+            if(screenshots)await page.screenshot({path:path.join(screenshots,`studio-native-layout-${width}.png`)});
+            const layout=await page.evaluate(()=>({scroll:document.documentElement.scrollHeight,height:innerHeight,controls:['bar-flow','diagram-strip','analyze','studio-settings'].map(id=>({id,top:document.getElementById(id).getBoundingClientRect().top,bottom:document.getElementById(id).getBoundingClientRect().bottom}))}));
+            assert(layout.scroll<=height+1,`Native-host Studio scrolls at ${width}x${height}: ${JSON.stringify(layout)}`);
+            assert(await page.evaluate(()=>['bar-flow','diagram-strip','analyze','studio-settings'].every(id=>{const r=document.getElementById(id).getBoundingClientRect();return r.width>0&&r.height>0&&r.top>=0&&r.bottom<=innerHeight+1;})),`Native-host Studio controls clipped at ${width}x${height}`);
+            assert(await page.locator('.diagram-card canvas').evaluateAll(canvases=>canvases.every(canvas=>{const r=canvas.getBoundingClientRect();return r.height>=65&&r.top>=0&&r.bottom<=innerHeight;})),`Native-host keyboard clipped at ${width}x${height}`);
+        }
+        await page.evaluate(()=>{delete document.body.dataset.nativeNavigation;dispatchEvent(new Event('resize'));});
         await page.setViewportSize({width:780,height:600});
         assert(await page.locator('#studio-settings').evaluate(el=>el.getBoundingClientRect().bottom<=600));
         assert(await page.locator('.diagram-card canvas').evaluateAll(canvases=>canvases.every(canvas=>canvas.getBoundingClientRect().bottom<=canvas.parentElement.getBoundingClientRect().bottom)),'Clipped keyboard canvas');

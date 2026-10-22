@@ -8,7 +8,7 @@ PYTHON=${BLAZE_PYTHON:-/usr/bin/python3}
 command -v "$PYTHON" >/dev/null
 command -v ffmpeg >/dev/null || { echo 'Install FFmpeg first: sudo apt install ffmpeg' >&2; exit 1; }
 "$PYTHON" -c 'import gi; gi.require_version("Gtk", "3.0"); from gi.repository import Gtk; gi.require_version("WebKit2", "4.1"); from gi.repository import WebKit2' || {
-    echo 'Install the renderer first: sudo apt install python3-venv python3-gi python3-gi-cairo gir1.2-webkit2-4.1 ffmpeg' >&2
+    echo 'Install the renderer first: sudo apt install python3-venv python3-gi python3-gi-cairo gir1.2-webkit2-4.1 gstreamer1.0-libav gstreamer1.0-plugins-good ffmpeg' >&2
     exit 1
 }
 mkdir -p "$DESTINATION"

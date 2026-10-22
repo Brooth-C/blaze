@@ -80,6 +80,25 @@ class DownloadsTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'missing'):
             self.app.select('../outside.wav')
 
+    def test_library_skips_temporary_files_and_concurrent_renames(self):
+        self.app.output.mkdir()
+        for name in ('Ready.wav', 'Encoding.temp.wav', 'Vanishing.wav'):
+            (self.app.output / name).write_bytes(b'fixture')
+        disappearing = self.app.output / 'Vanishing.wav'
+        original_stat, calls = Path.stat, 0
+
+        def during_conversion(path, *args, **kwargs):
+            nonlocal calls
+            if path == disappearing:
+                calls += 1
+                if calls == 2:
+                    disappearing.unlink()
+                    raise FileNotFoundError('Conversion output was renamed.')
+            return original_stat(path, *args, **kwargs)
+
+        with patch.object(Path, 'stat', during_conversion):
+            self.assertEqual(self.app.files(), [{'id': 'Ready.wav', 'name': 'Ready.wav'}])
+
 
 class MacRuntimeTests(unittest.TestCase):
     def setUp(self):
@@ -116,7 +135,9 @@ class MacRuntimeTests(unittest.TestCase):
         webview = SimpleNamespace(settings={}, create_window=Mock(return_value=window), start=Mock())
         server_module = SimpleNamespace(Studio=Mock(return_value=studio), create_server=Mock(return_value=server))
         downloader_module = SimpleNamespace(Downloads=Mock())
-        modules = {'webview': webview, 'music_studio.server': server_module, 'music_studio.downloads': downloader_module}
+        chrome_module = SimpleNamespace(attach_navigation=Mock())
+        modules = {'webview': webview, 'music_studio.server': server_module,
+                   'music_studio.downloads': downloader_module, 'music_studio.mac_chrome': chrome_module}
         return studio, server, window, webview, server_module, downloader_module, modules
 
     def test_native_window_and_model_paths_match_the_package(self):
@@ -128,6 +149,8 @@ class MacRuntimeTests(unittest.TestCase):
                                               'song.wav', self.root / 'music_studio' / 'models')
         downloader.Downloads.assert_called_once_with(self.root / 'data', self.root / 'bin', args.downloads_dir)
         self.assertEqual(webview.create_window.call_args.args, ('Blaze', 'http://127.0.0.1:12345/'))
+        modules['music_studio.mac_chrome'].attach_navigation.assert_called_once_with(
+            webview.create_window.return_value, {})
         self.assertEqual(webview.start.call_args.kwargs['gui'], 'cocoa')
         self.assertFalse(webview.start.call_args.kwargs['private_mode'])
         self.assertEqual(webview.start.call_args.kwargs['storage_path'], str(self.root / 'data' / 'webview'))
@@ -222,6 +245,15 @@ class MacRuntimeTests(unittest.TestCase):
     def test_missing_download_fixture_fails_before_starting_server(self):
         with self.assertRaisesRegex(ValueError, 'fixture is missing'):
             mac_app.SmokeFixture(self.root / 'missing.wav')
+
+    def test_native_smoke_catalogue_is_ready_without_provider_dependencies(self):
+        catalogue = mac_app.SmokeCatalogue()
+        self.assertEqual(catalogue.request({'action': 'recommend'})['requestId'], 'native-smoke')
+        self.assertEqual(catalogue.status('native-smoke')['status'], 'ready')
+        self.assertEqual(catalogue.status('native-smoke')['items'], [])
+        self.assertEqual(catalogue.history(), [])
+        catalogue.cancel('native-smoke')
+        catalogue.close()
 
 
 class LoopbackServerTests(unittest.TestCase):

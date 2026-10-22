@@ -103,6 +103,10 @@ def main(argv=None):
                 ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID('BroothC.Blaze')
             studio = Studio(data, str(decoder), args.file, models)
             studio.downloader = Downloads(data, root / 'bin', args.downloads_dir)
+            if args.ui_smoke:
+                from music_studio.mac_app import SmokeCatalogue
+                studio.discovery = SmokeCatalogue()
+                receipt['discovery_fixture'] = True
             server = create_server(studio)
             threading.Thread(target=server.serve_forever, name='BlazeLocalUI', daemon=True).start()
             webview.settings['ALLOW_DOWNLOADS'] = True

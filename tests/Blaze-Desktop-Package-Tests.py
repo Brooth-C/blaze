@@ -3,6 +3,7 @@ from pathlib import Path
 import argparse
 import json
 import math
+import shutil
 import struct
 import subprocess
 import wave
@@ -29,6 +30,9 @@ def main():
     assert result['chords'] and 'Ensemble' in str(result['model'])
     assert analysis.with_suffix('.csv').is_file()
     report = work / 'native-ui.json'
+    video = work / 'ui-smoke-data/downloads/blaze-video-fixture.mp4'
+    video.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(Path(__file__).parent / 'media/playback-avc-aac.mp4', video)
     try:
         process = subprocess.run([str(args.app.resolve()), str(audio), '--ui-smoke', str(report)], timeout=360)
     finally:
@@ -40,6 +44,7 @@ def main():
     assert process.returncode == 0 and receipt['ok'], receipt
     assert receipt['download']['status'] == 'done'
     assert receipt['seek'] and receipt['diagram_count'] == 3
+    assert receipt['video']['decoded_pixels'] and receipt['video']['studio_return']
     assert report.with_suffix('.png').stat().st_size > 100
     print('PACKAGED APP PASS: model inference, edit/export, native launch, local download, playback, seek, layouts.')
 
