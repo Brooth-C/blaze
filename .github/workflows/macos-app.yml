@@ -12,6 +12,47 @@ concurrency:
   group: blaze-mac-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 jobs:
+  glass:
+    name: Mac native glass / macOS 26
+    needs: app
+    runs-on: macos-26
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-python@v7.0.0
+        with:
+          python-version: '3.12.10'
+      - name: Install pinned native bridge
+        run: python -m pip install pyobjc-core==12.2.2 pyobjc-framework-Cocoa==12.2.2 pyobjc-framework-WebKit==12.2.2 numpy==1.26.4 onnxruntime==1.20.1 rich==14.2.0 Pillow==11.3.0
+      - uses: actions/download-artifact@v8.0.2
+        with:
+          name: Blaze-Mac-arm64
+          path: build/mac26-artifact
+      - name: Exercise the actual packaged app on macOS 26
+        run: |
+          ditto -x -k build/mac26-artifact/Blaze-Mac-arm64.zip build/mac26-app
+          mkdir -p build/glass
+          otool -l build/mac26-app/Blaze.app/Contents/MacOS/Blaze > build/glass/packaged-sdk-linkage.txt
+          python tests/Blaze-Mac-Package-Tests.py --app build/mac26-app/Blaze.app --work build/glass/packaged --arch arm64
+      - name: Exercise real glass and navigation in light and dark appearances
+        run: |
+          python tests/Blaze-Mac-Glass-Native.py --appearance light --output build/glass/light
+          python tests/Blaze-Mac-Glass-Native.py --appearance dark --output build/glass/dark
+      - name: Exercise system accessibility material adaptation
+        run: |
+          defaults write com.apple.universalaccess reduceTransparency -bool true
+          defaults write com.apple.universalaccess increaseContrast -bool true
+          python tests/Blaze-Mac-Glass-Native.py --appearance light --expect-reduced-transparency --expect-increased-contrast --output build/glass/accessibility
+      - name: Restore runner accessibility preferences
+        if: always()
+        run: |
+          defaults delete com.apple.universalaccess reduceTransparency || true
+          defaults delete com.apple.universalaccess increaseContrast || true
+      - uses: actions/upload-artifact@v7.0.2
+        if: always()
+        with:
+          name: Blaze-Mac-native-glass-checks
+          path: build/glass/
   app:
     name: Mac app / ${{ matrix.arch }}
     runs-on: ${{ matrix.runner }}
@@ -30,11 +71,12 @@ jobs:
         with:
           python-version: '3.12.10'
       - name: Install pinned desktop dependencies
-        run: python -m pip install numpy==1.26.4 onnxruntime==1.20.1 pywebview==6.1 pyinstaller==6.16.0 Pillow==11.3.0 rich==14.2.0 ruff==0.14.0 yt-dlp==2026.8.19 yt-dlp-ejs==0.8.0
+        run: python -m pip install numpy==1.26.4 onnxruntime==1.20.1 pywebview==6.1 pyobjc-core==12.2.2 pyobjc-framework-Cocoa==12.2.2 pyobjc-framework-WebKit==12.2.2 pyinstaller==6.16.0 Pillow==11.3.0 rich==14.2.0 ruff==0.14.0 yt-dlp==2026.8.19 yt-dlp-ejs==0.8.0
       - name: Source and platform checks
         run: |
           python -m ruff check --select F,E9 music_studio tools/build_macos_studio.py tools/build_macos_downloader.py tools/stage_macos_studio.py tools/macos_decoder/*.py tests/Blaze-Mac-*-Tests.py
           python tests/Blaze-Mac-Runtime-Tests.py
+          python tests/Blaze-Mac-Chrome-Tests.py
           python tests/Blaze-Meter-Tests.py
           python tests/Blaze-Chord-Evidence-Tests.py
           python tests/Blaze-Sequence-Tests.py
@@ -77,7 +119,7 @@ jobs:
         run: python tools/build_macos_downloader.py --arch ${{ matrix.arch }} --output build/mac-assets/bin --work build/mac-downloader --notices build/mac-assets/notices
       - name: Build Blaze.app
         run: |
-          python tools/build_macos_studio.py --arch ${{ matrix.arch }} --version 0.7.0 \
+          python tools/build_macos_studio.py --arch ${{ matrix.arch }} --version 0.8.0 \
             --ffmpeg tools/macos_decoder/output/bin/ffmpeg --ffprobe tools/macos_decoder/output/bin/ffprobe \
             --decoder-materials tools/macos_decoder/output --ytdlp build/mac-assets/bin/yt-dlp \
             --node build/mac-assets/bin/node --external-notices build/mac-assets/notices --python-license build/mac-assets/notices/Python-LICENSE.txt --python-license-version 3.12.10 --output dist --work build/mac-bundle
@@ -108,11 +150,12 @@ jobs:
   publish:
     name: Publish tested Mac app
     if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
-    needs: app
+    needs: [app, glass]
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
+      - uses: actions/checkout@v7.0.1
       - uses: actions/download-artifact@v8.0.2
         with:
           pattern: Blaze-Mac-*
@@ -126,7 +169,7 @@ jobs:
           python - <<'PY'
           from pathlib import Path
           import hashlib, json, subprocess
-          tag = 'macos-v0.7.0-preview'
+          tag = 'macos-v0.8.0-preview'
           files = [Path('artifacts/Blaze-Mac-arm64.zip'), Path('artifacts/Blaze-Mac-x86_64.zip')]
           digests = {p.name: hashlib.sha256(p.read_bytes()).hexdigest() for p in files}
           probe = subprocess.run(['gh','release','view',tag,'--json','assets'], capture_output=True, text=True)
@@ -137,7 +180,8 @@ jobs:
                   assert assets[p.name].get('digest') == 'sha256:' + digests[p.name], 'Existing release is immutable'
               print('Existing Mac release verified; no assets replaced.')
           else:
-              notes = '# Blaze for macOS\n\nChoose one ZIP: **arm64** for Apple Silicon, **x86_64** for Intel. Requires macOS 13 or newer. Extract it and move Blaze.app to Applications.\n\nDownloads, Music Studio and Library are together inside Blaze, with the same advanced offline chord ensemble and beat/meter engine as Windows. No Python or model installation is needed.\n\nThis preview is ad-hoc signed and is not Apple-notarized. macOS may require Privacy & Security → Open Anyway on first launch. Native builds and UI tests ran on both architectures. Some video containers can be analysed by the decoder but are not playable in the system web view.\n\nMatching LGPL decoder sources, dependency licenses, model notices and rebuild scripts are inside each app. Previous terminal Mac installer remains available in v4.1.29.\n\n'
+              notes = Path('docs/RELEASE-0.8.0.md').read_text(encoding='utf-8')
+              notes += '\n\n## macOS installation\n\nChoose **arm64** for Apple Silicon or **x86_64** for Intel. Extract the ZIP and move Blaze.app to Applications. No separate Python or model installation is needed. This preview is ad-hoc signed and not Apple-notarized; macOS may require Privacy & Security → Open Anyway. Packaged smoke tests cover both architectures on macOS 15 and the Apple Silicon package on macOS 26. Matching LGPL decoder sources, licenses, model notices and rebuild scripts are included.\n\n'
               notes += '\n'.join(f'{p.name}: {p.stat().st_size} bytes; SHA256 `{digests[p.name]}`' for p in files)
               Path('notes.md').write_text(notes)
               subprocess.run(['gh','release','create',tag,*map(str,files),'--target','${{ github.sha }}','--title','Blaze for macOS','--notes-file','notes.md','--prerelease','--latest=false'],check=True)

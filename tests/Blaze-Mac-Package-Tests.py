@@ -5,6 +5,7 @@ from http.server import SimpleHTTPRequestHandler
 import argparse
 import json
 import math
+import platform
 import struct
 import subprocess
 import threading
@@ -94,6 +95,10 @@ def main():
         if log.is_file(): print(log.read_text(encoding='utf-8')[-6000:], flush=True)
     assert process.returncode == 0, receipt
     assert receipt['ok'], receipt
+    navigation = receipt['native_navigation']
+    expected_material = 'liquid-glass' if int(platform.mac_ver()[0].split('.')[0]) >= 26 else 'system-vibrancy'
+    assert navigation['material'] == expected_material, navigation
+    assert navigation['installed'] and navigation['web_navigation'] and navigation['roundtrip'], navigation
     print(json.dumps({'architecture': args.arch, 'checks': 'native launch, ensemble, edits/exports, 6 audio formats, 4K decode, download, Cocoa playback/seek/layout', 'ui': receipt}, indent=2))
     # Let the remote desktop screenshot finish writing before artifact upload.
     assert receipt_path.with_suffix('.png').stat().st_size > 100

@@ -30,6 +30,8 @@ WORKFLOWS = {
 }
 INPUTS = (
     'music_studio', 'android', 'blaze.py', 'installers/linux-desktop',
+    'music_studio/chords.py', 'music_studio/evidence.py',
+    'music_studio/lv_frontend.py', 'music_studio/structured.py', 'music_studio/models',
     'LICENSE.txt', 'THIRD-PARTY-NOTICES.md', 'docs/LINUX-DESKTOP.md',
     'tools/build_windows_studio.py', 'tools/build_linux_studio.py', 'tools/stage_desktop_release.py',
     'tools/publish_desktop_release.py', 'tests/Blaze-Desktop-Package-Tests.py', 'tests/Blaze-Mac-Package-Tests.py',
@@ -39,16 +41,30 @@ INPUTS = (
     '.github/workflows/android-apk.yml', 'docs/assets/blaze-logo.png',
 )
 # These inputs cannot affect the unchanged Windows, Linux or macOS packages.
-# Android still compares the complete input tree with its newer native proof.
 ANDROID_ONLY_INPUTS = {
     'android', 'tools/stage_android_studio.py', 'tools/sync_android_harmony.py',
     '.github/workflows/android-apk.yml',
 }
+# sync_android_harmony.py copies exactly these four Python modules. The complete
+# Android tree covers the Gradle build, app sources, embedded assets and tests;
+# stage_android_studio.py pins the native/model releases and Java bindings.
+# Include the local model tree conservatively for parity/provenance, along with
+# common licensing and branding. Desktop hosts, web assets and desktop packaging
+# do not feed the APK, so their parent music_studio tree is not an Android input.
+ANDROID_INPUTS = ANDROID_ONLY_INPUTS | {
+    'music_studio/chords.py', 'music_studio/evidence.py',
+    'music_studio/lv_frontend.py', 'music_studio/structured.py', 'music_studio/models',
+    'LICENSE.txt', 'THIRD-PARTY-NOTICES.md', 'docs/assets/blaze-logo.png',
+}
 
 
 def platform_tree(tree, platform):
+    if platform == 'android':
+        if not ANDROID_INPUTS <= tree.keys():
+            raise ValueError('Incomplete Android application input tree')
+        return {path: tree[path] for path in ANDROID_INPUTS}
     return {path: entry for path, entry in tree.items()
-            if platform == 'android' or path not in ANDROID_ONLY_INPUTS}
+            if path not in ANDROID_ONLY_INPUTS}
 
 
 def input_tree(commit):

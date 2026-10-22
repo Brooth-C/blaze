@@ -24,7 +24,7 @@ def main():
         asset = assets[args.file.name]
         assert asset['size'] == args.file.stat().st_size and asset.get('digest') == 'sha256:' + digest, 'Published binaries are immutable'
         return
-    notes = Path('docs/RELEASE-0.7.0.md').read_text(encoding='utf-8')
+    notes = Path('docs/RELEASE-0.8.0.md').read_text(encoding='utf-8')
     notes += '\n\nPackage SHA256: `' + digest + '`\n'
     if args.platform == 'Windows':
         notes += '\nExtract the complete ZIP and run Blaze/Blaze.exe. Microsoft Edge WebView2 Runtime is required. This executable is not Authenticode-signed.\n'
@@ -33,7 +33,7 @@ def main():
     destination = Path('platform-release-notes.md')
     destination.write_text(notes, encoding='utf-8')
     command = ['gh', 'release', 'create', args.tag, str(args.file), '--target', current,
-               '--title', 'Blaze for ' + args.platform + ' 0.7.0', '--notes-file', str(destination), '--latest=false']
+               '--title', 'Blaze for ' + args.platform + ' 0.8.0', '--notes-file', str(destination), '--latest=false']
     if args.platform == 'Linux':
         command.append('--prerelease')
     subprocess.run(command, check=True)

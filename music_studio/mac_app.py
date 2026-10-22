@@ -129,6 +129,35 @@ class SmokeFixture:
         self.server.server_close()
 
 
+class SmokeCatalogue:
+    """Network-free metadata fixture, only installed by explicit --ui-smoke.
+
+    Packaged UI checks exercise a real local download and real playback/analysis.
+    Detailed catalogue behavior is covered by the separate provider-contract and
+    browser suites; startup must never depend on a live YouTube request.
+    """
+    def request(self, body):
+        return {'requestId': 'native-smoke'}
+
+    def status(self, identity):
+        return {'status': 'ready', 'items': [], 'error': None, 'progress': 'Controlled native fixture.'}
+
+    def history(self):
+        return []
+
+    def cancel(self, identity):
+        pass
+
+    def listened(self, body):
+        pass
+
+    def reset(self):
+        pass
+
+    def close(self):
+        pass
+
+
 def capture_screenshot(destination):
     if sys.platform == 'darwin':
         subprocess.run(['/usr/sbin/screencapture', '-x', str(destination)], check=True, timeout=15)
@@ -165,6 +194,26 @@ def ui_smoke(window, studio, destination, receipt, probe, timeout=240):
 
     try:
         wait_for("document.readyState === 'complete' && typeof BlazeFlow !== 'undefined' && !!document.getElementById('import')")
+        if sys.platform == 'darwin':
+            from PyObjCTools import AppHelper
+            wait_for("document.body.dataset.nativeNavigation === 'true'")
+            chrome = studio.native_navigation
+            if not chrome.receipt.get('installed'):
+                raise RuntimeError('The native Mac navigation was not installed.')
+
+            def select_downloads():
+                chrome.control.setSelectedSegment_(1)
+                chrome.control.sendAction_to_(chrome.control.action(), chrome.control.target())
+
+            AppHelper.callAfter(select_downloads)
+            wait_for("window.BlazeDesktop.activeSection() === 'downloads'")
+            probe.run(window, "window.BlazeDesktop.selectSection('studio')")
+            wait_for("window.BlazeDesktop.activeSection() === 'studio'")
+            while chrome.receipt.get('selected') != 'studio' and time.monotonic() < deadline:
+                time.sleep(.1)
+            if chrome.receipt.get('selected') != 'studio':
+                raise RuntimeError('Web navigation did not synchronize with native navigation.')
+            receipt['native_navigation'] = dict(chrome.receipt, roundtrip=True)
         receipt['controls'] = probe.probe(window, """(() => {
           const ids = ['tab-downloads','tab-studio','tab-library','import','analyze',
             'play','previous','next','loop','speed','instrument','volume','down','up',
@@ -195,7 +244,7 @@ def ui_smoke(window, studio, destination, receipt, probe, timeout=240):
         file_name = json.dumps(downloaded['name'])
         probe.run(window, "document.getElementById('tab-library').click()")
         wait_for("[...document.querySelectorAll('#download-files .download-row')].some(row => row.querySelector('span')?.textContent === " + file_name + ")")
-        probe.run(window, "[...document.querySelectorAll('#download-files .download-row')].find(row => row.querySelector('span')?.textContent === " + file_name + ").querySelector('button').click()")
+        probe.run(window, "[...document.querySelectorAll('#download-files .download-row')].find(row => row.querySelector('span')?.textContent === " + file_name + ").querySelector('button[aria-label^=\"Open \"]')?.click()")
         wait_for("document.getElementById('downloads-panel').hidden && document.getElementById('filename').textContent === " + file_name + " && document.getElementById('media').readyState >= 1")
         with studio.lock:
             if studio.source != downloaded_path:
@@ -285,6 +334,9 @@ def launch(args, root, data, smoke_receipt):
     try:
         studio = Studio(data, str(ffmpeg), args.file, root / 'music_studio' / 'models')
         studio.downloader = Downloads(data, root / 'bin', args.downloads_dir)
+        if args.ui_smoke:
+            studio.discovery = SmokeCatalogue()
+            smoke_receipt['discovery_fixture'] = True
         server = create_server(studio)
         threading.Thread(target=server.serve_forever, name='BlazeLocalUI', daemon=True).start()
         webview.settings['ALLOW_DOWNLOADS'] = True
@@ -292,6 +344,13 @@ def launch(args, root, data, smoke_receipt):
                                        width=1500, height=960, min_size=(780, 600),
                                        background_color='#ffffff')
         studio.native_fullscreen = window.toggle_fullscreen
+        try:
+            from music_studio.mac_chrome import attach_navigation
+            studio.native_navigation = attach_navigation(window, smoke_receipt.setdefault('native_navigation', {}))
+        except ImportError as error:
+            # The underlying web navigation remains usable if a bridge package
+            # is unavailable; native package checks still report this failure.
+            smoke_receipt['native_navigation'] = {'installed': False, 'error': str(error)}
         if args.ui_smoke:
             webview.start(ui_smoke, (window, studio, args.ui_smoke, smoke_receipt, CocoaProbe()),
                           gui='cocoa', private_mode=False, storage_path=str(data / 'webview'))

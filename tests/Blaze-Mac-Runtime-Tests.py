@@ -223,6 +223,15 @@ class MacRuntimeTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'fixture is missing'):
             mac_app.SmokeFixture(self.root / 'missing.wav')
 
+    def test_native_smoke_catalogue_is_ready_without_provider_dependencies(self):
+        catalogue = mac_app.SmokeCatalogue()
+        self.assertEqual(catalogue.request({'action': 'recommend'})['requestId'], 'native-smoke')
+        self.assertEqual(catalogue.status('native-smoke')['status'], 'ready')
+        self.assertEqual(catalogue.status('native-smoke')['items'], [])
+        self.assertEqual(catalogue.history(), [])
+        catalogue.cancel('native-smoke')
+        catalogue.close()
+
 
 class LoopbackServerTests(unittest.TestCase):
     def test_ui_server_does_not_reverse_resolve_the_local_hostname(self):
