@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "repository": "Brooth-C/blaze",
-  "tag": "v4.3.2",
+  "tag": "v4.3.3",
   "assets": [
     {
       "platform": "Windows",
@@ -15,11 +15,11 @@
     {
       "platform": "Android APK",
       "name": "Blaze-Android-Preview.apk",
-      "component_version": "0.10.0",
-      "description": "Blaze Android personalized music discovery, playback and Studio",
-      "source_tag": "android-v0.10.0",
-      "size": 243503717,
-      "sha256": "3994477bdb50af847159f502403ed74ba23018d381b7ecfd31ae8a88aee19943"
+      "component_version": "0.11.0",
+      "description": "Blaze Android responsive video search, playback and offline Studio",
+      "source_tag": "android-v0.11.0",
+      "size": 243507989,
+      "sha256": "7ff7920456a86338d9d7f9e3bed8ddd60fdbbac13d7063c3e3b48d777ea85aa3"
     },
     {
       "platform": "macOS 13+ \u00b7 Apple Silicon, preview",
@@ -84,8 +84,8 @@
       "head_sha": "c4129639ec52f20f4f604edd8d3ee2023b167f8b"
     },
     "android": {
-      "run_id": 39609721195,
-      "head_sha": "d820c8871123df490e93c76f9434fb10792f8d76"
+      "run_id": 39704212907,
+      "head_sha": "d8449c68e1f57832ed78cb3888ef0c62e4654aa7"
     }
   }
 }
