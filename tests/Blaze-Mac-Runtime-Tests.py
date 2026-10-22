@@ -80,6 +80,25 @@ class DownloadsTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'missing'):
             self.app.select('../outside.wav')
 
+    def test_library_skips_temporary_files_and_concurrent_renames(self):
+        self.app.output.mkdir()
+        for name in ('Ready.wav', 'Encoding.temp.wav', 'Vanishing.wav'):
+            (self.app.output / name).write_bytes(b'fixture')
+        disappearing = self.app.output / 'Vanishing.wav'
+        original_stat, calls = Path.stat, 0
+
+        def during_conversion(path, *args, **kwargs):
+            nonlocal calls
+            if path == disappearing:
+                calls += 1
+                if calls == 2:
+                    disappearing.unlink()
+                    raise FileNotFoundError('Conversion output was renamed.')
+            return original_stat(path, *args, **kwargs)
+
+        with patch.object(Path, 'stat', during_conversion):
+            self.assertEqual(self.app.files(), [{'id': 'Ready.wav', 'name': 'Ready.wav'}])
+
 
 class MacRuntimeTests(unittest.TestCase):
     def setUp(self):
