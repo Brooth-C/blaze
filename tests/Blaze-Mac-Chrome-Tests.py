@@ -32,6 +32,45 @@ class Event(list):
 
 
 class MacChromeTests(unittest.TestCase):
+    def test_formal_protocol_signature_is_used_without_bool_abi_rewriting(self):
+        selector = b'outlineView:isItemExpandable:'
+        for signature in (b'B@:@@', b'Z@:@@'):
+            protocol = Mock()
+            protocol.descriptionForInstanceMethod_.return_value = (selector, signature)
+            objc = SimpleNamespace(selector=Mock())
+            method = lambda self, outline, item: False
+            mac_chrome._protocol_method(objc, protocol, selector)(method)
+            objc.selector.assert_called_once_with(method, selector=selector, signature=signature)
+        protocol.descriptionForInstanceMethod_.return_value = None
+        with self.assertRaisesRegex(RuntimeError, 'Missing AppKit protocol method'):
+            mac_chrome._protocol_method(objc, protocol, selector)
+
+    @unittest.skipUnless(sys.platform == 'darwin', 'Real AppKit class conformance requires macOS.')
+    def test_real_appkit_target_conforms_before_packaging(self):
+        # This source check runs before model staging/decoder compilation and
+        # packaging. A formal-protocol ABI mismatch must fail here, never be
+        # hidden behind the launcher's working web-navigation fallback.
+        import AppKit
+        import objc
+        target = mac_chrome._navigation_target().alloc().init()
+        self.assertIsInstance(target, AppKit.NSObject)
+        pairs = [
+            ('NSOutlineViewDataSource', b'outlineView:isItemExpandable:'),
+            ('NSOutlineViewDataSource', b'outlineView:numberOfChildrenOfItem:'),
+            ('NSOutlineViewDelegate', b'outlineView:isGroupItem:'),
+            ('NSOutlineViewDelegate', b'outlineView:shouldSelectItem:'),
+            ('NSToolbarDelegate', b'toolbar:itemForItemIdentifier:willBeInsertedIntoToolbar:'),
+            ('NSMenuItemValidation', b'validateMenuItem:'),
+            ('NSToolbarItemValidation', b'validateToolbarItem:'),
+        ]
+        for protocol_name, selector in pairs:
+            protocol = objc.protocolNamed(protocol_name)
+            self.assertTrue(target.conformsToProtocol_(protocol), protocol_name)
+            expected = protocol.descriptionForInstanceMethod_(selector)[1]
+            actual = getattr(target, selector.decode('ascii').replace(':', '_')).signature
+            self.assertEqual(objc.splitSignature(actual), objc.splitSignature(expected), selector)
+        target.owner = None
+
     def test_bridge_uses_fixed_methods_and_json_arguments(self):
         for section in mac_chrome.SECTIONS:
             self.assertEqual(mac_chrome.navigation_script(section),
@@ -119,6 +158,17 @@ class MacChromeTests(unittest.TestCase):
         self.assertEqual(web.scripts, [])
         native.makeFirstResponder_.assert_not_called()
         adapter.outline.setEnabled_.assert_called_with(False)
+
+    def test_busy_studio_disables_import_before_opening_a_panel(self):
+        adapter, _, _ = self.adapter()
+        adapter.on_import = Mock()
+        adapter.toolbar_items['blaze.import'] = Mock()
+        self.apply(adapter, {'section': 'studio', 'busy': True})
+        adapter.toolbar_items['blaze.import'].setEnabled_.assert_called_once_with(False)
+        # No AppKit import is needed when the panel is correctly blocked here.
+        adapter.import_file()
+        self.assertIsNone(adapter.panel)
+        adapter.on_import.assert_not_called()
 
     def test_sync_is_authoritative_and_has_only_one_request_in_flight(self):
         adapter, web, native = self.adapter()

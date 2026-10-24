@@ -58,54 +58,85 @@ def glass_class(appkit):
 _target_class = None
 
 
+def _protocol_method(objc, protocol, selector):
+    """Use the installed runtime's ABI rather than inferred bridge metadata.
+
+    AppKit's formal protocols can use C++ bool (B) where PyObjC's historical
+    selector metadata infers Objective-C BOOL (Z). Explicit runtime signatures
+    keep class conformance correct on both Apple Silicon and Intel.
+    """
+    description = protocol.descriptionForInstanceMethod_(selector)
+    if description is None:
+        raise RuntimeError('Missing AppKit protocol method: ' + selector.decode('ascii'))
+
+    def decorate(method):
+        return objc.selector(method, selector=selector, signature=description[1])
+
+    return decorate
+
+
 def _navigation_target():
     global _target_class
     if _target_class is None:
         import objc
         from Foundation import NSObject
+        source = objc.protocolNamed('NSOutlineViewDataSource')
+        outline_delegate = objc.protocolNamed('NSOutlineViewDelegate')
+        toolbar_delegate = objc.protocolNamed('NSToolbarDelegate')
+        menu_validation = objc.protocolNamed('NSMenuItemValidation')
+        toolbar_validation = objc.protocolNamed('NSToolbarItemValidation')
 
         class BlazeNavigationTarget(NSObject, protocols=[
-                objc.protocolNamed('NSOutlineViewDataSource'),
-                objc.protocolNamed('NSOutlineViewDelegate'),
-                objc.protocolNamed('NSToolbarDelegate'),
-                objc.protocolNamed('NSTextFieldDelegate')]):
+                source, outline_delegate, toolbar_delegate,
+                objc.protocolNamed('NSTextFieldDelegate'),
+                menu_validation, toolbar_validation]):
             def tick_(self, timer):
                 if self.owner:
                     self.owner.sync()
 
+            @_protocol_method(objc, source, b'outlineView:numberOfChildrenOfItem:')
             def outlineView_numberOfChildrenOfItem_(self, outline, item):
                 return len(ROWS) if item is None else 0
 
+            @_protocol_method(objc, source, b'outlineView:child:ofItem:')
             def outlineView_child_ofItem_(self, outline, index, item):
                 return ROWS[index][0]
 
+            @_protocol_method(objc, source, b'outlineView:isItemExpandable:')
             def outlineView_isItemExpandable_(self, outline, item):
                 return False
 
+            @_protocol_method(objc, outline_delegate, b'outlineView:isGroupItem:')
             def outlineView_isGroupItem_(self, outline, item):
                 return str(item).startswith('group-')
 
+            @_protocol_method(objc, outline_delegate, b'outlineView:shouldSelectItem:')
             def outlineView_shouldSelectItem_(self, outline, item):
                 return bool(self.owner and not self.owner.modal and str(item) in SECTIONS)
 
+            @_protocol_method(objc, outline_delegate, b'outlineView:viewForTableColumn:item:')
             def outlineView_viewForTableColumn_item_(self, outline, column, item):
                 from music_studio.mac_sidebar import row_view
                 return row_view(outline, str(item))
 
+            @_protocol_method(objc, outline_delegate, b'outlineViewSelectionDidChange:')
             def outlineViewSelectionDidChange_(self, notification):
                 if self.owner and not self.owner.syncing_selection:
                     outline = notification.object()
                     section = str(outline.itemAtRow_(outline.selectedRow()))
                     self.owner.navigate_section(section)
 
+            @_protocol_method(objc, toolbar_delegate, b'toolbarAllowedItemIdentifiers:')
             def toolbarAllowedItemIdentifiers_(self, toolbar):
                 from music_studio.mac_toolbar import toolbar_identifiers
                 return toolbar_identifiers()
 
+            @_protocol_method(objc, toolbar_delegate, b'toolbarDefaultItemIdentifiers:')
             def toolbarDefaultItemIdentifiers_(self, toolbar):
                 from music_studio.mac_toolbar import toolbar_identifiers
                 return toolbar_identifiers()
 
+            @_protocol_method(objc, toolbar_delegate, b'toolbar:itemForItemIdentifier:willBeInsertedIntoToolbar:')
             def toolbar_itemForItemIdentifier_willBeInsertedIntoToolbar_(self, toolbar, identifier, inserted):
                 return self.owner.toolbar_items.get(str(identifier)) if self.owner else None
 
@@ -145,12 +176,23 @@ def _navigation_target():
                 if self.owner:
                     self.owner.action(('play', 'previous', 'next')[int(sender.tag())])
 
+            @_protocol_method(objc, menu_validation, b'validateMenuItem:')
             def validateMenuItem_(self, item):
                 if not self.owner or self.owner.stopped or self.owner.modal:
                     return False
-                if str(item.action()) in ('openPlayer:', 'playback:'):
+                if item.action() in ('openPlayer:', 'playback:', b'openPlayer:', b'playback:'):
                     return self.owner.has_media
+                if item.action() in ('importFile:', b'importFile:'):
+                    return not self.owner.importing and not self.owner.busy
                 return True
+
+            @_protocol_method(objc, toolbar_validation, b'validateToolbarItem:')
+            def validateToolbarItem_(self, item):
+                if not self.owner or self.owner.stopped or self.owner.modal:
+                    return False
+                identifier = str(item.itemIdentifier())
+                return ((identifier != 'blaze.player' or self.owner.has_media)
+                        and (identifier != 'blaze.import' or not (self.owner.importing or self.owner.busy)))
 
         _target_class = BlazeNavigationTarget
     return _target_class
@@ -166,7 +208,7 @@ class MacNavigation:
         self.outline = self.control = self.surface = self.search_item = None
         self.toolbar_items, self.menu_items = {}, []
         self.stopped = self.evaluating = self.syncing_selection = False
-        self.modal = self.has_media = False
+        self.modal = self.has_media = self.busy = False
         self.appearance = self.selected = None
         self.import_request = self.focus_search_request = 0
         self.panel = None
@@ -292,7 +334,8 @@ class MacNavigation:
 
     def import_file(self):
         """Paths stay native; an asynchronous sheet avoids blocking the bridge."""
-        if self.stopped or self.modal or self.panel is not None or self.importing or self.on_import is None:
+        if (self.stopped or self.modal or self.busy or self.panel is not None
+                or self.importing or self.on_import is None):
             return
         import AppKit
         from PyObjCTools import AppHelper
@@ -373,6 +416,7 @@ class MacNavigation:
     def _apply_state(self, state):
         self.modal = bool(state.get('modal'))
         self.has_media = bool(state.get('hasMedia'))
+        self.busy = bool(state.get('busy'))
         self.select_section(state['section'])
         self.receipt.update(selected=state['section'], web_navigation=True)
         # Reapply flags after reload, only when the real host is installed.
@@ -389,7 +433,7 @@ class MacNavigation:
                 field.setStringValue_(query[:200])
         for name, item in self.toolbar_items.items():
             item.setEnabled_(not self.modal and (name != 'blaze.player' or self.has_media)
-                             and (name != 'blaze.import' or not self.importing))
+                             and (name != 'blaze.import' or not (self.importing or self.busy)))
         appearance = state.get('appearance')
         if appearance in ('system', 'light', 'dark') and appearance != self.appearance:
             import AppKit
