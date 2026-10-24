@@ -15,7 +15,7 @@ class PresentationTests(unittest.TestCase):
     def setUp(self):
         self.temporary = tempfile.TemporaryDirectory()
         self.addCleanup(self.temporary.cleanup)
-        self.root = Path(self.temporary.name)
+        self.root = Path(self.temporary.name).resolve()
         self.studio = Studio(self.root / 'data', 'ffmpeg')
         self.addCleanup(self.studio.close)
 
