@@ -196,24 +196,58 @@ def ui_smoke(window, studio, destination, receipt, probe, timeout=240):
         wait_for("document.readyState === 'complete' && typeof BlazeFlow !== 'undefined' && !!document.getElementById('import')")
         if sys.platform == 'darwin':
             from PyObjCTools import AppHelper
-            wait_for("document.body.dataset.nativeNavigation === 'true'")
+            from Foundation import NSIndexSet
+            wait_for("document.body.dataset.nativeSidebar === 'true' && !!window.BlazeMac")
             chrome = studio.native_navigation
             if not chrome.receipt.get('installed'):
                 raise RuntimeError('The native Mac navigation was not installed.')
 
             def select_downloads():
-                chrome.control.setSelectedSegment_(1)
-                chrome.control.sendAction_to_(chrome.control.action(), chrome.control.target())
+                row = chrome.row_for_section('downloads')
+                chrome.outline.selectRowIndexes_byExtendingSelection_(
+                    NSIndexSet.indexSetWithIndex_(row), False)
 
             AppHelper.callAfter(select_downloads)
             wait_for("window.BlazeDesktop.activeSection() === 'downloads'")
-            probe.run(window, "window.BlazeDesktop.selectSection('studio')")
+            probe.run(window, "window.BlazeMac.navigate('studio')")
             wait_for("window.BlazeDesktop.activeSection() === 'studio'")
             while chrome.receipt.get('selected') != 'studio' and time.monotonic() < deadline:
                 time.sleep(.1)
             if chrome.receipt.get('selected') != 'studio':
                 raise RuntimeError('Web navigation did not synchronize with native navigation.')
             receipt['native_navigation'] = dict(chrome.receipt, roundtrip=True)
+            wait_for("!!sourceName")
+
+            def native_search():
+                field = chrome.search_item.searchField()
+                field.setStringValue_('acoustic')
+                field.sendAction_to_(field.action(), field.target())
+
+            AppHelper.callAfter(native_search)
+            wait_for("window.BlazeDesktop.activeSection()==='explore' && document.getElementById('explore-results').textContent.toLowerCase().includes('acoustic') && document.querySelectorAll('.discovery-card').length>0")
+            capture_screenshot(target.with_name('native-search.png'))
+            probe.run(window, "document.querySelector('.discovery-primary').click()")
+            wait_for("(() => {const m=document.getElementById('media');return !m.paused&&m.currentTime>.1;})()")
+            if probe.probe(window, "document.getElementById('now-dialog').open || window.BlazeDesktop.activeSection()!=='explore'"):
+                raise RuntimeError('Selecting a Mac recording interrupted browsing with the expanded player.')
+            probe.run(window, "document.getElementById('mini-play').click()")
+            wait_for("document.getElementById('media').paused")
+            probe.run(window, "window.BlazeMac.search('')")
+            wait_for("document.querySelectorAll('.discovery-featured').length===3")
+            wait_for("document.querySelectorAll('.discovery-featured img').length===3 && Array.from(document.querySelectorAll('.discovery-featured img')).every(image=>image.complete&&image.naturalWidth>0)")
+            probe.run(window, """window.blazeSmokeArtReady=false;
+              Promise.all(Array.from(document.querySelectorAll('.discovery-featured img')).map(image=>image.decode()))
+                .then(()=>requestAnimationFrame(()=>requestAnimationFrame(()=>{window.blazeSmokeArtReady=true;})));
+              true;
+            """)
+            wait_for('window.blazeSmokeArtReady === true')
+            capture_screenshot(target.with_name('native-explore.png'))
+            receipt['mac_design'] = {
+                'sidebar': True, 'native_search': True, 'compact_player': True,
+                'controlled_metadata': True, 'selection_keeps_browsing': True,
+            }
+            probe.run(window, "window.BlazeMac.navigate('studio')")
+            wait_for("window.BlazeDesktop.activeSection()==='studio'")
         receipt['controls'] = probe.probe(window, """(() => {
           const ids = ['tab-downloads','tab-studio','tab-library','import','analyze',
             'play','previous','next','loop','speed','instrument','volume','down','up',
@@ -245,7 +279,7 @@ def ui_smoke(window, studio, destination, receipt, probe, timeout=240):
         probe.run(window, "document.getElementById('tab-library').click()")
         wait_for("[...document.querySelectorAll('#download-files .download-row')].some(row => row.querySelector('span')?.textContent === " + file_name + ")")
         probe.run(window, "[...document.querySelectorAll('#download-files .download-row')].find(row => row.querySelector('span')?.textContent === " + file_name + ").querySelector('button[aria-label^=\"Open \"]')?.click()")
-        wait_for("document.getElementById('downloads-panel').hidden && document.getElementById('filename').textContent === " + file_name + " && document.getElementById('media').readyState >= 1")
+        wait_for("document.getElementById('downloads-panel').hidden && sourceName === " + file_name + " && document.getElementById('media').readyState >= 1")
         with studio.lock:
             if studio.source != downloaded_path:
                 raise RuntimeError('Open in Studio did not select the downloaded WAV file.')
@@ -268,11 +302,12 @@ def ui_smoke(window, studio, destination, receipt, probe, timeout=240):
             raise RuntimeError('The app did not draw the current and upcoming chord keyboards.')
         receipt['layout'] = probe.probe(window, """(() => {
           const viewport = document.documentElement;
-          const ids = ['bar-flow','diagram-strip','analyze','studio-settings'];
+          const mac = document.documentElement.dataset.presentation === 'mac';
+          const ids = ['bar-flow','diagram-strip','analyze',mac?'mini-play':'studio-settings'];
           return {width: innerWidth, height: innerHeight,
             scroll_height: viewport.scrollHeight,
             keyboards_visible: Array.from(document.querySelectorAll('.diagram-card canvas')).every(canvas => {const r=canvas.getBoundingClientRect();return r.height>=65 && r.top>=0 && r.bottom<=innerHeight;}),
-            branding_fits: document.querySelector('header .brand h1').getBoundingClientRect().right <= document.querySelector('header').getBoundingClientRect().right,
+            branding_fits: mac ? document.querySelector('header').getBoundingClientRect().height===0 : document.querySelector('header .brand h1').getBoundingClientRect().right <= document.querySelector('header').getBoundingClientRect().right,
             controls_visible: ids.every(id => {
               const r = document.getElementById(id).getBoundingClientRect();
               return r.width > 0 && r.height > 0 && r.top >= 0 && r.bottom <= innerHeight + 1;
@@ -290,7 +325,7 @@ def ui_smoke(window, studio, destination, receipt, probe, timeout=240):
         probe.run(window, "document.getElementById('play').click(); document.getElementById('media').currentTime = 1")
         wait_for("(() => {const m = document.getElementById('media'); return m.paused && !m.seeking && Math.abs(m.currentTime - 1) < .05;})()")
         receipt['seek'] = True
-        probe.run(window, "document.getElementById('studio-settings').click()")
+        probe.run(window, "window.BlazeMac ? window.BlazeMac.action('settings') : document.getElementById('studio-settings').click()")
         wait_for("document.getElementById('settings-dialog').open")
         probe.run(window, "document.getElementById('close-settings').click()")
         wait_for("!document.getElementById('settings-dialog').open")
@@ -301,6 +336,29 @@ def ui_smoke(window, studio, destination, receipt, probe, timeout=240):
         if not screenshot.is_file() or screenshot.stat().st_size == 0:
             raise RuntimeError('Native screenshot capture did not produce an image.')
         receipt['screenshot'] = str(screenshot)
+        if sys.platform == 'darwin':
+            # A compact NSWindow leaves roughly 570 px for the web detail pane
+            # after the real source-list sidebar and toolbar take their space.
+            window.resize(780, 600)
+            wait_for('innerWidth <= 600 && innerHeight < 600')
+            compact = probe.probe(window, """(() => {
+              const fits = id => {
+                const r=document.getElementById(id).getBoundingClientRect();
+                return r.width>0&&r.height>0&&r.top>=0&&r.bottom<=innerHeight+1
+                  &&r.left>=0&&r.right<=innerWidth+1;
+              };
+              return {width:innerWidth,height:innerHeight,
+                controls:['bar-flow','diagram-strip','analyze','mini-play','mac-mini-seek'].every(fits),
+                keyboards:Array.from(document.querySelectorAll('.diagram-card canvas')).every(canvas=>{
+                  const r=canvas.getBoundingClientRect();return r.height>=65&&r.top>=0&&r.bottom<=innerHeight;
+                }),
+                no_page_scroll:document.documentElement.scrollHeight<=innerHeight+1,
+                no_overflow:document.documentElement.scrollWidth<=innerWidth};
+            })()""")
+            if not all(compact[key] for key in ('controls', 'keyboards', 'no_page_scroll', 'no_overflow')):
+                raise RuntimeError('The compact Mac window hides notation or playback controls: ' + json.dumps(compact))
+            receipt['mac_design']['compact_layout'] = compact
+            capture_screenshot(target.with_name('native-compact.png'))
         # Use the real platform webview to decode the format prepared by the
         # online player. Chromium test builds can omit these codecs entirely.
         probe.run(window, "window.BlazeDesktop.selectSection('library')")
@@ -308,6 +366,18 @@ def ui_smoke(window, studio, destination, receipt, probe, timeout=240):
         wait_for('!!' + video_button)
         probe.run(window, "window.blazeSmokeVideo = document.getElementById('media'); " + video_button + ".click()")
         wait_for("(() => {const m=document.getElementById('media'); return m.videoWidth===160 && m.videoHeight===90 && !m.paused && m.currentTime>.1;})()")
+        if sys.platform == 'darwin':
+            probe.run(window, "window.BlazeMac.action('open-player')")
+            wait_for("document.getElementById('now-dialog').open")
+            fits = probe.probe(window, """(() => {
+              return ['now-close','mini-play','mac-mini-seek','now-studio'].every(id=>{
+                const r=document.getElementById(id).getBoundingClientRect();
+                return r.width>0&&r.height>0&&r.top>=0&&r.bottom<=innerHeight&&r.left>=0&&r.right<=innerWidth;
+              });
+            })()""")
+            if not fits:
+                raise RuntimeError('The Mac expanded player hides its primary controls below the viewport.')
+            receipt['mac_design']['expanded_controls_fit'] = True
         pixels = probe.probe(window, """(() => {
           const c=document.createElement('canvas');c.width=32;c.height=18;
           const g=c.getContext('2d');g.drawImage(document.getElementById('media'),0,0,32,18);
@@ -315,7 +385,7 @@ def ui_smoke(window, studio, destination, receipt, probe, timeout=240):
         })()""")
         if not pixels:
             raise RuntimeError('The native AVC/AAC video frame was blank.')
-        probe.run(window, "document.getElementById('now-play').click(); document.getElementById('media').currentTime=1")
+        probe.run(window, "document.getElementById(window.BlazeMac ? 'mini-play' : 'now-play').click(); document.getElementById('media').currentTime=1")
         wait_for("(() => {const m=document.getElementById('media');return m.paused&&!m.seeking&&Math.abs(m.currentTime-1)<.1;})()")
         capture_screenshot(target.with_name('native-video.png'))
         probe.run(window, "document.getElementById('now-studio').click()")
@@ -351,23 +421,26 @@ def launch(args, root, data, smoke_receipt):
     ffmpeg = root / 'bin' / 'ffmpeg'
     if not ffmpeg.is_file():
         raise RuntimeError('The local decoder is missing. Reinstall the complete Blaze app.')
-    server = studio = None
+    server = studio = native_navigation = None
     try:
         studio = Studio(data, str(ffmpeg), args.file, root / 'music_studio' / 'models')
+        studio.presentation = 'mac'
         studio.downloader = Downloads(data, root / 'bin', args.downloads_dir)
         if args.ui_smoke:
-            studio.discovery = SmokeCatalogue()
+            from music_studio.mac_smoke import MacSmokeCatalogue
+            studio.discovery = MacSmokeCatalogue(data, args.file)
             smoke_receipt['discovery_fixture'] = True
         server = create_server(studio)
         threading.Thread(target=server.serve_forever, name='BlazeLocalUI', daemon=True).start()
         webview.settings['ALLOW_DOWNLOADS'] = True
         window = webview.create_window('Blaze', f'http://127.0.0.1:{server.server_port}/',
-                                       width=1500, height=960, min_size=(780, 600),
+                                       width=1280, height=820, min_size=(780, 600),
                                        background_color='#ffffff')
         studio.native_fullscreen = window.toggle_fullscreen
         try:
             from music_studio.mac_chrome import attach_navigation
-            studio.native_navigation = attach_navigation(window, smoke_receipt.setdefault('native_navigation', {}))
+            native_navigation = studio.native_navigation = attach_navigation(
+                window, smoke_receipt.setdefault('native_navigation', {}), on_import=studio.open_local_file)
         except ImportError as error:
             # The underlying web navigation remains usable if a bridge package
             # is unavailable; native package checks still report this failure.
@@ -380,6 +453,8 @@ def launch(args, root, data, smoke_receipt):
         else:
             webview.start(gui='cocoa', private_mode=False, storage_path=str(data / 'webview'))
     finally:
+        if native_navigation is not None:
+            native_navigation.stop()
         if server:
             server.shutdown()
             server.server_close()

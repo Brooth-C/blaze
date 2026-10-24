@@ -150,7 +150,9 @@ class MacRuntimeTests(unittest.TestCase):
         downloader.Downloads.assert_called_once_with(self.root / 'data', self.root / 'bin', args.downloads_dir)
         self.assertEqual(webview.create_window.call_args.args, ('Blaze', 'http://127.0.0.1:12345/'))
         modules['music_studio.mac_chrome'].attach_navigation.assert_called_once_with(
-            webview.create_window.return_value, {})
+            webview.create_window.return_value, {}, on_import=studio.open_local_file)
+        self.assertEqual(studio.presentation, 'mac')
+        self.assertEqual(webview.create_window.call_args.kwargs['min_size'], (780, 600))
         self.assertEqual(webview.start.call_args.kwargs['gui'], 'cocoa')
         self.assertFalse(webview.start.call_args.kwargs['private_mode'])
         self.assertEqual(webview.start.call_args.kwargs['storage_path'], str(self.root / 'data' / 'webview'))

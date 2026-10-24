@@ -1,0 +1,409 @@
+/* Mac content presentation. AppKit owns the sidebar and toolbar; this sheet
+   keeps the existing single-player workspace at desktop density at every size. */
+html[data-presentation=mac] {
+  --bg:#fafafa; --panel:#fff; --subtle:#f0f0f2; --sidebar:#ececef;
+  --selected:#e4e4e8; --border:#e2e2e6; --text:#202023; --muted:#737379;
+  --accent:#c94c23; --accent-bright:#df5828; --accent-soft:#fbece6;
+  --button-bg:#cf4e24; --button-text:#fff; --future:#c7c7ce;
+  --rail:176px; --mac-player-height:76px;
+  --shadow:0 12px 40px #00000018;
+  font-family:-apple-system,BlinkMacSystemFont,sans-serif;
+}
+html[data-presentation=mac][data-appearance=dark] {
+  --bg:#202023; --panel:#29292d; --subtle:#303035; --sidebar:#26262a;
+  --selected:#3d3d43; --border:#404046; --text:#f4f4f6; --muted:#aaaab2;
+  --accent:#ff9b74; --accent-bright:#ef8759; --accent-soft:#4b3028;
+  --button-bg:#ed8256; --button-text:#1d1511; --future:#6d6d77;
+}
+@media(prefers-color-scheme:dark) {
+  html[data-presentation=mac][data-appearance=system] {
+    --bg:#202023; --panel:#29292d; --subtle:#303035; --sidebar:#26262a;
+    --selected:#3d3d43; --border:#404046; --text:#f4f4f6; --muted:#aaaab2;
+    --accent:#ff9b74; --accent-bright:#ef8759; --accent-soft:#4b3028;
+    --button-bg:#ed8256; --button-text:#1d1511; --future:#6d6d77;
+  }
+}
+html[data-presentation=mac] body { font-size:.8125rem; line-height:1.45; overflow-x:hidden; }
+html[data-presentation=mac] button,
+html[data-presentation=mac] select,
+html[data-presentation=mac] .button,
+html[data-presentation=mac] input[type=search] {
+  min-height:30px; border-radius:7px; padding:5px 10px; font-size:.75rem;
+  line-height:1.35;
+}
+html[data-presentation=mac] button.primary { padding-inline:16px; font-weight:600; }
+html[data-presentation=mac] button:active:not(:disabled) { transform:none; }
+html[data-presentation=mac] button:focus-visible,
+html[data-presentation=mac] input:focus-visible,
+html[data-presentation=mac] summary:focus-visible { outline-width:2px; outline-offset:2px; }
+html[data-presentation=mac] h2 { font-size:1.625rem; letter-spacing:-.035em; margin-bottom:7px; }
+html[data-presentation=mac] h3 { font-size:1rem; letter-spacing:-.018em; }
+html[data-presentation=mac] small,
+html[data-presentation=mac] .hint { font-size:.6875rem; }
+html[data-presentation=mac] .studio {
+  max-width:none; min-height:100dvh; padding:24px 26px calc(var(--mac-player-height) + 24px) calc(var(--rail) + 26px);
+}
+/* This fallback remains usable if the native shell cannot be installed. */
+html[data-presentation=mac] header {
+  inset:0 auto 0 0; height:auto; width:var(--rail); padding:22px 18px;
+  border-right:1px solid var(--border); border-bottom:0; background:var(--sidebar);
+}
+html[data-presentation=mac] header .brand-logo { width:24px; height:30px; }
+html[data-presentation=mac] header .brand h1 { font-size:1.1875rem; letter-spacing:-.03em; }
+html[data-presentation=mac] .app-tabs {
+  top:78px; left:9px; width:calc(var(--rail) - 18px); padding:0;
+  flex-direction:column; gap:3px; border:0; background:none;
+}
+html[data-presentation=mac] .app-tabs button {
+  justify-content:flex-start; flex:none; gap:9px; padding:7px 10px;
+  min-height:34px; font-size:.8125rem; border-radius:7px;
+}
+html[data-presentation=mac] .app-tabs svg { display:block; width:16px; height:16px; }
+html[data-presentation=mac] .app-utilities {
+  top:auto; bottom:22px; left:18px; right:auto; width:calc(var(--rail) - 36px);
+  gap:5px; flex-direction:column; align-items:flex-start;
+}
+html[data-presentation=mac] #device-note { display:none; }
+html[data-presentation=mac] #app-settings { min-height:28px; font-size:.75rem; }
+html[data-presentation=mac] body[data-native-sidebar=true] { --rail:0px; }
+html[data-presentation=mac] body[data-native-sidebar=true] header,
+html[data-presentation=mac] body[data-native-sidebar=true] .app-tabs,
+html[data-presentation=mac] body[data-native-sidebar=true] .app-utilities { display:none; }
+html[data-presentation=mac] body[data-native-search=true] #explore-form { display:none; }
+html[data-presentation=mac] .page-heading { align-items:center; gap:14px; margin-bottom:20px; }
+html[data-presentation=mac] .page-heading p { font-size:.8125rem; letter-spacing:0; line-height:1.4; }
+html[data-presentation=mac] .page-heading>button { margin:0; }
+html[data-presentation=mac] #explore-panel,
+html[data-presentation=mac] #downloads-panel,
+html[data-presentation=mac] #library-panel { max-width:1320px; margin-inline:auto; }
+html[data-presentation=mac] .explore-heading h2 { font-size:1.75rem; letter-spacing:-.04em; }
+html[data-presentation=mac] #explore-form { max-width:600px; }
+html[data-presentation=mac] .discovery-search { min-height:34px; border-radius:8px; padding:0 11px; gap:8px; }
+html[data-presentation=mac] .discovery-search>span { font-size:1.375rem; }
+html[data-presentation=mac] #explore-search { font-size:.8125rem; padding:7px 0; }
+html[data-presentation=mac] .discovery-filters {
+  width:fit-content; max-width:100%; display:flex; flex-wrap:wrap; gap:3px;
+  padding:3px; margin:16px 0 14px; background:var(--subtle); border-radius:8px;
+}
+html[data-presentation=mac] body[data-native-search=true] .discovery-filters { margin-top:0; }
+html[data-presentation=mac] .discovery-filters button {
+  border-radius:5px; min-height:26px; padding:4px 15px; background:transparent;
+  font-size:.6875rem; flex-shrink:0;
+}
+html[data-presentation=mac] .discovery-filters button.selected {
+  color:var(--text); background:var(--panel); box-shadow:0 1px 3px #00000014;
+}
+html[data-presentation=mac] .discovery-context { min-height:20px; margin-bottom:15px; }
+html[data-presentation=mac] #explore-status { font-size:.6875rem; }
+html[data-presentation=mac] .discovery-section-title { font-size:1.125rem; margin:22px 0 12px; letter-spacing:-.025em; }
+html[data-presentation=mac] .discovery-featured-grid { grid-template-columns:repeat(3,minmax(0,1fr)); gap:16px; margin-bottom:24px; }
+html[data-presentation=mac] .discovery-featured,
+html[data-presentation=mac] .discovery-featured .discovery-primary { min-height:220px; border-radius:12px; }
+html[data-presentation=mac] .discovery-featured:last-child { display:block; grid-column:auto; }
+html[data-presentation=mac] .discovery-featured .discovery-copy { padding:144px 16px 38px; }
+html[data-presentation=mac] .discovery-featured .discovery-copy strong { font-size:1rem; line-height:1.25; letter-spacing:-.02em; }
+html[data-presentation=mac] .discovery-featured .discovery-copy small { font-size:.6875rem; line-height:1.4; }
+html[data-presentation=mac] .discovery-featured .discovery-item-actions { bottom:7px; right:9px; }
+html[data-presentation=mac] .discovery-featured .discovery-item-actions button { min-width:28px; min-height:28px; padding:5px; }
+html[data-presentation=mac] .discovery-list { grid-template-columns:repeat(2,minmax(0,1fr)); column-gap:28px; }
+html[data-presentation=mac] .discovery-card:not(.discovery-featured) { padding:9px 0; gap:8px; }
+html[data-presentation=mac] .discovery-art { width:54px; height:48px; border-radius:7px; }
+html[data-presentation=mac] .discovery-featured .discovery-art {
+  position:absolute; inset:0; width:100%; height:100%; border-radius:0;
+}
+html[data-presentation=mac] .discovery-featured .discovery-art::after {
+  content:''; position:absolute; inset:0;
+  background:linear-gradient(transparent 20%,#0003 48%,#000c 100%);
+}
+html[data-presentation=mac] .discovery-primary { gap:10px; }
+html[data-presentation=mac] .discovery-copy { gap:3px; }
+html[data-presentation=mac] .discovery-copy strong { font-size:.8125rem; line-height:1.35; }
+html[data-presentation=mac] .discovery-copy small { font-size:.6875rem; }
+html[data-presentation=mac] .discovery-item-actions button { min-width:27px; min-height:28px; padding:5px; }
+html[data-presentation=mac] .discovery-privacy { padding-top:14px; margin-top:24px; font-size:.625rem; gap:12px; }
+html[data-presentation=mac] #explore-reset { font-size:.625rem; padding:4px 0; }
+/* Downloads and Library use compact, aligned desktop rows. */
+html[data-presentation=mac] .download-composer { padding:18px; border-radius:11px; box-shadow:0 1px 2px #00000003; }
+html[data-presentation=mac] .download-composer>label { font-size:.8125rem; }
+html[data-presentation=mac] #download-urls { min-height:82px; border-radius:7px; padding:11px; font-size:.8125rem; margin-top:10px; }
+html[data-presentation=mac] .composer-controls { flex-wrap:wrap; gap:10px; margin-top:14px; }
+html[data-presentation=mac] .mode-switch { flex:0 0 auto; }
+html[data-presentation=mac] .mode-switch,
+html[data-presentation=mac] .library-filters { padding:2px; border-radius:6px; }
+html[data-presentation=mac] .mode-switch button,
+html[data-presentation=mac] .library-filters button { min-height:26px; padding:4px 12px; flex:none; border-radius:4px; }
+html[data-presentation=mac] .composer-controls select { min-width:105px; width:auto; }
+html[data-presentation=mac] .composer-controls>.primary { width:auto; min-height:31px; margin-left:auto; }
+html[data-presentation=mac] .download-options { padding-top:11px; margin-top:14px; }
+html[data-presentation=mac] .download-options summary { font-size:.6875rem; }
+html[data-presentation=mac] .playlist-option { margin-top:12px; }
+html[data-presentation=mac] .queue-panel { margin-top:26px; }
+html[data-presentation=mac] .list-heading h3 { font-size:1.125rem; letter-spacing:-.02em; }
+html[data-presentation=mac] .queue-actions { gap:7px; }
+html[data-presentation=mac] .download-row { gap:12px; padding:13px 0; }
+html[data-presentation=mac] .download-row small { font-size:.6875rem; margin-top:3px; }
+html[data-presentation=mac] .library-tools { display:flex; flex-direction:row; align-items:center; gap:12px; }
+html[data-presentation=mac] .library-tools input { min-height:31px; border-radius:7px; padding:6px 10px; }
+html[data-presentation=mac] .library-filters { flex-shrink:0; }
+html[data-presentation=mac] #library-count { margin:13px 0 17px; font-size:.6875rem; }
+html[data-presentation=mac] .library-columns { grid-template-columns:minmax(0,1fr) 70px 166px; gap:12px; padding-bottom:8px; font-size:.625rem; }
+html[data-presentation=mac] .library-columns span:not(:first-child) { display:block; }
+html[data-presentation=mac] .library-row { flex-wrap:nowrap; gap:12px; min-height:58px; }
+html[data-presentation=mac] .library-row>span { flex-basis:auto; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+html[data-presentation=mac] .file-mark { width:30px; height:34px; border-radius:6px; }
+html[data-presentation=mac] .file-mark svg { width:18px; height:18px; }
+html[data-presentation=mac] .library-row .file-type { display:block; min-width:70px; margin:0; font-size:.6875rem; }
+html[data-presentation=mac] .library-row button { min-width:102px; min-height:28px; padding:5px 8px; font-size:.6875rem; }
+html[data-presentation=mac] .library-row .library-play { min-width:45px; padding:5px 8px; }
+/* Studio prioritizes the chord timeline and voicings; practice tools and the
+   details inspector are disclosures, rather than permanent form rows. */
+html[data-presentation=mac] body.studio-active { height:100dvh; overflow:hidden; }
+html[data-presentation=mac] body.studio-active .studio { height:100dvh; min-height:0; padding-top:18px; padding-bottom:calc(var(--mac-player-height) + 12px); }
+html[data-presentation=mac] body.studio-active #studio-panel { display:flex; flex-direction:column; height:100%; min-height:0; }
+html[data-presentation=mac] .studio-heading { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:14px; flex-wrap:wrap; }
+html[data-presentation=mac] .section-title { font-size:1.375rem; letter-spacing:-.03em; margin:0; flex:1; }
+html[data-presentation=mac] .section-title small { display:none; }
+html[data-presentation=mac] .studio-primary-actions { margin:0; gap:7px; }
+html[data-presentation=mac] .studio-primary-actions button,
+html[data-presentation=mac] .studio-primary-actions .button { min-height:30px; padding:5px 11px; font-size:.6875rem; }
+html[data-presentation=mac] body[data-native-sidebar=true] .studio-primary-actions label[for=import],
+html[data-presentation=mac] body[data-native-sidebar=true] #studio-settings { display:none; }
+html[data-presentation=mac] .song-top {
+  display:grid; grid-template-columns:minmax(110px,.8fr) auto minmax(100px,1.5fr) auto;
+  grid-template-rows:auto; gap:12px; padding:10px 0 13px; border:0;
+  border-bottom:1px solid var(--border); border-radius:0; background:none; flex-shrink:0;
+}
+html[data-presentation=mac] .song-top h2 { grid-column:auto; grid-row:auto; font-size:.8125rem; line-height:1.35; max-width:100%; margin:0; flex-basis:auto; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+html[data-presentation=mac] .transport { grid-column:auto; grid-row:auto; gap:2px; }
+html[data-presentation=mac] .transport .icon { min-height:28px; width:26px; padding:3px; }
+html[data-presentation=mac] .transport .play { height:30px; width:30px; min-height:30px; padding:0; }
+html[data-presentation=mac] body.has-player .song-top #play { display:none; }
+html[data-presentation=mac] .scrubber { grid-column:auto; grid-row:auto; min-width:0; }
+html[data-presentation=mac] .time-row { font-size:.5625rem; }
+html[data-presentation=mac] .wave-wrap { height:24px; }
+html[data-presentation=mac] #fullscreen { grid-column:auto; grid-row:auto; min-height:28px; padding:3px; }
+html[data-presentation=mac] details.mac-practice { flex-shrink:0; border:0; padding:0; margin:7px 0 12px; }
+html[data-presentation=mac] details.mac-practice>summary,
+html[data-presentation=mac] details.mac-inspector>summary {
+  list-style:none; width:fit-content; font-size:.6875rem; color:var(--muted);
+  min-height:27px; padding:5px 8px; border-radius:6px; line-height:1.5;
+}
+html[data-presentation=mac] details.mac-practice>summary::-webkit-details-marker,
+html[data-presentation=mac] details.mac-inspector>summary::-webkit-details-marker { display:none; }
+html[data-presentation=mac] details.mac-practice>summary::before,
+html[data-presentation=mac] details.mac-inspector>summary::before { content:'›'; display:inline-block; margin-right:6px; font-size:.875rem; line-height:10px; }
+html[data-presentation=mac] details.mac-practice[open]>summary::before,
+html[data-presentation=mac] details.mac-inspector[open]>summary::before { transform:rotate(90deg); }
+html[data-presentation=mac] details.mac-practice>summary:hover,
+html[data-presentation=mac] details.mac-inspector>summary:hover { background:var(--subtle); color:var(--text); }
+html[data-presentation=mac] .practice-toolbar { border:0; padding:10px 12px; margin:5px 0 0; gap:10px; border-radius:8px; background:var(--subtle); }
+html[data-presentation=mac] .practice-toolbar label,
+html[data-presentation=mac] .transpose { font-size:.6875rem; }
+html[data-presentation=mac] .practice-toolbar select,
+html[data-presentation=mac] .practice-toolbar button { min-height:27px; padding:4px 7px; font-size:.6875rem; }
+html[data-presentation=mac] .practice-toolbar input[type=range] { width:68px; }
+html[data-presentation=mac] .transpose { margin-left:0; }
+html[data-presentation=mac] .workspace { flex:1; display:block; min-height:0; position:relative; }
+html[data-presentation=mac] .play-workspace { display:flex; flex-direction:column; min-height:0; max-height:100%; height:100%; }
+html[data-presentation=mac] .anticipation { display:none; }
+html[data-presentation=mac] .flow-heading { margin:0 0 9px; font-size:.625rem; min-height:16px; }
+html[data-presentation=mac] .bar-flow { min-height:0; flex-shrink:0; }
+html[data-presentation=mac] .reference-rail { height:86px; }
+html[data-presentation=mac] .reference-cell { height:78px; min-height:78px; border-radius:6px; }
+html[data-presentation=mac] .reference-bar { height:78px; }
+html[data-presentation=mac] .reference-head { height:81px; }
+html[data-presentation=mac] .reference-progress { top:82px; height:3px; }
+html[data-presentation=mac] .diagram-section { margin-top:14px; flex:1; display:flex; flex-direction:column; min-height:140px; }
+html[data-presentation=mac] .diagram-toolbar { margin-bottom:8px; gap:3px; flex-shrink:0; }
+html[data-presentation=mac] .diagram-toolbar button { min-height:26px; padding:4px 10px; font-size:.6875rem; }
+html[data-presentation=mac] .toolbar-divider { margin-inline:5px; height:14px; }
+html[data-presentation=mac] #diagram-strip { gap:10px; min-height:0; max-height:none; flex:0 1 auto; overflow:auto; align-items:start; }
+html[data-presentation=mac] .diagram-card { padding:11px 10px; border-radius:8px; min-height:122px; background:var(--panel); }
+html[data-presentation=mac] .diagram-card h2 { font-size:1.375rem; line-height:1.3; padding-right:38px; margin:0 0 6px; }
+html[data-presentation=mac] .diagram-card small { position:absolute; top:14px; right:10px; font-size:.5625rem; margin:0; }
+html[data-presentation=mac] .diagram-card canvas { height:clamp(70px,15dvh,130px); }
+html[data-presentation=mac] #diagram-note { flex-shrink:0; font-size:.625rem; margin:7px 0 0; }
+html[data-presentation=mac] .actions { gap:7px; margin-top:12px; padding-top:10px; flex-shrink:0; }
+html[data-presentation=mac] .actions>label { flex-basis:auto; font-size:.6875rem; }
+html[data-presentation=mac] .actions button { min-height:28px; padding:5px 8px; font-size:.625rem; }
+html[data-presentation=mac] #status,
+html[data-presentation=mac] #loop-status { font-size:.625rem; margin:6px 0 0; flex-shrink:0; }
+html[data-presentation=mac] details.mac-inspector { position:relative; flex-shrink:0; border:0; padding:0; margin:0; }
+html[data-presentation=mac] details.mac-inspector>summary { background:var(--subtle); color:var(--text); }
+html[data-presentation=mac] details.mac-inspector .song-sidebar {
+  position:absolute; z-index:22; top:36px; right:0; width:min(320px,calc(100vw - var(--rail) - 38px));
+  max-height:min(410px,calc(100dvh - 145px)); overflow:auto; border:1px solid var(--border);
+  border-radius:11px; padding:15px; background:var(--panel); box-shadow:var(--shadow);
+}
+html[data-presentation=mac] .song-sidebar section { border:0; border-radius:0; padding:0; margin:0 0 16px; background:none; }
+html[data-presentation=mac] .song-sidebar section:last-child { margin:0; }
+html[data-presentation=mac] .song-sidebar h3 { font-size:.75rem; margin-bottom:10px; }
+html[data-presentation=mac] .song-sidebar h4 { font-size:.6875rem; margin:14px 0 8px; }
+html[data-presentation=mac] .detail-row { padding:7px 0; font-size:.6875rem; }
+html[data-presentation=mac] #audio-preview { min-height:28px; font-size:.6875rem; margin:0; }
+html[data-presentation=mac] #media { max-height:160px; border-radius:7px; }
+/* One stable bottom transport remains in place while navigating or practising. */
+html[data-presentation=mac] #mini-player,
+html[data-presentation=mac] body.studio-active #mini-player {
+  position:fixed; z-index:26; display:grid; grid-template-columns:minmax(120px,1fr) auto minmax(150px,1.2fr) auto;
+  align-items:center; gap:16px; bottom:0; left:var(--rail); right:0; max-width:none;
+  min-height:var(--mac-player-height); height:var(--mac-player-height); border:0; border-top:1px solid var(--border);
+  border-radius:0; padding:10px 20px; background:var(--panel); box-shadow:none;
+}
+html[data-presentation=mac] #mini-open { gap:10px; padding:0; min-width:0; min-height:42px; }
+html[data-presentation=mac] .mini-art { width:42px; height:42px; border-radius:7px; }
+html[data-presentation=mac] .mini-copy { gap:2px; }
+html[data-presentation=mac] .mini-copy strong { font-size:.75rem; font-weight:600; }
+html[data-presentation=mac] .mini-copy small { font-size:.625rem; }
+html[data-presentation=mac] .mac-mini-transport { display:flex; align-items:center; gap:2px; }
+html[data-presentation=mac] #mini-player .transport-icon { width:29px; height:30px; min-height:30px; padding:5px; }
+html[data-presentation=mac] #mini-play { background:var(--subtle); border-radius:50%; width:32px !important; height:32px !important; }
+html[data-presentation=mac] .mac-mini-timeline { min-width:0; align-self:center; }
+html[data-presentation=mac] .mac-mini-times { display:flex; justify-content:space-between; color:var(--muted); font-size:.5625rem; font-variant-numeric:tabular-nums; line-height:1.4; margin-top:1px; }
+html[data-presentation=mac] .mac-mini-seek { width:100%; margin:0; padding:0; height:14px; min-height:14px; display:block; }
+html[data-presentation=mac] .mac-mini-volume { display:flex; align-items:center; gap:5px; width:76px; color:var(--muted); }
+html[data-presentation=mac] .mac-mini-volume svg { width:14px; height:14px; flex-shrink:0; }
+html[data-presentation=mac] .mac-mini-volume input { min-width:0; width:100%; height:14px; padding:0; }
+html[data-presentation=mac] #mini-player .mini-progress { display:none; }
+html[data-presentation=mac] #playback-status { left:calc(var(--rail) + 20px); right:20px; bottom:calc(var(--mac-player-height) + 12px); max-width:none; padding:11px 14px; border-radius:9px; font-size:.75rem; }
+/* Expanded playback is a parallel detail surface, never a phone-size modal.
+   Its playback transport stays in the persistent bar below the content. */
+html[data-presentation=mac] #now-dialog {
+  position:fixed; z-index:18; left:auto; top:0; right:0; bottom:var(--mac-player-height);
+  margin:0; width:360px; max-width:none; max-height:none; height:auto; padding:20px;
+  border:0; border-left:1px solid var(--border); border-radius:0; box-shadow:none; overflow:hidden;
+}
+html[data-presentation=mac] #now-dialog:not([open]) { display:none; }
+html[data-presentation=mac] #now-dialog[open] { display:flex; flex-direction:column; align-items:stretch; }
+html[data-presentation=mac] #now-dialog .settings-heading { margin-bottom:18px; min-height:28px; flex-shrink:0; }
+html[data-presentation=mac] #now-heading { font-size:.625rem; letter-spacing:.1em; }
+html[data-presentation=mac] #now-close,
+html[data-presentation=mac] #now-fullscreen { width:28px; height:28px; min-height:28px; padding:2px; }
+html[data-presentation=mac] #now-close { font-size:1.75rem; }
+html[data-presentation=mac] .now-artwork { flex-shrink:0; width:clamp(140px,25dvh,220px); height:auto; aspect-ratio:1; max-width:100%; margin:0 auto 20px; border-radius:12px; box-shadow:0 8px 20px #00000012; }
+html[data-presentation=mac] .now-artwork.no-art>svg { width:54px; height:54px; }
+html[data-presentation=mac] #now-video-slot { margin-bottom:18px; border-radius:9px; flex-shrink:0; }
+html[data-presentation=mac] #now-video-slot #media { max-height:210px; min-height:0; aspect-ratio:16/9; border-radius:0; }
+html[data-presentation=mac] #now-title { font-size:1.25rem; letter-spacing:-.025em; line-height:1.25; margin:0 0 5px; flex-shrink:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+html[data-presentation=mac] #now-creator { font-size:.8125rem; line-height:1.4; margin:0 0 17px; flex-shrink:0; }
+html[data-presentation=mac] #now-seek,
+html[data-presentation=mac] .now-times,
+html[data-presentation=mac] .now-transport { display:none; }
+html[data-presentation=mac] .now-actions { display:flex; gap:8px; flex-shrink:0; }
+html[data-presentation=mac] .now-actions button { flex:1; min-height:32px; border-radius:7px; padding:6px 10px; font-size:.6875rem; }
+html[data-presentation=mac] #now-quality { font-size:.625rem; margin:14px 0 0; text-align:center; flex-shrink:0; }
+html[data-presentation=mac] #now-error { font-size:.6875rem; margin-bottom:10px; }
+html[data-presentation=mac] #now-dialog #playback-status { left:auto; right:auto; bottom:auto; padding:8px; margin-top:12px; font-size:.6875rem; }
+html[data-presentation=mac] body.mac-player-expanded .studio { padding-right:386px; }
+html[data-presentation=mac] dialog:not(#now-dialog) { border-radius:12px; padding:20px; max-height:calc(100dvh - 32px); font-size:.8125rem; }
+html[data-presentation=mac] dialog:not(#now-dialog) .settings-heading h3 { font-size:1rem; }
+html[data-presentation=mac] .appearance-setting select { min-width:120px; }
+html[data-presentation=mac] .options { gap:12px; }
+html[data-presentation=mac] .options label { font-size:.6875rem; }
+html[data-presentation=mac] .empty-state { min-height:220px; padding:30px 14px; }
+html[data-presentation=mac] .empty-state>svg { width:34px; height:34px; margin-bottom:14px; }
+html[data-presentation=mac] .empty-state h3 { font-size:1rem; }
+html[data-presentation=mac] .empty-state p { font-size:.75rem; }
+@media(max-width:1079px) {
+  html[data-presentation=mac] .discovery-featured-grid { grid-template-columns:repeat(2,minmax(0,1fr)); gap:13px; }
+  html[data-presentation=mac] .discovery-featured:last-child { grid-column:1/-1; }
+  html[data-presentation=mac] .discovery-featured,
+  html[data-presentation=mac] .discovery-featured .discovery-primary { min-height:195px; }
+  html[data-presentation=mac] .discovery-featured .discovery-copy { padding:120px 14px 35px; }
+  html[data-presentation=mac] .discovery-list { grid-template-columns:1fr; }
+  html[data-presentation=mac] body.mac-player-expanded .studio { padding-right:26px; }
+  html[data-presentation=mac] body.mac-player-expanded .studio>section[role=tabpanel] { visibility:hidden; pointer-events:none; }
+  html[data-presentation=mac] #now-dialog { left:var(--rail); right:0; width:auto; border-left:0; padding:24px; align-items:center; }
+  html[data-presentation=mac] #now-dialog .settings-heading { width:100%; margin-bottom:18px; }
+  html[data-presentation=mac] #now-dialog .now-artwork { width:clamp(140px,29dvh,250px); }
+  html[data-presentation=mac] #now-video-slot { width:min(100%,650px); }
+  html[data-presentation=mac] #now-video-slot #media { max-height:260px; }
+  html[data-presentation=mac] #now-title,
+  html[data-presentation=mac] #now-creator,
+  html[data-presentation=mac] #now-error { max-width:650px; width:100%; text-align:center; }
+  html[data-presentation=mac] .now-actions { width:min(100%,420px); }
+}
+@media(max-width:650px) {
+  html[data-presentation=mac] .studio { padding:20px 18px calc(var(--mac-player-height) + 20px) calc(var(--rail) + 18px); }
+  html[data-presentation=mac] body.studio-active .studio { padding-top:15px; padding-bottom:calc(var(--mac-player-height) + 10px); }
+  html[data-presentation=mac] .page-heading { margin-bottom:18px; }
+  html[data-presentation=mac] .explore-heading h2 { font-size:1.5rem; }
+  html[data-presentation=mac] .discovery-filters button { padding-inline:12px; }
+  html[data-presentation=mac] .discovery-featured-grid { gap:12px; }
+  html[data-presentation=mac] .discovery-featured,
+  html[data-presentation=mac] .discovery-featured .discovery-primary { min-height:175px; }
+  html[data-presentation=mac] .discovery-featured .discovery-copy { padding:100px 12px 35px; }
+  html[data-presentation=mac] .discovery-featured .discovery-copy strong { font-size:.9375rem; }
+  html[data-presentation=mac] .discovery-privacy { display:block; }
+  html[data-presentation=mac] .discovery-privacy #explore-reset { display:block; margin-top:5px; }
+  html[data-presentation=mac] .library-tools { flex-wrap:wrap; }
+  html[data-presentation=mac] .library-tools input { flex-basis:100%; }
+  html[data-presentation=mac] .library-filters { width:fit-content; }
+  html[data-presentation=mac] .library-row .file-type,
+  html[data-presentation=mac] .library-columns span:nth-child(2) { display:none; }
+  html[data-presentation=mac] .library-columns { grid-template-columns:minmax(0,1fr) 150px; }
+  html[data-presentation=mac] .library-row { gap:8px; }
+  html[data-presentation=mac] .library-row button { min-width:89px; padding:5px 6px; font-size:.625rem; }
+  html[data-presentation=mac] .library-row .library-play { min-width:39px; }
+  html[data-presentation=mac] .song-top { grid-template-columns:minmax(90px,.8fr) auto minmax(85px,1.3fr) auto; gap:7px; }
+  html[data-presentation=mac] #mini-player,
+  html[data-presentation=mac] body.studio-active #mini-player { gap:11px; padding-inline:14px; grid-template-columns:minmax(110px,1fr) auto minmax(130px,1fr); }
+  html[data-presentation=mac] .mac-mini-volume { display:none; }
+  html[data-presentation=mac] .mini-art { width:36px; height:36px; }
+  html[data-presentation=mac] #mini-open { gap:8px; }
+  html[data-presentation=mac] .mini-copy strong { font-size:.6875rem; }
+  html[data-presentation=mac] .mini-copy small { font-size:.5625rem; }
+  html[data-presentation=mac] .diagram-card { padding:8px; }
+  html[data-presentation=mac] .diagram-card h2 { font-size:1.25rem; }
+  html[data-presentation=mac] .diagram-card small { right:8px; top:11px; }
+  html[data-presentation=mac] body.mac-player-expanded .studio { padding-right:18px; }
+  html[data-presentation=mac] #now-dialog { padding:20px 18px; }
+}
+@media(max-height:660px) {
+  html[data-presentation=mac] body.studio-active .studio { padding-top:12px; padding-bottom:calc(var(--mac-player-height) + 8px); }
+  html[data-presentation=mac] .studio-heading { margin-bottom:9px; }
+  html[data-presentation=mac] .song-top { padding-block:7px; }
+  html[data-presentation=mac] .wave-wrap { height:19px; }
+  html[data-presentation=mac] details.mac-practice { margin-block:4px 6px; }
+  html[data-presentation=mac] .reference-rail { height:64px; }
+  html[data-presentation=mac] .reference-cell { height:56px; min-height:56px; }
+  html[data-presentation=mac] .reference-bar { height:56px; }
+  html[data-presentation=mac] .reference-head { height:59px; }
+  html[data-presentation=mac] .reference-progress { top:60px; }
+  html[data-presentation=mac] .diagram-section { min-height:142px !important; margin-top:8px; }
+  html[data-presentation=mac] .diagram-toolbar { margin-bottom:6px; }
+  html[data-presentation=mac] #diagram-strip { min-height:102px !important; max-height:none; }
+  html[data-presentation=mac] .diagram-card { min-height:102px; padding:6px 8px; }
+  html[data-presentation=mac] .diagram-card h2 { font-size:1.1875rem; margin:0; }
+  html[data-presentation=mac] .diagram-card small { top:9px; }
+  html[data-presentation=mac] .diagram-card canvas { height:70px; }
+  html[data-presentation=mac] #diagram-note { margin-top:4px; font-size:.5625rem; }
+  html[data-presentation=mac] .actions { margin-top:8px; padding-top:7px; gap:6px; }
+  html[data-presentation=mac] .actions button { min-height:26px; font-size:.625rem; }
+  html[data-presentation=mac] #status,
+  html[data-presentation=mac] #loop-status { margin-top:4px; font-size:.5625rem; }
+  html[data-presentation=mac] #now-dialog { padding-top:16px; padding-bottom:15px; }
+  html[data-presentation=mac] #now-dialog .settings-heading { margin-bottom:12px; }
+  html[data-presentation=mac] #now-dialog .now-artwork { width:150px; margin-bottom:15px; }
+  html[data-presentation=mac] #now-video-slot #media { max-height:150px; }
+  html[data-presentation=mac] #now-video-slot { margin-bottom:15px; }
+  html[data-presentation=mac] #now-creator { margin-bottom:13px; }
+  html[data-presentation=mac] #now-quality { margin-top:11px; }
+}
+/* At larger text sizes, scrolling is preferable to hiding notation or actions. */
+html[data-presentation=mac] body.large-type.studio-active { height:auto; overflow:auto; }
+html[data-presentation=mac] body.large-type.studio-active .studio { height:auto; min-height:100dvh; }
+html[data-presentation=mac] body.large-type.studio-active #studio-panel { height:auto; }
+html[data-presentation=mac] body.large-type.studio-active .play-workspace { height:auto; max-height:none; }
+html[data-presentation=mac] body.large-type.studio-active .diagram-section { min-height:180px !important; }
+@media(prefers-reduced-transparency:reduce) {
+  html[data-presentation=mac] #mini-player,
+  html[data-presentation=mac] #now-dialog { background:var(--panel); }
+}
+@media(prefers-contrast:more) {
+  html[data-presentation=mac] { --border:var(--muted); }
+  html[data-presentation=mac] button:not(.discovery-primary),
+  html[data-presentation=mac] select { border-color:var(--border); }
+  html[data-presentation=mac] #mini-player,
+  html[data-presentation=mac] #now-dialog { border-width:1px; }
+}

@@ -86,6 +86,11 @@ def main():
     preview = work / 'ui-smoke-data/downloads/blaze-video-fixture.mp4'
     preview.parent.mkdir(parents=True, exist_ok=True)
     shutil.copy2(Path(__file__).parent / 'media/playback-avc-aac.mp4', preview)
+    artwork = work / 'ui-smoke-data/discovery-fixtures'
+    artwork.mkdir(parents=True, exist_ok=True)
+    source_artwork = Path(__file__).resolve().parents[1] / 'android/app/src/main/res/drawable-nodpi'
+    for name in ('piano', 'acoustic', 'jazz', 'sunset'):
+        shutil.copy2(source_artwork / ('discovery_' + name + '.png'), artwork / (name + '.png'))
     process = subprocess.Popen([str(binary), str(audio), '--ui-smoke', str(receipt_path)])
     try:
         process.wait(timeout=300)
@@ -104,6 +109,11 @@ def main():
     expected_material = 'liquid-glass' if int(platform.mac_ver()[0].split('.')[0]) >= 26 else 'system-vibrancy'
     assert navigation['material'] == expected_material, navigation
     assert navigation['installed'] and navigation['web_navigation'] and navigation['roundtrip'], navigation
+    assert receipt['mac_design']['sidebar'] and receipt['mac_design']['native_search'], receipt
+    assert receipt['mac_design']['compact_player'], receipt
+    assert receipt['mac_design']['selection_keeps_browsing'], receipt
+    assert receipt['mac_design']['expanded_controls_fit'], receipt
+    assert receipt['mac_design']['compact_layout']['controls'], receipt
     print(json.dumps({'architecture': args.arch, 'checks': 'native launch, ensemble, edits/exports, 6 audio formats, 4K decode, download, Cocoa playback/seek/layout', 'ui': receipt}, indent=2))
     # Let the remote desktop screenshot finish writing before artifact upload.
     assert receipt_path.with_suffix('.png').stat().st_size > 100
