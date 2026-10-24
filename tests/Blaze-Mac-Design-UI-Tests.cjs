@@ -104,6 +104,35 @@ async function fit(page,ids,message){
         await page.locator('#mini-play').click();
         await page.waitForFunction(()=>document.getElementById('media').paused);
         await fit(page,['mini-open','mini-play','mac-mini-seek'],'Wide compact transport clipped');
+        // Queue changes update the already-open detail surface as well as the
+        // persistent transport, without replacing the shared media element.
+        await page.evaluate(()=>window.BlazeMac.action('open-player'));
+        await page.locator('#now-dialog').waitFor({state:'visible'});
+        await page.locator('#mini-next').click();
+        await page.waitForFunction(()=>{const m=document.getElementById('media');return m.videoWidth===320&&!m.paused&&m.currentTime>.1;});
+        assert(await page.locator('#now-video-slot #media').isVisible(),'Queued video was hidden in the Studio preview');
+        assert(await page.locator('#media').evaluate(el=>el===window.testMedia),'Queue transition replaced the player');
+        assert(await page.locator('#media').evaluate(el=>{
+            const c=document.createElement('canvas');c.width=32;c.height=18;const g=c.getContext('2d');g.drawImage(el,0,0,32,18);
+            return g.getImageData(0,0,32,18).data.some((value,index)=>index%4!==3&&value>100);
+        }),'Queued video did not draw a decoded frame');
+        await shot(page,'queue-video-wide');
+        await page.locator('.discovery-primary').first().click();
+        await page.waitForFunction(()=>{const m=document.getElementById('media');return m.classList.contains('audio-only')&&m.duration>29&&!m.paused;});
+        assert.equal(await page.locator('#now-dialog').evaluate(el=>el.open),true);
+        assert(await page.locator('#media').evaluate(el=>el===window.testMedia&&el.parentElement.classList.contains('preview-panel')),'Audio transition did not restore the shared media to its preview owner');
+        assert(await page.locator('#now-artwork').isVisible(),'Video-to-audio transition did not restore artwork');
+        // Exercise the real ended event, which uses the same queue handoff.
+        await page.evaluate(()=>{document.getElementById('media').currentTime=29.95;});
+        await page.waitForFunction(()=>{const m=document.getElementById('media');return m.videoWidth===320&&!m.paused&&m.currentTime>.1;});
+        assert(await page.locator('#now-video-slot #media').isVisible(),'Automatic queue advance hid the video');
+        assert.equal(await page.locator('#now-dialog').evaluate(el=>el.open),true);
+        await page.evaluate(()=>window.BlazeMac.action('close-player'));
+        await page.locator('.discovery-primary').first().click();
+        await page.waitForFunction(()=>{const m=document.getElementById('media');return m.classList.contains('audio-only')&&m.duration>29&&!m.paused;});
+        assert.equal(await page.locator('#now-dialog').evaluate(el=>el.open),false,'Closed player reopened during a queue selection');
+        await page.locator('#mini-play').click();
+        await page.waitForFunction(()=>document.getElementById('media').paused);
         await page.locator('#mac-mini-seek').fill('400');
         await page.locator('#mac-mini-seek').dispatchEvent('input');
         await page.locator('#mac-mini-seek').dispatchEvent('change');

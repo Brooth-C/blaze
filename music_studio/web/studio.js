@@ -318,7 +318,9 @@ $('download-urls').addEventListener('input',()=>{$('download-error').hidden=true
     function mediaChanged(state){
         selectedItem=validItem(state.discoveryItem)?state.discoveryItem:null;if(!selectedItem)playbackQueue=[];nowScrubbing=false;$('now-error').hidden=true;playedSeconds=0;recorded=false;lastPlayTick=performance.now();lastMediaPosition=media.currentTime;listeningActive=false;
         setArt($('mini-art'),selectedItem);setArt($('now-artwork'),selectedItem);
-        $('now-video-slot').hidden=media.classList.contains('audio-only');$('now-artwork').hidden=!media.classList.contains('audio-only');
+        const audioOnly=media.classList.contains('audio-only'),target=$('now-dialog').open&&!audioOnly?$('now-video-slot'):previewPanel;
+        if(media.parentElement!==target){if(target===previewPanel)previewPanel.insertBefore(media,$('audio-preview'));else target.append(media);}
+        $('now-video-slot').hidden=audioOnly;$('now-artwork').hidden=!audioOnly;
         updatePlayer();
     }
     function closeNow(){restoreVideo();if($('now-dialog').open)$('now-dialog').close();}
