@@ -341,6 +341,11 @@ def ui_smoke(window, studio, destination, receipt, probe, timeout=240):
             # after the real source-list sidebar and toolbar take their space.
             window.resize(780, 600)
             wait_for('innerWidth <= 600 && innerHeight < 600')
+            probe.run(window, """window.blazeSmokeLayoutReady=false;
+              requestAnimationFrame(()=>requestAnimationFrame(()=>{window.blazeSmokeLayoutReady=true;}));
+              true;
+            """)
+            wait_for('window.blazeSmokeLayoutReady === true')
             compact = probe.probe(window, """(() => {
               const fits = id => {
                 const r=document.getElementById(id).getBoundingClientRect();

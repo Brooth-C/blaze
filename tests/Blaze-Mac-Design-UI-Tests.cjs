@@ -184,9 +184,15 @@ async function voicingsFit(page){
         });
         for(const [width,height] of [[570,540],[569,548]]){
             await page.setViewportSize({width,height});
+            // Resize redraws/replaces the voicing canvases. Inspect the current
+            // DOM after that scheduled work has reached the compositor.
+            await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
             await fit(page,['bar-flow','diagram-strip','analyze','mini-play'],'Compact Studio controls clipped');
             assert(await page.evaluate(()=>document.documentElement.scrollHeight<=innerHeight+1),'Compact Studio requires page scrolling');
-            assert(await page.locator('.diagram-card canvas').evaluateAll(elements=>elements.every(el=>{const r=el.getBoundingClientRect();return r.height>=65&&r.top>=0&&r.bottom<=innerHeight;})),'Compact voicing keyboards clipped');
+            const keyboards=await page.evaluate(()=>[...document.querySelectorAll('.diagram-card canvas')].map(el=>{
+                const r=el.getBoundingClientRect();return {width:r.width,height:r.height,top:r.top,bottom:r.bottom,viewport:innerHeight};
+            }));
+            assert(keyboards.length===3&&keyboards.every(r=>r.width>0&&r.height>=65&&r.top>=0&&r.bottom<=r.viewport),'Compact voicing keyboards clipped: '+JSON.stringify(keyboards));
             await voicingsFit(page);
             await shot(page,'studio-compact-'+width+'x'+height);
         }
