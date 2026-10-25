@@ -63,6 +63,24 @@ async function fit(page,ids,message){
     assert.deepEqual(invalid,[],message);
     assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'Mac detail has horizontal overflow');
 }
+async function voicingsFit(page){
+    const layout=await page.locator('#diagram-strip').evaluate(strip=>{
+        const r=strip.getBoundingClientRect(),top=r.top+strip.clientTop,bottom=top+strip.clientHeight;
+        const cards=[...strip.querySelectorAll('.diagram-card')];
+        const note=document.getElementById('diagram-note').getBoundingClientRect();
+        const actions=document.querySelector('.play-workspace .actions').getBoundingClientRect();
+        return {count:cards.length,stripHeight:strip.clientHeight,scrollHeight:strip.scrollHeight,
+            noteFits:note.height>0&&note.top>=r.bottom-1&&note.bottom<=actions.top+1,
+            cards:cards.map(card=>{const c=card.getBoundingClientRect();return {
+                insideStrip:c.top>=top-1&&c.bottom<=bottom+1,
+                contentFits:card.scrollHeight<=card.clientHeight+1,
+                height:c.height,top:c.top,bottom:c.bottom};})};
+    });
+    assert.equal(layout.count,3,'Standard voicing view should show three cards');
+    assert(layout.scrollHeight<=layout.stripHeight+1,'Standard voicings require vertical scrolling: '+JSON.stringify(layout));
+    assert(layout.cards.every(card=>card.insideStrip&&card.contentFits),'A voicing card border or content is clipped: '+JSON.stringify(layout));
+    assert(layout.noteFits,'The voicing note overlaps the strip or footer actions: '+JSON.stringify(layout));
+}
 (async()=>{
     let browser,page;
     try{
@@ -155,10 +173,23 @@ async function fit(page,ids,message){
         await page.locator('.diagram-card canvas').first().waitFor();
         await fit(page,['bar-flow','diagram-strip','analyze','mini-play'],'Wide Studio controls clipped');
         await shot(page,'studio-wide');
-        await page.setViewportSize({width:570,height:540});
-        await fit(page,['bar-flow','diagram-strip','analyze','mini-play'],'Compact Studio controls clipped');
-        assert(await page.evaluate(()=>document.documentElement.scrollHeight<=innerHeight+1),'Compact Studio requires page scrolling');
-        assert(await page.locator('.diagram-card canvas').evaluateAll(elements=>elements.every(el=>{const r=el.getBoundingClientRect();return r.height>=65&&r.top>=0&&r.bottom<=innerHeight;})),'Compact voicing keyboards clipped');
+        // Model the 15 px timeline gutter seen with classic native scrollbars.
+        // Chromium may paint an overlay; reserve any missing space as padding.
+        await page.evaluate(()=>{
+            const flow=document.getElementById('bar-flow'),style=getComputedStyle(flow);
+            const borders=parseFloat(style.borderTopWidth)+parseFloat(style.borderBottomWidth);
+            const gutter=flow.offsetHeight-flow.clientHeight-borders;
+            flow.style.paddingBottom=(parseFloat(style.paddingBottom)+Math.max(0,15-gutter))+'px';
+            dispatchEvent(new Event('resize'));
+        });
+        for(const [width,height] of [[570,540],[569,548]]){
+            await page.setViewportSize({width,height});
+            await fit(page,['bar-flow','diagram-strip','analyze','mini-play'],'Compact Studio controls clipped');
+            assert(await page.evaluate(()=>document.documentElement.scrollHeight<=innerHeight+1),'Compact Studio requires page scrolling');
+            assert(await page.locator('.diagram-card canvas').evaluateAll(elements=>elements.every(el=>{const r=el.getBoundingClientRect();return r.height>=65&&r.top>=0&&r.bottom<=innerHeight;})),'Compact voicing keyboards clipped');
+            await voicingsFit(page);
+            await shot(page,'studio-compact-'+width+'x'+height);
+        }
         await shot(page,'studio-compact');
 
         await page.evaluate(()=>window.BlazeMac.action('settings'));

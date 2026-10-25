@@ -347,15 +347,28 @@ def ui_smoke(window, studio, destination, receipt, probe, timeout=240):
                 return r.width>0&&r.height>0&&r.top>=0&&r.bottom<=innerHeight+1
                   &&r.left>=0&&r.right<=innerWidth+1;
               };
+              const strip=document.getElementById('diagram-strip'),r=strip.getBoundingClientRect();
+              const cards=Array.from(strip.querySelectorAll('.diagram-card'));
+              const stripTop=r.top+strip.clientTop,stripBottom=stripTop+strip.clientHeight;
+              const note=document.getElementById('diagram-note').getBoundingClientRect();
+              const actions=document.querySelector('.play-workspace .actions').getBoundingClientRect();
               return {width:innerWidth,height:innerHeight,
                 controls:['bar-flow','diagram-strip','analyze','mini-play','mac-mini-seek'].every(fits),
                 keyboards:Array.from(document.querySelectorAll('.diagram-card canvas')).every(canvas=>{
                   const r=canvas.getBoundingClientRect();return r.height>=65&&r.top>=0&&r.bottom<=innerHeight;
                 }),
+                voicing_cards_fit:cards.length===3&&cards.every(card=>{
+                  const c=card.getBoundingClientRect();return c.top>=stripTop-1&&c.bottom<=stripBottom+1;
+                }),
+                voicing_content_fits:cards.every(card=>card.scrollHeight<=card.clientHeight+1),
+                no_voicing_vertical_scroll:strip.scrollHeight<=strip.clientHeight+1,
+                voicing_note_fits:note.height>0&&note.top>=r.bottom-1&&note.bottom<=actions.top+1,
                 no_page_scroll:document.documentElement.scrollHeight<=innerHeight+1,
                 no_overflow:document.documentElement.scrollWidth<=innerWidth};
             })()""")
-            if not all(compact[key] for key in ('controls', 'keyboards', 'no_page_scroll', 'no_overflow')):
+            if not all(compact[key] for key in ('controls', 'keyboards', 'voicing_cards_fit',
+                                                'voicing_content_fits', 'no_voicing_vertical_scroll', 'voicing_note_fits',
+                                                'no_page_scroll', 'no_overflow')):
                 raise RuntimeError('The compact Mac window hides notation or playback controls: ' + json.dumps(compact))
             receipt['mac_design']['compact_layout'] = compact
             capture_screenshot(target.with_name('native-compact.png'))
