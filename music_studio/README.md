@@ -1,8 +1,9 @@
 # Blaze desktop
 
 Explore, Downloads, Library and Music Studio share one desktop app on Windows,
-Mac and Linux. Desktop 0.8.0 brings Android's discovery and listening workflow to
-a sidebar layout. Terminal installers keep their separate version and behavior.
+Mac and Linux. Desktop 0.9.0 refines the Mac workspace with native navigation and
+a compact listening layout. Windows and Linux retain the discovery and playback
+workflow introduced in 0.8.0. Terminal installers keep their separate version and behavior.
 
 ## Discover and listen
 
@@ -41,8 +42,17 @@ downbeats locally. Consistent runs determine bar grouping; weak runs remain ungr
 Pulse counts do not always identify a notation denominator. Manual timing overrides
 and chord corrections remain available through Settings.
 
-In compact Studio windows, video and song details open in a dialog. Transpose changes chord labels and diagrams,
-not the recording's pitch. Piano/guitar diagrams show suggested voicings.
+On Mac, a native source-list sidebar and toolbar frame the WebKit workspace.
+Search, local import and Settings are available from that toolbar. The compact
+player stays with the workspace while you browse; choosing a recording keeps
+Explore open, and the expanded player opens on request. Studio keeps its timeline
+and notation in the main area, with song details available separately. Native
+chrome uses system glass on macOS 26 and a system-material fallback on older Macs.
+The content and playback engine remain shared web components.
+
+In compact Windows and Linux Studio windows, video and song details open in a
+dialog. Transpose changes chord labels and diagrams, not the recording's pitch.
+Piano/guitar diagrams show suggested voicings.
 
 ## Rebuilding
 

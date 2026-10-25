@@ -18,19 +18,26 @@ from music_studio.mac_chrome import MacNavigation
 
 
 HTML = """<!doctype html><html data-appearance="APPEARANCE"><meta charset="utf-8">
-<style>body{font:18px -apple-system,sans-serif;margin:0;padding:55px;
-background:#f8f5f0;color:#202020}h1{font-size:46px;letter-spacing:-1px}
-p{max-width:640px;line-height:1.6;color:#606060}.art{height:240px;border-radius:24px;
-background:linear-gradient(125deg,#e6bb8b,#d65727 40%,#314c64);margin:35px 0}
+<style>body{font:16px -apple-system,sans-serif;margin:0;padding:36px;
+background:#f8f5f0;color:#202020}h1{font-size:38px;letter-spacing:-1px}
+p{max-width:640px;line-height:1.6;color:#606060}.art{height:180px;border-radius:18px;
+background:linear-gradient(125deg,#e6bb8b,#d65727 40%,#314c64);margin:28px 0}
 html[data-appearance=dark] body{background:#1e1c1b;color:#f5f2ef}
 html[data-appearance=dark] p{color:#bbb8b4}</style>
-<h1>Blaze</h1><p>Native navigation compatibility test. The navigation above uses
-the same AppKit adapter as the packaged app; this content is a local test fixture.</p>
-<div class="art"></div><h2 id="section">Explore</h2>
-<script>let section='explore';window.BlazeDesktop={activeSection:()=>section,
-selectSection:value=>{if(['explore','downloads','library','studio'].includes(value)){
-section=value;document.getElementById('section').textContent=value;}}};</script>
-</html>"""
+<h1>Blaze</h1><p>Native source-list and toolbar compatibility proof. This is a
+local test fixture using the same AppKit shell as the packaged app.</p>
+<div class="art"></div><h2 id="section">Explore</h2><p id="query"></p>
+<script>
+const state={section:'explore',query:'',appearance:'APPEARANCE',hasMedia:false,
+modal:false,nativeChromeInstalled:false};
+window.BlazeMac={snapshot:()=>state,
+installNativeChrome:()=>{state.nativeChromeInstalled=true;},
+navigate:value=>{if(['explore','downloads','library','studio'].includes(value)){
+state.section=value;document.getElementById('section').textContent=value;}},
+search:(value,commit)=>{state.query=value;state.committed=commit;
+window.BlazeMac.navigate('explore');document.getElementById('query').textContent=value;},
+action:value=>{state.action=value;}};
+</script></html>"""
 
 
 def main():
@@ -60,7 +67,9 @@ def main():
     receipt = {'ok': False, 'os': platform.mac_ver()[0], 'appearance': args.appearance,
                'scope': 'real AppKit adapter with local HTML fixture; not packaged app or performance benchmark'}
     adapter = MacNavigation(SimpleNamespace(native=window), receipt.setdefault('navigation', {}))
+    original_delegate = window.delegate()
     adapter.install()
+    assert window.delegate() is original_delegate
     workspace = AppKit.NSWorkspace.sharedWorkspace()
     receipt['reduce_transparency'] = bool(workspace.accessibilityDisplayShouldReduceTransparency())
     receipt['increase_contrast'] = bool(workspace.accessibilityDisplayShouldIncreaseContrast())
@@ -84,20 +93,39 @@ def main():
                         assert receipt['increase_contrast'], 'Increase Contrast was not enabled in the test session.'
                     if args.expect_standard_material:
                         assert not receipt['reduce_transparency'] and not receipt['increase_contrast'], 'Standard material preferences were not enabled in the test session.'
-                    adapter.control.setSelectedSegment_(1)
-                    adapter.control.sendAction_to_(adapter.control.action(), adapter.control.target())
+                    from Foundation import NSIndexSet
+                    row = adapter.row_for_section('downloads')
+                    adapter.outline.selectRowIndexes_byExtendingSelection_(NSIndexSet.indexSetWithIndex_(row), False)
                     stage = 1
                 elif stage == 1 and receipt['navigation'].get('selected') == 'downloads':
-                    web.evaluateJavaScript_completionHandler_("window.BlazeDesktop.selectSection('studio')", None)
+                    web.evaluateJavaScript_completionHandler_("window.BlazeMac.navigate('studio')", None)
                     stage = 2
                 elif stage == 2 and receipt['navigation'].get('selected') == 'studio':
                     receipt['navigation']['roundtrip'] = True
+                    field = adapter.search_item.searchField()
+                    field.setStringValue_('acoustic sessions')
+                    field.sendAction_to_(field.action(), field.target())
+                    stage = 3
+                elif stage == 3 and receipt['navigation'].get('selected') == 'explore':
+                    def search_result(value, error):
+                        receipt['search'] = not error and value == 'true'
+                    web.evaluateJavaScript_completionHandler_(
+                        "JSON.stringify(window.BlazeMac.snapshot().query==='acoustic sessions' && window.BlazeMac.snapshot().committed===true)", search_result)
                     window.setContentSize_(AppKit.NSMakeSize(780, 600))
-                    stage, capture_at = 3, time.monotonic() + .6
-                elif stage == 3 and time.monotonic() >= capture_at:
-                    frame = adapter.control.frame()
-                    receipt['control_size'] = {'width': frame.size.width, 'height': frame.size.height}
-                    assert frame.size.width > 400 and frame.size.height >= 28
+                    stage, capture_at = 4, time.monotonic() + .6
+                elif stage == 4 and time.monotonic() >= capture_at:
+                    assert receipt.get('search'), 'Native search did not reach the web app.'
+                    assert adapter.outline.selectedRow() == adapter.row_for_section('explore')
+                    frame, detail = adapter.surface.frame(), web.frame()
+                    receipt['sidebar_size'] = {'width': frame.size.width, 'height': frame.size.height}
+                    receipt['detail_size'] = {'width': detail.size.width, 'height': detail.size.height}
+                    assert 180 <= frame.size.width <= 281 and frame.size.height >= 500, receipt
+                    assert 400 <= detail.size.width <= 600 and detail.size.height >= 500, receipt
+                    assert web.window() is window, 'The one WKWebView must remain hosted by the original window.'
+                    assert window.contentViewController() is adapter.split
+                    assert adapter.outline.className() == 'NSOutlineView'
+                    assert adapter.search_item.className() == 'NSSearchToolbarItem'
+                    receipt['single_webview'] = True
                     output = args.output / 'navigation.png'
                     subprocess.run(['/usr/sbin/screencapture', '-x', '-l', str(window.windowNumber()), str(output)],
                                    check=True, timeout=10)

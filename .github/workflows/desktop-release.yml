@@ -137,5 +137,5 @@ jobs:
           path: artifacts
       - name: Publish new immutable desktop packages
         run: |
-          python tools/publish_desktop_release.py --tag windows-v0.8.0 --file artifacts/Blaze-Windows.zip --platform Windows
-          python tools/publish_desktop_release.py --tag linux-v0.8.0-preview --file artifacts/Blaze-Linux-x86_64.tar.gz --platform Linux
+          python tools/publish_desktop_release.py --tag windows-v0.9.0 --file artifacts/Blaze-Windows.zip --platform Windows
+          python tools/publish_desktop_release.py --tag linux-v0.9.0-preview --file artifacts/Blaze-Linux-x86_64.tar.gz --platform Linux

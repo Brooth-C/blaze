@@ -45,6 +45,7 @@ class Studio:
         self.worker = None
         self.downloader = None
         self.discovery = None
+        self.presentation = 'desktop'
         self.source_revision = 0
         self.state.update(discoveryItem=None, sourceRevision=0, mediaKind=media_kind(self.source))
         self.appearance_path = self.directory / 'appearance.json'
@@ -55,6 +56,29 @@ class Studio:
                 self.appearance = saved['appearance']
         except (OSError, ValueError, TypeError):
             pass
+
+    def open_local_file(self, selected):
+        """Select a file returned by a native Open panel, never an HTTP path."""
+        try:
+            source = Path(selected).expanduser().resolve(strict=True)
+            if not source.is_file() or not 0 < source.stat().st_size <= MAX_BYTES:
+                raise ValueError('Choose a media file smaller than 2 GB.')
+            with source.open('rb') as stream:
+                stream.read(1)
+        except (OSError, TypeError):
+            raise ValueError('The selected file could not be opened.') from None
+        with self.lock:
+            if self.state['busy']:
+                raise ValueError('Finish or cancel chord analysis first.')
+            if self.imported and self.source and self.source != source:
+                self.source.unlink(missing_ok=True)
+            self.source, self.name, self.imported = source, source.name, False
+            self.source_revision += 1
+            self.state.update(name=self.name, result=None, error=None,
+                              progress='Ready to analyse offline.', discoveryItem=None,
+                              sourceRevision=self.source_revision, mediaKind=media_kind(source))
+            return {'name': self.name, 'sourceRevision': self.source_revision,
+                    'mediaKind': media_kind(source)}
 
     def set_appearance(self, appearance):
         if appearance not in ('system', 'light', 'dark'):
@@ -180,13 +204,24 @@ def create_server(studio, port=0):
                 self.json({'error': 'Access denied.'}, 403)
                 return
             path = urlsplit(self.path).path
-            if path in ('/', '/studio.js', '/flow.js', '/studio.css', '/blaze-logo.png'):
-                name = {'/': 'index.html', '/studio.js': 'studio.js', '/flow.js': 'flow.js', '/studio.css': 'studio.css', '/blaze-logo.png': 'blaze-logo.png'}[path]
+            mac = studio.presentation == 'mac'
+            names = {'/': 'index.html', '/studio.js': 'studio.js', '/flow.js': 'flow.js',
+                     '/studio.css': 'studio.css', '/blaze-logo.png': 'blaze-logo.png'}
+            if mac:
+                names.update({'/mac.css': 'mac.css', '/mac.js': 'mac.js'})
+            if path in names:
+                name = names[path]
                 data = (assets / name).read_bytes()
                 if path == '/':
                     data = data.replace(b'%%TOKEN%%', studio.token.encode())
                     data = data.replace(b'%%APPEARANCE%%', studio.appearance.encode())
-                self.send(data, content_type={'/': 'text/html; charset=utf-8', '/studio.js': 'text/javascript; charset=utf-8', '/flow.js': 'text/javascript; charset=utf-8', '/studio.css': 'text/css; charset=utf-8', '/blaze-logo.png': 'image/png'}[path])
+                    data = data.replace(b'%%PRESENTATION%%', b'mac' if mac else b'desktop')
+                    data = data.replace(b'%%MAC_STYLES%%', b'<link rel="stylesheet" href="/mac.css">' if mac else b'')
+                    data = data.replace(b'%%MAC_SCRIPT%%', b'<script src="/mac.js"></script>' if mac else b'')
+                kind = ('text/html; charset=utf-8' if path == '/' else 'text/css; charset=utf-8'
+                        if path.endswith('.css') else 'image/png' if path.endswith('.png')
+                        else 'text/javascript; charset=utf-8')
+                self.send(data, content_type=kind)
                 return
             if not self.permitted(token=True):
                 self.json({'error': 'Access denied.'}, 403)
