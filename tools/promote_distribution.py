@@ -15,11 +15,11 @@ REPOSITORY = 'Brooth-C/blaze'
 NATIVE_SOURCES = dict(name='Blaze-Android-Native-Sources.tar.gz', source_tag='v4.1.29',
                       size=374676937, sha256='c2eeadf7bbc8be426ead9248fa69e4a5ce5c490c5484669495e684a3081d226e')
 ORIGINS = {
-    'Blaze-Windows.zip': 'windows-v0.8.0',
+    'Blaze-Windows.zip': 'windows-v0.9.0',
     'Blaze-Android-Preview.apk': 'android-v0.11.0',
-    'Blaze-Mac-arm64.zip': 'macos-v0.8.0-preview',
-    'Blaze-Mac-x86_64.zip': 'macos-v0.8.0-preview',
-    'Blaze-Linux-x86_64.tar.gz': 'linux-v0.8.0-preview',
+    'Blaze-Mac-arm64.zip': 'macos-v0.9.0-preview',
+    'Blaze-Mac-x86_64.zip': 'macos-v0.9.0-preview',
+    'Blaze-Linux-x86_64.tar.gz': 'linux-v0.9.0-preview',
     'Blaze-Linux-Installer.zip': 'v4.1.29',
     'Blaze-Termux-Installer.zip': 'v4.1.29',
 }
@@ -77,7 +77,7 @@ def input_tree(commit):
 
 
 def validate(catalog, main_sha):
-    if (catalog['repository'] != REPOSITORY or catalog['tag'] != 'v4.4.0'
+    if (catalog['repository'] != REPOSITORY or catalog['tag'] != 'v4.5.0'
             or os.environ.get('GH_REPO', REPOSITORY) != REPOSITORY
             or os.environ.get('GITHUB_REPOSITORY', REPOSITORY) != REPOSITORY
             or {a['name']: a['source_tag'] for a in catalog['assets']} != ORIGINS):
@@ -145,7 +145,7 @@ def promote(catalog):
         release.verify_files(directory, catalog['assets'])
         notes = directory / 'release-notes.md'
         notes.write_text(release.page(catalog), encoding='utf-8')
-        publisher.publish(catalog['tag'], 'Blaze 4.4.0 · discover and listen across desktop',
+        publisher.publish(catalog['tag'], 'Blaze 4.5.0 · a calmer Mac workspace',
                           catalog['assets'], directory, notes, main_sha, False, main_sha)
         if publisher.api('releases/latest')['tag_name'] != catalog['tag']:
             raise ValueError('The verified distribution is not GitHub Latest')

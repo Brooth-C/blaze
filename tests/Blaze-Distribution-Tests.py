@@ -14,7 +14,7 @@ class DistributionTests(unittest.TestCase):
         self.head, self.main = 'a' * 40, 'b' * 40
         self.tree = {path: 'same-' + path for path in p.INPUTS}
         self.catalog = {
-            'repository': p.REPOSITORY, 'tag': 'v4.4.0',
+            'repository': p.REPOSITORY, 'tag': 'v4.5.0',
             'assets': [dict(name=name, source_tag=tag, size=10, sha256='c' * 64)
                        for name, tag in p.ORIGINS.items()],
             'native_validation': {key: dict(run_id=index, head_sha=self.head)
@@ -147,7 +147,7 @@ class DistributionTests(unittest.TestCase):
             read({'tree': entries, 'truncated': True})
 
     def test_changed_platform_release_digest_or_target_is_rejected(self):
-        source = self.sources['windows-v0.8.0']
+        source = self.sources['windows-v0.9.0']
         source['target_commitish'] = 'e' * 40
         with self.assertRaises(ValueError):
             self.validate()
