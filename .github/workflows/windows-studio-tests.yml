@@ -31,7 +31,20 @@ jobs:
           node tests/Blaze-Timeline-Cells-Tests.cjs
       - name: Install browser and local media test dependencies
         run: |
-          sudo apt-get update && sudo apt-get install -y ffmpeg
+          # Keep Ubuntu package signature verification, using the official
+          # archive instead of the Azure mirror that timed out during downloads.
+          sudo python3 - <<'PYMIRROR'
+          from pathlib import Path
+          paths = [Path('/etc/apt/sources.list'), *Path('/etc/apt/sources.list.d').glob('*.sources'), *Path('/etc/apt/sources.list.d').glob('*.list')]
+          for path in paths:
+              if path.is_file():
+                  original = path.read_text()
+                  updated = original.replace('http://azure.archive.ubuntu.com/ubuntu', 'https://archive.ubuntu.com/ubuntu')
+                  if updated != original:
+                      path.write_text(updated)
+          PYMIRROR
+          sudo apt-get -o Acquire::Retries=2 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 update
+          sudo apt-get -o Acquire::Retries=2 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 install -y --no-install-recommends ffmpeg
           npm install --prefix "$RUNNER_TEMP/blaze-browser" --no-package-lock --no-save playwright@1.56.1
           "$RUNNER_TEMP/blaze-browser/node_modules/.bin/playwright" install --with-deps chromium
       - name: Verify desktop discovery and existing media workflows
