@@ -419,7 +419,7 @@ def ui_smoke(window, studio, destination, receipt, probe, timeout=240):
             separation = probe.probe(window, 'window.BlazeMacStems.snapshot()')
             if separation['status'] != 'done' or len(separation['stems']) != 5:
                 raise RuntimeError('The bundled stem model did not complete: ' + json.dumps(separation))
-            wait_for("!busy && document.querySelectorAll('#stems-results .stem-result').length===4")
+            wait_for("!busy && document.querySelectorAll('#stems-results .stem-result').length===5")
             capture_screenshot(target.with_name('native-stems.png'))
             with studio.lock:
                 files = {name: studio.stems.file(separation['jobId'], name) for name in ('vocals', 'drums', 'bass', 'piano', 'other')}

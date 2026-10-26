@@ -66,7 +66,7 @@ async function layout(page){
             await route.fulfill({response,json:value});
         });
         await page.route('**/api/stems',async route=>{
-            if(job.status==='running'&&starts>1&&++polls>=3){job={...job,status:'done',progress:1,message:'Four stems ready.',
+            if(job.status==='running'&&starts>1&&++polls>=3){job={...job,status:'done',progress:1,message:'Tracks ready.',
                 stems:(job.mode==='piano'?['piano','accompaniment']:['vocals','drums','bass','piano','other']).map(id=>({id,label:id,filename:id+'.wav'}))};}
             await route.fulfill({json:job});
         });
