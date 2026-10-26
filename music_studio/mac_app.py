@@ -417,12 +417,12 @@ def ui_smoke(window, studio, destination, receipt, probe, timeout=240):
             probe.run(window, "document.getElementById('stems-start').click()")
             wait_for("window.BlazeMacStems.snapshot().status==='done' || window.BlazeMacStems.snapshot().status==='failed'")
             separation = probe.probe(window, 'window.BlazeMacStems.snapshot()')
-            if separation['status'] != 'done' or len(separation['stems']) != 4:
+            if separation['status'] != 'done' or len(separation['stems']) != 5:
                 raise RuntimeError('The bundled stem model did not complete: ' + json.dumps(separation))
             wait_for("!busy && document.querySelectorAll('#stems-results .stem-result').length===4")
             capture_screenshot(target.with_name('native-stems.png'))
             with studio.lock:
-                files = {name: studio.stems.file(separation['jobId'], name) for name in ('vocals', 'drums', 'bass', 'other')}
+                files = {name: studio.stems.file(separation['jobId'], name) for name in ('vocals', 'drums', 'bass', 'piano', 'other')}
             metadata = {}
             for name, path in files.items():
                 result = subprocess.run([str(resource_root() / 'bin/ffprobe'), '-v', 'error',
@@ -437,7 +437,7 @@ def ui_smoke(window, studio, destination, receipt, probe, timeout=240):
             wait_for("!document.getElementById('stems-dialog').open && sourceName==='Vocals.wav' && document.getElementById('media').readyState>=1")
             probe.run(window, "document.getElementById('mini-play').click()")
             wait_for("(() => {const m=document.getElementById('media');return m===window.blazeSmokeVideo && !m.paused && m.currentTime>.1;})()")
-            receipt['stems'] = {'model': 'SCNet', 'count': 4, 'files': metadata,
+            receipt['stems'] = {'model': 'Spleeter 5stems', 'count': 5, 'files': metadata,
                                 'real_model': True, 'native_playback': True}
             probe.run(window, "document.getElementById('mini-play').click(); document.getElementById('split-stems').click()")
             wait_for("document.getElementById('stems-dialog').open")

@@ -67,11 +67,11 @@ async function layout(page){
         });
         await page.route('**/api/stems',async route=>{
             if(job.status==='running'&&starts>1&&++polls>=3){job={...job,status:'done',progress:1,message:'Four stems ready.',
-                stems:(job.mode==='piano'?['piano','accompaniment']:['vocals','drums','bass','other']).map(id=>({id,label:id,filename:id+'.wav'}))};}
+                stems:(job.mode==='piano'?['piano','accompaniment']:['vocals','drums','bass','piano','other']).map(id=>({id,label:id,filename:id+'.wav'}))};}
             await route.fulfill({json:job});
         });
         await page.route('**/api/stems-start',async route=>{
-            const mode=route.request().postDataJSON().mode;assert(['stems','piano'].includes(mode));actions.push('start');++starts;polls=0;
+            const mode=route.request().postDataJSON().mode;assert(['five','piano'].includes(mode));actions.push('start');++starts;polls=0;
             job={available:true,mode,status:'running',progress:.2,message:'Separating this recording…',jobId:'fixture-job-'+starts,
                 sourceRevision:starts,sourceName:'A local recording.wav',stems:[]};
             await route.fulfill({json:job});
@@ -107,7 +107,7 @@ async function layout(page){
         assert.deepEqual(actions,['start','cancel']);
         await page.locator('#stems-start').click();
         await page.locator('.stem-result').first().waitFor();
-        assert.equal(await page.locator('.stem-result').count(),4);
+        assert.equal(await page.locator('.stem-result').count(),5);
         await page.locator('#stems-folder').click();assert(folderOpened);
         await layout(page);await shot(page,'complete');
         for(const [width,height] of [[570,540],[813,632]]){
@@ -150,7 +150,7 @@ async function layout(page){
         await page.waitForFunction(()=>sourceName==='Piano.wav'&&!document.getElementById('stems-dialog').open);
         assert(await page.locator('#media').evaluate(el=>el===window.testMedia));
         assert.deepEqual(errors,[]);
-        console.log('Mac stems UI PASS: start/progress, close and reopen without cancellation, explicit cancel/retry, four outputs, token-bound WAV export, folder action, same-player Studio handoff and real WAV playback, compact sheet geometry. Controlled separation worker; no model quality or native AppKit claim.');
+        console.log('Mac stems UI PASS: start/progress, close and reopen without cancellation, explicit cancel/retry, five separate outputs, token-bound WAV export, folder action, same-player Studio handoff and real WAV playback, compact sheet geometry. Controlled separation worker; no model quality or native AppKit claim.');
     }catch(error){if(stderr.trim())console.error(stderr);if(page)await shot(page,'failure').catch(()=>{});throw error;}
     finally{if(browser)await browser.close();server.kill('SIGTERM');}
 })().catch(error=>{console.error(error);process.exitCode=1;});

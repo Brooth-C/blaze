@@ -1,4 +1,4 @@
-"""Local piano isolation with Deezer's five jointly normalized Spleeter U-Nets.
+"""Five-stem separation and piano isolation with Deezer's Spleeter U-Nets.
 
 One model is evaluated as five spectral graphs, sequentially to bound memory.
 The accompaniment is the input minus estimated piano, preserving the full mix.
@@ -27,7 +27,7 @@ def analyse(audio):
     return spec, magnitude
 
 
-def piano_mask(logits, magnitude):
+def ratio_masks(logits, magnitude):
     # Reproduce Spleeter's joint softmax, then its power-2 ratio mask.
     values = np.asarray(logits, dtype=np.float32)
     values -= values.max(axis=0, keepdims=True)
@@ -35,7 +35,11 @@ def piano_mask(logits, magnitude):
     values /= values.sum(axis=0, keepdims=True)
     values *= magnitude[0][None]
     np.square(values, out=values)
-    return (values[2] + 1e-10 / 5) / (values.sum(axis=0) + 1e-10)
+    return (values + 1e-10 / 5) / (values.sum(axis=0, keepdims=True) + 1e-10)
+
+
+def piano_mask(logits, magnitude):
+    return ratio_masks(logits, magnitude)[2]
 
 
 def synthesise(spec, mask, length):
@@ -54,6 +58,14 @@ def synthesise(spec, mask, length):
 
 
 class PianoSeparator(Separator):
+    outputs = ('piano', 'accompaniment')
+    message = 'Isolating the piano…'
+    completed = 'Your piano track is ready.'
+
+    def _estimates(self, audio, spec, logits, features):
+        piano = synthesise(spec, piano_mask(logits, features), SEGMENT)
+        return np.stack((piano, audio - piano))
+
     def __init__(self, model_directory=None, ffmpeg='ffmpeg'):
         super().__init__(model_directory, ffmpeg)
         self.directory = self.directory / 'piano'
@@ -63,10 +75,10 @@ class PianoSeparator(Separator):
         meta = MODELS[name]
         path = self.directory / meta['file']
         if not path.is_file() or path.stat().st_size != meta['bytes']:
-            raise ValueError('The piano model is missing. Reinstall the complete Mac app.')
+            raise ValueError('The instrument model is missing. Reinstall the complete Mac app.')
         data = path.read_bytes()
         if hashlib.sha256(data).hexdigest() != meta['sha256']:
-            raise ValueError('The piano model checksum is invalid. Reinstall the Mac app.')
+            raise ValueError('The instrument model checksum is invalid. Reinstall the Mac app.')
         options = ort.SessionOptions()
         options.intra_op_num_threads = 2
         options.inter_op_num_threads = 1
@@ -76,7 +88,7 @@ class PianoSeparator(Separator):
         try:
             check_cancel(event)
             if self.session.get_inputs()[0].shape != [1, 2, FRAMES, BINS]:
-                raise ValueError('The piano model has an incompatible interface.')
+                raise ValueError('The instrument model has an incompatible interface.')
             # Reuse the existing interruptible ORT runner with this graph's names.
             run_options, finished = ort.RunOptions(), threading.Event()
             def interrupt():
@@ -96,7 +108,7 @@ class PianoSeparator(Separator):
                 watcher.join(timeout=1)
             check_cancel(event)
             if result.shape != features.shape or not np.isfinite(result).all():
-                raise ValueError('The piano model returned invalid estimates.')
+                raise ValueError('The instrument model returned invalid estimates.')
             return result[0]
         finally:
             self.session = None
@@ -111,16 +123,16 @@ class PianoSeparator(Separator):
         output = Path(output_dir)
         output.mkdir(parents=True, exist_ok=True)
         if any(output.iterdir()):
-            raise ValueError('Piano isolation requires a new empty output folder.')
-        paths = {name: output / (name + '.wav') for name in ('piano', 'accompaniment')}
+            raise ValueError('Stem separation requires a new empty output folder.')
+        paths = {name: output / (name + '.wav') for name in self.outputs}
         streams = []
         try:
             with tempfile.TemporaryDirectory(prefix='blaze-piano-') as temporary:
                 decoded = Path(temporary) / 'audio.f32'
                 progress(0, 'Reading the recording…')
                 count = self._decode(source, decoded, event)
-                if shutil.disk_usage(output).free < count * 16 + DISK_RESERVE:
-                    raise ValueError('There is not enough free space to save the piano tracks.')
+                if shutil.disk_usage(output).free < count * 8 * len(self.outputs) + DISK_RESERVE:
+                    raise ValueError('There is not enough free space to save the separated tracks.')
                 pcm = np.memmap(decoded, mode='r', dtype='<f4', shape=(count, 2))
                 try:
                     for path in paths.values():
@@ -128,7 +140,7 @@ class PianoSeparator(Separator):
                     stride = SEGMENT // 2
                     weight = np.minimum(np.arange(1, SEGMENT + 1), np.arange(SEGMENT, 0, -1)).astype(np.float32)
                     weight /= weight.max()
-                    accumulated = np.zeros((2, SEGMENT), dtype=np.float32)
+                    accumulated = np.zeros((len(self.outputs), 2, SEGMENT), dtype=np.float32)
                     denominator = np.zeros(SEGMENT, dtype=np.float32)
                     for offset in range(0, count, stride):
                         check_cancel(event)
@@ -142,17 +154,18 @@ class PianoSeparator(Separator):
                         for index, name in enumerate(('drums', 'bass', 'piano', 'other', 'vocals')):
                             logits.append(self._graph(name, features, event))
                             progress(.03 + .94 * min(1, (offset + stride * (index + 1) / 5) / count),
-                                     'Isolating the piano…')
-                        piano = synthesise(spec, piano_mask(logits, features), SEGMENT)
-                        accumulated[:, :length] += piano[:, :length] * weight[:length]
+                                     self.message)
+                        estimates = self._estimates(audio, spec, logits, features)
+                        if not np.isfinite(estimates).all():
+                            raise ValueError('The model returned invalid audio samples.')
+                        accumulated[:, :, :length] += estimates[:, :, :length] * weight[:length]
                         denominator[:length] += weight[:length]
                         written = min(stride, count - offset)
-                        block = accumulated[:, :written] / denominator[None, :written]
-                        rest = pcm[offset:offset + written].T - block
-                        for stream, samples in zip(streams, (block, rest)):
+                        block = accumulated[:, :, :written] / denominator[None, None, :written]
+                        for stream, samples in zip(streams, block):
                             stream.write(np.asarray(samples.T, dtype='<f4').tobytes())
-                        accumulated[:, :-stride] = accumulated[:, stride:]
-                        accumulated[:, -stride:] = 0
+                        accumulated[:, :, :-stride] = accumulated[:, :, stride:]
+                        accumulated[:, :, -stride:] = 0
                         denominator[:-stride] = denominator[stride:]
                         denominator[-stride:] = 0
                 finally:
@@ -160,9 +173,24 @@ class PianoSeparator(Separator):
             check_cancel(event)
             for stream in streams: stream.close()
             streams.clear()
-            progress(1, 'Your piano track is ready.')
+            progress(1, self.completed)
             return paths
         except Exception:
             for stream in streams: stream.close()
             for path in paths.values(): path.unlink(missing_ok=True)
             raise
+
+
+class FiveStemSeparator(PianoSeparator):
+    outputs = ('vocals', 'drums', 'bass', 'piano', 'other')
+    message = 'Separating vocals, drums, bass, piano and other…'
+    completed = 'Your five stems are ready.'
+
+    def _estimates(self, audio, spec, logits, features):
+        masks = ratio_masks(logits, features)
+        # Graph order: drums, bass, piano, other, vocals. Present vocals first.
+        estimates = np.stack([synthesise(spec, masks[i], SEGMENT) for i in (4, 0, 1, 2, 3)])
+        # Preserve the original's unmodeled high band and numerical residual in
+        # Other so five unity-gain exports reconstruct the input recording.
+        estimates[4] += audio - estimates.sum(axis=0)
+        return estimates

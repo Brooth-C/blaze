@@ -129,6 +129,7 @@ def stage_piano(cache, target):
             raise ValueError('Piano asset size mismatch.')
         shutil.copy2(destination, target / name)
     manifest = {'model': 'Spleeter 5stems', 'outputs': ['piano', 'accompaniment'],
+                'five_outputs': ['vocals', 'drums', 'bass', 'piano', 'other'],
                 'sample_rate': 44100, 'models': MODELS, 'licenses': LICENSES,
                 'weight_license': 'MIT',
                 'license_evidence': 'https://doi.org/10.21105/joss.02154',

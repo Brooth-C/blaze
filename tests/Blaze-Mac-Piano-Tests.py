@@ -11,7 +11,7 @@ import unittest
 import wave
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import numpy as np
-from music_studio.piano import PianoSeparator, analyse, synthesise, piano_mask, SEGMENT
+from music_studio.piano import PianoSeparator, FiveStemSeparator, analyse, synthesise, piano_mask, SEGMENT
 from music_studio.stems import SeparationCancelled
 
 
@@ -61,6 +61,38 @@ class PianoTests(unittest.TestCase):
             self.assertEqual(decoded[0].shape,samples.shape)
             np.testing.assert_allclose(sum(decoded),samples.astype('float32')/32768,atol=1e-7)
             self.assertEqual(set(tracks),{'piano','accompaniment'})
+
+    def test_five_stem_length_and_full_band_reconstruction(self):
+        if not shutil.which('ffmpeg'): self.skipTest('FFmpeg is required')
+        class Controlled(FiveStemSeparator):
+            def _graph(self, name, features, event):
+                return np.zeros_like(features[0])
+        with tempfile.TemporaryDirectory() as d:
+            root=Path(d); source=root/'mix.wav'
+            # Broadband audio crosses segment boundaries and includes the
+            # unmodeled high band that must be retained in Other.
+            samples=np.random.default_rng(6).integers(-2000,2000,(SEGMENT+137,2),dtype='<i2')
+            with wave.open(str(source),'wb') as out:
+                out.setparams((2,2,44100,0,'NONE','not compressed'));out.writeframes(samples.tobytes())
+            result=Controlled().separate(source,root/'out')
+            self.assertEqual(set(result),{'vocals','drums','bass','piano','other'})
+            tracks=[np.frombuffer(p.read_bytes()[58:],dtype='<f4').reshape(-1,2) for p in result.values()]
+            for track in tracks:self.assertEqual(track.shape,samples.shape)
+            np.testing.assert_allclose(sum(tracks),samples.astype('float32')/32768,atol=1e-7)
+
+    @unittest.skipUnless(os.environ.get('BLAZE_STEM_MODEL_DIR'), 'Real model requested after staging')
+    def test_real_five_stems(self):
+        with tempfile.TemporaryDirectory() as d:
+            root=Path(d);source=root/'mix.wav'
+            t=np.arange(44100)/44100
+            samples=(2000*np.stack((np.sin(2*np.pi*220*t),np.sin(2*np.pi*330*t)),axis=1)).astype('<i2')
+            with wave.open(str(source),'wb') as out:
+                out.setparams((2,2,44100,0,'NONE','not compressed'));out.writeframes(samples.tobytes())
+            result=FiveStemSeparator(os.environ['BLAZE_STEM_MODEL_DIR']).separate(source,root/'out')
+            self.assertEqual(set(result),{'vocals','drums','bass','piano','other'})
+            decoded=[np.frombuffer(p.read_bytes()[58:],dtype='<f4').reshape(-1,2) for p in result.values()]
+            for track in decoded:self.assertTrue(np.isfinite(track).all())
+            np.testing.assert_allclose(sum(decoded),samples.astype('float32')/32768,atol=1e-7)
 
     @unittest.skipUnless(os.environ.get('BLAZE_STEM_MODEL_DIR'), 'Real model requested after staging')
     def test_original_checkpoint_reference(self):
