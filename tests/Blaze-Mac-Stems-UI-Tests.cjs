@@ -131,6 +131,8 @@ async function layout(page){
         await page.evaluate(async()=>{applyAppearance('dark');await window.BlazeMacStems.open();});
         await layout(page);await shot(page,'complete-dark');
         await page.keyboard.press('Escape');
+        // The dialog closes before its queued close event restores focus.
+        await page.waitForFunction(()=>!document.getElementById('stems-dialog').open&&document.activeElement.id==='split-stems');
         assert.equal(await page.locator('#stems-dialog').evaluate(el=>el.open),false);
         assert.equal(await page.evaluate(()=>document.activeElement.id),'split-stems','Closing the sheet lost keyboard focus');
         assert.deepEqual(errors,[]);
