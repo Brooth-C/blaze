@@ -50,7 +50,7 @@ class ControlledSeparator:
         if self.mode == 'failure':
             raise ValueError('The decoder could not read this recording.')
         outputs = {}
-        for stem in STEMS:
+        for stem in getattr(self, 'stems', STEMS):
             path = output_dir / (stem + '.wav')
             path.write_bytes(wav_bytes())
             outputs[stem] = path
@@ -109,6 +109,22 @@ class StemJobTests(unittest.TestCase):
         self.jobs.worker.join(3)
         self.assertFalse(self.jobs.worker.is_alive())
         return self.jobs.snapshot()
+
+    def test_piano_mode_exports_only_its_two_completed_tracks(self):
+        self.separator.stems = ('piano', 'accompaniment')
+        status, _, body = self.request('/api/stems-start', {'mode':'piano'})
+        self.assertEqual(status, 200, body)
+        state = self.finish()
+        self.assertEqual(state['mode'], 'piano')
+        self.assertEqual(state['status'], 'done')
+        self.assertEqual({s['id'] for s in state['stems']}, {'piano','accompaniment'})
+        query = '?jobId=' + state['jobId'] + '&stem='
+        self.assertEqual(self.request('/api/stem-file' + query + 'piano')[0], 200)
+        self.assertEqual(self.request('/api/stem-file' + query + 'vocals')[0], 400)
+        status, _, _ = self.request('/api/stems-select', {'jobId':state['jobId'], 'stem':'piano'})
+        self.assertEqual(status, 200)
+        self.assertEqual(self.studio.name, 'Piano.wav')
+        self.assertTrue(self.source.is_file())
 
     def test_success_exports_exact_saved_audio_and_selects_without_deleting_user_file(self):
         identity = self.start()

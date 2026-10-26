@@ -28,10 +28,13 @@ class StemJobs:
                         (self.models / 'manifest.json').is_file()),
                         stems=[dict(row) for row in self.value['stems']])
 
-    def start(self):
+    def start(self, mode="stems"):
         with self.studio.lock:
             if self.closed or self.studio.state['busy'] or (self.worker and self.worker.is_alive()):
                 raise ValueError('Finish or cancel the current task first.')
+            if mode not in ('stems', 'piano'):
+                raise ValueError('Choose stem separation or piano isolation.')
+            expected = ('piano', 'accompaniment') if mode == 'piano' else STEMS
             source = self.studio.source
             if source is None or not source.is_file():
                 raise ValueError('Open an audio or video recording first.')
@@ -47,7 +50,7 @@ class StemJobs:
             self.files = {}
             self.value.update(status='running', progress=0, message='Preparing your recording…',
                               error=None, jobId=identity, sourceRevision=self.studio.source_revision,
-                              sourceName=self.studio.name, stems=[])
+                              sourceName=self.studio.name, mode=mode, stems=[])
             self.studio.state.update(busy=True, progress='Preparing stem separation…', error=None)
 
             def progress(fraction, message):
@@ -62,13 +65,15 @@ class StemJobs:
                         separator = self.separator_factory(self.models, self.studio.ffmpeg)
                     else:
                         from .stems import Separator
-                        separator = Separator(self.models, self.studio.ffmpeg)
+                        from .piano import PianoSeparator
+                        implementation = PianoSeparator if mode == 'piano' else Separator
+                        separator = implementation(self.models, self.studio.ffmpeg)
                     outputs = separator.separate(source, pending, progress=progress, cancel_event=cancel)
                     if cancel.is_set():
                         return
-                    if set(outputs) != set(STEMS):
+                    if set(outputs) != set(expected):
                         raise ValueError('Stem separation did not produce all four tracks.')
-                    for name in STEMS:
+                    for name in expected:
                         path = Path(outputs[name]).resolve()
                         if path.parent != pending.resolve() or not path.is_file() or path.stat().st_size <= 44:
                             raise ValueError('A separated track could not be saved.')
@@ -76,10 +81,10 @@ class StemJobs:
                         if cancel.is_set() or self.closed:
                             return
                         pending.rename(final)
-                        self.files = {name: final / Path(outputs[name]).name for name in STEMS}
-                        self.value.update(status='done', progress=1, message='Your four stems are ready.',
+                        self.files = {name: final / Path(outputs[name]).name for name in expected}
+                        self.value.update(status='done', progress=1, message='Your piano track is ready.' if mode == 'piano' else 'Your four stems are ready.',
                                           stems=[{'id': name, 'label': name.title(),
-                                                  'filename': name.title() + '.wav'} for name in STEMS])
+                                                  'filename': name.title() + '.wav'} for name in expected])
                 except Exception as error:
                     with self.studio.lock:
                         if not cancel.is_set():
@@ -106,7 +111,7 @@ class StemJobs:
     def file(self, identity, stem):
         with self.studio.lock:
             if (not isinstance(identity, str) or identity != self.value['jobId'] or
-                    self.value['status'] != 'done' or stem not in STEMS or stem not in self.files):
+                    self.value['status'] != 'done' or stem not in self.files):
                 raise ValueError('Choose a completed stem from this separation.')
             source = self.files[stem]
             if not source.is_file():
@@ -127,7 +132,7 @@ class StemJobs:
                                      sourceRevision=self.studio.source_revision, mediaKind='audio')
 
     def open_folder(self, identity):
-        folder = self.file(identity, 'vocals').parent
+        folder = self.file(identity, 'piano' if self.value.get('mode') == 'piano' else 'vocals').parent
         if sys.platform != 'darwin':
             raise ValueError('Open the Mac app to reveal the saved stems.')
         subprocess.Popen(['/usr/bin/open', str(folder)])

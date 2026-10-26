@@ -399,7 +399,7 @@ def create_server(studio, port=0):
                 if path.startswith('/api/stems-'):
                     manager = stems()
                     if path == '/api/stems-start':
-                        self.json(manager.start())
+                        self.json(manager.start(body.get('mode', 'stems')))
                     elif path == '/api/stems-cancel':
                         self.json(manager.cancel())
                     elif path == '/api/stems-select':

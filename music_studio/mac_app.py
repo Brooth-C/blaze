@@ -414,6 +414,7 @@ def ui_smoke(window, studio, destination, receipt, probe, timeout=240):
             wait_for("window.BlazeMacStems && !document.getElementById('split-stems').hidden")
             probe.run(window, "document.getElementById('split-stems').click()")
             wait_for("document.getElementById('stems-dialog').open")
+            probe.run(window, "document.getElementById('stems-start').click()")
             wait_for("window.BlazeMacStems.snapshot().status==='done' || window.BlazeMacStems.snapshot().status==='failed'")
             separation = probe.probe(window, 'window.BlazeMacStems.snapshot()')
             if separation['status'] != 'done' or len(separation['stems']) != 4:
@@ -438,6 +439,20 @@ def ui_smoke(window, studio, destination, receipt, probe, timeout=240):
             wait_for("(() => {const m=document.getElementById('media');return m===window.blazeSmokeVideo && !m.paused && m.currentTime>.1;})()")
             receipt['stems'] = {'model': 'SCNet', 'count': 4, 'files': metadata,
                                 'real_model': True, 'native_playback': True}
+            probe.run(window, "document.getElementById('mini-play').click(); document.getElementById('split-stems').click()")
+            wait_for("document.getElementById('stems-dialog').open")
+            probe.run(window, "document.getElementById('stems-piano').click()")
+            wait_for("window.BlazeMacStems.snapshot().mode==='piano' && ['done','failed'].includes(window.BlazeMacStems.snapshot().status)")
+            piano_job = probe.probe(window, 'window.BlazeMacStems.snapshot()')
+            if piano_job['status'] != 'done' or {row['id'] for row in piano_job['stems']} != {'piano', 'accompaniment'}:
+                raise RuntimeError('Bundled piano isolation failed: ' + json.dumps(piano_job))
+            wait_for("!busy && document.querySelectorAll('#stems-results .stem-result').length===2")
+            capture_screenshot(target.with_name('native-piano.png'))
+            probe.run(window, "document.querySelector('button[aria-label=\"Open Piano in Studio\"]').click()")
+            wait_for("!document.getElementById('stems-dialog').open && sourceName==='Piano.wav' && document.getElementById('media').readyState>=1")
+            probe.run(window, "document.getElementById('mini-play').click()")
+            wait_for("(() => {const m=document.getElementById('media');return m===window.blazeSmokeVideo && !m.paused && m.currentTime>.1;})()")
+            receipt['piano'] = {'model': 'Spleeter 5stems', 'real_model': True, 'native_playback': True, 'outputs': 2}
         receipt['ok'] = True
     except Exception as error:
         receipt.update(ok=False, error=str(error))

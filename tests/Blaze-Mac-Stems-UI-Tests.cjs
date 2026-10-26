@@ -26,7 +26,7 @@ with tempfile.TemporaryDirectory(prefix='blaze-stems-ui-') as directory:
         # The download uses the real authenticated server and filesystem. Only
         # separation job state is controlled by the browser fixture below.
         def file(self,job_id,stem):
-            if job_id!='fixture-job-2' or stem!='vocals':raise ValueError('Unknown fixture stem')
+            if (job_id,stem) not in [('fixture-job-2','vocals'),('fixture-job-3','piano')]:raise ValueError('Unknown fixture stem')
             return source
         def close(self):pass
     studio.stems=UIWorker()
@@ -67,12 +67,12 @@ async function layout(page){
         });
         await page.route('**/api/stems',async route=>{
             if(job.status==='running'&&starts>1&&++polls>=3){job={...job,status:'done',progress:1,message:'Four stems ready.',
-                stems:['vocals','drums','bass','other'].map(id=>({id,label:id,filename:id+'.wav'}))};}
+                stems:(job.mode==='piano'?['piano','accompaniment']:['vocals','drums','bass','other']).map(id=>({id,label:id,filename:id+'.wav'}))};}
             await route.fulfill({json:job});
         });
         await page.route('**/api/stems-start',async route=>{
-            assert.deepEqual(route.request().postDataJSON(),{});actions.push('start');++starts;polls=0;
-            job={available:true,status:'running',progress:.2,message:'Separating this recording…',jobId:'fixture-job-'+starts,
+            const mode=route.request().postDataJSON().mode;assert(['stems','piano'].includes(mode));actions.push('start');++starts;polls=0;
+            job={available:true,mode,status:'running',progress:.2,message:'Separating this recording…',jobId:'fixture-job-'+starts,
                 sourceRevision:starts,sourceName:'A local recording.wav',stems:[]};
             await route.fulfill({json:job});
         });
@@ -85,8 +85,8 @@ async function layout(page){
             await route.fulfill({json:{ok:true}});
         });
         await page.route('**/api/stems-select',async route=>{
-            const selected=route.request().postDataJSON();assert.equal(selected.jobId,job.jobId);assert.equal(selected.stem,'vocals');
-            const response=await page.request.post(base+'/api/import',{headers:{'X-Blaze-Token':token,'X-File-Name':'Vocals.wav'},data:wav});
+            const selected=route.request().postDataJSON();assert.equal(selected.jobId,job.jobId);assert(['vocals','piano'].includes(selected.stem));
+            const response=await page.request.post(base+'/api/import',{headers:{'X-Blaze-Token':token,'X-File-Name':selected.stem==='piano'?'Piano.wav':'Vocals.wav'},data:wav});
             assert(response.ok());actions.push('select');await route.fulfill({json:{ok:true}});
         });
         await page.goto(base);
@@ -96,6 +96,7 @@ async function layout(page){
         await page.evaluate(()=>{window.testMedia=document.getElementById('media');window.BlazeMac.installNativeChrome({sidebar:true,search:true});});
         await page.locator('#split-stems').waitFor({state:'visible'});
         await page.locator('#split-stems').click();
+        await page.locator('#stems-start').click();
         await page.locator('#stems-cancel').waitFor({state:'visible'});
         await layout(page);await shot(page,'running');
         await page.locator('#stems-close').click();
@@ -135,6 +136,19 @@ async function layout(page){
         await page.waitForFunction(()=>!document.getElementById('stems-dialog').open&&document.activeElement.id==='split-stems');
         assert.equal(await page.locator('#stems-dialog').evaluate(el=>el.open),false);
         assert.equal(await page.evaluate(()=>document.activeElement.id),'split-stems','Closing the sheet lost keyboard focus');
+        await page.locator('#split-stems').click();
+        await page.locator('#stems-piano').click();
+        await page.waitForFunction(()=>window.BlazeMacStems.snapshot().mode==='piano'&&window.BlazeMacStems.snapshot().status==='done');
+        await page.getByRole('button',{name:'Open Piano in Studio',exact:true}).waitFor();
+        assert.equal(await page.locator('.stem-result').count(),2);
+        await layout(page);await shot(page,'piano');
+        const pianoDownload=page.waitForEvent('download');
+        await page.getByRole('link',{name:'Save Piano WAV',exact:true}).click();
+        const pianoFile=await pianoDownload;assert.equal(pianoFile.suggestedFilename(),'Piano.wav');
+        assert.deepEqual(fs.readFileSync(await pianoFile.path()),wav);
+        await page.getByRole('button',{name:'Open Piano in Studio',exact:true}).click();
+        await page.waitForFunction(()=>sourceName==='Piano.wav'&&!document.getElementById('stems-dialog').open);
+        assert(await page.locator('#media').evaluate(el=>el===window.testMedia));
         assert.deepEqual(errors,[]);
         console.log('Mac stems UI PASS: start/progress, close and reopen without cancellation, explicit cancel/retry, four outputs, token-bound WAV export, folder action, same-player Studio handoff and real WAV playback, compact sheet geometry. Controlled separation worker; no model quality or native AppKit claim.');
     }catch(error){if(stderr.trim())console.error(stderr);if(page)await shot(page,'failure').catch(()=>{});throw error;}
