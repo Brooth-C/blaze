@@ -110,6 +110,20 @@ class StemJobTests(unittest.TestCase):
         self.assertFalse(self.jobs.worker.is_alive())
         return self.jobs.snapshot()
 
+    def test_five_mode_exports_five_individual_instruments(self):
+        self.separator.stems = ('vocals','drums','bass','piano','other')
+        status, _, body = self.request('/api/stems-start', {'mode':'five'})
+        self.assertEqual(status, 200, body)
+        state = self.finish()
+        self.assertEqual(state['mode'], 'five')
+        self.assertEqual(state['status'], 'done')
+        self.assertEqual({s['id'] for s in state['stems']},set(self.separator.stems))
+        query='?jobId='+state['jobId']+'&stem='
+        for stem in self.separator.stems:
+            self.assertEqual(self.request('/api/stem-file'+query+stem)[0],200)
+        self.assertEqual(self.request('/api/stem-file'+query+'accompaniment')[0],400)
+        self.assertTrue(self.source.exists())
+
     def test_piano_mode_exports_only_its_two_completed_tracks(self):
         self.separator.stems = ('piano', 'accompaniment')
         status, _, body = self.request('/api/stems-start', {'mode':'piano'})

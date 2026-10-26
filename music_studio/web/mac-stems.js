@@ -11,10 +11,10 @@
     dialog.id = 'stems-dialog';
     dialog.setAttribute('aria-labelledby', 'stems-heading');
     dialog.innerHTML = '<div class="stems-heading"><h3 id="stems-heading">Split stems</h3><button id="stems-close" aria-label="Close stem separation">×</button></div>' +
-        '<p id="stems-source"></p><p class="stems-description">Split four stems or isolate the piano. Processed on this Mac.</p>' +
+        '<p id="stems-source"></p><p class="stems-description">Vocals, drums, bass, piano and other. Processed on this Mac.</p>' +
         '<div id="stems-progress-panel" hidden><progress id="stems-progress" max="1" value="0" aria-label="Stem separation progress"></progress></div>' +
         '<p id="stems-message" role="status"></p><p id="stems-error" role="alert" hidden></p><div id="stems-results"></div>' +
-        '<div class="stems-footer"><button id="stems-folder" hidden>Open folder</button><button id="stems-cancel" hidden>Cancel separation</button><button id="stems-piano">Isolate piano</button><button id="stems-start" class="primary">Split four stems</button></div>';
+        '<div class="stems-footer"><button id="stems-folder" hidden>Open folder</button><button id="stems-cancel" hidden>Cancel separation</button><button id="stems-piano">Isolate piano</button><button id="stems-start" class="primary">Separate five stems</button></div>';
     document.body.append(dialog);
     let state = {available: false, status: 'idle', stems: []};
     let requestInFlight = false, submitting = false, stopped = false, mutationEpoch = 0;
@@ -92,7 +92,7 @@
             if (dialog.open) error(failure.message || 'Stem separation could not be checked.');
         } finally { requestInFlight = false; }
     };
-    const start = async (mode = 'stems') => {
+    const start = async (mode = 'five') => {
         if (submitting || busy || !sourceName) return;
         submitting = true; ++mutationEpoch; error(''); render();
         try {
