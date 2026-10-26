@@ -45,6 +45,7 @@ class Studio:
         self.worker = None
         self.downloader = None
         self.discovery = None
+        self.stems = None
         self.presentation = 'desktop'
         self.source_revision = 0
         self.state.update(discoveryItem=None, sourceRevision=0, mediaKind=media_kind(self.source))
@@ -142,6 +143,8 @@ class Studio:
         self.worker.start()
 
     def close(self):
+        if self.stems:
+            self.stems.close()
         if self.discovery:
             self.discovery.close()
         if self.downloader:
@@ -156,6 +159,15 @@ class Studio:
 
 def create_server(studio, port=0):
     assets = Path(__file__).parent / 'web'
+    def stems():
+        if studio.presentation != 'mac':
+            raise ValueError('Stem separation is available in the Mac app.')
+        with studio.lock:
+            if studio.stems is None:
+                from .stem_jobs import StemJobs
+                studio.stems = StemJobs(studio)
+            return studio.stems
+
     def discovery():
         with studio.lock:
             if studio.discovery is None:
@@ -208,7 +220,8 @@ def create_server(studio, port=0):
             names = {'/': 'index.html', '/studio.js': 'studio.js', '/flow.js': 'flow.js',
                      '/studio.css': 'studio.css', '/blaze-logo.png': 'blaze-logo.png'}
             if mac:
-                names.update({'/mac.css': 'mac.css', '/mac.js': 'mac.js'})
+                names.update({'/mac.css': 'mac.css', '/mac.js': 'mac.js',
+                              '/mac-stems.css': 'mac-stems.css', '/mac-stems.js': 'mac-stems.js'})
             if path in names:
                 name = names[path]
                 data = (assets / name).read_bytes()
@@ -216,8 +229,8 @@ def create_server(studio, port=0):
                     data = data.replace(b'%%TOKEN%%', studio.token.encode())
                     data = data.replace(b'%%APPEARANCE%%', studio.appearance.encode())
                     data = data.replace(b'%%PRESENTATION%%', b'mac' if mac else b'desktop')
-                    data = data.replace(b'%%MAC_STYLES%%', b'<link rel="stylesheet" href="/mac.css">' if mac else b'')
-                    data = data.replace(b'%%MAC_SCRIPT%%', b'<script src="/mac.js"></script>' if mac else b'')
+                    data = data.replace(b'%%MAC_STYLES%%', b'<link rel="stylesheet" href="/mac.css"><link rel="stylesheet" href="/mac-stems.css">' if mac else b'')
+                    data = data.replace(b'%%MAC_SCRIPT%%', b'<script src="/mac.js"></script><script src="/mac-stems.js"></script>' if mac else b'')
                 kind = ('text/html; charset=utf-8' if path == '/' else 'text/css; charset=utf-8'
                         if path.endswith('.css') else 'image/png' if path.endswith('.png')
                         else 'text/javascript; charset=utf-8')
@@ -225,6 +238,34 @@ def create_server(studio, port=0):
                 return
             if not self.permitted(token=True):
                 self.json({'error': 'Access denied.'}, 403)
+                return
+            if path in ('/api/stems', '/api/stem-file'):
+                try:
+                    manager = stems()
+                    if path == '/api/stems':
+                        self.json(manager.snapshot())
+                    else:
+                        query = parse_qs(urlsplit(self.path).query)
+                        stem = query.get('stem', [''])[0]
+                        source = manager.file(query.get('jobId', [''])[0], stem)
+                        with source.open('rb') as stream:
+                            stream.seek(0, 2)
+                            size = stream.tell()
+                            stream.seek(0)
+                            self.send_response(200)
+                            self.send_header('Content-Type', 'audio/wav')
+                            self.send_header('Content-Length', str(size))
+                            self.send_header('Content-Disposition', 'attachment; filename="' + stem.title() + '.wav"')
+                            self.send_header('Cache-Control', 'no-store')
+                            self.send_header('X-Content-Type-Options', 'nosniff')
+                            self.end_headers()
+                            try:
+                                while block := stream.read(65536):
+                                    self.wfile.write(block)
+                            except OSError:
+                                self.close_connection = True
+                except (ValueError, OSError, TypeError) as error:
+                    self.json({'error': str(error) or 'The stem is unavailable.'}, 400)
                 return
             if path.startswith('/api/discovery'):
                 try:
@@ -336,6 +377,8 @@ def create_server(studio, port=0):
                                     raise ValueError('The selected file was not fully read.')
                                 out.write(block); remaining -= len(block)
                         with studio.lock:
+                            if studio.state['busy']:
+                                raise ValueError('Finish or cancel the current task first.')
                             if studio.imported and studio.source:
                                 studio.source.unlink(missing_ok=True)
                             studio.source, studio.name, studio.imported = temporary, name, True
@@ -353,6 +396,21 @@ def create_server(studio, port=0):
                 body = json.loads(self.rfile.read(length) or b'{}')
                 if not isinstance(body, dict):
                     raise ValueError('Choose a supported action.')
+                if path.startswith('/api/stems-'):
+                    manager = stems()
+                    if path == '/api/stems-start':
+                        self.json(manager.start())
+                    elif path == '/api/stems-cancel':
+                        self.json(manager.cancel())
+                    elif path == '/api/stems-select':
+                        manager.select(body.get('jobId'), body.get('stem'))
+                        self.json({'ok': True})
+                    elif path == '/api/stems-folder':
+                        manager.open_folder(body.get('jobId'))
+                        self.json({'ok': True})
+                    else:
+                        self.json({'error': 'Not found.'}, 404)
+                    return
                 if path.startswith('/api/discovery'):
                     manager = discovery()
                     if path == '/api/discovery':
@@ -420,6 +478,8 @@ def create_server(studio, port=0):
                 elif path == '/api/cancel':
                     if studio.analyzer:
                         studio.analyzer.cancel()
+                    if studio.stems:
+                        studio.stems.cancel()
                 elif path == '/api/edit':
                     if studio.state['result'] is None:
                         raise ValueError('Analyse a recording first.')

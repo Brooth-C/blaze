@@ -1,0 +1,27 @@
+/* A compact sheet for the single-model Mac stem workflow. */
+html[data-presentation=mac] #stems-dialog {
+  width:min(440px,calc(100vw - 36px)); padding:20px; margin:auto;
+  max-height:calc(100dvh - 32px); overflow:auto;
+}
+html[data-presentation=mac] #stems-dialog::backdrop { background:#0004; }
+html[data-presentation=mac] .stems-heading { display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:12px; }
+html[data-presentation=mac] #stems-heading { font-size:1.0625rem; margin:0; letter-spacing:-.02em; }
+html[data-presentation=mac] #stems-close { padding:0; border:0; background:none; width:27px; height:27px; min-height:27px; font-size:1.375rem; line-height:1; color:var(--muted); }
+html[data-presentation=mac] #stems-source { font-weight:600; overflow-wrap:anywhere; margin:0 0 6px; }
+html[data-presentation=mac] .stems-description { color:var(--muted); font-size:.75rem; line-height:1.5; margin:0 0 16px; }
+html[data-presentation=mac] #stems-progress { width:100%; height:8px; accent-color:var(--accent); }
+html[data-presentation=mac] #stems-message { font-size:.75rem; color:var(--muted); margin:10px 0; line-height:1.45; }
+html[data-presentation=mac] #stems-error { font-size:.75rem; color:var(--accent); overflow-wrap:anywhere; margin:10px 0; }
+html[data-presentation=mac] #stems-results { margin-top:8px; }
+html[data-presentation=mac] .stem-result { display:grid; grid-template-columns:minmax(55px,1fr) auto auto; gap:8px; align-items:center; padding:11px 0; border-bottom:1px solid var(--border); }
+html[data-presentation=mac] .stem-result strong { font-size:.8125rem; }
+html[data-presentation=mac] .stem-result button,
+html[data-presentation=mac] .stem-result .button { min-height:28px; font-size:.6875rem; padding:5px 8px; white-space:nowrap; }
+html[data-presentation=mac] .stem-save { display:inline-flex; justify-content:center; align-items:center; text-decoration:none; color:var(--text); border:1px solid var(--border); background:var(--panel); border-radius:7px; }
+html[data-presentation=mac] .stem-save:hover { background:var(--subtle); }
+html[data-presentation=mac] .stems-footer { display:flex; align-items:center; justify-content:flex-end; gap:8px; margin-top:18px; flex-wrap:wrap; }
+html[data-presentation=mac] #stems-folder { margin-right:auto; }
+@media(max-width:420px) {
+  html[data-presentation=mac] .stem-result { grid-template-columns:1fr auto; }
+  html[data-presentation=mac] .stem-result strong { grid-column:1/-1; }
+}

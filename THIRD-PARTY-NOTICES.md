@@ -38,3 +38,12 @@ see https://github.com/yt-dlp/ejs for its license and source.
 
 Android 0.4 embeds LibVLC using an LGPL-only native build instead of the GPL native libraries in the upstream Maven AAR. The Java bindings retain LGPL 2.1. Matching source archives and build instructions accompany the APK; license text and dependency credits are embedded. AndroidX Legacy and Kotlin standard library use Apache 2.0. See [player build and library replacement](docs/ANDROID-PLAYER-BUILD.md).
 
+Apple Silicon Mac 0.10.0 bundles the four-stem SCNet ONNX model from
+[Demixr's v0.1.2 export](https://github.com/demixr/scnet-executorch/releases/tag/v0.1.2),
+derived from the [official SCNet checkpoint](https://github.com/starrytong/SCNet).
+Both projects publish MIT license notices; these notices, exact model checksum,
+and source revisions accompany the model in the app's
+`music_studio/stem_models` directory. The author repository supplies the project
+license without separate checkpoint-specific terms. See
+[the Mac guide](docs/MACOS.md) and `tools/stage_macos_studio.py` for provenance.
+
