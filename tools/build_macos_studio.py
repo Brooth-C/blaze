@@ -22,6 +22,7 @@ import zipfile
 
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT))
 MODEL_NOTICES = (
     "LICENSE-BTC.txt", "LICENSE-MusicXLab.txt", "LICENSE-Librosa.txt", "LICENSE-BeatThis.txt",
 )
@@ -108,6 +109,17 @@ def stage_stem_models(source, target):
         checked_file(source / name, license_metadata)
         shutil.copy2(source / name, target / name)
     shutil.copy2(source / 'manifest.json', target / 'manifest.json')
+    from music_studio.piano_assets import MODELS, LICENSES
+    piano_source, piano_target = source / 'piano', target / 'piano'
+    piano_target.mkdir()
+    piano_metadata = json.loads((piano_source / 'manifest.json').read_text())
+    if piano_metadata.get('models') != MODELS or piano_metadata.get('weight_license') != 'MIT':
+        raise ValueError('The reviewed piano model manifest is missing or incompatible.')
+    for name, meta in {**{m['file']: m for m in MODELS.values()}, **LICENSES}.items():
+        checked_file(piano_source / name, meta)
+        shutil.copy2(piano_source / name, piano_target / name)
+    shutil.copy2(piano_source / 'manifest.json', piano_target / 'manifest.json')
+    metadata['piano'] = piano_metadata
     return metadata
 
 

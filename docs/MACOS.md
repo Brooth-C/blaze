@@ -7,7 +7,7 @@ or model installation is required to use the app.
 
 ## Install
 
-Download **Blaze-Mac-arm64.zip** from the [Apple Silicon 0.10.0 release](https://github.com/Brooth-C/blaze/releases/tag/macos-v0.10.0). New development targets M1 and newer Macs only.
+Download **Blaze-Mac-arm64.zip** from the [Apple Silicon 0.11.0 release](https://github.com/Brooth-C/blaze/releases/tag/macos-v0.11.0). New development targets M1 and newer Macs only.
 
 Intel users can keep using the final [0.9.0 Intel build](https://github.com/Brooth-C/blaze/releases/download/macos-v0.9.0-preview/Blaze-Mac-x86_64.zip); no new Intel builds are produced.
 
@@ -79,3 +79,7 @@ and these checks do not establish annotated real-song chord accuracy.
 
 The earlier [Mac terminal installer](https://github.com/Brooth-C/blaze/releases/download/v4.1.29/Blaze-Mac-Installer.zip)
 remains available separately.
+
+## Piano isolation
+
+Open a recording in Music Studio, click **Split stems**, then choose **Isolate piano**. Save or play **Piano.wav** and **Accompaniment.wav**. This extracts piano already present in the recording. The existing **Split four stems** action still uses SCNet. Piano isolation uses bundled Spleeter five-stem weights; it runs locally without a model download. See [model provenance and limits](RELEASE-0.11.0.md).

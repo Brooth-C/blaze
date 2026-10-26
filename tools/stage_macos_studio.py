@@ -7,8 +7,10 @@ import shutil
 import tarfile
 import urllib.request
 import zipfile
+import sys
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT))
 MODEL_URL = 'https://github.com/Brooth-C/blaze/releases/download/windows-v0.6.0/Blaze-Windows.zip'
 MODEL_SHA = '73bfa1bc0ce0657bb2792b5552c6614844fee3ebbea3bdccfa64ed4c659f96dc'
 NODE_SHA = {
@@ -100,6 +102,43 @@ def stage_stems(cache, target):
     return manifest
 
 
+def stage_piano(cache, target):
+    from music_studio.piano_assets import MODELS, LICENSES
+    target.mkdir(parents=True, exist_ok=True)
+    assets = {meta['file']: meta for meta in MODELS.values()}
+    assets.update(LICENSES)
+    for name, meta in assets.items():
+        destination = cache / name
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        if not destination.is_file() or digest(destination) != meta['sha256']:
+            temporary = destination.with_suffix('.part')
+            try:
+                with urllib.request.urlopen(meta['url'], timeout=120) as source, temporary.open('wb') as output:
+                    count = 0
+                    while block := source.read(1024 * 1024):
+                        count += len(block)
+                        if count > meta['bytes']:
+                            raise ValueError('Piano asset exceeds its pinned size.')
+                        output.write(block)
+                if count != meta['bytes'] or digest(temporary) != meta['sha256']:
+                    raise ValueError('Piano asset checksum mismatch.')
+                temporary.replace(destination)
+            finally:
+                temporary.unlink(missing_ok=True)
+        if destination.stat().st_size != meta['bytes']:
+            raise ValueError('Piano asset size mismatch.')
+        shutil.copy2(destination, target / name)
+    manifest = {'model': 'Spleeter 5stems', 'outputs': ['piano', 'accompaniment'],
+                'sample_rate': 44100, 'models': MODELS, 'licenses': LICENSES,
+                'weight_license': 'MIT',
+                'license_evidence': 'https://doi.org/10.21105/joss.02154',
+                'export_source': 'https://github.com/matthewbae/spleeter-onnx-models/tree/1215fccebccf416ecd02fa7e08ed74413b15015f',
+                'official_checkpoint_url': 'https://github.com/deezer/spleeter/releases/download/v1.4.0/5stems.tar.gz',
+                'official_checkpoint_sha256': '25a1e87eb5f75cc72a4d2d5467a0a50ac75f05611f877c278793742513cc7218'}
+    (target / 'manifest.json').write_text(json.dumps(manifest, indent=2) + '\n')
+    return manifest
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--work', type=Path, required=True)
@@ -107,6 +146,7 @@ def main():
     args = parser.parse_args()
     work = args.work.resolve()
     stage_stems(work / 'stem-models', ROOT / 'music_studio/stem_models')
+    stage_piano(work / 'stem-models/piano', ROOT / 'music_studio/stem_models/piano')
     models_zip = fetch(MODEL_URL, work / 'models.zip', MODEL_SHA)
     model_root = ROOT / 'music_studio/models'
     model_root.mkdir(parents=True, exist_ok=True)
