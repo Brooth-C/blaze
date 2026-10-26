@@ -1,10 +1,10 @@
 name: Windows Studio source checks
 on:
   pull_request:
-    paths: ['music_studio/**', 'tests/Blaze-Desktop*', 'tests/Blaze-Mac-Design-UI-Tests.cjs', 'tests/Blaze-*Rhythm*-Tests.cjs', 'tests/Blaze-*Flow*-Tests.cjs', 'tests/Blaze-Timeline-Cells-Tests.cjs', 'tests/Blaze-Meter-Tests.py', 'tests/Blaze-Sequence-Tests.py', 'tests/Blaze-Chord-Evidence-Tests.py', 'tools/build_*models.py', 'tools/build_lv_frontend.py', 'tools/build_windows_studio.py', '.github/workflows/windows-studio-tests.yml']
+    paths: ['music_studio/**', 'tests/Blaze-Desktop*', 'tests/Blaze-Mac-Design-UI-Tests.cjs', 'tests/Blaze-Mac-Stems-UI-Tests.cjs', 'tests/Blaze-*Rhythm*-Tests.cjs', 'tests/Blaze-*Flow*-Tests.cjs', 'tests/Blaze-Timeline-Cells-Tests.cjs', 'tests/Blaze-Meter-Tests.py', 'tests/Blaze-Sequence-Tests.py', 'tests/Blaze-Chord-Evidence-Tests.py', 'tools/build_*models.py', 'tools/build_lv_frontend.py', 'tools/build_windows_studio.py', '.github/workflows/windows-studio-tests.yml']
   push:
     branches: [main]
-    paths: ['music_studio/**', 'tests/Blaze-Desktop*', 'tests/Blaze-Mac-Design-UI-Tests.cjs', '.github/workflows/windows-studio-tests.yml']
+    paths: ['music_studio/**', 'tests/Blaze-Desktop*', 'tests/Blaze-Mac-Design-UI-Tests.cjs', 'tests/Blaze-Mac-Stems-UI-Tests.cjs', '.github/workflows/windows-studio-tests.yml']
 permissions:
   contents: read
 jobs:
@@ -43,6 +43,7 @@ jobs:
           node tests/Blaze-Desktop-UI-Tests.cjs
           node tests/Blaze-Desktop-Discovery-UI-Tests.cjs
           node tests/Blaze-Mac-Design-UI-Tests.cjs
+          node tests/Blaze-Mac-Stems-UI-Tests.cjs
       - uses: actions/upload-artifact@v7.0.2
         if: always()
         with:

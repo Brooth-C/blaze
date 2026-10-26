@@ -14,7 +14,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-15, macos-15-intel]
+        os: [macos-15]
     steps:
       - uses: actions/checkout@v7.0.1
       - name: Build upstream aria2 with only macOS libraries
@@ -46,4 +46,4 @@ jobs:
             echo 'Runtime already published; existing binaries are preserved.'
             exit 0
           fi
-          gh release create "$TAG" assets/* --target "$GITHUB_SHA" --prerelease --latest=false --title 'Portable aria2 1.37.0 for Blaze' --notes 'Unmodified upstream aria2 1.37.0, built for Apple Silicon and Intel with native AppleTLS and macOS system libraries. No Homebrew dependencies. Source archive and GPL license are included. Both builds passed dependency inspection and an HTTPS download test.'
+          gh release create "$TAG" assets/* --target "$GITHUB_SHA" --prerelease --latest=false --title 'Portable aria2 1.37.0 for Blaze' --notes 'Unmodified upstream aria2 1.37.0, built for Apple Silicon with native AppleTLS and macOS system libraries. No Homebrew dependencies. Source archive and GPL license are included. The build passed dependency inspection and an HTTPS download test.'

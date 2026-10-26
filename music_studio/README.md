@@ -3,7 +3,16 @@
 Explore, Downloads, Library and Music Studio share one desktop app on Windows,
 Mac and Linux. Desktop 0.9.0 refines the Mac workspace with native navigation and
 a compact listening layout. Windows and Linux retain the discovery and playback
-workflow introduced in 0.8.0. Terminal installers keep their separate version and behavior.
+workflow introduced in 0.8.0. Mac 0.10.0 adds a simple, local four-stem separation workflow on Apple Silicon. New Mac builds target Apple Silicon only; the final Intel 0.9.0 build stays available. Terminal installers keep their separate version and behavior.
+
+## Stem separation on Apple Silicon
+
+Open a recording in Studio and choose **Split stems** to create vocals, drums,
+bass and other instruments with one bundled SCNet model. Processing is local,
+with progress and cancellation. Finished stems can be played and exported as
+WAV files. Piano and guitar are not separate outputs, and some leakage or
+artifacts can remain. The model and its notices are separate from the unchanged
+chord-recognition bundle.
 
 ## Discover and listen
 

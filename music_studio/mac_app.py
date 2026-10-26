@@ -410,6 +410,34 @@ def ui_smoke(window, studio, destination, receipt, probe, timeout=240):
         wait_for("(() => {const m=document.getElementById('media');return m===window.blazeSmokeVideo && m.parentElement.classList.contains('preview-panel') && m.paused && Math.abs(m.currentTime-1)<.1;})()")
         receipt['video'] = {'codec': 'AVC/AAC', 'decoded_pixels': True, 'studio_return': True,
                             'width': 160, 'height': 90, 'paused_position': 1}
+        if sys.platform == 'darwin':
+            wait_for("window.BlazeMacStems && !document.getElementById('split-stems').hidden")
+            probe.run(window, "document.getElementById('split-stems').click()")
+            wait_for("document.getElementById('stems-dialog').open")
+            wait_for("window.BlazeMacStems.snapshot().status==='done' || window.BlazeMacStems.snapshot().status==='failed'")
+            separation = probe.probe(window, 'window.BlazeMacStems.snapshot()')
+            if separation['status'] != 'done' or len(separation['stems']) != 4:
+                raise RuntimeError('The bundled stem model did not complete: ' + json.dumps(separation))
+            wait_for("!busy && document.querySelectorAll('#stems-results .stem-result').length===4")
+            capture_screenshot(target.with_name('native-stems.png'))
+            with studio.lock:
+                files = {name: studio.stems.file(separation['jobId'], name) for name in ('vocals', 'drums', 'bass', 'other')}
+            metadata = {}
+            for name, path in files.items():
+                result = subprocess.run([str(resource_root() / 'bin/ffprobe'), '-v', 'error',
+                                         '-show_entries', 'stream=sample_rate,channels,codec_name:format=duration',
+                                         '-of', 'json', str(path)], check=True, capture_output=True, text=True)
+                value = json.loads(result.stdout)
+                stream = value['streams'][0]
+                if stream['sample_rate'] != '44100' or stream['channels'] != 2 or float(value['format']['duration']) < 2:
+                    raise RuntimeError('The bundled model produced an invalid WAV stem.')
+                metadata[name] = value
+            probe.run(window, "document.querySelector('#stems-results button[aria-label=\"Open Vocals in Studio\"]').click()")
+            wait_for("!document.getElementById('stems-dialog').open && sourceName==='Vocals.wav' && document.getElementById('media').readyState>=1")
+            probe.run(window, "document.getElementById('mini-play').click()")
+            wait_for("(() => {const m=document.getElementById('media');return m===window.blazeSmokeVideo && !m.paused && m.currentTime>.1;})()")
+            receipt['stems'] = {'model': 'SCNet', 'count': 4, 'files': metadata,
+                                'real_model': True, 'native_playback': True}
         receipt['ok'] = True
     except Exception as error:
         receipt.update(ok=False, error=str(error))

@@ -1,4 +1,4 @@
-"""Stage unchanged reviewed models and pinned native macOS downloader tools."""
+"""Stage reviewed chord/stem models and pinned native macOS downloader tools."""
 from pathlib import Path
 import argparse
 import hashlib
@@ -13,7 +13,21 @@ MODEL_URL = 'https://github.com/Brooth-C/blaze/releases/download/windows-v0.6.0/
 MODEL_SHA = '73bfa1bc0ce0657bb2792b5552c6614844fee3ebbea3bdccfa64ed4c659f96dc'
 NODE_SHA = {
     'arm64': 'cc04a76a09f79290194c0646f48fec40354d88969bec467789a5d55dd097f949',
-    'x86_64': '00df9c5df3e4ec6848c26b70fb47bf96492f342f4bed6b17f12d99b3a45eeecc',
+}
+STEM_MODEL = {
+    'file': 'scnet_cpu.onnx', 'bytes': 52271228,
+    'sha256': 'f2c050b7264d2b2401497beb712c26a50e6162dfb951041060f23f84929d600e',
+    'url': 'https://github.com/demixr/scnet-executorch/releases/download/v0.1.2/scnet_cpu.onnx',
+}
+STEM_LICENSES = {
+    'LICENSE-SCNet.txt': {
+        'url': 'https://raw.githubusercontent.com/starrytong/SCNet/5d95bf96b19c3eede63248d171efeca8e3abb948/LICENSE',
+        'sha256': '0bdf1b69335198118ab16cfc50d337b496b8c6d90e83beeaba4643781ab62513',
+    },
+    'LICENSE-SCNet-Export.txt': {
+        'url': 'https://raw.githubusercontent.com/demixr/scnet-executorch/fae523107add29547b68be1730951524bdad6a2b/LICENSE',
+        'sha256': '2ce46aa4a66b514b6ce41d7a0da0b87d1ac8a750f14fef014c0a98431446f4d7',
+    },
 }
 
 
@@ -36,12 +50,63 @@ def fetch(url, path, checksum=None):
     return path
 
 
+def stage_stems(cache, target):
+    """Stage one bounded, checksum-pinned model and both upstream notices."""
+    target.mkdir(parents=True, exist_ok=True)
+    sources = {STEM_MODEL['file']: STEM_MODEL, **STEM_LICENSES}
+    for name, metadata in sources.items():
+        destination = cache / name
+        size = metadata.get('bytes')
+        limit = size or 65536
+        if not destination.is_file() or digest(destination) != metadata['sha256']:
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            temporary = destination.with_suffix(destination.suffix + '.part')
+            try:
+                request = urllib.request.Request(metadata['url'], headers={'User-Agent': 'Blaze-Mac-build/0.10.0'})
+                with urllib.request.urlopen(request, timeout=120) as response, temporary.open('wb') as output:
+                    count = 0
+                    while block := response.read(1024 * 1024):
+                        count += len(block)
+                        if count > limit:
+                            raise ValueError('Stem asset exceeds its pinned bound: ' + name)
+                        output.write(block)
+                if (size is not None and count != size) or digest(temporary) != metadata['sha256']:
+                    raise ValueError('Stem asset checksum or size mismatch: ' + name)
+                temporary.replace(destination)
+            finally:
+                temporary.unlink(missing_ok=True)
+        if size is not None and destination.stat().st_size != size:
+            raise ValueError('Stem model size mismatch.')
+        shutil.copy2(destination, target / name)
+    manifest = {
+        'name': 'SCNet', 'version': 'demixr-v0.1.2', 'license': 'MIT',
+        'model': {key: STEM_MODEL[key] for key in ('file', 'bytes', 'sha256')},
+        'sample_rate': 44100, 'segment_samples': 343980,
+        'stems': ['drums', 'bass', 'other', 'vocals'],
+        'licenses': {name: {'file': name, **metadata} for name, metadata in STEM_LICENSES.items()},
+        'source': {
+            'model_url': STEM_MODEL['url'],
+            'author_repository': 'https://github.com/starrytong/SCNet/tree/5d95bf96b19c3eede63248d171efeca8e3abb948',
+            'export_repository': 'https://github.com/demixr/scnet-executorch/tree/fae523107add29547b68be1730951524bdad6a2b',
+            'original_checkpoint': {
+                'author_readme_download_id': '1CdEIIqsoRfHn1SJ7rccPfyYioW3BlXcW',
+                'bytes': 42434545,
+                'sha256': 'f8aff3bc8dd816aad392800d9d69519add719a2fbd22550af6f8cb2138d25ff5',
+            },
+            'description': 'Official SCNet checkpoint, exported as an ONNX spectral core by Demixr. Original model and export notices are retained.',
+        },
+    }
+    (target / 'manifest.json').write_text(json.dumps(manifest, indent=2) + '\n', encoding='utf-8')
+    return manifest
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--work', type=Path, required=True)
     parser.add_argument('--arch', choices=NODE_SHA, required=True)
     args = parser.parse_args()
     work = args.work.resolve()
+    stage_stems(work / 'stem-models', ROOT / 'music_studio/stem_models')
     models_zip = fetch(MODEL_URL, work / 'models.zip', MODEL_SHA)
     model_root = ROOT / 'music_studio/models'
     model_root.mkdir(parents=True, exist_ok=True)
@@ -55,8 +120,7 @@ def main():
                 (model_root / name).write_bytes(archive.read(member))
     tools = work / 'bin'
     tools.mkdir(parents=True, exist_ok=True)
-    node_arch = 'x64' if args.arch == 'x86_64' else 'arm64'
-    prefix = f'node-v22.20.0-darwin-{node_arch}'
+    prefix = 'node-v22.20.0-darwin-arm64'
     node_archive = fetch(f'https://nodejs.org/dist/v22.20.0/{prefix}.tar.gz', work / (prefix + '.tar.gz'), NODE_SHA[args.arch])
     notices = work / 'notices'
     notices.mkdir(parents=True, exist_ok=True)

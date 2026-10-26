@@ -51,6 +51,7 @@ music_studio/models/*.onnx
 android/app/src/main/assets/musicstudio_models/
 
 music_studio/models/*.npz
+music_studio/stem_models/
 music_studio/incoming/
 music_studio/analyses/
 tools/macos_decoder/downloads/
