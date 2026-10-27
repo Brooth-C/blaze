@@ -158,6 +158,8 @@ async function layout(page){
         await page.locator('#split-stems').click();
         await page.locator('#stems-five').click();
         await page.waitForFunction(()=>window.BlazeMacStems.snapshot().mode==='five'&&window.BlazeMacStems.snapshot().status==='done');
+        // Completion refreshes the source before rendering the result rows.
+        await page.getByRole('button',{name:'Open Vocals in Studio',exact:true}).waitFor();
         assert.equal(await page.locator('.stem-result').count(),5);
         await layout(page);
         assert.deepEqual(errors,[]);
