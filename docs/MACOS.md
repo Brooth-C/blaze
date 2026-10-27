@@ -7,7 +7,7 @@ or model installation is required to use the app.
 
 ## Install
 
-Download **Blaze-Mac-arm64.zip** from the [Apple Silicon 0.12.0 release](https://github.com/Brooth-C/blaze/releases/tag/macos-v0.12.0). New development targets M1 and newer Macs only.
+Download **Blaze-Mac-arm64.zip** from the [Apple Silicon 0.13.0 release](https://github.com/Brooth-C/blaze/releases/tag/macos-v0.13.0). New development targets M1 and newer Macs only.
 
 Intel users can keep using the final [0.9.0 Intel build](https://github.com/Brooth-C/blaze/releases/download/macos-v0.9.0-preview/Blaze-Mac-x86_64.zip); no new Intel builds are produced.
 
@@ -44,10 +44,12 @@ Downloads default to `~/Downloads/Blaze`. Updating the app bundle preserves them
 ## Separate a recording
 
 Open a song or video in Music Studio, then choose **Split stems**. Blaze runs
-one bundled SCNet model locally to produce vocals, drums, bass and other
-instruments. Progress and cancellation are available while it runs. Finished
-stems can be played and exported as WAV files. Piano and guitar are part of the
-other stem rather than separate outputs. Separation can leave leakage or
+the bundled BS-RoFormer model locally to separate vocals, drums, bass and remaining
+music, then Spleeter to extract piano from that remaining music. The five outputs
+are vocals, drums, bass, piano and other. Processing can take several minutes;
+progress and cancellation are available while it runs. Finished stems can be
+played and exported as WAV files. Guitars, strings, brass and synths remain
+grouped in Other. Separation can leave leakage or
 artifacts and does not reproduce the original studio session.
 
 The separation model is separate from the chord-recognition models. Its pinned
@@ -58,8 +60,9 @@ ONNX file, source references and original MIT notices are retained inside
 
 The `.github/workflows/macos-app.yml` workflow builds Apple Silicon only and
 tests the packaged app on macOS 15 and macOS 26. Chord-analysis models are copied
-from the checksum-pinned Windows release, not retrained. The single SCNet model
-is staged separately from its checksum-pinned upstream export.
+from the checksum-pinned Windows release, not retrained. The BS-RoFormer model
+and existing Spleeter piano model are separately staged from checksum-pinned
+exports. The legacy four-stem SCNet API remains for compatibility.
 `tools/stage_macos_studio.py` pins Node 22.20.0
 and builds the plain yt-dlp 2026.8.19 plus EJS 0.8.0 downloader, excluding optional GPL libraries. The build uses Python 3.12.10, PyInstaller 6.16.0,
 pywebview 6.1, NumPy 1.26.4 and ONNX Runtime 1.20.1. The Cocoa bridge is isolated
@@ -86,4 +89,4 @@ Open a recording in Music Studio, click **Split stems**, then choose **Isolate p
 
 ## Five separate tracks
 
-In Music Studio, choose **Split stems → Separate five stems**. Blaze saves **Vocals.wav**, **Drums.wav**, **Bass.wav**, **Piano.wav** and **Other.wav**. Each can be played or exported independently. **Isolate piano** remains available for a piano-only track plus accompaniment. These are five standard groups; guitars, strings and other remaining instruments are grouped into Other. See [release details](RELEASE-0.12.0.md).
+In Music Studio, choose **Split stems → Separate five stems**. Blaze saves **Vocals.wav**, **Drums.wav**, **Bass.wav**, **Piano.wav** and **Other.wav**. Each can be played or exported independently. **Isolate piano** remains available for a piano-only track plus accompaniment. These are five standard groups; guitars, strings and other remaining instruments are grouped into Other. See [release details](RELEASE-0.13.0.md).

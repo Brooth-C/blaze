@@ -166,7 +166,7 @@ def capture_screenshot(destination):
         ImageGrab.grab().save(destination)
 
 
-def ui_smoke(window, studio, destination, receipt, probe, timeout=240):
+def ui_smoke(window, studio, destination, receipt, probe, timeout=600):
     """Exercise the packaged Cocoa UI and engine; the report preserves failures."""
     target = Path(destination).resolve()
     deadline = time.monotonic() + timeout
@@ -437,7 +437,7 @@ def ui_smoke(window, studio, destination, receipt, probe, timeout=240):
             wait_for("!document.getElementById('stems-dialog').open && sourceName==='Vocals.wav' && document.getElementById('media').readyState>=1")
             probe.run(window, "document.getElementById('mini-play').click()")
             wait_for("(() => {const m=document.getElementById('media');return m===window.blazeSmokeVideo && !m.paused && m.currentTime>.1;})()")
-            receipt['stems'] = {'model': 'Spleeter 5stems', 'count': 5, 'files': metadata,
+            receipt['stems'] = {'model': 'BS-RoFormer + Spleeter piano', 'count': 5, 'files': metadata,
                                 'real_model': True, 'native_playback': True}
             probe.run(window, "document.getElementById('mini-play').click(); document.getElementById('split-stems').click()")
             wait_for("document.getElementById('stems-dialog').open")

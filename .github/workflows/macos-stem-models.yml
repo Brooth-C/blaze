@@ -1,0 +1,100 @@
+name: Blaze Mac stem model assets
+on:
+  workflow_dispatch:
+  push:
+    branches: [codex/mac-quality-stems]
+    paths: ['tools/roformer/**', '.github/workflows/macos-stem-models.yml']
+permissions:
+  contents: read
+concurrency:
+  group: blaze-roformer-assets
+  cancel-in-progress: false
+jobs:
+  export:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-python@v7.0.0
+        with:
+          python-version: '3.12.10'
+      - name: Install CPU-only build dependencies
+        run: |
+          python -m pip install torch==2.5.1 --index-url https://download.pytorch.org/whl/cpu
+          python -m pip install numpy==1.26.4 onnx==1.17.0 onnxruntime==1.20.1 einops==0.8.2 rotary-embedding-torch==0.8.9 beartype==0.18.5 PyYAML==6.0.2 librosa==0.11.0 scipy==1.14.1 numba==0.61.2 scikit-learn==1.5.2
+      - name: Fetch pinned original source and checkpoint
+        run: |
+          git clone --filter=blob:none --no-checkout https://github.com/ZFTurbo/Music-Source-Separation-Training.git build/msst
+          git -C build/msst checkout 6fdad13686bb7e84d029ec66f9dbe76e65c93ebf
+          python tools/roformer/fetch_checkpoint.py build/checkpoint.ckpt
+      - name: Export full-context FP32 sequential blocks
+        run: python tools/roformer/export.py --msst build/msst --checkpoint build/checkpoint.ckpt --output build/roformer
+      - name: Require original-model numerical parity and bounded memory
+        run: python tools/roformer/verify.py --assets build/roformer
+      - name: Retain model attribution
+        run: cp tools/roformer/LICENSE-*.txt tools/roformer/NOTICE.txt build/roformer/
+      - uses: actions/upload-artifact@v7.0.2
+        with:
+          name: Blaze-RoFormer-fp32
+          path: |
+            build/roformer/*.onnx
+            build/roformer/models.json
+            build/roformer/validation.json
+            build/roformer/export.json
+            build/roformer/*.txt
+      - uses: actions/upload-artifact@v7.0.2
+        if: always()
+        with:
+          name: Blaze-RoFormer-conversion-evidence
+          path: |
+            build/roformer/models.json
+            build/roformer/validation.json
+            build/roformer/export.json
+  publish:
+    needs: export
+    if: github.repository == 'Brooth-C/blaze' && (github.ref == 'refs/heads/codex/mac-quality-stems' || github.ref == 'refs/heads/main')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/download-artifact@v8.0.2
+        with:
+          name: Blaze-RoFormer-fp32
+          path: artifacts
+      - name: Publish immutable model assets after conversion gates
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          MODEL_SOURCE_COMMIT: ${{ github.sha }}
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import hashlib, json, os, subprocess
+          root = Path('artifacts')
+          models = json.loads((root / 'models.json').read_text())
+          validation = json.loads((root / 'validation.json').read_text())
+          assert validation['rms'] < 1e-5 and validation['p999'] < 1e-4
+          assert validation['peak_rss_kib'] < 4 * 1024 ** 2
+          for name, meta in models.items():
+              assert meta['file'] == name + '.onnx'
+              path = root / meta['file']
+              assert path.stat().st_size == meta['bytes']
+              with path.open('rb') as stream:
+                  assert hashlib.file_digest(stream, 'sha256').hexdigest() == meta['sha256']
+          tag = 'stem-models-v1'
+          files = sorted(root.iterdir())
+          probe = subprocess.run(['gh','api','repos/' + os.environ['GH_REPO'] + '/releases/tags/' + tag],capture_output=True,text=True)
+          if probe.returncode == 0:
+              release = json.loads(probe.stdout)
+              assert not release['draft'] and not release['prerelease']
+              assets = {a['name']: a for a in release['assets']}
+              for path in files:
+                  with path.open('rb') as stream:
+                      checksum = hashlib.file_digest(stream, 'sha256').hexdigest()
+                  assert assets[path.name]['digest'] == 'sha256:' + checksum, 'Existing assets are immutable'
+              print('Existing model assets verified; nothing replaced.')
+          else:
+              subprocess.run(['gh','release','create',tag,*map(str,files),'--target',os.environ['MODEL_SOURCE_COMMIT'],
+                              '--title','Blaze stem model assets — BS-RoFormer','--notes-file','docs/STEM-MODEL-ASSETS-v1.md','--latest=false'],check=True)
+          PY

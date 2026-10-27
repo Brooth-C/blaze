@@ -65,14 +65,15 @@ class StemJobs:
                         separator = self.separator_factory(self.models, self.studio.ffmpeg)
                     else:
                         from .stems import Separator
-                        from .piano import PianoSeparator, FiveStemSeparator
-                        implementation = PianoSeparator if mode == 'piano' else (FiveStemSeparator if mode == 'five' else Separator)
+                        from .piano import PianoSeparator
+                        from .roformer import QualityFiveStemSeparator
+                        implementation = PianoSeparator if mode == 'piano' else (QualityFiveStemSeparator if mode == 'five' else Separator)
                         separator = implementation(self.models, self.studio.ffmpeg)
                     outputs = separator.separate(source, pending, progress=progress, cancel_event=cancel)
                     if cancel.is_set():
                         return
                     if set(outputs) != set(expected):
-                        raise ValueError('Stem separation did not produce all four tracks.')
+                        raise ValueError('Stem separation did not produce all requested tracks.')
                     for name in expected:
                         path = Path(outputs[name]).resolve()
                         if path.parent != pending.resolve() or not path.is_file() or path.stat().st_size <= 44:

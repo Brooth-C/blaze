@@ -93,7 +93,7 @@ def main():
         shutil.copy2(source_artwork / ('discovery_' + name + '.png'), artwork / (name + '.png'))
     process = subprocess.Popen([str(binary), str(audio), '--ui-smoke', str(receipt_path)])
     try:
-        process.wait(timeout=300)
+        process.wait(timeout=660)
     except subprocess.TimeoutExpired:
         process.kill()
         raise

@@ -140,6 +140,39 @@ def stage_piano(cache, target):
     return manifest
 
 
+def stage_roformer(cache, target):
+    from music_studio.roformer_assets import MODELS, CHECKPOINT_SHA, WEIGHT_LICENSE, SOURCE_REVISION, PORT_REVISION
+    target.mkdir(parents=True, exist_ok=True)
+    for meta in MODELS.values():
+        destination = cache / meta['file']
+        if not destination.is_file() or destination.stat().st_size != meta['bytes'] or digest(destination) != meta['sha256']:
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            temporary = destination.with_suffix('.part')
+            try:
+                with urllib.request.urlopen(meta['url'], timeout=120) as source, temporary.open('wb') as output:
+                    count = 0
+                    while block := source.read(1024 * 1024):
+                        count += len(block)
+                        if count > meta['bytes']:
+                            raise ValueError('RoFormer asset exceeds its pinned size.')
+                        output.write(block)
+                if count != meta['bytes'] or digest(temporary) != meta['sha256']:
+                    raise ValueError('RoFormer asset checksum mismatch.')
+                temporary.replace(destination)
+            finally:
+                temporary.unlink(missing_ok=True)
+        shutil.copy2(destination, target / meta['file'])
+    notices = ROOT / 'tools/roformer'
+    for name in ('LICENSE-MSST.txt', 'LICENSE-Architecture.txt', 'LICENSE-Port.txt', 'NOTICE.txt'):
+        shutil.copy2(notices / name, target / name)
+    manifest = {'models': MODELS, 'license': 'MIT', 'checkpoint_sha256': CHECKPOINT_SHA,
+                'weight_license_evidence': WEIGHT_LICENSE, 'source_revision': SOURCE_REVISION,
+                'port_revision': PORT_REVISION, 'sample_rate': 44100, 'segment_samples': 485100,
+                'stems': ['drums', 'bass', 'other', 'vocals'], 'precision': 'FP32'}
+    (target / 'manifest.json').write_text(json.dumps(manifest, indent=2) + '\n')
+    return manifest
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--work', type=Path, required=True)
@@ -148,6 +181,7 @@ def main():
     work = args.work.resolve()
     stage_stems(work / 'stem-models', ROOT / 'music_studio/stem_models')
     stage_piano(work / 'stem-models/piano', ROOT / 'music_studio/stem_models/piano')
+    stage_roformer(work / 'stem-models/roformer', ROOT / 'music_studio/stem_models/roformer')
     models_zip = fetch(MODEL_URL, work / 'models.zip', MODEL_SHA)
     model_root = ROOT / 'music_studio/models'
     model_root.mkdir(parents=True, exist_ok=True)
