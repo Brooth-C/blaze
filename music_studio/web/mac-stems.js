@@ -3,7 +3,7 @@
     'use strict';
     if (document.documentElement.dataset.presentation !== 'mac') return;
     const byId = id => document.getElementById(id);
-    const labels = {vocals: 'Vocals', drums: 'Drums', bass: 'Bass', other: 'Other', piano: 'Piano', accompaniment: 'Accompaniment'};
+    const labels = {vocals: 'Vocals', drums: 'Drums', bass: 'Bass', other: 'Other', piano: 'Piano', guitar: 'Guitar', strings: 'Strings', brass: 'Brass', synths: 'Synths', accompaniment: 'Accompaniment'};
     const button = document.createElement('button');
     button.id = 'split-stems'; button.textContent = 'Split stems'; button.hidden = true;
     byId('analyze').before(button);
@@ -11,10 +11,10 @@
     dialog.id = 'stems-dialog';
     dialog.setAttribute('aria-labelledby', 'stems-heading');
     dialog.innerHTML = '<div class="stems-heading"><h3 id="stems-heading">Split stems</h3><button id="stems-close" aria-label="Close stem separation">×</button></div>' +
-        '<p id="stems-source"></p><p class="stems-description">Vocals, drums, bass, piano and other. Higher-quality separation runs on this Mac and can take several minutes.</p>' +
+        '<p id="stems-source"></p><p class="stems-description">Nine stems separates guitar, strings, brass and synths too. Five stems keeps them in Other. Processing stays on this Mac; nine stems takes longer.</p>' +
         '<div id="stems-progress-panel" hidden><progress id="stems-progress" max="1" value="0" aria-label="Stem separation progress"></progress></div>' +
         '<p id="stems-message" role="status"></p><p id="stems-error" role="alert" hidden></p><div id="stems-results"></div>' +
-        '<div class="stems-footer"><button id="stems-folder" hidden>Open folder</button><button id="stems-cancel" hidden>Cancel separation</button><button id="stems-piano">Isolate piano</button><button id="stems-start" class="primary">Separate five stems</button></div>';
+        '<div class="stems-footer"><button id="stems-folder" hidden>Open folder</button><button id="stems-cancel" hidden>Cancel separation</button><button id="stems-piano">Isolate piano</button><button id="stems-five">Five stems</button><button id="stems-start" class="primary">Nine stems</button></div>';
     document.body.append(dialog);
     let state = {available: false, status: 'idle', stems: []};
     let requestInFlight = false, submitting = false, stopped = false, mutationEpoch = 0;
@@ -35,6 +35,8 @@
         button.disabled = submitting || (!running && (!sourceName || busy));
         byId('stems-start').disabled = submitting || busy || !sourceName;
         byId('stems-start').hidden = running;
+        byId('stems-five').hidden = running;
+        byId('stems-five').disabled = submitting || busy || !sourceName;
         byId('stems-piano').hidden = running;
         byId('stems-piano').disabled = submitting || busy || !sourceName;
         byId('stems-cancel').hidden = !running;
@@ -92,7 +94,7 @@
             if (dialog.open) error(failure.message || 'Stem separation could not be checked.');
         } finally { requestInFlight = false; }
     };
-    const start = async (mode = 'five') => {
+    const start = async (mode = 'nine') => {
         if (submitting || busy || !sourceName) return;
         submitting = true; ++mutationEpoch; error(''); render();
         try {
@@ -110,6 +112,7 @@
     };
     button.onclick = open;
     byId('stems-start').onclick = () => start();
+    byId('stems-five').onclick = () => start('five');
     byId('stems-piano').onclick = () => start('piano');
     byId('stems-close').onclick = () => dialog.close();
     dialog.addEventListener('close', () => button.focus());

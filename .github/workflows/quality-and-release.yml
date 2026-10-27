@@ -64,9 +64,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # Main's existing protection requires this legacy CLI installer check.
-        # It does not build an Intel Mac GUI app; new app builds are arm64 only.
-        os: [windows-latest, macos-15, macos-15-intel, ubuntu-22.04, ubuntu-24.04-arm]
+        # Mac validation targets macOS 26 on Apple Silicon only.
+        os: [windows-latest, macos-26, ubuntu-22.04, ubuntu-24.04-arm]
     steps:
       - uses: actions/checkout@v7.0.1
       - uses: actions/setup-python@v7.0.0

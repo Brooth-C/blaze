@@ -140,6 +140,25 @@ class StemJobTests(unittest.TestCase):
         self.assertEqual(self.studio.name, 'Piano.wav')
         self.assertTrue(self.source.is_file())
 
+    def test_nine_mode_exports_only_its_owned_instrument_tracks(self):
+        self.separator.stems = ('vocals', 'drums', 'bass', 'piano', 'guitar', 'strings', 'brass', 'synths', 'other')
+        status, _, body = self.request('/api/stems-start', {'mode': 'nine'})
+        self.assertEqual(status, 200, body)
+        state = self.finish()
+        self.assertEqual(state['mode'], 'nine')
+        self.assertEqual(state['status'], 'done')
+        self.assertEqual({row['id'] for row in state['stems']}, set(self.separator.stems))
+        for name in self.separator.stems:
+            query = '?jobId=' + state['jobId'] + '&stem=' + name
+            self.assertEqual(self.request('/api/stem-file' + query)[0], 200)
+        self.assertEqual(self.request('/api/stem-file?jobId=' + state['jobId'] + '&stem=violin')[0], 400)
+        self.assertTrue(self.source.is_file())
+
+    def test_unhashable_or_unknown_modes_are_rejected(self):
+        for mode in ([], {}, None, 12, 'guitar'):
+            with self.subTest(mode=mode):
+                self.assertEqual(self.request('/api/stems-start', {'mode': mode})[0], 400)
+
     def test_success_exports_exact_saved_audio_and_selects_without_deleting_user_file(self):
         identity = self.start()
         state = self.finish()

@@ -7,6 +7,9 @@ import threading
 import uuid
 
 STEMS = ('drums', 'bass', 'other', 'vocals')
+OUTPUTS = {'stems': STEMS, 'piano': ('piano', 'accompaniment'),
+           'five': ('vocals', 'drums', 'bass', 'piano', 'other'),
+           'nine': ('vocals', 'drums', 'bass', 'piano', 'guitar', 'strings', 'brass', 'synths', 'other')}
 
 
 class StemJobs:
@@ -32,9 +35,9 @@ class StemJobs:
         with self.studio.lock:
             if self.closed or self.studio.state['busy'] or (self.worker and self.worker.is_alive()):
                 raise ValueError('Finish or cancel the current task first.')
-            if mode not in ('stems', 'piano', 'five'):
+            if not isinstance(mode, str) or mode not in OUTPUTS:
                 raise ValueError('Choose stem separation or piano isolation.')
-            expected = ('piano', 'accompaniment') if mode == 'piano' else (('vocals', 'drums', 'bass', 'piano', 'other') if mode == 'five' else STEMS)
+            expected = OUTPUTS[mode]
             source = self.studio.source
             if source is None or not source.is_file():
                 raise ValueError('Open an audio or video recording first.')
@@ -67,7 +70,9 @@ class StemJobs:
                         from .stems import Separator
                         from .piano import PianoSeparator
                         from .roformer import QualityFiveStemSeparator
-                        implementation = PianoSeparator if mode == 'piano' else (QualityFiveStemSeparator if mode == 'five' else Separator)
+                        from .instruments import NineStemSeparator
+                        implementation = {'piano': PianoSeparator, 'five': QualityFiveStemSeparator,
+                                          'nine': NineStemSeparator, 'stems': Separator}[mode]
                         separator = implementation(self.models, self.studio.ffmpeg)
                     outputs = separator.separate(source, pending, progress=progress, cancel_event=cancel)
                     if cancel.is_set():
@@ -83,7 +88,8 @@ class StemJobs:
                             return
                         pending.rename(final)
                         self.files = {name: final / Path(outputs[name]).name for name in expected}
-                        self.value.update(status='done', progress=1, message='Your piano track is ready.' if mode == 'piano' else ('Your five stems are ready.' if mode == 'five' else 'Your four stems are ready.'),
+                        self.value.update(status='done', progress=1, message={'piano': 'Your piano track is ready.', 'five': 'Your five stems are ready.',
+                                                   'nine': 'Your nine stems are ready.', 'stems': 'Your four stems are ready.'}[mode],
                                           stems=[{'id': name, 'label': name.title(),
                                                   'filename': name.title() + '.wav'} for name in expected])
                 except Exception as error:
