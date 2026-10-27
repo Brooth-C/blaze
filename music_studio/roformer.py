@@ -33,7 +33,7 @@ class RoformerSeparator(Separator):
         check_cancel(event)
         try:
             metadata = json.loads((self.directory / 'manifest.json').read_text())
-            if (metadata.get('models') != MODELS or metadata.get('license') != 'MIT'
+            if (not isinstance(metadata, dict) or metadata.get('models') != MODELS or metadata.get('license') != 'MIT'
                     or metadata.get('checkpoint_sha256') != CHECKPOINT_SHA):
                 raise ValueError('Incompatible manifest')
             for meta in MODELS.values():
