@@ -1,0 +1,31 @@
+Blaze's BS-RoFormer FP32 export
+
+Weights: model_bs_roformer_ep_17_sdr_9.6568.ckpt by ZFTurbo.
+Source: https://github.com/ZFTurbo/Music-Source-Separation-Training/releases/tag/v1.0.12
+SHA256: 3e9daecd70aaed5b5a0d1f861cc4d77eaa45afb3fc6301b1cf32c1be0f5868fb
+Exact-checkpoint MIT permission and required credit to ZFTurbo:
+https://github.com/ZFTurbo/Music-Source-Separation-Training/issues/254#issuecomment-5914058767
+The author supplies no warranty and does not indemnify training-data claims.
+Training set: MUSDB18-HQ. A weight license does not grant rights to users' recordings.
+
+Architecture: lucidrains/BS-RoFormer (MIT).
+Training/inference source: ZFTurbo/Music-Source-Separation-Training (MIT),
+revision 6fdad13686bb7e84d029ec66f9dbe76e65c93ebf.
+Spectral export/NumPy transforms adapted from Santiago Quiroz Upegui's
+MIT port, santiquiroz/port-bs-roformer-onnx,
+revision 3f727cde9710cd0237130a96155a70e2c850d553.
+The port's older licensing assessment is superseded for this exact checkpoint
+by the trainer's explicit permission linked above; no other checkpoint is implied.
+
+Blaze exports full-context FP32 weights and math. Attention batches are sliced
+across independent items to bound memory; no key/query context is removed.
+One checkpoint is exported into a front end, eight sequential transformer
+blocks and output heads. Only one block's runtime buffers are retained at a
+time. This is not a model ensemble or a shorter-context approximation.
+Pipeline input: spec [1,2050,1101,2]. Output: mask [1,4,2050,1101,2].
+Native source order: drums, bass, other, vocals. 44.1 kHz stereo, 11-second
+contexts, original periodic Hann 2048/441 STFT, 50% overlapped chunks.
+See tools/roformer/export.py for the reproducible conversion procedure.
+
+Five-output processing subsequently uses the separately attributed Spleeter
+piano model on the remaining music. This is not a native five-stem RoFormer.

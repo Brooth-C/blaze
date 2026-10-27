@@ -120,6 +120,18 @@ def stage_stem_models(source, target):
         shutil.copy2(piano_source / name, piano_target / name)
     shutil.copy2(piano_source / 'manifest.json', piano_target / 'manifest.json')
     metadata['piano'] = piano_metadata
+    from music_studio.roformer_assets import MODELS, CHECKPOINT_SHA
+    roformer_source, roformer_target = source / 'roformer', target / 'roformer'
+    roformer_metadata = json.loads((roformer_source / 'manifest.json').read_text())
+    if (roformer_metadata.get('models') != MODELS or roformer_metadata.get('license') != 'MIT'
+            or roformer_metadata.get('checkpoint_sha256') != CHECKPOINT_SHA):
+        raise ValueError('The reviewed BS-RoFormer model manifest is missing or incompatible.')
+    for meta in MODELS.values():
+        checked_file(roformer_source / meta['file'], meta)
+    roformer_target.mkdir()
+    for name in (*[meta['file'] for meta in MODELS.values()], 'manifest.json', 'LICENSE-MSST.txt', 'LICENSE-Architecture.txt', 'LICENSE-Port.txt', 'NOTICE.txt'):
+        shutil.copy2(roformer_source / name, roformer_target / name)
+    metadata['roformer'] = roformer_metadata
     return metadata
 
 

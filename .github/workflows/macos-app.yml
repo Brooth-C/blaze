@@ -1,10 +1,10 @@
 name: Blaze macOS app
 on:
   pull_request:
-    paths: ['music_studio/**', 'tests/media/**', 'tools/*macos*', 'tools/macos_decoder/**', 'tests/Blaze-Mac-*-Tests.py', 'tests/Blaze-Mac-Glass-Native.py', '.github/workflows/macos-app.yml']
+    paths: ['music_studio/**', 'tests/media/**', 'tools/*macos*', 'tools/macos_decoder/**', 'tools/roformer/**', 'tests/Blaze-Mac-*-Tests.py', 'tests/Blaze-Mac-Glass-Native.py', '.github/workflows/macos-app.yml']
   push:
     branches: [main]
-    paths: ['music_studio/**', 'tests/media/**', 'tools/*macos*', 'tools/macos_decoder/**', 'tests/Blaze-Mac-*-Tests.py', 'tests/Blaze-Mac-Glass-Native.py', '.github/workflows/macos-app.yml']
+    paths: ['music_studio/**', 'tests/media/**', 'tools/*macos*', 'tools/macos_decoder/**', 'tools/roformer/**', 'tests/Blaze-Mac-*-Tests.py', 'tests/Blaze-Mac-Glass-Native.py', '.github/workflows/macos-app.yml']
   workflow_dispatch:
 permissions:
   contents: read
@@ -81,6 +81,7 @@ jobs:
           python tests/Blaze-Mac-Stem-Tests.py
           python tests/Blaze-Mac-Stem-Jobs-Tests.py
           python tests/Blaze-Mac-Piano-Tests.py
+          python tests/Blaze-Mac-Roformer-Tests.py
           python tests/Blaze-Meter-Tests.py
           python tests/Blaze-Chord-Evidence-Tests.py
           python tests/Blaze-Sequence-Tests.py
@@ -94,7 +95,7 @@ jobs:
       - uses: actions/cache@v6.1.0
         with:
           path: build/mac-assets/stem-models
-          key: blaze-mac-stems-piano-v1-0c11f8124dc5dfe6
+          key: blaze-mac-stems-roformer-v1-full-fp32
       - name: Stage pinned model and downloader assets
         run: python tools/stage_macos_studio.py --work build/mac-assets --arch ${{ matrix.arch }}
       - uses: actions/cache/restore@v6.1.0
@@ -130,11 +131,12 @@ jobs:
           export PATH="$PWD/tools/macos_decoder/output/bin:$PATH"
           python tests/Blaze-Mac-Stem-Tests.py
           python tests/Blaze-Mac-Piano-Tests.py
+          BLAZE_REAL_ROFORMER=1 python tests/Blaze-Mac-Roformer-Tests.py
       - name: Build minimal separate downloader
         run: python tools/build_macos_downloader.py --arch ${{ matrix.arch }} --output build/mac-assets/bin --work build/mac-downloader --notices build/mac-assets/notices
       - name: Build Blaze.app
         run: |
-          python tools/build_macos_studio.py --arch ${{ matrix.arch }} --version 0.12.0 \
+          python tools/build_macos_studio.py --arch ${{ matrix.arch }} --version 0.13.0 \
             --ffmpeg tools/macos_decoder/output/bin/ffmpeg --ffprobe tools/macos_decoder/output/bin/ffprobe \
             --decoder-materials tools/macos_decoder/output --ytdlp build/mac-assets/bin/yt-dlp \
             --node build/mac-assets/bin/node --external-notices build/mac-assets/notices --python-license build/mac-assets/notices/Python-LICENSE.txt --python-license-version 3.12.10 --output dist --work build/mac-bundle
@@ -184,7 +186,7 @@ jobs:
           python - <<'PY'
           from pathlib import Path
           import hashlib, json, os, subprocess
-          tag = 'macos-v0.12.0'
+          tag = 'macos-v0.13.0'
           files = [Path('artifacts/Blaze-Mac-arm64.zip')]
           digests = {p.name: hashlib.sha256(p.read_bytes()).hexdigest() for p in files}
           probe = subprocess.run(['gh','api','repos/' + os.environ['GH_REPO'] + '/releases/tags/' + tag], capture_output=True, text=True)
@@ -198,7 +200,7 @@ jobs:
                   assert assets[p.name].get('digest') == 'sha256:' + digests[p.name], 'Existing release is immutable'
               print('Existing Mac release verified; no assets replaced.')
           else:
-              notes = Path('docs/RELEASE-0.12.0.md').read_text(encoding='utf-8')
+              notes = Path('docs/RELEASE-0.13.0.md').read_text(encoding='utf-8')
               notes += '\n\n## macOS installation\n\nThis build supports **Apple Silicon (M1 and newer)** only. Extract the ZIP and move Blaze.app to Applications. No separate Python or model installation is needed. This build is ad-hoc signed and not Apple-notarized; macOS may require Privacy & Security → Open Anyway. Packaged smoke tests cover Apple Silicon on macOS 15 and macOS 26. Intel development ended with the 0.9.0 release; its existing download remains available. Matching LGPL decoder sources, licenses, model notices and rebuild scripts are included.\n\n'
               notes += '\n'.join(f'{p.name}: {p.stat().st_size} bytes; SHA256 `{digests[p.name]}`' for p in files)
               Path('notes.md').write_text(notes)
