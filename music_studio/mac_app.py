@@ -441,6 +441,19 @@ def ui_smoke(window, studio, destination, receipt, probe, timeout=600):
                                 'real_model': True, 'native_playback': True}
             probe.run(window, "document.getElementById('mini-play').click(); document.getElementById('split-stems').click()")
             wait_for("document.getElementById('stems-dialog').open")
+            probe.run(window, "document.querySelector('button[aria-label=\"Open Guitar in Studio\"]').scrollIntoView({block:'center'})")
+            wait_for("""(() => {
+              const row=document.querySelector('button[aria-label="Open Guitar in Studio"]').getBoundingClientRect();
+              const list=document.getElementById('stems-results').getBoundingClientRect();
+              return row.top>=list.top&&row.bottom<=list.bottom&&row.width>0;
+            })()""")
+            probe.run(window, "document.querySelector('button[aria-label=\"Open Guitar in Studio\"]').click()")
+            wait_for("!document.getElementById('stems-dialog').open && sourceName==='Guitar.wav' && document.getElementById('media').readyState>=1")
+            probe.run(window, "document.getElementById('mini-play').click()")
+            wait_for("(() => {const m=document.getElementById('media');return m===window.blazeSmokeVideo && !m.paused && m.currentTime>.1;})()")
+            receipt['stems']['instrument_playback'] = True
+            probe.run(window, "document.getElementById('mini-play').click(); document.getElementById('split-stems').click()")
+            wait_for("document.getElementById('stems-dialog').open")
             probe.run(window, "document.getElementById('stems-piano').click()")
             wait_for("window.BlazeMacStems.snapshot().mode==='piano' && ['done','failed'].includes(window.BlazeMacStems.snapshot().status)")
             piano_job = probe.probe(window, 'window.BlazeMacStems.snapshot()')

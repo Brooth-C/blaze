@@ -116,6 +116,7 @@ def main():
     assert receipt['mac_design']['compact_layout']['controls'], receipt
     assert receipt['stems']['real_model'] and receipt['stems']['native_playback'], receipt
     assert receipt['stems']['count'] == 9, receipt
+    assert receipt['stems']['instrument_playback'], receipt
     assert receipt['piano']['real_model'] and receipt['piano']['native_playback'], receipt
     print(json.dumps({'architecture': args.arch, 'checks': 'native launch, ensemble, edits/exports, 6 audio formats, 4K decode, download, Cocoa playback/seek/layout', 'ui': receipt}, indent=2))
     # Let the remote desktop screenshot finish writing before artifact upload.
