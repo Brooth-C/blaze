@@ -9,7 +9,7 @@
     const families = ['vocals', 'drums', 'bass', 'piano', 'guitar', 'strings', 'brass', 'synths', 'other'];
     const labels = {source:'Recording', vocals:'Vocals', drums:'Drums', bass:'Bass', piano:'Piano', guitar:'Guitar', strings:'Strings', brass:'Brass', synths:'Synths', other:'Other', accompaniment:'Accompaniment'};
     const colors = {source:'#8293a2', vocals:'#438ce2', drums:'#42a7b5', bass:'#8e72cf', piano:'#e6a34f', guitar:'#498fd6', strings:'#c6a757', brass:'#9675d3', synths:'#42bbba', other:'#8b98a7', accompaniment:'#8496ac'};
-    const regionColors={source:['#477cad','#315c86'],vocals:['#3489cb','#2268a2'],drums:['#289ca2','#207c83'],bass:['#8655c5','#664296'],piano:['#c9a42b','#a88a21'],guitar:['#3c9b64','#2f7e50'],strings:['#9eaa2b','#7c8621'],brass:['#b65d94','#914a78'],synths:['#318eae','#25718c'],other:['#70839a','#566a80']};
+    const regionColors={source:['#3a6a94','#315c86'],vocals:['#246da6','#2268a2'],drums:['#1b7277','#207c83'],bass:['#69409f','#664296'],piano:['#c9a42b','#a88a21'],guitar:['#2b7447','#2f7e50'],strings:['#9eaa2b','#7c8621'],brass:['#84406a','#914a78'],synths:['#22657e','#25718c'],other:['#53677f','#566a80']};
     const paths = {
         source:'M3 12h2l2-7 3 14 3-14 3 14 2-7h3',
         vocals:'M9 4a3 3 0 0 1 6 0v7a3 3 0 0 1-6 0Zm-3 6v1a6 6 0 0 0 12 0v-1M12 17v5m-4 0h8',
@@ -335,6 +335,7 @@
             lane.style.setProperty('--track-color', colors[track.id] || colors.source);
             lane.style.setProperty('--region-header',(regionColors[track.id]||regionColors.source)[0]);
             lane.style.setProperty('--region-bg',(regionColors[track.id]||regionColors.source)[1]);
+            lane.style.setProperty('--region-ink',['piano','strings'].includes(track.id)?'#171b1f':'#f2f5f7');
             const region = document.createElement('button'); region.type = 'button'; region.className = 'daw-region'; region.classList.toggle('selected', track.id === selected);
             region.setAttribute('aria-label', 'Open '+track.label+' waveform');
             const caption = document.createElement('span'); caption.textContent = track.id === 'source' ? title(sourceName) : track.label;

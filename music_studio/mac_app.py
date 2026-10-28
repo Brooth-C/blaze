@@ -320,6 +320,8 @@ def ui_smoke(window, studio, destination, receipt, probe, timeout=600):
           const viewport = document.documentElement;
           const mac = document.documentElement.dataset.presentation === 'mac';
           const ids = mac ? ['daw-play','daw-chords','daw-arrangement','daw-editor','daw-waveform'] : ['bar-flow','diagram-strip','analyze','studio-settings'];
+          if (mac && innerWidth >= 1000 && innerHeight >= 649 && window.BlazeMacStudio?.snapshot().inspectorOpen)
+            ids.push('daw-channel-mute','daw-channel-solo','daw-master-volume');
           return {width: innerWidth, height: innerHeight,
             scroll_height: viewport.scrollHeight,
             studio_workspace: mac && window.BlazeMacStudio?.snapshot().active === true,
@@ -328,7 +330,7 @@ def ui_smoke(window, studio, destination, receipt, probe, timeout=600):
             branding_fits: mac ? document.querySelector('header').getBoundingClientRect().height===0 : document.querySelector('header .brand h1').getBoundingClientRect().right <= document.querySelector('header').getBoundingClientRect().right,
             controls_visible: ids.every(id => {
               const r = document.getElementById(id).getBoundingClientRect();
-              return r.width > 0 && r.height > 0 && r.top >= 0 && r.bottom <= innerHeight + 1;
+              return r.width > 0 && r.height > 0 && r.top >= 0 && r.bottom <= innerHeight + 1 && r.left >= 0 && r.right <= innerWidth + 1;
             })};
         })()""")
         if (not receipt['layout']['controls_visible'] or not receipt['layout']['branding_fits']

@@ -12,7 +12,7 @@ const root=path.resolve(__dirname,'..');
 const screenshots=process.env.BLAZE_UI_SCREENSHOTS;
 if(screenshots)fs.mkdirSync(screenshots,{recursive:true});
 const fixture=String.raw`
-import math,shutil,tempfile,wave
+import math,shutil,signal,tempfile,wave
 from pathlib import Path
 import numpy as np
 from music_studio.server import Studio,create_server
@@ -49,8 +49,12 @@ with tempfile.TemporaryDirectory(prefix='blaze-studio-workspace-') as directory:
     studio.stems.start('nine');studio.stems.worker.join(timeout=20)
     assert studio.stems.snapshot()['status']=='done'
     server=create_server(studio)
+    def stop_server(*_):
+        raise KeyboardInterrupt
+    signal.signal(signal.SIGTERM,stop_server)
     print('http://127.0.0.1:'+str(server.server_port),flush=True)
     try:server.serve_forever()
+    except KeyboardInterrupt:pass
     finally:server.server_close();studio.close()
 `;
 const server=spawn(process.env.BLAZE_TEST_PYTHON||'python3',['-u','-c',fixture],{cwd:root,stdio:['ignore','pipe','pipe']});
@@ -364,6 +368,7 @@ async function fit(page,ids){
                 return art.scrollHeight<=art.clientHeight+1&&toolbar.scrollWidth<=toolbar.clientWidth+1;
             }),'A long recording name overflowed Studio controls');
             await fit(page,['daw-play','daw-stop','daw-editor','daw-waveform']);
+            if(width===1024)await fit(page,['daw-channel-mute','daw-channel-solo','daw-master-volume']);
             await shot(page,'long-name-'+width);
         }
         assert(await page.locator('#media').evaluate(el=>el===window.testMedia));
