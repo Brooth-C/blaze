@@ -15,6 +15,7 @@
     let nativeChromeInstalled = false;
     let scrubbing = false;
     let lastSource = '';
+    let lastSourceRevision = null;
 
     const text = (element, value) => {
         if (element.textContent !== value) element.textContent = value;
@@ -227,8 +228,10 @@
             player.hidden = false;
             for (const button of [byId('mini-open'), byId('mini-play'), byId('mini-next'), previous]) button.disabled = !loaded;
             if (!loaded) text(byId('mini-creator'), 'Choose music in Explore or open a file');
-            if (lastSource !== sourceName) {
+            if (lastSource !== sourceName || lastSourceRevision !== sourceRevision) {
                 lastSource = sourceName;
+                lastSourceRevision = sourceRevision;
+                window.dispatchEvent(new Event('blaze-mac-media-changed'));
                 scrubbing = false;
                 text(byId('filename'), loaded ? this.displayTitle(sourceName) : 'Choose a song to begin');
                 if (currentSection() === 'studio' && loaded && !video.classList.contains('audio-only')) inspector.open = true;

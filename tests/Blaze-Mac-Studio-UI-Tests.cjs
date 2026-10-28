@@ -253,6 +253,14 @@ async function fit(page,ids){
         await page.evaluate(()=>refresh());
         await page.waitForFunction(()=>{const state=window.BlazeMacStudio.snapshot();return sourceName==='Fresh recording.wav'&&state.sourceRevision===sourceRevision&&state.waveformReady;});
         assert(!(await page.evaluate(()=>window.BlazeMacStudio.snapshot().tracks)).some(track=>track.id==='piano'),'The previous stem session leaked into the new import');
+        // Analysis guides from an ordinary recording must not survive a later
+        // import when neither recording belongs to a completed stem job.
+        await page.evaluate(()=>applyResult({duration:64,key:'C major',tempo_bpm:120,analysis_seconds:0,model:{name:'Controlled guide'},beats:[],chords:[{start:0,end:64,chord:'C:maj'}]}));
+        await page.waitForFunction(()=>window.BlazeMacStudio.snapshot().guideReady);
+        const second=await page.request.post(base+'/api/import',{headers:{'X-Blaze-Token':token,'X-File-Name':'Second recording.wav'},data:downloaded});
+        assert(second.ok());await page.evaluate(()=>refresh());
+        await page.waitForFunction(()=>{const s=window.BlazeMacStudio.snapshot();return sourceName==='Second recording.wav'&&s.sourceRevision===sourceRevision&&s.waveformReady;});
+        assert.equal(await page.evaluate(()=>window.BlazeMacStudio.snapshot().guideReady),false,'The previous recording supplied a stale MIDI guide');
         assert(await page.locator('#media').evaluate(el=>el===window.testMedia));
         assert(ignoredBusyConsole<=8,'Waveform requests did not settle after bounded retry');
         assert.deepEqual(errors,[]);

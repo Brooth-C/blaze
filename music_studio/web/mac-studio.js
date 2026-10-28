@@ -453,17 +453,22 @@
         signature=next;const mine=++generation;controller?.abort();controller=new AbortController();
         const revision=sourceRevision;selection=null;waveformReady=false;
         if(!sourceName||!Number.isSafeInteger(revision)){
-            tracks=[];selected='source';currentPeaks=null;sessionJob='';sessionRevision=revision;renderTracks();message('Import a recording to begin.');return;
+            tracks=[];selected='source';currentPeaks=null;guide=lastGuide=null;guideJob='';sessionJob='';sessionRevision=revision;renderTracks();message('Import a recording to begin.');return;
         }
         const sourceChanged=sessionRevision!==revision;
+        const previousGuide=guide&&sessionJob?{jobId:sessionJob,data:guide}:null;
         sessionRevision=revision;loading=true;
-        if(sourceChanged){currentPeaks=null;tracks=[{id:'source',label:title(sourceName),waveform:null}];selected='source';renderTracks();}
+        if(sourceChanged){currentPeaks=null;guide=null;lastGuide=null;tracks=[{id:'source',label:title(sourceName),waveform:null}];selected='source';renderTracks();}
         message('Reading local waveform…');
         text('daw-session-title',title(sourceName));
         try{
             const data=await fetchWave(revision,'','',controller.signal);
             if(mine!==generation||revision!==sourceRevision||!active())return;
             currentPeaks=data;waveformReady=true;const nextJob=data.stemJobId||'';
+            if(sourceChanged){
+                guide=result||(nextJob&&previousGuide?.jobId===nextJob?previousGuide.data:null);
+                lastGuide=result||null;guideJob=nextJob;
+            }
             if(nextJob!==sessionJob||!sessionTitle||sessionTitle==='Untitled'){if(result){guide=result;guideJob=nextJob;}else if(guideJob!==nextJob){guide=null;lastGuide=null;}if(!nextJob||!sessionJob)sessionTitle=title(stems?.sourceName||sourceName);}
             sessionJob=nextJob;
             if(!sessionJob)sessionTitle=title(sourceName);
@@ -494,6 +499,7 @@
     new MutationObserver(()=>{if(active()){setPanels();syncSession();}else{controller?.abort();signature='';++generation;practice.hidden=true;el('daw-chords').setAttribute('aria-expanded','false');paintTransport();}}).observe(panel,{attributes:true,attributeFilter:['hidden']});
     for(const event of ['timeupdate','play','pause','loadedmetadata','volumechange','ratechange','seeked','ended'])player.addEventListener(event,paintTransport);
     const timer=setInterval(()=>{if(active()){syncSession();paintTransport();}},750);
+    window.addEventListener('blaze-mac-media-changed',()=>{signature='';void syncSession();});
     window.addEventListener('pagehide',()=>{stopped=true;clearInterval(timer);controller?.abort();cancelAnimationFrame(frame);resize.disconnect();},{once:true});
     window.BlazeMacStudio={snapshot:()=>({active:active(),selectedTrack:selected,tracks:tracks.map(t=>({id:t.id,label:t.label})),zoom,libraryOpen,inspectorOpen,waveformReady,waveformsReady:tracks.filter(t=>t.waveform).length,sourceRevision:sessionRevision,sessionTitle,editorMode,guideReady:!!guide?.chords?.length,projectTempo,projectNumerator,projectDenominator,audio:audioGraph?{pan:audioGraph.pan.pan.value,equalizerGain:audioGraph.eq.gain.value,compressionRatio:audioGraph.compressor.ratio.value}:null})};
     setPanels();renderTracks();syncSession();
