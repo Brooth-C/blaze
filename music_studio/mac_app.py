@@ -323,6 +323,8 @@ def ui_smoke(window, studio, destination, receipt, probe, timeout=600):
           return {width: innerWidth, height: innerHeight,
             scroll_height: viewport.scrollHeight,
             studio_workspace: mac && window.BlazeMacStudio?.snapshot().active === true,
+            names_fit: !mac || document.querySelector('.daw-instrument-art strong').scrollHeight <= document.querySelector('.daw-instrument-art strong').clientHeight + 1,
+            editor_toolbar_fits: !mac || document.querySelector('.daw-editor-toolbar').scrollWidth <= document.querySelector('.daw-editor-toolbar').clientWidth + 1,
             branding_fits: mac ? document.querySelector('header').getBoundingClientRect().height===0 : document.querySelector('header .brand h1').getBoundingClientRect().right <= document.querySelector('header').getBoundingClientRect().right,
             controls_visible: ids.every(id => {
               const r = document.getElementById(id).getBoundingClientRect();
@@ -330,6 +332,7 @@ def ui_smoke(window, studio, destination, receipt, probe, timeout=600):
             })};
         })()""")
         if (not receipt['layout']['controls_visible'] or not receipt['layout']['branding_fits']
+                or not receipt['layout']['names_fit'] or not receipt['layout']['editor_toolbar_fits']
                 or receipt['layout']['scroll_height'] > receipt['layout']['height'] + 1):
             raise RuntimeError('The native app layout hides controls or requires vertical scrolling.')
         # Invoke the same handler as the play button. The native media clock,

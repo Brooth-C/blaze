@@ -272,7 +272,8 @@
 
     function paintInspector() {
         const track = chosen(), label = track?.label || 'Recording';
-        text('daw-inspector-name', label); text('daw-instrument-name', label); text('daw-editor-title', label);
+        text('daw-inspector-name', label);text('daw-instrument-name',track?.id==='source'?'Recording':label);text('daw-editor-title',label);
+        el('daw-inspector-name').title=label;el('daw-editor-title').title=label;
         text('daw-track-name',label);text('daw-channel-name',label);text('daw-region-transpose',amount||0);
         el('daw-instrument-art').querySelector('svg').outerHTML = svg(track?.id || 'source');
         el('daw-instrument-art').querySelector('img').hidden=track?.id!=='piano';

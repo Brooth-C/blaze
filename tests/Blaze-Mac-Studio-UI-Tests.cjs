@@ -257,10 +257,24 @@ async function fit(page,ids){
         // import when neither recording belongs to a completed stem job.
         await page.evaluate(()=>applyResult({duration:64,key:'C major',tempo_bpm:120,analysis_seconds:0,model:{name:'Controlled guide'},beats:[],chords:[{start:0,end:64,chord:'C:maj'}]}));
         await page.waitForFunction(()=>window.BlazeMacStudio.snapshot().guideReady);
-        const second=await page.request.post(base+'/api/import',{headers:{'X-Blaze-Token':token,'X-File-Name':'Second recording.wav'},data:downloaded});
+        const longName='93fd8cfb-4d71-48b1-a9f7-Midnight studio recording with a very long descriptive filename.wav';
+        const second=await page.request.post(base+'/api/import',{headers:{'X-Blaze-Token':token,'X-File-Name':longName},data:downloaded});
         assert(second.ok());await page.evaluate(()=>refresh());
-        await page.waitForFunction(()=>{const s=window.BlazeMacStudio.snapshot();return sourceName==='Second recording.wav'&&s.sourceRevision===sourceRevision&&s.waveformReady;});
+        await page.waitForFunction(name=>{const s=window.BlazeMacStudio.snapshot();return sourceName===name&&s.sourceRevision===sourceRevision&&s.waveformReady;},longName);
         assert.equal(await page.evaluate(()=>window.BlazeMacStudio.snapshot().guideReady),false,'The previous recording supplied a stale MIDI guide');
+        for(const [width,height] of [[1024,649],[780,572]]){
+            await page.setViewportSize({width,height});
+            if(!(await page.evaluate(()=>window.BlazeMacStudio.snapshot().inspectorOpen)))await page.locator('#daw-inspector-toggle').click();
+            await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(resolve)));
+            assert.equal(await page.locator('.daw-instrument-art strong').textContent(),'Recording');
+            assert.equal(await page.locator('#daw-editor-title').getAttribute('title'),longName.replace(/\.wav$/,''));
+            assert(await page.evaluate(()=>{
+                const art=document.querySelector('.daw-instrument-art strong'),toolbar=document.querySelector('.daw-editor-toolbar');
+                return art.scrollHeight<=art.clientHeight+1&&toolbar.scrollWidth<=toolbar.clientWidth+1;
+            }),'A long recording name overflowed Studio controls');
+            await fit(page,['daw-play','daw-stop','daw-editor','daw-waveform']);
+            await shot(page,'long-name-'+width);
+        }
         assert(await page.locator('#media').evaluate(el=>el===window.testMedia));
         assert(ignoredBusyConsole<=8,'Waveform requests did not settle after bounded retry');
         assert.deepEqual(errors,[]);

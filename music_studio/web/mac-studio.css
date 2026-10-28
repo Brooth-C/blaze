@@ -427,6 +427,13 @@ html[data-presentation=mac] #mac-studio-workspace .daw-region,html[data-presenta
 .daw-practice-heading{gap:10px;}
 .daw-practice-heading #daw-analysis-actions{order:1;margin:0 0 0 auto;}
 .daw-practice-heading #daw-practice-close{order:2;}
+#daw-inspector{overflow-x:hidden;}
+#daw-inspector>.daw-panel-heading{overflow:hidden;}
+#daw-inspector-name{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.daw-instrument-art strong{width:100%;max-width:100%;padding-inline:8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:center;}
+.daw-editor-toolbar>strong{flex:0 1 auto;min-width:70px;max-width:45%;overflow:hidden;}
+#daw-editor-title{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.daw-rendered-label{flex-shrink:0;}
 #daw-editor-scroll{overflow-x:hidden;}
 .daw-editor-scrollbar{display:flex;align-items:center;background:linear-gradient(#26323b,#1e2a34);border-top:1px solid #111c24;padding:0 4px;gap:5px;}
 html[data-presentation=mac] #mac-studio-workspace .daw-editor-scrollbar button{width:13px;height:15px;min-height:15px;padding:0;border:0;box-shadow:none;background:none;color:#8395a5;font-size:12px;}
