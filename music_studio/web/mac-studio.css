@@ -1,0 +1,230 @@
+/* Studio's graphite palette is intentionally independent of Browse appearance. */
+html[data-presentation=mac] body.studio-active { background:#20272c; color:#e0e6eb; }
+html[data-presentation=mac] body.studio-active .studio { height:100dvh; min-height:0; max-width:none; padding:0; overflow:hidden; }
+html[data-presentation=mac] body.studio-active header,
+html[data-presentation=mac] body.studio-active .app-tabs,
+html[data-presentation=mac] body.studio-active .app-utilities,
+html[data-presentation=mac] body.studio-active:not(.mac-player-expanded) #mini-player { display:none; }
+html[data-presentation=mac] body.studio-active #studio-panel { display:block; position:relative; height:100%; overflow:hidden; }
+#mac-studio-workspace {
+  --daw-bg:#20272c; --daw-panel:#293137; --daw-line:#10171b;
+  --daw-ink:#e1e6eb; --daw-muted:#a2adb7; --daw-orange:#ef8035;
+  --library-width:176px; --inspector-width:182px; --track-width:230px; --lane-height:48px;
+  height:100%; min-width:0; min-height:0; display:grid; grid-template-rows:64px minmax(0,1fr) 24px;
+  background:var(--daw-bg); color:var(--daw-ink); font:12px/1.4 -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+  color-scheme:dark; overflow:hidden;
+}
+#mac-studio-workspace * { box-sizing:border-box; }
+#mac-studio-workspace [hidden] { display:none !important; }
+#mac-studio-workspace button,
+#mac-studio-workspace select,
+#mac-studio-workspace input { font:inherit; letter-spacing:0; }
+html[data-presentation=mac] #mac-studio-workspace button,
+html[data-presentation=mac] #mac-studio-workspace .button,
+html[data-presentation=mac] #mac-studio-workspace select {
+  min-height:28px; padding:4px 9px; border:1px solid #11191e; border-top-color:#505960;
+  background:linear-gradient(#3b454e,#2d353d); color:var(--daw-ink); border-radius:4px;
+  box-shadow:0 1px 1px #0003; font-size:11px; font-weight:400; line-height:1.35;
+}
+html[data-presentation=mac] #mac-studio-workspace button:hover:not(:disabled),
+html[data-presentation=mac] #mac-studio-workspace a:hover { background:#47525b; }
+html[data-presentation=mac] #mac-studio-workspace button:disabled { opacity:.4; cursor:default; }
+html[data-presentation=mac] #mac-studio-workspace button:focus-visible,
+html[data-presentation=mac] #mac-studio-workspace a:focus-visible,
+html[data-presentation=mac] #mac-studio-workspace input:focus-visible { outline:2px solid #e99a5b; outline-offset:-2px; }
+#mac-studio-workspace svg { width:20px; height:20px; flex:none; vertical-align:middle; }
+#mac-studio-workspace input[type=range] { accent-color:#b0bac3; height:16px; min-height:0; padding:0; width:100%; }
+#daw-transport { display:flex; align-items:center; gap:14px; padding:9px 14px; background:linear-gradient(#343d44,#252d33); border-bottom:1px solid #080e11; box-shadow:0 1px 0 #ffffff0c; overflow-x:auto; min-width:0; scrollbar-width:thin; }
+.daw-panel-tools,.daw-transport-buttons,.daw-session-actions { display:flex; align-items:center; flex-shrink:0; gap:3px; }
+html[data-presentation=mac] #daw-transport .daw-panel-tools button { width:34px; height:33px; padding:5px; }
+html[data-presentation=mac] #mac-studio-workspace button[aria-pressed=true] { background:linear-gradient(#62717e,#4c5a67); color:#fff; }
+.daw-panel-tools { gap:5px; }
+.daw-transport-buttons { gap:0; }
+html[data-presentation=mac] #daw-transport .daw-transport-buttons button { width:39px; height:36px; border-radius:0; border-right:0; padding:6px; }
+html[data-presentation=mac] #daw-transport .daw-transport-buttons button:first-child { border-radius:4px 0 0 4px; }
+html[data-presentation=mac] #daw-transport .daw-transport-buttons button:last-child { border-radius:0 4px 4px 0; border-right:1px solid #11191e; }
+#daw-play svg,#daw-stop svg { fill:currentColor; stroke-width:0; }
+html[data-presentation=mac] #daw-transport #daw-play.playing { background:linear-gradient(#43a25a,#298144); color:white; }
+html[data-presentation=mac] #daw-transport #daw-loop[aria-pressed=true] { background:#b29b44; color:#191c1c; }
+.daw-display { display:flex; align-self:stretch; min-width:360px; max-width:540px; flex:1; background:linear-gradient(#080c0e,#13191d); border:1px solid #05090b; border-radius:5px; box-shadow:inset 0 1px 4px #000a,0 1px #ffffff12; }
+.daw-display>div { display:flex; flex:1; min-width:0; justify-content:center; align-items:center; flex-direction:column; border-right:1px solid #ffffff0b; padding:2px 11px; white-space:nowrap; }
+.daw-display>div:last-child { border-right:0; }
+.daw-display .daw-musical-position { flex:1.25; }
+.daw-display strong { font-size:17px; font-weight:450; font-variant-numeric:tabular-nums; letter-spacing:-.035em; }
+.daw-display small { font-size:8px; line-height:1.4; color:#9aa7b2; letter-spacing:.07em; }
+.daw-session-actions { margin-left:auto; gap:6px; }
+html[data-presentation=mac] #daw-transport .daw-session-actions button { height:31px; }
+html[data-presentation=mac] #daw-transport #daw-import { padding:4px 8px; }
+.daw-body { display:grid; grid-template-columns:var(--library-width) var(--inspector-width) minmax(0,1fr); min-width:0; min-height:0; }
+#mac-studio-workspace.daw-library-hidden { --library-width:0px; }
+#mac-studio-workspace.daw-inspector-hidden { --inspector-width:0px; }
+#daw-library,#daw-inspector { min-width:0; min-height:0; overflow:auto; scrollbar-width:thin; background:linear-gradient(100deg,#232c32,#273037); border-right:1px solid #080d10; }
+.daw-library-hidden #daw-library,.daw-inspector-hidden #daw-inspector { visibility:hidden; border:0; }
+.daw-panel-heading { padding:8px 12px; font-size:11px; border-bottom:1px solid #11191e; box-shadow:0 1px #ffffff08; white-space:nowrap; font-weight:550; }
+.daw-library-search { display:flex; align-items:center; gap:5px; margin:10px 8px; border:1px solid #57636b; border-radius:5px; padding:3px 5px; color:#a8b5bf; height:27px; }
+#mac-studio-workspace .daw-library-search input { width:100%; height:21px; padding:0; min-width:0; border:0; background:none; color:#d9e1e7; font-size:11px; outline:none; box-shadow:none; }
+#mac-studio-workspace .daw-library-search input::placeholder { color:#9ca8b2; }
+#daw-families { padding:0 6px 12px; }
+html[data-presentation=mac] #mac-studio-workspace #daw-families button { display:flex; align-items:center; gap:9px; width:100%; height:31px; padding:4px 7px; border:0; box-shadow:none; background:none; text-align:left; border-radius:4px; }
+#daw-families svg { width:17px; height:17px; }
+#daw-families .daw-disclosure { color:#85929d; margin-left:auto; font-size:17px; }
+html[data-presentation=mac] #mac-studio-workspace #daw-families button.selected { background:#3e4e5b; color:#fff; }
+.daw-recordings-heading { color:#a6b2bc; font-size:10px; margin-top:4px; border-top:1px solid #121c22; }
+#daw-recordings { padding:7px 6px; }
+html[data-presentation=mac] #mac-studio-workspace .daw-recording { display:block; width:100%; text-align:left; border:0; border-radius:3px; box-shadow:none; background:none; height:28px; padding-left:12px; text-overflow:ellipsis; overflow:hidden; white-space:nowrap; position:relative; }
+html[data-presentation=mac] #mac-studio-workspace .daw-recording.selected { background:#3d4b56; }
+.daw-recording.selected::before { content:''; position:absolute; left:1px; top:3px; bottom:3px; width:3px; border-radius:2px; background:var(--daw-orange); }
+.daw-library-foot { margin:22px 12px 12px; font-size:10px; color:#a1adb6; }
+.daw-library-foot span { display:block; color:#6f7d87; margin-top:2px; }
+.daw-instrument-art { display:flex; align-items:center; justify-content:center; flex-direction:column; height:108px; gap:9px; color:#c5d0da; background:radial-gradient(ellipse at center,#36434c,#252e34 75%); border-bottom:1px solid #10191e; }
+#mac-studio-workspace .daw-instrument-art svg { height:48px; width:48px; stroke-width:.8; filter:drop-shadow(0 4px 3px #0009); }
+.daw-instrument-art strong { font-size:12px; font-weight:500; }
+#daw-inspector details { padding:0 10px 7px; margin:0; border:0; border-radius:0; background:none; border-bottom:1px solid #111a20; }
+#daw-inspector details summary { margin:0 -10px 6px; padding:6px 10px; font-size:11px; color:#e2e7eb; background:linear-gradient(#303b43,#29323a); border-top:1px solid #ffffff08; cursor:pointer; }
+#daw-inspector dl { margin:0; font-size:10px; }
+#daw-inspector dl>div { display:flex; justify-content:space-between; gap:8px; padding:4px 2px; border-bottom:1px solid #ffffff07; }
+#daw-inspector dt { color:#aab5bf; }
+#daw-inspector dd { margin:0; color:#d4dce3; text-align:right; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.daw-save { display:block; color:#e9bf8b; font-size:10px; padding:6px 2px 2px; text-decoration:none; }
+.daw-control-label { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:5px; font-size:10px; padding:5px 2px; color:#bac4cc; }
+.daw-control-label input { flex-basis:100%; }
+html[data-presentation=mac] #mac-studio-workspace .daw-control-label select { width:68px; min-height:22px; padding:2px 5px; font-size:10px; }
+.daw-channel-buttons { display:flex; gap:5px; padding-top:6px; }
+html[data-presentation=mac] #mac-studio-workspace .daw-channel-buttons button { flex:1; min-height:24px; font-size:10px; padding:3px; }
+#daw-analysis-actions { display:flex; gap:4px; margin-top:8px; flex-wrap:wrap; }
+html[data-presentation=mac] #mac-studio-workspace #daw-analysis-actions button { font-size:10px; min-height:24px; padding:3px 7px; }
+.daw-channel-strip { padding:12px 18px; }
+.daw-channel-caption { color:#8f9ca7; font-size:8px; letter-spacing:.1em; text-align:center; }
+.daw-channel-fader { display:flex; gap:12px; height:140px; margin-top:12px; justify-content:center; }
+.daw-channel-fader>span { font-size:8px; color:#7d8b97; text-align:right; line-height:1.2; }
+.daw-fader-line { width:7px; margin:3px 0 12px; background:#11191e; border:1px solid #080d10; border-right-color:#4b5963; position:relative; }
+.daw-fader-line i { position:absolute; left:-5px; top:0; width:15px; height:27px; border-radius:2px; background:linear-gradient(#b6c2ca,#8b969f); border:1px solid #131c22; box-shadow:0 2px 4px #0009,inset 0 12px #ffffff0b; }
+.daw-fader-line i::after { content:''; position:absolute; top:50%; left:0; right:0; height:1px; background:#26323b; }
+.daw-channel-state { display:flex; flex-direction:column; color:#9eacb7; align-items:center; justify-content:center; gap:7px; font-size:9px; }
+.daw-main { grid-column:3; display:grid; grid-template-rows:minmax(160px,1.55fr) minmax(150px,1fr); min-width:0; min-height:0; overflow:hidden; }
+#daw-arrangement { display:flex; flex-direction:column; min-width:0; min-height:0; position:relative; background:#1a2227; border-bottom:4px solid #0e161b; }
+.daw-arrangement-title { display:flex; flex-shrink:0; align-items:center; justify-content:space-between; height:27px; padding:0 12px; background:linear-gradient(#303b42,#273138); border-bottom:1px solid #0d161c; font-size:10px; gap:10px; }
+.daw-arrangement-title strong { font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.daw-arrangement-title span { color:#8d9ba6; white-space:nowrap; }
+.daw-arrangement-scroll { flex:1; min-height:0; overflow:auto; scrollbar-width:thin; }
+.daw-arrangement-grid { display:grid; grid-template-columns:var(--track-width) minmax(180px,1fr); grid-template-rows:30px auto; min-height:100%; min-width:0; }
+.daw-track-heading { display:flex; align-items:center; justify-content:space-between; padding:0 12px; border-bottom:1px solid #0e161b; border-right:1px solid #10191e; background:linear-gradient(#303b43,#29333b); position:sticky; top:0; z-index:4; font-size:10px; color:#afbbc4; }
+.daw-track-heading span { font-size:9px; color:#7e8e9b; }
+.daw-ruler { height:30px; position:relative; border-bottom:1px solid #0c1419; background:repeating-linear-gradient(90deg,transparent 0,transparent calc(6.25% - 1px),#ffffff10 calc(6.25% - 1px),#ffffff10 6.25%),linear-gradient(#273239,#232c33); }
+#daw-ruler { position:sticky; top:0; z-index:4; }
+.daw-ruler span { position:absolute; top:3px; color:#c0cbd4; font-size:10px; padding-left:5px; transform:translateX(0); font-variant-numeric:tabular-nums; white-space:nowrap; }
+.daw-ruler span:last-child { transform:translateX(-100%); padding-right:6px; }
+#daw-track-list { background:repeating-linear-gradient(#323e47 0,#323e47 calc(var(--lane-height) - 1px),#111a20 calc(var(--lane-height) - 1px),#111a20 var(--lane-height)); border-right:1px solid #0d171d; }
+html[data-presentation=mac] #mac-studio-workspace .daw-track { display:flex; align-items:center; gap:12px; width:100%; height:var(--lane-height); padding:0 12px 0 9px; border:0; border-radius:0; box-shadow:none; background:linear-gradient(#35424c,#2d3942); border-bottom:1px solid #101a21; position:relative; text-align:left; font-size:11px; }
+html[data-presentation=mac] #mac-studio-workspace .daw-track.selected { background:linear-gradient(#56616b,#46535e); }
+.daw-track.selected::before { content:''; position:absolute; left:0; top:0; bottom:0; width:4px; background:var(--daw-orange); }
+.daw-track-number { width:14px; font-size:9px; color:#9eafbc; }
+#mac-studio-workspace .daw-track svg { color:#c1ced7; width:25px; height:25px; }
+.daw-track-label { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.daw-track-audition { color:#b1bfca; margin-left:auto; font-size:17px; }
+#daw-regions { min-height:0; position:relative; background:repeating-linear-gradient(90deg,transparent 0,transparent calc(6.25% - 1px),#ffffff09 calc(6.25% - 1px),#ffffff09 6.25%),repeating-linear-gradient(#1f2930 0,#1f2930 var(--lane-height),#222d35 var(--lane-height),#222d35 calc(var(--lane-height) * 2)); }
+.daw-lane { height:var(--lane-height); padding:2px 4px; border-bottom:1px solid #0c161c; }
+html[data-presentation=mac] #mac-studio-workspace .daw-region { display:block; position:relative; width:100%; height:100%; min-height:0; padding:0; border-radius:4px; overflow:hidden; border:1px solid color-mix(in srgb,var(--track-color),#000 35%); border-top-color:color-mix(in srgb,var(--track-color),white 15%); background:color-mix(in srgb,var(--track-color),#0c1824 75%); box-shadow:0 1px 2px #0007,inset 0 1px #ffffff0a; }
+html[data-presentation=mac] #mac-studio-workspace .daw-region.selected { background:color-mix(in srgb,var(--track-color),#22170f 55%); border-color:#efa04b; box-shadow:0 0 0 1px #f4a54845; }
+.daw-region>span { position:absolute; left:7px; top:1px; font-size:9px; color:#edf3f9; z-index:1; white-space:nowrap; max-width:95%; overflow:hidden; text-overflow:ellipsis; }
+.daw-region-wave { width:100%; height:100%; display:block; padding-top:9px; }
+.daw-playhead { position:absolute; top:0; bottom:0; width:2px; pointer-events:none; background:var(--daw-orange); z-index:3; box-shadow:0 0 2px #0007; }
+.daw-playhead::before { content:''; position:absolute; top:0; left:-4px; border-top:7px solid var(--daw-orange); border-left:5px solid transparent; border-right:5px solid transparent; }
+#daw-empty { position:absolute; top:57px; bottom:0; left:var(--track-width); right:0; display:grid; place-items:center; padding:24px; text-align:center; background:#1a232ade; z-index:3; }
+#daw-empty>div { max-width:310px; }
+#mac-studio-workspace #daw-empty svg { width:40px; height:40px; color:#8399aa; }
+html[data-presentation=mac] #mac-studio-workspace #daw-empty h2 { font-size:17px; font-weight:500; letter-spacing:-.02em; color:#d8e3eb; margin:13px 0 8px; }
+#daw-empty p { color:#8e9eab; font-size:11px; line-height:1.6; margin:0 0 16px; }
+html[data-presentation=mac] #mac-studio-workspace #daw-empty button { padding:6px 13px; background:#ad5b2e; color:#fff; border-top-color:#db8a58; }
+#daw-editor { display:grid; grid-template-rows:38px minmax(0,1fr) 26px; min-height:0; min-width:0; background:#171f24; border-top:1px solid #4a5862; }
+.daw-editor-toolbar { display:flex; align-items:center; gap:15px; padding:4px 10px; border-bottom:1px solid #0c151a; background:linear-gradient(#303b43,#242e36); min-width:0; overflow-x:auto; scrollbar-width:thin; }
+.daw-editor-toolbar>strong { display:flex; align-items:center; flex-shrink:0; font-size:11px; font-weight:500; white-space:nowrap; gap:5px; }
+.daw-editor-toolbar i { width:4px; height:17px; border-radius:1px; background:#ef9b42; margin-right:2px; }
+.daw-rendered-label { color:#aab7c1; }
+.daw-editor-tabs { display:flex; align-items:center; flex-shrink:0; }
+html[data-presentation=mac] #mac-studio-workspace .daw-editor-tabs button { min-height:23px; padding:3px 14px; font-size:10px; border-radius:0 4px 4px 0; }
+html[data-presentation=mac] #mac-studio-workspace .daw-editor-tabs button[aria-pressed=true] { border-radius:4px 0 0 4px; background:#81512f; border-color:#d4823b; }
+.daw-zoom-control { margin-left:auto; display:flex; align-items:center; gap:9px; font-size:10px; color:#b9c5cf; white-space:nowrap; flex-shrink:0; }
+#mac-studio-workspace .daw-zoom-control input { width:90px; }
+#daw-editor-scroll { min-height:0; min-width:0; position:relative; overflow-x:auto; overflow-y:hidden; scrollbar-width:thin; background:linear-gradient(#172027,#121a1f); }
+#daw-editor-content { position:relative; height:100%; min-width:100%; background:repeating-linear-gradient(90deg,transparent 0,transparent calc(6.25% - 1px),#ffffff07 calc(6.25% - 1px),#ffffff07 6.25%); }
+#daw-editor-ruler { height:27px; }
+#daw-waveform { display:block; width:100%; height:calc(100% - 27px); touch-action:none; cursor:crosshair; position:relative; z-index:1; }
+html[data-presentation=mac] #mac-studio-workspace canvas:focus-visible { outline:1px solid #e99a5b; outline-offset:-1px; }
+#daw-editor-playhead { top:27px; }
+#daw-wave-selection { position:absolute; top:27px; bottom:0; pointer-events:none; z-index:2; border:1px solid #e5a14b; background:#d78e3326; }
+#daw-wave-empty { position:absolute; inset:45% 12px auto; font-size:11px; color:#7e909e; text-align:center; pointer-events:none; }
+.daw-editor-footer { display:flex; align-items:center; justify-content:space-between; gap:8px; color:#94a6b5; font-size:9px; padding:0 12px; background:#212b33; border-top:1px solid #0a151c; font-variant-numeric:tabular-nums; white-space:nowrap; overflow:hidden; }
+.daw-status-bar { display:flex; align-items:center; gap:16px; padding:0 12px; border-top:1px solid #0d161b; background:linear-gradient(#2f3a42,#253039); font-size:9px; color:#9cadbb; min-width:0; }
+.daw-status-brand { font-weight:550; color:#c3cfd8; }
+#daw-message { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+#daw-local-indicator { margin-left:auto; flex:none; font-size:8px; text-transform:uppercase; letter-spacing:.08em; color:#7f949f; }
+/* The existing notation UI remains available in a dedicated, keyboard-accessible drawer. */
+html[data-presentation=mac] #daw-practice { position:absolute; inset:0 0 0 auto; width:min(820px,100%); padding:0 16px 14px; overflow:auto; background:var(--panel); color:var(--text); box-shadow:-8px 0 40px #0008; z-index:12; }
+html[data-presentation=mac] #daw-practice[hidden] { display:none; }
+.daw-practice-heading { position:sticky; top:0; z-index:3; display:flex; align-items:center; justify-content:space-between; padding:12px 0; background:var(--panel); border-bottom:1px solid var(--border); margin-bottom:12px; }
+.daw-practice-heading svg { width:18px; height:18px; }
+html[data-presentation=mac] #daw-practice .studio-heading { margin:0 0 10px; min-height:30px; }
+html[data-presentation=mac] #daw-practice .studio-heading .section-title { display:none; }
+html[data-presentation=mac] #daw-practice .song-top { margin-top:6px; }
+html[data-presentation=mac] #daw-practice .workspace { display:block; overflow:visible; min-height:0; height:auto; }
+html[data-presentation=mac] #daw-practice .play-workspace { height:auto; overflow:visible; }
+html[data-presentation=mac] #daw-practice .diagram-section { flex:none; min-height:210px; }
+html[data-presentation=mac] #daw-practice #diagram-strip { height:176px; }
+html[data-presentation=mac] #daw-practice .diagram-card canvas { min-height:90px; }
+html[data-presentation=mac] #daw-practice .studio-primary-actions { display:none; }
+@media(min-width:1500px) {
+  #mac-studio-workspace { --library-width:180px; --inspector-width:188px; --track-width:270px; --lane-height:51px; grid-template-rows:72px minmax(0,1fr) 25px; }
+  #daw-transport { gap:24px; padding-inline:16px; }
+  .daw-display { max-width:650px; }
+  .daw-display strong { font-size:20px; }
+  #mac-studio-workspace .daw-track { font-size:12px; }
+}
+@media(max-width:1100px) {
+  #mac-studio-workspace { --library-width:150px; --inspector-width:164px; --track-width:170px; --lane-height:43px; }
+  #daw-transport { gap:9px; padding-inline:8px; }
+  .daw-display { min-width:300px; }
+  .daw-display>div { padding:2px 7px; }
+  .daw-display strong { font-size:15px; }
+  #mac-studio-workspace svg { width:17px; height:17px; }
+  html[data-presentation=mac] #daw-transport .daw-panel-tools button { width:29px; }
+  html[data-presentation=mac] #daw-transport .daw-transport-buttons button { width:31px; }
+}
+@media(max-width:799px) {
+  #mac-studio-workspace { --track-width:122px; --lane-height:38px; grid-template-rows:53px minmax(0,1fr) 22px; }
+  .daw-display { min-width:195px; }
+  .daw-display .daw-musical-position,.daw-display>div:last-child { display:none; }
+  .daw-display strong { font-size:13px; }
+  .daw-display small { font-size:7px; }
+  .daw-panel-tools { gap:1px; }
+  html[data-presentation=mac] #daw-transport .daw-panel-tools button { width:26px; padding:4px; }
+  #daw-rewind,#daw-forward { display:none; }
+  html[data-presentation=mac] #daw-transport .daw-transport-buttons button { width:29px; }
+  .daw-session-actions { gap:4px; }
+  html[data-presentation=mac] #daw-transport .daw-session-actions button { padding:3px 6px; font-size:9px; }
+  .daw-arrangement-title { height:25px; }
+  .daw-arrangement-title span { display:none; }
+  .daw-main { grid-template-rows:minmax(120px,1.35fr) minmax(140px,1fr); }
+  html[data-presentation=mac] #mac-studio-workspace .daw-track { gap:6px; padding-inline:6px; font-size:10px; }
+  .daw-track-number { width:10px; font-size:8px; }
+  #mac-studio-workspace .daw-track svg { width:19px; height:19px; }
+  .daw-track-audition { display:none; }
+  .daw-editor-toolbar { gap:8px; padding-inline:8px; }
+  .daw-editor-toolbar>strong { font-size:10px; }
+  .daw-rendered-label { display:none; }
+  .daw-zoom-control { gap:5px; }
+  #mac-studio-workspace .daw-zoom-control input { width:60px; }
+  html[data-presentation=mac] #mac-studio-workspace .daw-editor-tabs button { padding:3px 8px; }
+  .daw-editor-footer { font-size:8px; padding-inline:8px; }
+  .daw-status-bar { gap:10px; font-size:8px; }
+  #daw-empty { left:0; top:55px; padding:15px; }
+  #mac-studio-workspace #daw-empty h2 { font-size:14px; }
+  #daw-empty p { font-size:10px; max-width:240px; }
+  #mac-studio-workspace:not(.daw-library-hidden) #daw-library,
+  #mac-studio-workspace:not(.daw-inspector-hidden) #daw-inspector { position:absolute; top:53px; bottom:22px; left:0; width:190px; z-index:8; box-shadow:10px 0 25px #0008; }
+  #mac-studio-workspace:not(.daw-inspector-hidden) #daw-inspector { left:auto; right:0; }
+  #mac-studio-workspace .daw-body { grid-template-columns:0 0 minmax(0,1fr); }
+}
+@media(prefers-reduced-motion:no-preference) {
+  #mac-studio-workspace button { transition:background-color .12s; }
+}

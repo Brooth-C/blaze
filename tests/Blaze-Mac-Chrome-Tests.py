@@ -127,7 +127,8 @@ class MacChromeTests(unittest.TestCase):
     def apply(self, adapter, state):
         appearance = Mock()
         appkit = SimpleNamespace(NSAppearance=appearance, NSAppearanceNameAqua='Aqua',
-                                 NSAppearanceNameDarkAqua='DarkAqua')
+                                 NSAppearanceNameDarkAqua='DarkAqua', NSWindowTitleVisible=0,
+                                 NSWindowTitleHidden=1)
         with patch.dict(sys.modules, {'AppKit': appkit}):
             adapter._apply_state(state)
         return appearance
@@ -169,6 +170,67 @@ class MacChromeTests(unittest.TestCase):
         adapter.import_file()
         self.assertIsNone(adapter.panel)
         adapter.on_import.assert_not_called()
+
+    def studio_adapter(self, collapsed=False):
+        adapter, web, native = self.adapter()
+        adapter.split, adapter.sidebar_item = Mock(), Mock()
+        sidebar_state = [collapsed]
+        adapter.sidebar_item.isCollapsed.side_effect = lambda: sidebar_state[0]
+        adapter.sidebar_item.setCollapsed_.side_effect = lambda value: sidebar_state.__setitem__(0, value)
+        items = [Mock(), adapter.search_item, Mock()]
+        for item, name in zip(items, ('blaze.sidebar', 'blaze.search', 'blaze.import')):
+            item.itemIdentifier.return_value = name
+        toolbar = native.toolbar.return_value
+        toolbar.items.side_effect = lambda: list(items)
+        toolbar.removeItemAtIndex_.side_effect = lambda index: items.pop(index)
+        toolbar.insertItemWithItemIdentifier_atIndex_.side_effect = lambda name, index: items.insert(index, adapter.toolbar_items[name])
+        adapter.toolbar_items['blaze.search'] = adapter.search_item
+        return adapter, web, native, sidebar_state
+
+    def test_studio_workspace_collapses_once_and_restores_original_browse_chrome(self):
+        for originally_collapsed in (False, True):
+            with self.subTest(originally_collapsed=originally_collapsed):
+                adapter, _, native, sidebar_state = self.studio_adapter(originally_collapsed)
+                state = {'section': 'studio', 'studioWorkspace': True, 'appearance': 'light',
+                         'nativeChromeInstalled': True}
+                appearance = self.apply(adapter, state)
+                self.assertTrue(sidebar_state[0])
+                native.toolbar().removeItemAtIndex_.assert_called_once_with(1)
+                native.setTitle_.assert_called_with('Blaze · Music Studio')
+                appearance.appearanceNamed_.assert_called_with('DarkAqua')
+                # A user can reopen the browse sidebar while editing. Polling
+                # the web state must not repeatedly collapse it.
+                sidebar_state[0] = False
+                self.apply(adapter, state)
+                self.assertFalse(sidebar_state[0])
+                adapter.sidebar_item.setCollapsed_.assert_called_once_with(True)
+                self.apply(adapter, dict(state, section='explore'))
+                self.assertEqual(sidebar_state[0], originally_collapsed)
+                native.toolbar().insertItemWithItemIdentifier_atIndex_.assert_called_once_with('blaze.search', 1)
+                self.assertIs(native.toolbar().items()[1], adapter.search_item)
+                native.setTitle_.assert_called_with('Blaze')
+                self.assertEqual(adapter.appearance, 'light')
+                self.assertFalse(adapter.studio_workspace)
+
+    def test_studio_workspace_requires_explicit_capability_and_real_studio_section(self):
+        adapter, _, native, _ = self.studio_adapter()
+        for state in ({'section': 'studio'}, {'section': 'studio', 'studioWorkspace': 'true'},
+                      {'section': 'explore', 'studioWorkspace': True}):
+            self.apply(adapter, state)
+        native.toolbar().removeItemAtIndex_.assert_not_called()
+        adapter.sidebar_item.setCollapsed_.assert_not_called()
+
+    def test_search_shortcut_leaves_studio_and_restores_the_same_search_field(self):
+        adapter, web, native, sidebar_state = self.studio_adapter()
+        self.apply(adapter, {'section': 'studio', 'studioWorkspace': True, 'nativeChromeInstalled': True})
+        with patch.dict(sys.modules, {'AppKit': SimpleNamespace(NSWindowTitleVisible=0, NSWindowTitleHidden=1)}):
+            adapter.focus_search()
+        self.assertFalse(sidebar_state[0])
+        self.assertFalse(adapter.studio_workspace)
+        self.assertEqual(web.scripts[-1][0], mac_chrome.navigation_script('explore'))
+        adapter.search_item.beginSearchInteraction.assert_called_once()
+        native.makeFirstResponder_.assert_called_once_with(adapter.search_item.searchField())
+        self.assertIs(native.toolbar().items()[1], adapter.search_item)
 
     def test_sync_is_authoritative_and_has_only_one_request_in_flight(self):
         adapter, web, native = self.adapter()

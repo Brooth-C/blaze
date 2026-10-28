@@ -28,7 +28,7 @@ html[data-appearance=dark] p{color:#bbb8b4}</style>
 local test fixture using the same AppKit shell as the packaged app.</p>
 <div class="art"></div><h2 id="section">Explore</h2><p id="query"></p>
 <script>
-const state={section:'explore',query:'',appearance:'APPEARANCE',hasMedia:false,
+const state={section:'explore',query:'',appearance:'APPEARANCE',hasMedia:false,studioWorkspace:true,
 modal:false,nativeChromeInstalled:false};
 window.BlazeMac={snapshot:()=>state,
 installNativeChrome:()=>{state.nativeChromeInstalled=true;},
@@ -102,11 +102,23 @@ def main():
                     stage = 2
                 elif stage == 2 and receipt['navigation'].get('selected') == 'studio':
                     receipt['navigation']['roundtrip'] = True
+                    assert adapter.studio_workspace and adapter.sidebar_item.isCollapsed(), receipt
+                    assert not any(str(item.itemIdentifier()) == 'blaze.search' for item in window.toolbar().items()), receipt
+                    assert str(window.appearance().name()) == AppKit.NSAppearanceNameDarkAqua, receipt
+                    assert str(window.title()) == 'Blaze · Music Studio', receipt
+                    receipt['studio_workspace'] = {'sidebar_collapsed': True, 'search_hidden': True,
+                                                   'dark_window': True, 'same_webview': web.window() is window}
+                    adapter.focus_search()
                     field = adapter.search_item.searchField()
                     field.setStringValue_('acoustic sessions')
                     field.sendAction_to_(field.action(), field.target())
                     stage = 3
                 elif stage == 3 and receipt['navigation'].get('selected') == 'explore':
+                    assert not adapter.studio_workspace and not adapter.sidebar_item.isCollapsed(), receipt
+                    assert any(str(item.itemIdentifier()) == 'blaze.search' for item in window.toolbar().items()), receipt
+                    expected = AppKit.NSAppearanceNameAqua if args.appearance == 'light' else AppKit.NSAppearanceNameDarkAqua
+                    assert str(window.appearance().name()) == expected, receipt
+                    receipt['studio_workspace']['browse_restored'] = True
                     def search_result(value, error):
                         receipt['search'] = not error and value == 'true'
                     web.evaluateJavaScript_completionHandler_(

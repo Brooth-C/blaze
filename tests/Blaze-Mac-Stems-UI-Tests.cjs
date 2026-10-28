@@ -25,6 +25,8 @@ with tempfile.TemporaryDirectory(prefix='blaze-stems-ui-') as directory:
     class UIWorker:
         # The download uses the real authenticated server and filesystem. Only
         # separation job state is controlled by the browser fixture below.
+        files={}
+        def snapshot(self):return {'status':'idle','stems':[]}
         def file(self,job_id,stem):
             if (job_id,stem) not in [('fixture-job-2','vocals'),('fixture-job-2','synths'),('fixture-job-3','piano')]:raise ValueError('Unknown fixture stem')
             return source
@@ -129,10 +131,10 @@ async function layout(page){
         await page.waitForFunction(()=>!document.getElementById('stems-dialog').open&&sourceName==='Vocals.wav');
         assert(await page.locator('#media').evaluate(el=>el===window.testMedia),'Opening a stem created a second player');
         assert.equal(await page.locator('#studio-panel').isVisible(),true);
-        await page.locator('#mini-play').click();
+        await page.locator('#daw-play').click();
         await page.waitForFunction(()=>{const m=document.getElementById('media');return !m.paused&&m.currentTime>.1;});
         assert.deepEqual(actions,['start','cancel','start','select']);
-        await page.locator('#mini-play').click();
+        await page.locator('#daw-play').click();
         await page.setViewportSize({width:569,height:548});
         await page.emulateMedia({reducedMotion:'reduce',colorScheme:'dark'});
         await page.evaluate(async()=>{applyAppearance('dark');await window.BlazeMacStems.open();});

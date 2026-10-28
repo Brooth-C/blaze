@@ -167,6 +167,7 @@
         snapshot() {
             return {
                 section: currentSection(),
+                studioWorkspace: !!window.BlazeMacStudio?.snapshot().active,
                 appearance: document.documentElement.dataset.appearance || 'system',
                 query: bounded(byId('explore-search').value),
                 hasMedia: hasMedia(), modal: modalOpen(),

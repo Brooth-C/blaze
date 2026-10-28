@@ -205,7 +205,7 @@ class MacNavigation:
         self.receipt = receipt if receipt is not None else {}
         self.force_fallback, self.on_import = force_fallback, on_import
         self.native = self.target = self.timer = self.split = None
-        self.outline = self.control = self.surface = self.search_item = None
+        self.outline = self.control = self.surface = self.search_item = self.sidebar_item = None
         self.toolbar_items, self.menu_items = {}, []
         self.stopped = self.evaluating = self.syncing_selection = False
         self.modal = self.has_media = self.busy = False
@@ -213,6 +213,8 @@ class MacNavigation:
         self.import_request = self.focus_search_request = 0
         self.panel = None
         self.importing = False
+        self.studio_workspace = False
+        self._studio_sidebar_was_collapsed = self._studio_search_index = None
 
     def install(self):
         if threading.current_thread() is not threading.main_thread():
@@ -246,6 +248,7 @@ class MacNavigation:
             sidebar_item.setPreferredThicknessFraction_(.18)
             sidebar_item.setCanCollapse_(True)
             sidebar_item.setAllowsFullHeightLayout_(True)
+            self.sidebar_item = sidebar_item
             split.addSplitViewItem_(sidebar_item)
             split.addSplitViewItem_(AppKit.NSSplitViewItem.splitViewItemWithViewController_(detail))
             split.view().setFrame_(original_view.frame())
@@ -318,6 +321,9 @@ class MacNavigation:
     def focus_search(self):
         if self.stopped or self.modal or self.search_item is None:
             return
+        if self.studio_workspace:
+            self._set_studio_workspace(False)
+            self._evaluate(navigation_script('explore'))
         self.search_item.beginSearchInteraction()
         self.native.makeFirstResponder_(self.search_item.searchField())
         self.search_item.searchField().selectText_(None)
@@ -419,6 +425,7 @@ class MacNavigation:
         self.busy = bool(state.get('busy'))
         self.select_section(state['section'])
         self.receipt.update(selected=state['section'], web_navigation=True)
+        self._set_studio_workspace(state['section'] == 'studio' and state.get('studioWorkspace') is True)
         # Reapply flags after reload, only when the real host is installed.
         if self.split is not None and not state.get('nativeChromeInstalled'):
             self._evaluate(INSTALL_SCRIPT)
@@ -434,7 +441,7 @@ class MacNavigation:
         for name, item in self.toolbar_items.items():
             item.setEnabled_(not self.modal and (name != 'blaze.player' or self.has_media)
                              and (name != 'blaze.import' or not (self.importing or self.busy)))
-        appearance = state.get('appearance')
+        appearance = 'dark' if self.studio_workspace else state.get('appearance')
         if appearance in ('system', 'light', 'dark') and appearance != self.appearance:
             import AppKit
             name = {'light': AppKit.NSAppearanceNameAqua,
@@ -447,6 +454,41 @@ class MacNavigation:
             if isinstance(value, int) and value > getattr(self, attribute):
                 setattr(self, attribute, value)
                 action()
+
+    def _set_studio_workspace(self, active):
+        """Give the editor room without taking ownership of web navigation.
+
+        Collapse only on a real transition, so the sidebar toggle still works
+        inside Studio. Keep its previous browse state and the original toolbar
+        item instance for restoration. No second web view or window is created.
+        """
+        if (active == self.studio_workspace or self.native is None
+                or self.split is None or self.sidebar_item is None):
+            return
+        import AppKit
+        toolbar = self.native.toolbar()
+        if active:
+            self._studio_sidebar_was_collapsed = bool(self.sidebar_item.isCollapsed())
+            self.sidebar_item.setCollapsed_(True)
+            self._studio_search_index = next((i for i, item in enumerate(toolbar.items())
+                                              if str(item.itemIdentifier()) == 'blaze.search'), None)
+            if self._studio_search_index is not None:
+                toolbar.removeItemAtIndex_(self._studio_search_index)
+            self.native.setTitle_('Blaze · Music Studio')
+            self.native.setTitleVisibility_(AppKit.NSWindowTitleVisible)
+        else:
+            self.sidebar_item.setCollapsed_(self._studio_sidebar_was_collapsed)
+            if (self._studio_search_index is not None and not any(
+                    str(item.itemIdentifier()) == 'blaze.search' for item in toolbar.items())):
+                toolbar.insertItemWithItemIdentifier_atIndex_(
+                    'blaze.search', min(self._studio_search_index, len(toolbar.items())))
+            self._studio_sidebar_was_collapsed = self._studio_search_index = None
+            self.native.setTitle_('Blaze')
+            self.native.setTitleVisibility_(AppKit.NSWindowTitleHidden)
+        self.studio_workspace = active
+        self.receipt.update(studio_workspace=active,
+                            studio_chrome_restored=not active,
+                            sidebar_collapsed=bool(self.sidebar_item.isCollapsed()))
 
     def stop(self):
         self.stopped = True
