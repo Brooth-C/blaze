@@ -30,6 +30,7 @@ local test fixture using the same AppKit shell as the packaged app.</p>
 <script>
 const state={section:'explore',query:'',appearance:'APPEARANCE',hasMedia:false,studioWorkspace:true,
 modal:false,nativeChromeInstalled:false};
+window.BlazeMacStudio={snapshot:()=>({active:state.section==='studio'})};
 window.BlazeMac={snapshot:()=>state,
 installNativeChrome:()=>{state.nativeChromeInstalled=true;},
 navigate:value=>{if(['explore','downloads','library','studio'].includes(value)){
@@ -104,10 +105,16 @@ def main():
                     receipt['navigation']['roundtrip'] = True
                     assert adapter.studio_workspace and adapter.sidebar_item.isCollapsed(), receipt
                     assert not any(str(item.itemIdentifier()) == 'blaze.search' for item in window.toolbar().items()), receipt
+                    assert not window.toolbar().isVisible(), receipt
                     assert str(window.appearance().name()) == AppKit.NSAppearanceNameDarkAqua, receipt
                     assert str(window.title()) == 'Blaze · Music Studio', receipt
                     receipt['studio_workspace'] = {'sidebar_collapsed': True, 'search_hidden': True,
                                                    'dark_window': True, 'same_webview': web.window() is window}
+                    adapter.search('late toolbar edit', True)
+                    stage, capture_at = 2.5, time.monotonic() + .4
+                elif stage == 2.5 and time.monotonic() >= capture_at:
+                    assert receipt['navigation'].get('selected') == 'studio', 'A delayed search action navigated away from Studio.'
+                    receipt['studio_workspace']['stale_search_ignored'] = True
                     adapter.focus_search()
                     field = adapter.search_item.searchField()
                     field.setStringValue_('acoustic sessions')
@@ -116,6 +123,7 @@ def main():
                 elif stage == 3 and receipt['navigation'].get('selected') == 'explore':
                     assert not adapter.studio_workspace and not adapter.sidebar_item.isCollapsed(), receipt
                     assert any(str(item.itemIdentifier()) == 'blaze.search' for item in window.toolbar().items()), receipt
+                    assert window.toolbar().isVisible(), receipt
                     expected = AppKit.NSAppearanceNameAqua if args.appearance == 'light' else AppKit.NSAppearanceNameDarkAqua
                     assert str(window.appearance().name()) == expected, receipt
                     receipt['studio_workspace']['browse_restored'] = True

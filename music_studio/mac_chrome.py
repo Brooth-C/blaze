@@ -14,7 +14,7 @@ from music_studio.mac_toolbar import build_toolbar, install_menus
 SECTIONS = ('explore', 'downloads', 'library', 'studio')
 ACTIONS = ('import', 'settings', 'play', 'previous', 'next', 'open-player', 'close-player')
 SYNC_SCRIPT = 'JSON.stringify(window.BlazeMac?.snapshot() ?? null)'
-INSTALL_SCRIPT = 'window.BlazeMac?.installNativeChrome({sidebar:true,search:true})'
+INSTALL_SCRIPT = 'window.BlazeMac?.installNativeChrome({sidebar:true,search:true,window:true})'
 
 
 def navigation_script(section):
@@ -316,14 +316,16 @@ class MacNavigation:
 
     def search(self, query, commit=False):
         if not self.stopped and not self.modal:
-            self._evaluate(search_script(query, commit))
+            # A search field leaving the native toolbar can emit its final edit
+            # action after Studio opens. It must not navigate the editor away.
+            self._evaluate('!window.BlazeMacStudio?.snapshot().active && ' + search_script(query, commit))
 
     def focus_search(self):
         if self.stopped or self.modal or self.search_item is None:
             return
         if self.studio_workspace:
             self._set_studio_workspace(False)
-            self._evaluate(navigation_script('explore'))
+        self._evaluate(navigation_script('explore'))
         self.search_item.beginSearchInteraction()
         self.native.makeFirstResponder_(self.search_item.searchField())
         self.search_item.searchField().selectText_(None)
@@ -426,6 +428,11 @@ class MacNavigation:
         self.select_section(state['section'])
         self.receipt.update(selected=state['section'], web_navigation=True)
         self._set_studio_workspace(state['section'] == 'studio' and state.get('studioWorkspace') is True)
+        studio_title = state.get('studioTitle')
+        if self.studio_workspace and isinstance(studio_title, str) and studio_title:
+            if studio_title != getattr(self, 'studio_title', None):
+                self.native.setTitle_(studio_title[:200] + ' — Blaze')
+                self.studio_title = studio_title
         # Reapply flags after reload, only when the real host is installed.
         if self.split is not None and not state.get('nativeChromeInstalled'):
             self._evaluate(INSTALL_SCRIPT)
@@ -476,7 +483,10 @@ class MacNavigation:
                 toolbar.removeItemAtIndex_(self._studio_search_index)
             self.native.setTitle_('Blaze · Music Studio')
             self.native.setTitleVisibility_(AppKit.NSWindowTitleVisible)
+            toolbar.setVisible_(False)
         else:
+            toolbar.setVisible_(True)
+            self.studio_title = None
             self.sidebar_item.setCollapsed_(self._studio_sidebar_was_collapsed)
             if (self._studio_search_index is not None and not any(
                     str(item.itemIdentifier()) == 'blaze.search' for item in toolbar.items())):

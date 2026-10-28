@@ -21,8 +21,8 @@ from music_studio.mac_app import SmokeCatalogue
 
 with tempfile.TemporaryDirectory(prefix='blaze-studio-workspace-') as directory:
     data=Path(directory)
-    rate=44100
-    t=np.arange(rate*32,dtype=np.float64)/rate
+    rate=48000
+    t=np.arange(rate*64,dtype=np.float64)/rate
     names=('vocals','drums','bass','piano','guitar','strings','brass','synths','other')
     def render(path,index):
         phrase=np.maximum(0,np.sin(t*(.9+index*.09)))**2
@@ -31,8 +31,9 @@ with tempfile.TemporaryDirectory(prefix='blaze-studio-workspace-') as directory:
         signal*=.12*(.12+.7*phrase+.35*pulse)
         samples=np.stack([signal,signal*.8+np.sin(2*math.pi*(120+index*41)*t)*.015],axis=1)
         with wave.open(str(path),'wb') as out:
-            out.setparams((2,2,rate,0,'NONE','not compressed'))
-            out.writeframes((np.clip(samples,-1,1)*32767).astype('<i2').tobytes())
+            out.setparams((2,3,rate,0,'NONE','not compressed'))
+            packed=(np.clip(samples,-1,1)*8388607).astype('<i4').view('u1').reshape(-1,4)[:,:3]
+            out.writeframes(packed.tobytes())
     source=data/'Midnight Session.wav'
     render(source,9)
     studio=Studio(data/'state',shutil.which('ffmpeg') or 'ffmpeg',source)
@@ -78,11 +79,12 @@ async function fit(page,ids){
         page=await browser.newPage({viewport:{width:1672,height:941},acceptDownloads:true});
         const errors=[],selections=[];
         let injectedBusy=false,ignoredBusyConsole=0;
-        page.on('pageerror',error=>errors.push(error.stack));
+        page.on('pageerror',error=>{errors.push(error.stack);console.error(error.stack);});
         page.on('console',message=>{
             const url=message.location().url;
             const staleWaveform=url.includes('/api/studio-waveform?')&&message.text().includes('409 (Conflict)');
-            const controlledBusy=url.includes('/api/studio-waveform?')&&/503\b/.test(message.text())&&injectedBusy&&ignoredBusyConsole++===0;
+            const controlledBusy=url.includes('/api/studio-waveform?')&&/503\b/.test(message.text())&&injectedBusy;
+            if(controlledBusy)ignoredBusyConsole++;
             if(message.type()==='error'&&!url.endsWith('/favicon.ico')&&!staleWaveform&&!controlledBusy)errors.push(message.text());
         });
         page.on('request',request=>{if(request.method()==='POST'&&request.url()===base+'/api/stems-select')selections.push(request.postDataJSON());});
@@ -118,17 +120,35 @@ async function fit(page,ids){
         });
         assert(pixels>100,'The detailed waveform did not render actual peak data');
         await fit(page,['daw-transport','daw-play','daw-stop','daw-arrangement','daw-editor','daw-waveform']);
+        const geometry=await page.evaluate(()=>Object.fromEntries(['daw-library','daw-inspector','daw-track-list','daw-editor'].map(id=>{const r=document.getElementById(id).getBoundingClientRect();return[id,{left:r.left,top:r.top,width:r.width}];})));
+        assert.equal(geometry['daw-library'].width,180);assert.equal(geometry['daw-inspector'].left,180);assert.equal(geometry['daw-inspector'].width,188);
+        assert.equal(geometry['daw-track-list'].left,368);assert.equal(geometry['daw-track-list'].width,300);
+        assert(Math.abs(geometry['daw-editor'].top-606)<2,'Lower editor diverged from measured reference');
+        assert.equal(await page.locator('#daw-format').textContent(),'48 kHz · 24-bit · Stereo');
+        // Controlled chord evidence exercises the reference's note-guide lanes;
+        // it is never included as a production session or a model quality claim.
+        await page.evaluate(()=>applyResult({duration:64,key:'C major',tempo_bpm:120,analysis_seconds:0,model:{name:'Controlled UI analysis'},beats:Array.from({length:128},(_,i)=>i*.5),chords:Array.from({length:16},(_,i)=>({start:i*4,end:(i+1)*4,chord:['C:maj','A:min','F:maj','G:maj'][i%4]}))}));
+        await page.waitForFunction(()=>window.BlazeMacStudio.snapshot().guideReady);
+        const ruler=await page.locator('#daw-ruler').boundingBox();
+        await page.mouse.move(ruler.x+ruler.width*.25,ruler.y+5);await page.mouse.down();
+        await page.mouse.move(ruler.x+ruler.width*.75,ruler.y+5,{steps:8});await page.mouse.up();
+        await page.waitForFunction(()=>loopStart===16&&loopEnd===48);
         const referenceWave=await page.locator('#daw-waveform').boundingBox();
-        await page.mouse.click(referenceWave.x+referenceWave.width*.45,referenceWave.y+referenceWave.height*.4);
-        await page.waitForFunction(()=>Math.abs(document.getElementById('media').currentTime-14.4)<1);
+        await page.mouse.click(referenceWave.x+referenceWave.width*.5,referenceWave.y+referenceWave.height*.4);
+        await page.waitForFunction(()=>Math.abs(document.getElementById('media').currentTime-32)<1);
         await page.keyboard.down('Shift');
-        await page.mouse.move(referenceWave.x+referenceWave.width*.35,referenceWave.y+referenceWave.height*.5);
+        await page.mouse.move(referenceWave.x+referenceWave.width*.5,referenceWave.y+referenceWave.height*.5);
         await page.mouse.down();
-        await page.mouse.move(referenceWave.x+referenceWave.width*.65,referenceWave.y+referenceWave.height*.5,{steps:8});
+        await page.mouse.move(referenceWave.x+referenceWave.width*.625,referenceWave.y+referenceWave.height*.5,{steps:8});
         await page.mouse.up();await page.keyboard.up('Shift');
         assert.notEqual(await page.locator('#daw-selection-readout').textContent(),'No range selected','Shift-drag did not select an audio range');
         await page.locator('#daw-editor-title').click();
+        await page.locator('#daw-zoom').fill('4');await page.locator('#daw-zoom').dispatchEvent('input');
+        await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>{const scroll=document.getElementById('daw-editor-scroll');scroll.scrollLeft=(scroll.scrollWidth-34)*26.5/64;resolve();})));
         await shot(page,'wide');
+        await page.locator('#daw-loop').click();await page.waitForFunction(()=>loopEnd===null);
+        await page.locator('#daw-zoom').fill('1');await page.locator('#daw-zoom').dispatchEvent('input');
+        await page.evaluate(()=>document.getElementById('daw-editor-scroll').scrollLeft=0);
         await page.locator('#daw-waveform').focus();await page.keyboard.press('Escape');
 
         await page.evaluate(()=>window.BlazeMac.action('open-player'));
@@ -141,11 +161,12 @@ async function fit(page,ids){
         // Both transport and waveform seek act on the same real WAV player.
         await page.locator('#daw-play').click();
         await page.waitForFunction(()=>!document.getElementById('media').paused&&document.getElementById('media').currentTime>.1);
+        await page.waitForFunction(()=>parseFloat(document.getElementById('daw-master-left').style.width)>0);
         await page.locator('#daw-play').click();
         await page.waitForFunction(()=>document.getElementById('media').paused);
         const wave=await page.locator('#daw-waveform').boundingBox();
         await page.mouse.click(wave.x+wave.width*.4,wave.y+wave.height*.4);
-        await page.waitForFunction(()=>{const m=document.getElementById('media');return m.paused&&m.currentTime>9&&m.currentTime<17;});
+        await page.waitForFunction(()=>{const m=document.getElementById('media');return m.paused&&Math.abs(m.currentTime-m.duration*.4)<1;});
         await page.locator('#daw-zoom').fill('2');
         await page.locator('#daw-zoom').dispatchEvent('input');
         await page.waitForFunction(()=>Number(window.BlazeMacStudio.snapshot().zoom)>1);
@@ -158,9 +179,20 @@ async function fit(page,ids){
         await page.waitForFunction(()=>document.getElementById('media').muted);
         await page.locator('#daw-mute').click();
         await page.waitForFunction(()=>!document.getElementById('media').muted);
+        await page.locator('#daw-pan').fill('0.4');await page.locator('#daw-pan').dispatchEvent('input');
+        await page.waitForFunction(()=>Math.abs(window.BlazeMacStudio.snapshot().audio.pan-.4)<.001);
+        await page.locator('#daw-eq').click();await page.waitForFunction(()=>window.BlazeMacStudio.snapshot().audio.equalizerGain===3);
+        await page.locator('#daw-compressor').click();await page.waitForFunction(()=>window.BlazeMacStudio.snapshot().audio.compressionRatio===6);
+        await page.locator('#daw-eq').click();await page.locator('#daw-compressor').click();
+        await page.locator('#daw-pan').fill('0');await page.locator('#daw-pan').dispatchEvent('input');
+        await page.locator('#daw-notation').click();await page.locator('#daw-midi-guide').waitFor({state:'visible'});
+        assert.equal(await page.evaluate(()=>window.BlazeMacStudio.snapshot().editorMode),'midi');
+        await page.locator('#daw-audio-tab').click();
+        await page.locator('#daw-analysis-toggle').click();
         await page.locator('#daw-rate').selectOption('1.25');
         await page.waitForFunction(()=>document.getElementById('media').playbackRate===1.25);
         await page.locator('#daw-rate').selectOption('1');
+        await page.locator('#daw-extra-close').click();
         await page.locator('#daw-volume').fill('1');await page.locator('#daw-volume').dispatchEvent('input');
 
         const before=await page.evaluate(()=>window.BlazeMacStudio.snapshot());
@@ -171,17 +203,19 @@ async function fit(page,ids){
         await page.waitForFunction(value=>window.BlazeMacStudio.snapshot().inspectorOpen!==value,before.inspectorOpen);
         await page.locator('#daw-inspector-toggle').click();
         await page.locator('#daw-families [data-family="piano"]').click();
-        assert.equal(await page.locator('#daw-track-list .daw-track').count(),1);
-        assert.equal(await page.locator('#daw-track-list .daw-track').getAttribute('data-track-id'),'piano');
+        assert.equal(await page.locator('#daw-families [data-family="piano"]').getAttribute('aria-pressed'),'true');
+        assert.equal(await page.locator('#daw-track-list .daw-track').count(),9,'The sound library must not hide arrangement tracks');
         await page.locator('#daw-families [data-family="all"]').click();
         assert.equal(await page.locator('#daw-track-list .daw-track').count(),9);
         const download=page.waitForEvent('download');
+        await page.locator('#daw-analysis-toggle').click();
         await page.locator('#daw-save').click();
         const file=await download;
         assert.equal(file.suggestedFilename(),'Piano.wav');
         const downloaded=fs.readFileSync(await file.path());
         const real=await page.request.get(base+'/api/stem-file?token='+encodeURIComponent(token)+'&jobId='+encodeURIComponent(selections.at(-1).jobId)+'&stem=piano');
         assert(real.ok());assert.deepEqual(downloaded,await real.body(),'Studio export changed saved audio bytes');
+        await page.locator('#daw-extra-close').click();
 
         // A source/stem context change may never multiply player elements.
         await page.evaluate(()=>window.BlazeMac.navigate('explore'));
@@ -220,6 +254,7 @@ async function fit(page,ids){
         await page.waitForFunction(()=>{const state=window.BlazeMacStudio.snapshot();return sourceName==='Fresh recording.wav'&&state.sourceRevision===sourceRevision&&state.waveformReady;});
         assert(!(await page.evaluate(()=>window.BlazeMacStudio.snapshot().tracks)).some(track=>track.id==='piano'),'The previous stem session leaked into the new import');
         assert(await page.locator('#media').evaluate(el=>el===window.testMedia));
+        assert(ignoredBusyConsole<=8,'Waveform requests did not settle after bounded retry');
         assert.deepEqual(errors,[]);
         console.log('Mac Studio UI PASS: navigation opens DAW layout, real authorized nine-stem selection/waveforms/export, shared player playback/seek/stop, waveform zoom, library/inspector toggles, compact primary controls, chord-tools drawer, unrelated import invalidation. Browser plugin absent; controlled separator, no model-quality/native AppKit claim.');
     }catch(error){if(stderr.trim())console.error(stderr);if(page)await shot(page,'failure').catch(()=>{});throw error;}

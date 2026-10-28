@@ -4,7 +4,10 @@
 transport, track library, inspector, colored audio lanes and a detailed stereo
 waveform editor. Import a recording or open one of the nine separated stems to
 audition it in the existing player, seek, zoom, select a reference range or save
-its complete WAV. Chord recognition and notation remain available in **Chords**.
+its complete WAV. The full inspector, instrument library and channel controls
+follow the approved reference. Pan, output metering, EQ, compression and project
+timing controls work with the current audio audition. Chord recognition and
+notation remain available from the chord button; MIDI guides use analysis notes.
 
 The native Browse sidebar and search step aside while Studio is open, then
 restore on return to Explore. Playback remains shared with Now Playing.

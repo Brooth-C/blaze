@@ -159,12 +159,13 @@ async function fit(page,ids,message){
                 chords:[{start:0,end:10,chord:'C:maj'},{start:10,end:20,chord:'G:maj'},{start:20,end:30,chord:'A:min'}]});
         });
         await page.waitForFunction(()=>window.BlazeMacStudio.snapshot().waveformReady);
-        await fit(page,['daw-play','daw-stop','daw-arrangement','daw-editor','analyze'],'Wide Studio controls clipped');
+        await fit(page,['daw-play','daw-stop','daw-arrangement','daw-editor'],'Wide Studio controls clipped');
         await shot(page,'studio-wide');
         // Chord practice remains a separate, scrollable panel. The primary
         // Studio view now gives its space to arrangement and waveform editing.
         await page.locator('#daw-chords').click();
         await page.locator('#daw-practice').waitFor({state:'visible'});
+        await fit(page,['analyze'],'Chord practice hides analysis');
         await page.locator('.diagram-card canvas').first().waitFor();
         assert.equal(await page.locator('.diagram-card canvas').count(),3);
         await page.locator('#guitar').click();

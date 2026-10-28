@@ -181,6 +181,12 @@ def create_server(studio, port=0):
 
     class Handler(BaseHTTPRequestHandler):
         protocol_version = 'HTTP/1.1'
+        def handle(self):
+            try:
+                super().handle()
+            except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError):
+                self.close_connection = True
+
         def log_message(self, *_):
             pass
 
@@ -230,7 +236,9 @@ def create_server(studio, port=0):
             if mac:
                 names.update({'/mac.css': 'mac.css', '/mac.js': 'mac.js',
                               '/mac-stems.css': 'mac-stems.css', '/mac-stems.js': 'mac-stems.js',
-                              '/mac-studio.css': 'mac-studio.css', '/mac-studio.js': 'mac-studio.js'})
+                              '/mac-studio.css': 'mac-studio.css', '/mac-studio.js': 'mac-studio.js',
+                              '/studio-grand.png': 'studio-grand.png',
+                              '/studio-instruments.png': 'studio-instruments.png'})
             if path in names:
                 name = names[path]
                 data = (assets / name).read_bytes()

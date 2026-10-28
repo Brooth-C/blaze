@@ -304,6 +304,7 @@ def ui_smoke(window, studio, destination, receipt, probe, timeout=600):
         if receipt['diagram_count'] != 3:
             raise RuntimeError('The app did not draw the current and upcoming chord keyboards.')
         if sys.platform == 'darwin':
+            probe.run(window, "window.BlazeMac.navigate('studio')")
             wait_for("window.BlazeMacStudio?.snapshot().active === true && window.BlazeMacStudio.snapshot().waveformReady === true")
             receipt['mac_design']['studio_waveform'] = probe.probe(window, 'window.BlazeMacStudio.snapshot()')
             probe.run(window, "document.getElementById('daw-chords').click()")

@@ -160,6 +160,7 @@
                 changed ||= document.body.dataset.nativeSearch !== 'true';
                 document.body.dataset.nativeSearch = 'true';
             }
+            if (capabilities.window === true) document.body.dataset.nativeWindow = 'true';
             nativeChromeInstalled = true;
             if (changed) redraw();
             return true;
@@ -168,6 +169,7 @@
             return {
                 section: currentSection(),
                 studioWorkspace: !!window.BlazeMacStudio?.snapshot().active,
+                studioTitle: window.BlazeMacStudio?.snapshot().sessionTitle || '',
                 appearance: document.documentElement.dataset.appearance || 'system',
                 query: bounded(byId('explore-search').value),
                 hasMedia: hasMedia(), modal: modalOpen(),

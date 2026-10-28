@@ -1,13 +1,14 @@
 """Bounded, real stereo envelopes for the local Mac arrangement view.
 
 The display decoder never loads a recording into RAM. It writes a bounded,
-low-rate temporary stream, then reduces that stream into at most 1,024 pairs
+low-rate temporary stream, then reduces that stream into at most 8,192 pairs
 per channel. The low decode rate describes the envelope, not the source audio.
 """
 from collections import OrderedDict
 from pathlib import Path
 import shutil
 import subprocess
+import struct
 import tempfile
 import threading
 import time
@@ -17,9 +18,30 @@ import numpy as np
 DECODE_RATE = 4000
 MAX_SECONDS = 7200
 MAX_BYTES = 2 * 1024 ** 3
-MAX_PEAKS = 1024
+MAX_PEAKS = 8192
 DECODE_TIMEOUT = 90
 DISK_RESERVE = 128 * 1024 ** 2
+
+
+def source_format(source):
+    """Read actual RIFF format metadata without mistaking preview rate for it."""
+    with Path(source).open('rb') as stream:
+        header = stream.read(65536)
+    if header[:4] != b'RIFF' or header[8:12] != b'WAVE':
+        return {}
+    offset = 12
+    while offset + 8 <= len(header):
+        tag, length = header[offset:offset + 4], struct.unpack_from('<I', header, offset + 4)[0]
+        if tag == b'fmt ' and length >= 16 and offset + 24 <= len(header):
+            encoding, channels, rate, _, _, bits = struct.unpack_from('<HHIIHH', header, offset + 8)
+            if encoding == 65534 and length >= 40 and offset + 48 <= len(header):
+                encoding = struct.unpack_from('<H', header, offset + 32)[0]
+            if encoding in (1, 3) and 1 <= channels <= 64 and 1 <= rate <= 768000 and 1 <= bits <= 64:
+                return {'sourceSampleRate': rate, 'sourceChannels': channels, 'sourceBits': bits,
+                        'sourceEncoding': 'float' if encoding == 3 else 'pcm'}
+            return {}
+        offset += 8 + length + length % 2
+    return {}
 
 
 class StaleWaveform(ValueError):
@@ -169,5 +191,5 @@ class Waveforms:
                 minimum, maximum = block.min(axis=0), block.max(axis=0)
                 for channel in range(2):
                     peaks[channel].append([round(float(minimum[channel]), 6), round(float(maximum[channel]), 6)])
-            return {'duration': frames / DECODE_RATE, 'decodeRate': DECODE_RATE,
-                    'channels': 2, 'peaks': peaks}
+            return dict(source_format(source), duration=frames / DECODE_RATE, decodeRate=DECODE_RATE,
+                        channels=2, peaks=peaks)
