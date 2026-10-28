@@ -106,10 +106,11 @@ def main():
                     assert adapter.studio_workspace and adapter.sidebar_item.isCollapsed(), receipt
                     assert not any(str(item.itemIdentifier()) == 'blaze.search' for item in window.toolbar().items()), receipt
                     assert not window.toolbar().isVisible(), receipt
-                    assert str(window.appearance().name()) == AppKit.NSAppearanceNameDarkAqua, receipt
+                    expected = AppKit.NSAppearanceNameAqua if args.appearance == 'light' else AppKit.NSAppearanceNameDarkAqua
+                    assert str(window.appearance().name()) == expected, receipt
                     assert str(window.title()) == 'Blaze · Music Studio', receipt
                     receipt['studio_workspace'] = {'sidebar_collapsed': True, 'search_hidden': True,
-                                                   'dark_window': True, 'same_webview': web.window() is window}
+                                                   'appearance_preserved': True, 'same_webview': web.window() is window}
                     adapter.search('late toolbar edit', True)
                     stage, capture_at = 2.5, time.monotonic() + .4
                 elif stage == 2.5 and time.monotonic() >= capture_at:

@@ -9,7 +9,7 @@
     const families = ['vocals', 'drums', 'bass', 'piano', 'guitar', 'strings', 'brass', 'synths', 'other'];
     const labels = {source:'Recording', vocals:'Vocals', drums:'Drums', bass:'Bass', piano:'Piano', guitar:'Guitar', strings:'Strings', brass:'Brass', synths:'Synths', other:'Other', accompaniment:'Accompaniment'};
     const colors = {source:'#8293a2', vocals:'#438ce2', drums:'#42a7b5', bass:'#8e72cf', piano:'#e6a34f', guitar:'#498fd6', strings:'#c6a757', brass:'#9675d3', synths:'#42bbba', other:'#8b98a7', accompaniment:'#8496ac'};
-    const regionColors={source:['#35424f','#26323e'],vocals:['#184f9a','#123662'],drums:['#165b6a','#10434c'],bass:['#372d82','#2d1c61'],piano:['#593b24','#442a13'],guitar:['#153e6f','#112f55'],strings:['#716023','#4c3a16'],brass:['#463073','#34205b'],synths:['#0d474d','#0b3037'],other:['#35424f','#2a343f']};
+    const regionColors={source:['#477cad','#315c86'],vocals:['#3489cb','#2268a2'],drums:['#289ca2','#207c83'],bass:['#8655c5','#664296'],piano:['#c9a42b','#a88a21'],guitar:['#3c9b64','#2f7e50'],strings:['#9eaa2b','#7c8621'],brass:['#b65d94','#914a78'],synths:['#318eae','#25718c'],other:['#70839a','#566a80']};
     const paths = {
         source:'M3 12h2l2-7 3 14 3-14 3 14 2-7h3',
         vocals:'M9 4a3 3 0 0 1 6 0v7a3 3 0 0 1-6 0Zm-3 6v1a6 6 0 0 0 12 0v-1M12 17v5m-4 0h8',
@@ -42,17 +42,18 @@
     const button = (id, name, title, extra='') => '<button id="'+id+'" type="button" aria-label="'+title+'" title="'+title+'" '+extra+'>'+svg(name)+'</button>';
     const root = document.createElement('div');
     root.id = 'mac-studio-workspace';
+    root.dataset.design = 'logic';
     root.innerHTML = `
       <div class="daw-window-bar"><div class="daw-window-lights" aria-hidden="true"><i></i><i></i><i></i></div><span id="daw-window-title">Untitled — Blaze</span></div>
       <div id="daw-transport" role="toolbar" aria-label="Studio transport">
         <div class="daw-panel-tools">${button('daw-library-toggle','library','Show library','aria-pressed="true"')}<span class="daw-button-caption">Library</span>${button('daw-inspector-toggle','inspector','Show inspector','aria-pressed="true"')}<span class="daw-button-caption">Inspector</span><div class="daw-history">${button('daw-undo','undo','Undo Studio setting')}${button('daw-redo','redo','Redo Studio setting')}</div></div>
         <div class="daw-transport-buttons">${button('daw-start','previous','Go to beginning')}${button('daw-rewind','rewind','Back 10 seconds')}${button('daw-stop','stop','Stop')}${button('daw-play','play','Play')}${button('daw-record','record','Recording is not available in this build','disabled')}${button('daw-loop','loop','Repeat recording','aria-pressed="false"')}</div>
-        <div class="daw-display"><div class="daw-musical-position"><strong id="daw-bars">1&nbsp; 1&nbsp; 1&nbsp; 001</strong><small>BAR&nbsp;&nbsp; BEAT&nbsp;&nbsp; DIV&nbsp;&nbsp; TICK</small></div><div><strong id="daw-time">00:00.000</strong><small>TIME</small></div><button id="daw-tempo-control" title="Project tempo"><strong id="daw-tempo">120</strong><small>BPM</small></button><button id="daw-meter-control" title="Project time signature"><strong id="daw-meter">4/4</strong><small>SIGNATURE</small></button><button id="daw-key-control" title="Project key"><strong id="daw-key">C major</strong><small>KEY</small></button></div>
+        <div class="daw-display"><div class="daw-musical-position"><strong id="daw-bars">1&nbsp; 1</strong><small>BAR&nbsp;&nbsp; BEAT</small></div><div><strong id="daw-time">00:00.000</strong><small>TIME</small></div><button id="daw-tempo-control" title="Project tempo"><strong id="daw-tempo">120</strong><small>BPM</small></button><button id="daw-meter-control" title="Project time signature"><strong id="daw-meter">4/4</strong><small>SIGNATURE</small></button><button id="daw-key-control" title="Project key"><strong id="daw-key">C major</strong><small>KEY</small></button></div>
         <div class="daw-click-controls">${button('daw-metronome','metronome','Metronome','aria-pressed="false"')}<button id="daw-count-in" aria-label="Count in requires recording" disabled>123</button></div>
         <div class="daw-master"><div class="daw-master-meters" aria-label="Output level"><i><span id="daw-master-left"></span></i><i><span id="daw-master-right"></span></i></div><input id="daw-master-volume" type="range" min="0" max="1" step=".01" value="1" aria-label="Master volume">${svg('volume')}</div>
       </div>
       <div class="daw-body">
-        <aside id="daw-library" aria-label="Studio library"><div class="daw-panel-heading">Library</div><label class="daw-library-search">${svg('search')}<input id="daw-search" type="search" placeholder="Search Sounds" aria-label="Search session tracks"></label><div id="daw-families"></div><div id="daw-patches" role="group" aria-label="Instrument patches"><button class="selected" disabled title="Instrument patches are not available in this build">Studio Grand</button><button disabled>Felt Piano</button><button disabled>Bright Piano</button><button disabled>Dark Grand</button><button disabled>Pop Piano</button><button disabled>Upright Piano</button><button disabled>Honky Tonk</button><button disabled>Electric Piano</button><button disabled>Whirly</button><button disabled>Clavinet</button><button disabled>Celesta</button><button disabled>Toy Piano</button><button disabled>Layered Keys</button><button disabled>Ambient Piano</button><button disabled>Cinematic Keys</button></div><div class="daw-library-foot">${button('daw-back','back','Back to Explore')}<span id="daw-track-count"></span></div><div id="daw-recordings" hidden></div></aside>
+        <aside id="daw-library" aria-label="Studio library"><div class="daw-panel-heading">Library</div><label class="daw-library-search">${svg('search')}<input id="daw-search" type="search" placeholder="Search tracks" aria-label="Search session tracks"></label><div id="daw-families"></div><div id="daw-patches" hidden></div><div class="daw-library-foot">${button('daw-back','back','Back to Explore')}<span id="daw-track-count"></span></div><div class="daw-recordings-heading">Session tracks</div><div id="daw-recordings" role="group" aria-label="Session tracks"></div></aside>
         <aside id="daw-inspector" aria-label="Track inspector"><div class="daw-panel-heading">▾ &nbsp; Track: <span id="daw-inspector-name">Recording</span></div><div class="daw-instrument-art" id="daw-instrument-art"><img src="/studio-grand.png" alt="Grand piano" hidden>${svg('source')}<strong id="daw-instrument-name">Recording</strong></div>
           <details open><summary>Region</summary><dl><div><dt>Gain</dt><dd id="daw-gain-label">0.0 dB</dd></div><div><dt>Transpose</dt><dd id="daw-region-transpose">0</dd></div><div><dt>Flex</dt><dd>Off</dd></div></dl></details>
           <details open><summary>Track</summary><dl><div><dt>Icon</dt><dd id="daw-track-icon">${svg('piano')}</dd></div><div><dt>Name</dt><dd id="daw-track-name">Recording</dd></div><div><dt>Color</dt><dd><input id="daw-color" type="color" value="#e68f32" aria-label="Track color"></dd></div><div><dt>Track Mode</dt><dd class="daw-mini-track-controls"><button id="daw-mute" aria-pressed="false" aria-label="Mute playback">M</button><button id="daw-audition" aria-pressed="false" aria-label="Audition selected track">S</button><button class="daw-arm" aria-label="Record arm unavailable" disabled>●</button></dd></div></dl></details>
@@ -72,7 +73,14 @@
     const legacy = [...panel.children];
     practice.append(practiceHeading, ...legacy);
     panel.append(root, practice);
-    for(const scale of root.querySelectorAll('.daw-amplitude-scale>span')){scale.replaceChildren();['1.0','0.5','0','−0.5','−1.0'].forEach((label,index)=>{const mark=document.createElement('i');mark.textContent=label;mark.style.top=(index*25)+'%';scale.append(mark);});}
+    // The amplitude gutter belongs to the editor viewport, not its scrollable
+    // audio content. It stays visible at every horizontal zoom/scroll position.
+    const surface=document.createElement('div');surface.className='daw-editor-surface';
+    const editorScroll=el('daw-editor-scroll'),scale=root.querySelector('.daw-amplitude-scale');
+    editorScroll.before(surface);surface.append(scale,editorScroll);
+    const regionHeading=document.createElement('div');regionHeading.id='daw-editor-region';
+    regionHeading.setAttribute('aria-hidden','true');el('daw-editor-ruler').after(regionHeading);
+    for(const [channel,axis] of [...root.querySelectorAll('.daw-amplitude-scale>span')].entries()){axis.replaceChildren();const name=document.createElement('b');name.textContent=channel?'R':'L';axis.append(name);['100','0','−100'].forEach((label,index)=>{const mark=document.createElement('i');mark.textContent=label;mark.style.top=(8+index*42)+'%';axis.append(mark);});}
     // Move the real engine controls instead of cloning handlers or players.
     el('daw-stems').append(el('split-stems'));
     el('daw-analysis-actions').append(el('analyze'), el('cancel'));
@@ -82,15 +90,16 @@
     let tracks = [], selected = 'source', currentPeaks = null, zoom = 1;
     let sessionRevision = null, sessionJob = '', signature = '', loading = false;
     let generation = 0, controller = null, waveformReady = false, selection = null;
-    let libraryOpen = innerWidth >= 1100, inspectorOpen = innerWidth >= 800;
+    let libraryOpen = false, inspectorOpen = innerWidth >= 800;
     let libraryUserChoice=false,inspectorUserChoice=false;
-    let pendingSelection = false, frame = 0, stopped = false;
+    let pendingSelection = false, pendingTrack = '', frame = 0, stopped = false;
+    let deferredTrackFocus = null;
     let editorMode='audio', rangeTool=false, solo=false, projectTempo=120, projectNumerator=4, projectDenominator=4, projectKey='C major';
     let manualProject=false, guide=null, guideJob='', metronome=false, lastClickBeat=-1;
     let audioGraph=null;
     const history=[],future=[];
     const mutedTracks=new Set(),trackPans=new Map();
-    let sessionTitle='Untitled',libraryFamily='piano',lastGuide=null;
+    let sessionTitle='Untitled',libraryFamily='all',lastGuide=null;
     const cache = new Map();
     const active = () => !panel.hidden;
     const isModal = () => !!document.querySelector('dialog[open]');
@@ -101,10 +110,16 @@
     const duration = () => currentPeaks?.duration || (Number.isFinite(player.duration) ? player.duration : 0);
     const title = value => String(value || 'Untitled session').replace(/\.[a-z0-9]{2,5}$/i, '');
     const text = (id, value) => { if (el(id).textContent !== String(value)) el(id).textContent = String(value); };
-    const message = value => {text('daw-message',value);el('daw-message').hidden=/^(Ready|Reading|Opening|Import)/.test(value);};
+    const message = (value, state='status') => {
+        const status=el('daw-message');
+        text('daw-message',value);
+        status.hidden=/^Ready\b/.test(value);
+        status.dataset.state=state;
+        status.setAttribute('aria-busy',String(state==='loading'));
+    };
     const chosen = () => tracks.find(t => t.id === selected) || tracks[0];
     const remember = () => { history.push({volume:player.volume,pan:Number(el('daw-pan').value),zoom,muted:player.muted});if(history.length>50)history.shift();future.length=0; };
-    const restoreSetting = value => { player.volume=value.volume;player.muted=value.muted;zoom=value.zoom;el('daw-zoom').value=String(zoom);el('daw-pan').value=String(value.pan);if(audioGraph)audioGraph.pan.pan.value=value.pan;paintTransport();scheduleDraw(); };
+    const restoreSetting = value => { player.volume=value.volume;setTrackMuted(selected,value.muted);zoom=value.zoom;el('daw-zoom').value=String(zoom);setTrackPan(selected,value.pan);paintTransport();scheduleDraw(); };
     const setting = () => ({volume:player.volume,pan:Number(el('daw-pan').value),zoom,muted:player.muted});
     el('daw-undo').onclick=()=>{if(history.length){future.push(setting());restoreSetting(history.pop());}};
     el('daw-redo').onclick=()=>{if(future.length){history.push(setting());restoreSetting(future.pop());}};
@@ -119,7 +134,7 @@
                 const meters=[context.createAnalyser(),context.createAnalyser()];
                 for(let i=0;i<2;i++){meters[i].fftSize=256;split.connect(meters[i],i);}
                 audioGraph={context,eq,compressor,pan,meters,samples:new Uint8Array(256)};
-            }catch(error){message('Audio controls could not be opened: '+error.message);return null;}
+            }catch(error){message('Audio controls could not be opened: '+error.message,'error');return null;}
         }
         audioGraph.context.resume().catch(()=>{});return audioGraph;
     }
@@ -136,6 +151,22 @@
         el('daw-library').inert = !libraryOpen; el('daw-inspector').inert = !inspectorOpen;
         scheduleDraw();
     };
+    function setTrackMuted(id, muted) {
+        if(muted)mutedTracks.add(id);else mutedTracks.delete(id);
+        if(id===selected)player.muted=muted;
+        const row=[...el('daw-track-list').children].find(item=>item.dataset.trackId===id);
+        row?.querySelector('.daw-row-mute').setAttribute('aria-pressed',String(muted));
+        paintTransport();
+    }
+    function setTrackPan(id, value) {
+        const pan=Math.max(-1,Math.min(1,Number(value)||0));
+        trackPans.set(id,pan);
+        const row=[...el('daw-track-list').children].find(item=>item.dataset.trackId===id);
+        const input=row?.querySelector('.daw-row-pan input');
+        if(input){input.value=String(pan);input.nextElementSibling.style.transform='rotate('+(pan*120)+'deg)';}
+        if(id===selected){el('daw-pan').value=String(pan);const graph=ensureAudio();if(graph)graph.pan.pan.value=pan;}
+        paintTransport();
+    }
     const doImport = () => window.BlazeMac.action('import');
     el('daw-import').onclick = doImport; el('daw-empty-import').onclick = doImport;
     el('daw-back').onclick = () => window.BlazeMac.navigate('explore');
@@ -151,17 +182,26 @@
         else player.loop=true;
         el('repeat').checked=player.loop;updateLoop();scheduleDraw();paintTransport();
     };
-    el('daw-mute').onclick = () => {remember();player.muted = !player.muted; paintTransport();};
+    el('daw-mute').onclick = () => {remember();setTrackMuted(selected,!player.muted);};
     el('daw-channel-mute').onclick=()=>el('daw-mute').click();
     el('daw-audition').onclick = () => {solo=!solo;if(sourceName&&!pendingSelection){ensureAudio();player.play().catch(failure);}paintTransport();};
     el('daw-channel-solo').onclick=()=>el('daw-audition').click();
     for(const id of ['daw-volume','daw-master-volume']){el(id).addEventListener('pointerdown',remember);el(id).oninput=event=>{player.volume=Number(event.target.value);el('volume').value=String(player.volume);paintTransport();};}
     el('daw-pan').addEventListener('pointerdown',remember);
-    el('daw-pan').oninput=event=>{const graph=ensureAudio();if(graph)graph.pan.pan.value=Number(event.target.value);paintTransport();};
+    el('daw-pan').oninput=event=>setTrackPan(selected,event.target.value);
     el('daw-eq').onclick=()=>{const graph=ensureAudio();if(!graph)return;const enabled=el('daw-eq').getAttribute('aria-pressed')!=='true';graph.eq.gain.value=enabled?3:0;el('daw-eq').setAttribute('aria-pressed',String(enabled));};
     el('daw-compressor').onclick=()=>{const graph=ensureAudio();if(!graph)return;const enabled=el('daw-compressor').getAttribute('aria-pressed')!=='true';graph.compressor.ratio.value=enabled?6:1;graph.compressor.threshold.value=-20;el('daw-compressor').setAttribute('aria-pressed',String(enabled));};
-    el('daw-analysis-toggle').onclick=()=>{el('daw-inspector-extra').hidden=!el('daw-inspector-extra').hidden;};
-    el('daw-extra-close').onclick=()=>{el('daw-inspector-extra').hidden=true;};
+    const optionsButton=el('daw-analysis-toggle'),optionsPanel=el('daw-inspector-extra');
+    optionsButton.setAttribute('aria-controls',optionsPanel.id);
+    optionsButton.setAttribute('aria-expanded','false');
+    optionsPanel.setAttribute('role','region');optionsPanel.setAttribute('aria-label','Playback and analysis options');
+    const showOptions=show=>{
+        optionsPanel.hidden=!show;optionsButton.setAttribute('aria-expanded',String(show));
+        if(show)el('daw-rate').focus();else optionsButton.focus();
+    };
+    optionsButton.onclick=()=>showOptions(optionsPanel.hidden);
+    el('daw-extra-close').onclick=()=>showOptions(false);
+    optionsPanel.addEventListener('keydown',event=>{if(event.key==='Escape'&&!isModal()){event.preventDefault();event.stopPropagation();showOptions(false);}});
     el('daw-color').oninput=event=>{const color=event.target.value;colors[selected]=color;regionColors[selected]=['color-mix(in srgb,'+color+',#102030 55%)','color-mix(in srgb,'+color+',#101820 75%)'];renderTracks();};
     el('daw-pointer-tool').onclick=()=>{rangeTool=false;el('daw-pointer-tool').setAttribute('aria-pressed','true');el('daw-range-tool').setAttribute('aria-pressed','false');};
     el('daw-range-tool').onclick=()=>{rangeTool=true;el('daw-pointer-tool').setAttribute('aria-pressed','false');el('daw-range-tool').setAttribute('aria-pressed','true');};
@@ -183,7 +223,7 @@
     el('daw-scroll-forward').onclick=()=>{el('daw-editor-scroll').scrollLeft+=el('daw-editor-scroll').clientWidth*.25;};
     el('daw-editor-scroll').addEventListener('scroll',()=>{const port=el('daw-editor-scroll');el('daw-scroll').value=String(port.scrollWidth>port.clientWidth?port.scrollLeft/(port.scrollWidth-port.clientWidth)*1000:0);});
 
-    for (const [id,caption,kind] of [['all','All Sounds','library'],['piano','Keys','piano'],['synths','Synthesizers','synths'],['guitar','Guitars','guitar'],['bass','Bass','bass'],['drums','Drums','drums'],['strings','Strings','strings'],['brass','Brass','brass'],['patches','User Patches','library']]) {
+    for (const [id,caption,kind] of [['all','All tracks','library'],['vocals','Vocals','vocals'],['piano','Piano','piano'],['synths','Synthesizers','synths'],['guitar','Guitars','guitar'],['bass','Bass','bass'],['drums','Drums','drums'],['strings','Strings','strings'],['brass','Brass','brass']]) {
         const b = document.createElement('button'); b.dataset.family = id;
         b.innerHTML = instrumentIcon(kind)+'<span class="daw-family-caption"></span><span class="daw-disclosure" aria-hidden="true">›</span>';
         b.querySelector('.daw-family-caption').textContent = caption;
@@ -200,9 +240,15 @@
     for(const id of ['daw-tempo-control','daw-meter-control','daw-key-control'])el(id).onclick=()=>{el('daw-project-bpm').value=String(projectTempo);el('daw-project-num').value=String(projectNumerator);el('daw-project-den').value=String(projectDenominator);el('daw-project-key').value=projectKey;projectDialog.showModal();};
     el('daw-project-save').onclick=()=>{const tempo=Number(el('daw-project-bpm').value);if(tempo<20||tempo>300)return;projectTempo=tempo;projectNumerator=Number(el('daw-project-num').value);projectDenominator=Number(el('daw-project-den').value);projectKey=el('daw-project-key').value;manualProject=true;scheduleDraw();};
 
+    function paintTrackPending() {
+        for(const row of el('daw-track-list').children){
+            const pending=pendingSelection&&row.dataset.trackId===pendingTrack;
+            row.setAttribute('aria-busy',String(pending));row.classList.toggle('loading',pending);
+        }
+    }
     async function selectTrack(track) {
         if (pendingSelection || busy || importing || selected === track.id || !track.jobId || isModal()) return;
-        pendingSelection = true; paintTransport(); message('Opening '+track.label+'…');
+        pendingSelection = true;pendingTrack=track.id;paintTrackPending();paintTransport();message('Opening '+track.label+'…','loading');
         const previousPosition = Number.isFinite(player.currentTime) ? player.currentTime : 0;
         const wasPlaying = !player.paused;
         try {
@@ -223,11 +269,41 @@
             // The selected recording is ready; sibling previews can load in the
             // background without holding the transport disabled.
             signature = ''; void syncSession();
-        } catch (error) { message(error.message || 'This track could not be opened.'); }
-        finally { pendingSelection = false; paintTransport(); }
+        } catch (error) { message(error.message || 'This track could not be opened.','error'); }
+        finally { pendingSelection = false;pendingTrack='';paintTrackPending();paintTransport(); }
     }
 
+    // A stem selection briefly replaces the current source row before the saved
+    // track list returns. Retain focus only when this renderer removed it; a
+    // subsequent user action outside the rows abandons that intent.
+    document.addEventListener('focusin',event=>{
+        if(deferredTrackFocus&&!event.target.closest?.('#daw-track-list,#daw-regions'))deferredTrackFocus=null;
+    });
+    document.addEventListener('pointerdown',event=>{
+        if(deferredTrackFocus&&!event.target.closest?.('#daw-track-list,#daw-regions'))deferredTrackFocus=null;
+    },true);
+    function rememberTrackFocus() {
+        const focused=document.activeElement;
+        const area=el('daw-track-list').contains(focused)?'track':el('daw-regions').contains(focused)?'region':null;
+        if(!area){if(focused!==document.body)deferredTrackFocus=null;return;}
+        const owner=focused.closest('[data-track-id]');
+        if(!owner)return;
+        const track=tracks.find(item=>item.id===owner.dataset.trackId);
+        const control=area==='region'?'.daw-region':focused.matches('.daw-row-mute')?'.daw-row-mute':focused.matches('.daw-row-solo')?'.daw-row-solo':focused.matches('.daw-row-pan input')?'.daw-row-pan input':'.daw-track-select';
+        deferredTrackFocus={id:owner.dataset.trackId,jobId:track?.jobId||sessionJob,area,control};
+    }
+    function restoreTrackFocus() {
+        if(!deferredTrackFocus||document.activeElement!==document.body)return;
+        const intent=deferredTrackFocus;
+        const track=tracks.find(item=>item.id===intent.id&&(!intent.jobId||item.jobId===intent.jobId));
+        if(!track)return;
+        const container=el(intent.area==='region'?'daw-regions':'daw-track-list');
+        const owner=[...container.children].find(item=>item.dataset.trackId===intent.id);
+        const target=owner?.querySelector(intent.control);
+        if(target){target.focus({preventScroll:true});deferredTrackFocus=null;}
+    }
     function renderTracks() {
+        rememberTrackFocus();
         const search = el('daw-search').value.toLocaleLowerCase();
         for (const b of el('daw-families').children) { b.classList.toggle('selected', b.dataset.family === libraryFamily); b.setAttribute('aria-pressed', String(b.dataset.family === libraryFamily)); }
         const visible = tracks;
@@ -236,21 +312,24 @@
         const head = el('daw-arrangement-playhead'); el('daw-regions').replaceChildren(head);
         el('daw-recordings').replaceChildren();
         for (const track of visible) {
-            const row = document.createElement('div'); row.tabIndex=0;row.setAttribute('role','button');row.className = 'daw-track'; row.dataset.trackId = track.id;
-            row.classList.toggle('selected', track.id === selected); row.setAttribute('aria-pressed', String(track.id === selected));
+            const row = document.createElement('div');row.setAttribute('role','group');row.className = 'daw-track'; row.dataset.trackId = track.id;
+            row.classList.toggle('selected', track.id === selected);
             row.style.setProperty('--track-color', colors[track.id] || colors.source);
-            row.innerHTML = '<span class="daw-track-number"></span>'+instrumentIcon(track.id)+'<span class="daw-track-label"></span><div class="daw-row-controls"><button class="daw-row-mute" aria-label="Mute track" aria-pressed="'+mutedTracks.has(track.id)+'">M</button><button class="daw-row-solo" aria-label="Solo track" aria-pressed="'+(solo&&selected===track.id)+'">S</button><button class="daw-arm" aria-label="Recording unavailable" disabled>●</button><span class="daw-track-meter" title="Source level at playhead"><i></i></span><label class="daw-row-pan"><input type="range" min="-1" max="1" step=".01" value="'+(trackPans.get(track.id)||0)+'" aria-label="Pan track"><i></i></label></div>';
+            row.innerHTML = '<button type="button" class="daw-track-select" aria-pressed="'+(track.id===selected)+'"><span class="daw-track-number"></span>'+instrumentIcon(track.id)+'<span class="daw-track-label"></span></button><div class="daw-row-controls"><button class="daw-row-mute" aria-label="Mute track" aria-pressed="'+mutedTracks.has(track.id)+'">M</button><button class="daw-row-solo" aria-label="Solo track" aria-pressed="'+(solo&&selected===track.id)+'">S</button><button class="daw-arm" aria-label="Recording unavailable" disabled>●</button><span class="daw-track-meter" title="Source level at playhead"><i></i></span><label class="daw-row-pan"><input type="range" min="-1" max="1" step=".01" value="'+(trackPans.get(track.id)||0)+'" aria-label="Pan track"><i></i></label></div>';
             row.querySelector('.daw-row-mute').setAttribute('aria-label','Mute '+track.label);
             row.querySelector('.daw-row-solo').setAttribute('aria-label','Solo '+track.label);
             row.querySelector('input').setAttribute('aria-label','Pan '+track.label);
             row.querySelector('.daw-track-number').textContent = String(tracks.indexOf(track)+1);
             row.querySelector('.daw-track-label').textContent = track.label;
-            row.setAttribute('aria-label', 'Select '+track.label+' track');
-            row.onclick = () => selectTrack(track);
-            row.onkeydown=event=>{if(event.target===row&&(event.key==='Enter'||event.key===' ')){event.preventDefault();selectTrack(track);}};
-            row.querySelector('.daw-row-mute').onclick=event=>{event.stopPropagation();if(mutedTracks.has(track.id))mutedTracks.delete(track.id);else mutedTracks.add(track.id);if(selected===track.id)player.muted=mutedTracks.has(track.id);event.currentTarget.setAttribute('aria-pressed',String(mutedTracks.has(track.id)));paintTransport();};
-            row.querySelector('.daw-row-solo').onclick=async event=>{event.stopPropagation();await selectTrack(track);solo=true;ensureAudio();player.play().catch(failure);renderTracks();};
-            const panInput=row.querySelector('input');panInput.onclick=event=>event.stopPropagation();panInput.oninput=event=>{trackPans.set(track.id,Number(event.target.value));event.target.nextElementSibling.style.transform='rotate('+(Number(event.target.value)*120)+'deg)';if(track.id===selected){el('daw-pan').value=event.target.value;const graph=ensureAudio();if(graph)graph.pan.pan.value=Number(event.target.value);paintTransport();}};
+            row.setAttribute('aria-label',track.label+' track');
+            const selectButton=row.querySelector('.daw-track-select');
+            selectButton.setAttribute('aria-label','Select '+track.label+' track');selectButton.title=track.label;
+            selectButton.onclick=()=>selectTrack(track);
+            row.onclick=event=>{if(event.target===row)selectTrack(track);};
+            row.querySelector('.daw-row-mute').onclick=event=>{event.stopPropagation();setTrackMuted(track.id,!mutedTracks.has(track.id));};
+            row.querySelector('.daw-row-solo').onclick=async event=>{event.stopPropagation();if(pendingSelection||busy||importing||isModal())return;const alreadySolo=solo&&selected===track.id;await selectTrack(track);if(selected!==track.id||pendingSelection)return;solo=!alreadySolo;if(solo){ensureAudio();player.play().catch(failure);}renderTracks();paintTransport();};
+            const panInput=row.querySelector('input');panInput.onclick=event=>event.stopPropagation();panInput.oninput=event=>setTrackPan(track.id,event.target.value);
+            panInput.nextElementSibling.style.transform='rotate('+((trackPans.get(track.id)||0)*120)+'deg)';
             el('daw-track-list').append(row);
             const lane = document.createElement('div'); lane.className = 'daw-lane'; lane.dataset.trackId = track.id;
             lane.style.setProperty('--track-color', colors[track.id] || colors.source);
@@ -262,12 +341,12 @@
             const canvas = document.createElement('canvas'); canvas.className = 'daw-region-wave'; canvas.setAttribute('aria-hidden','true');
             region.append(caption, canvas); region.onclick = () => selectTrack(track); lane.append(region); el('daw-regions').append(lane);
             const patch = document.createElement('button'); patch.className = 'daw-recording'; patch.classList.toggle('selected', track.id === selected);
-            patch.textContent = track.label; patch.onclick = () => selectTrack(track); el('daw-recordings').append(patch);
+            patch.textContent = track.label;patch.hidden=(!!search&&!track.label.toLocaleLowerCase().includes(search))||(libraryFamily!=='all'&&track.id!==libraryFamily);patch.onclick = () => selectTrack(track); el('daw-recordings').append(patch);
         }
         text('daw-lane-count', visible.length); text('daw-track-count', tracks.length ? tracks.length+' audio '+(tracks.length===1?'track':'tracks') : 'No recording open');
         el('daw-empty').hidden = !!sourceName;
         el('daw-arrangement').classList.toggle('daw-is-empty', !tracks.length);
-        paintInspector(); scheduleDraw();
+        paintInspector();paintTrackPending();restoreTrackFocus();scheduleDraw();
     }
 
     function paintInspector() {
@@ -296,7 +375,7 @@
 
     function paintTransport() {
         const enabled = !!sourceName && !pendingSelection;
-        for (const id of ['daw-play','daw-stop','daw-rewind','daw-loop','daw-audition']) el(id).disabled = !enabled;
+        for (const id of ['daw-play','daw-stop','daw-rewind','daw-loop','daw-audition','daw-mute','daw-channel-mute','daw-channel-solo','daw-pan']) el(id).disabled = !enabled;
         const play = el('daw-play'), state = player.paused ? 'play' : 'pause';
         if (play.dataset.state !== state) { play.innerHTML = svg(state); play.dataset.state = state; }
         play.setAttribute('aria-label', player.paused ? 'Play' : 'Pause');
@@ -323,10 +402,10 @@
         text('daw-key',projectKey);text('daw-analysis-key',result?.key||'—'); text('daw-analysis-tempo',bpm?Number(bpm).toFixed(0)+' BPM':'—');
         text('daw-time', elapsed(position));
         const quarter=position*projectTempo/60,beat=quarter/(4/projectDenominator);
-        text('daw-bars',(Math.floor(beat/projectNumerator)+1)+'  '+(Math.floor(beat)%projectNumerator+1)+'  1  001');
+        text('daw-bars',(Math.floor(beat/projectNumerator)+1)+'  '+(Math.floor(beat)%projectNumerator+1));
         const progress = duration() ? Math.max(0,Math.min(1,position/duration())) : 0;
         el('daw-arrangement-playhead').style.left=(progress*100)+'%';
-        el('daw-editor-playhead').style.left=(34+progress*(el('daw-editor-content').clientWidth-34))+'px';
+        el('daw-editor-playhead').style.left=(progress*el('daw-editor-content').clientWidth)+'px';
         paintMeters(position);
         if(metronome&&audioGraph&&!player.paused){const beatIndex=Math.floor(quarter);if(beatIndex!==lastClickBeat){lastClickBeat=beatIndex;const oscillator=audioGraph.context.createOscillator(),gain=audioGraph.context.createGain(),now=audioGraph.context.currentTime;oscillator.frequency.value=beatIndex%projectNumerator===0?1500:1000;gain.gain.setValueAtTime(.04,now);gain.gain.exponentialRampToValueAtTime(.0001,now+.035);oscillator.connect(gain).connect(audioGraph.context.destination);oscillator.start(now);oscillator.stop(now+.04);}}
         el('daw-waveform').setAttribute('aria-valuenow', String(Math.round(progress*100)));
@@ -346,7 +425,6 @@
         for (let channel=0;channel<lanes;channel++) {
             const center=h/lanes*(channel+.5), amplitude=h/lanes*.42;
             g.beginPath();g.moveTo(0,center);g.lineTo(w,center);g.stroke();
-            if (stereo) { g.fillStyle='#9ba7af';g.font='10px -apple-system,sans-serif';g.fillText(channel?'R':'L',7,center-4); }
             const bins=data?.peaks?.[channel] || data?.peaks?.[0];
             if (!bins?.length) continue;
             // Peak-normalized display only; playback/export audio is unchanged.
@@ -375,14 +453,17 @@
         target.replaceChildren();
         const width=target.getBoundingClientRect().width;
         const secondsPerBar=60/projectTempo*(4/projectDenominator)*projectNumerator;
-        const total=Math.max(1,length/secondsPerBar),step=Math.max(1,Math.ceil(total/Math.max(2,width/(detailed?110:100))));
+        target.style.setProperty('--bar-pixels',(length?secondsPerBar/length*width:100)+'px');
+        target.style.setProperty('--beat-pixels',(length?secondsPerBar/projectNumerator/length*width:25)+'px');
+        const total=Math.max(1,length/secondsPerBar),step=2**Math.ceil(Math.log2(Math.max(1,total/Math.max(2,width/(detailed?110:100)))));
         for(let bar=0;bar<=total+.0001;bar+=step) {
             const mark=document.createElement('span');
             mark.textContent=String(bar+1);
             mark.style.left=(bar/total*100)+'%';target.append(mark);
         }
-        target.classList.toggle('daw-has-cycle',player.loop||loopEnd!==null);
-        if((player.loop||loopEnd!==null)&&length){const start=loopEnd!==null?loopStart:0,end=loopEnd!==null?loopEnd:length,strip=document.createElement('i');strip.className='daw-cycle-strip';strip.style.left=(start/length*100)+'%';strip.style.width=((end-start)/length*100)+'%';strip.textContent=String(Math.floor(start/secondsPerBar)+1);target.append(strip);}
+        const cycle=!detailed&&(player.loop||loopEnd!==null);
+        target.classList.toggle('daw-has-cycle',cycle);
+        if(cycle&&length){const start=loopEnd!==null?loopStart:0,end=loopEnd!==null?loopEnd:length,strip=document.createElement('i');strip.className='daw-cycle-strip';strip.style.left=(start/length*100)+'%';strip.style.width=((end-start)/length*100)+'%';strip.textContent=String(Math.floor(start/secondsPerBar)+1);target.append(strip);}
     }
     function draw() {
         if (!active()) return;
@@ -394,28 +475,29 @@
         for(const lane of el('daw-regions').querySelectorAll('.daw-lane')) {
             const t=tracks.find(t=>t.id===lane.dataset.trackId);
             const canvas=lane.querySelector('canvas');
-            if(['piano','synths'].includes(t?.id)&&guide?.chords?.length){drawNotes(canvas,guide,colors[t.id]);canvas.setAttribute('aria-label','Chord-derived MIDI guide');}
-            else peakCanvas(canvas,t?.waveform,colors[t?.id]||colors.source);
+            if(['piano','synths'].includes(t?.id)&&guide?.chords?.length){drawNotes(canvas,guide,'#e2f1c1');canvas.setAttribute('aria-label','Chord-derived MIDI guide');}
+            else peakCanvas(canvas,t?.waveform,'#c7e5fc');
             const g=canvas.getContext('2d'),r=canvas.getBoundingClientRect(),segment=60/projectTempo*(4/projectDenominator)*projectNumerator*8;
             g.strokeStyle='#09121cdc';g.lineWidth=2;
             if(length)for(let sec=segment;sec<length;sec+=segment){const x=sec/length*r.width;g.beginPath();g.moveTo(x,0);g.lineTo(x,r.height);g.stroke();}
         }
         el('daw-waveform').hidden=editorMode!=='audio';el('daw-midi-guide').hidden=editorMode!=='midi';
-        if(editorMode==='audio')peakCanvas(el('daw-waveform'),currentPeaks,colors[selected]||colors.source,true);
+        if(editorMode==='audio')peakCanvas(el('daw-waveform'),currentPeaks,'#c5dff7',true);
         else drawNotes(el('daw-midi-guide'),guide,colors[selected]||colors.piano);
         el('daw-wave-empty').hidden=editorMode==='audio'?!!currentPeaks:!!guide?.chords?.length;
         text('daw-wave-empty',editorMode==='midi'?'Analyze chords to view a MIDI guide.':sourceName?(loading?'Reading waveform…':'Waveform unavailable. Playback and analysis remain available.'):'Import a recording to begin.');
         root.style.setProperty('--bar-grid',(length?60/projectTempo*(4/projectDenominator)*projectNumerator/length*100:12.5)+'%');
+        text('daw-editor-region',chosen()?.id==='source'?title(sourceName):chosen()?.label||'Audio');
         paintRange(); paintTransport();
     }
     function paintRange() {
         const range=el('daw-wave-selection'),length=duration(); range.hidden=!selection||!length;
-        if(selection&&length){const width=el('daw-editor-content').clientWidth-34;range.style.left=(34+selection[0]/length*width)+'px';range.style.width=((selection[1]-selection[0])/length*width)+'px';text('daw-selection-readout','Selection  '+elapsed(selection[0])+' – '+elapsed(selection[1])+'  |  '+((selection[1]-selection[0]).toFixed(3))+' s');}
+        if(selection&&length){const width=el('daw-editor-content').clientWidth;range.style.left=(selection[0]/length*width)+'px';range.style.width=((selection[1]-selection[0])/length*width)+'px';text('daw-selection-readout','Selection  '+elapsed(selection[0])+' – '+elapsed(selection[1])+'  |  '+((selection[1]-selection[0]).toFixed(3))+' s');}
         else text('daw-selection-readout','No range selected');
     }
     const waveform=el('daw-waveform');let pointerStart=null;
     const cycleRuler=el('daw-ruler');let cycleStart=null;
-    const rulerTime=event=>{const r=cycleRuler.getBoundingClientRect(),seconds=60/projectTempo;return Math.max(0,Math.min(duration(),Math.round((event.clientX-r.left)/r.width*duration()/seconds)*seconds));};
+    const rulerTime=event=>{const r=cycleRuler.getBoundingClientRect(),seconds=60/projectTempo*(4/projectDenominator);return Math.max(0,Math.min(duration(),Math.round((event.clientX-r.left)/r.width*duration()/seconds)*seconds));};
     cycleRuler.onpointerdown=event=>{if(event.button!==0||!duration())return;cycleStart=rulerTime(event);cycleRuler.setPointerCapture(event.pointerId);};
     cycleRuler.onpointermove=event=>{if(cycleStart===null||!cycleRuler.hasPointerCapture(event.pointerId))return;const end=rulerTime(event);loopStart=Math.min(cycleStart,end);loopEnd=Math.max(cycleStart,end);player.loop=false;updateLoop();scheduleDraw();};
     cycleRuler.onpointerup=cycleRuler.onpointercancel=event=>{if(cycleRuler.hasPointerCapture(event.pointerId))cycleRuler.releasePointerCapture(event.pointerId);cycleStart=null;if(loopEnd!==null&&loopEnd-loopStart<.05)loopStart=loopEnd=null;updateLoop();scheduleDraw();};
@@ -426,7 +508,7 @@
         if(pointerStart===null){selection=null;seek(atPointer(event));paintRange();}
         else{selection=[pointerStart,pointerStart];paintRange();}
     };
-    waveform.onpointermove=event=>{if(waveform.hasPointerCapture(event.pointerId)){if(pointerStart===null)seek(atPointer(event));else{let end=atPointer(event);if(el('daw-snap').value==='beat'){const spacing=60/projectTempo;end=Math.round(end/spacing)*spacing;}selection=[Math.min(pointerStart,end),Math.max(pointerStart,end)];paintRange();}}};
+    waveform.onpointermove=event=>{if(waveform.hasPointerCapture(event.pointerId)){if(pointerStart===null)seek(atPointer(event));else{let end=atPointer(event);if(el('daw-snap').value==='beat'){const spacing=60/projectTempo*(4/projectDenominator);end=Math.round(end/spacing)*spacing;}selection=[Math.min(pointerStart,end),Math.max(pointerStart,end)];paintRange();}}};
     waveform.onpointerup=waveform.onpointercancel=event=>{if(waveform.hasPointerCapture(event.pointerId))waveform.releasePointerCapture(event.pointerId);pointerStart=null;};
     waveform.onkeydown=event=>{let target=null;if(event.key==='ArrowLeft')target=player.currentTime-5;if(event.key==='ArrowRight')target=player.currentTime+5;if(event.key==='Home')target=0;if(event.key==='End')target=duration();if(event.key==='Escape'){selection=null;paintRange();}if(target!==null){event.preventDefault();seek(target);}};
     const midiGuide=el('daw-midi-guide');midiGuide.tabIndex=0;midiGuide.setAttribute('role','slider');midiGuide.setAttribute('aria-valuemin','0');midiGuide.setAttribute('aria-valuemax','100');
@@ -460,7 +542,7 @@
         const previousGuide=guide&&sessionJob?{jobId:sessionJob,data:guide}:null;
         sessionRevision=revision;loading=true;
         if(sourceChanged){currentPeaks=null;guide=null;lastGuide=null;tracks=[{id:'source',label:title(sourceName),waveform:null}];selected='source';renderTracks();}
-        message('Reading local waveform…');
+        message('Reading local waveform…','loading');
         text('daw-session-title',title(sourceName));
         try{
             const data=await fetchWave(revision,'','',controller.signal);
@@ -486,14 +568,13 @@
             const queue=tracks.filter(t=>t.jobId&&!t.waveform);
             const worker=async()=>{while(queue.length&&mine===generation){const track=queue.shift();try{const peaks=await fetchWave(revision,track.jobId,track.id,controller.signal);if(mine!==generation||revision!==sourceRevision)return;track.waveform=peaks;cache.set(track.jobId+':'+track.id,peaks);scheduleDraw();}catch(error){if(error.name==='AbortError')return;}}};
             await Promise.all([worker(),worker()]);
-        }catch(error){if(mine!==generation||error.name==='AbortError')return;loading=false;currentPeaks=null;waveformReady=false;if(error.status===503)signature='';message(error.message||'The waveform could not be read.');scheduleDraw();}
+        }catch(error){if(mine!==generation||error.name==='AbortError')return;loading=false;currentPeaks=null;waveformReady=false;if(error.status===503)signature='';message(error.message||'The waveform could not be read.','error');scheduleDraw();}
     }
     const resize=new ResizeObserver(scheduleDraw);resize.observe(root);resize.observe(el('daw-editor-scroll'));
     let previousWidth=innerWidth;
     window.addEventListener('resize',()=>{
         if(innerWidth<800&&previousWidth>=800){libraryOpen=false;inspectorOpen=false;setPanels();}
         else if(innerWidth<1100&&previousWidth>=1100){libraryOpen=false;setPanels();}
-        else if(innerWidth>=1100&&previousWidth<1100&&!libraryUserChoice){libraryOpen=true;setPanels();}
         if(innerWidth>=800&&previousWidth<800&&!inspectorUserChoice){inspectorOpen=true;setPanels();}
         previousWidth=innerWidth;
     });

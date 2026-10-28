@@ -448,7 +448,9 @@ class MacNavigation:
         for name, item in self.toolbar_items.items():
             item.setEnabled_(not self.modal and (name != 'blaze.player' or self.has_media)
                              and (name != 'blaze.import' or not (self.importing or self.busy)))
-        appearance = 'dark' if self.studio_workspace else state.get('appearance')
+        # Studio keeps a dark editing canvas while its control chrome follows
+        # the user's Mac appearance, as the native creative apps do.
+        appearance = state.get('appearance')
         if appearance in ('system', 'light', 'dark') and appearance != self.appearance:
             import AppKit
             name = {'light': AppKit.NSAppearanceNameAqua,

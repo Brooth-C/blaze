@@ -121,9 +121,10 @@ async function fit(page,ids){
         assert(pixels>100,'The detailed waveform did not render actual peak data');
         await fit(page,['daw-transport','daw-play','daw-stop','daw-arrangement','daw-editor','daw-waveform']);
         const geometry=await page.evaluate(()=>Object.fromEntries(['daw-library','daw-inspector','daw-track-list','daw-editor'].map(id=>{const r=document.getElementById(id).getBoundingClientRect();return[id,{left:r.left,top:r.top,width:r.width}];})));
-        assert.equal(geometry['daw-library'].width,180);assert.equal(geometry['daw-inspector'].left,180);assert.equal(geometry['daw-inspector'].width,188);
-        assert.equal(geometry['daw-track-list'].left,368);assert.equal(geometry['daw-track-list'].width,300);
-        assert(Math.abs(geometry['daw-editor'].top-606)<2,'Lower editor diverged from measured reference');
+        assert.equal(geometry['daw-library'].width,0,'The main workstation should open with the optional Library closed');
+        assert.equal(geometry['daw-inspector'].left,0);assert.equal(geometry['daw-inspector'].width,210);
+        assert.equal(geometry['daw-track-list'].left,210);assert.equal(geometry['daw-track-list'].width,310);
+        assert(geometry['daw-editor'].top>500&&geometry['daw-editor'].top<660,'Audio editor left the lower workspace');
         assert.equal(await page.locator('#daw-format').textContent(),'48 kHz · 24-bit · Stereo');
         // Controlled chord evidence exercises the reference's note-guide lanes;
         // it is never included as a production session or a model quality claim.
@@ -133,6 +134,8 @@ async function fit(page,ids){
         await page.mouse.move(ruler.x+ruler.width*.25,ruler.y+5);await page.mouse.down();
         await page.mouse.move(ruler.x+ruler.width*.75,ruler.y+5,{steps:8});await page.mouse.up();
         await page.waitForFunction(()=>loopStart===16&&loopEnd===48);
+        assert.equal(await page.locator('#daw-ruler .daw-cycle-strip').count(),1);
+        assert.equal(await page.locator('#daw-editor-ruler .daw-cycle-strip').count(),0,'Cycle obscured the audio editor ruler');
         const referenceWave=await page.locator('#daw-waveform').boundingBox();
         await page.mouse.click(referenceWave.x+referenceWave.width*.5,referenceWave.y+referenceWave.height*.4);
         await page.waitForFunction(()=>Math.abs(document.getElementById('media').currentTime-32)<1);
@@ -144,8 +147,13 @@ async function fit(page,ids){
         assert.notEqual(await page.locator('#daw-selection-readout').textContent(),'No range selected','Shift-drag did not select an audio range');
         await page.locator('#daw-editor-title').click();
         await page.locator('#daw-zoom').fill('4');await page.locator('#daw-zoom').dispatchEvent('input');
-        await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>{const scroll=document.getElementById('daw-editor-scroll');scroll.scrollLeft=(scroll.scrollWidth-34)*26.5/64;resolve();})));
+        await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>{const scroll=document.getElementById('daw-editor-scroll');scroll.scrollLeft=scroll.scrollWidth*26.5/64;resolve();})));
+        const gutter=await page.locator('.daw-amplitude-scale').boundingBox(),port=await page.locator('#daw-editor-scroll').boundingBox();
+        assert(gutter&&port&&Math.abs(gutter.x+gutter.width-port.x)<1,'Amplitude gutter moved with the waveform scroll');
+        assert(await page.locator('#daw-editor-ruler span').evaluateAll(marks=>marks.some(mark=>{const r=mark.getBoundingClientRect(),p=mark.parentElement.getBoundingClientRect();return r.left>=p.left&&r.right<=p.right&&r.top>=p.top&&r.bottom<=p.bottom;})),'Editor ruler labels are clipped');
         await shot(page,'wide');
+        await page.emulateMedia({colorScheme:'dark'});await shot(page,'wide-dark');
+        await page.emulateMedia({colorScheme:'light'});
         await page.locator('#daw-loop').click();await page.waitForFunction(()=>loopEnd===null);
         await page.locator('#daw-zoom').fill('1');await page.locator('#daw-zoom').dispatchEvent('input');
         await page.evaluate(()=>document.getElementById('daw-editor-scroll').scrollLeft=0);
@@ -202,10 +210,18 @@ async function fit(page,ids){
         await page.locator('#daw-inspector-toggle').click();
         await page.waitForFunction(value=>window.BlazeMacStudio.snapshot().inspectorOpen!==value,before.inspectorOpen);
         await page.locator('#daw-inspector-toggle').click();
+        if(!(await page.evaluate(()=>window.BlazeMacStudio.snapshot().libraryOpen)))await page.locator('#daw-library-toggle').click();
         await page.locator('#daw-families [data-family="piano"]').click();
         assert.equal(await page.locator('#daw-families [data-family="piano"]').getAttribute('aria-pressed'),'true');
         assert.equal(await page.locator('#daw-track-list .daw-track').count(),9,'The sound library must not hide arrangement tracks');
+        assert.equal(await page.locator('#daw-recordings button:visible').count(),1);
+        assert.equal(await page.locator('#daw-recordings button:visible').textContent(),'Piano');
+        await page.locator('#daw-search').fill('guitar');
         await page.locator('#daw-families [data-family="all"]').click();
+        assert.equal(await page.locator('#daw-recordings button:visible').textContent(),'Guitar');
+        await page.locator('#daw-search').fill('');
+        assert.equal(await page.locator('#daw-recordings button:visible').count(),9);
+        await shot(page,'library');
         assert.equal(await page.locator('#daw-track-list .daw-track').count(),9);
         const download=page.waitForEvent('download');
         await page.locator('#daw-analysis-toggle').click();
@@ -246,6 +262,81 @@ async function fit(page,ids){
         assert.equal(await page.locator('#analyze').count(),1);
         assert.equal(await page.locator('#diagram-strip').count(),1);
         await page.locator('#daw-practice-close').click();
+
+        // Stem switching must preserve keyboard focus and inspector changes,
+        // while a later user action takes precedence over async completion.
+        await page.setViewportSize({width:1230,height:840});
+        if(!(await page.evaluate(()=>window.BlazeMacStudio.snapshot().inspectorOpen)))await page.locator('#daw-inspector-toggle').click();
+        const waitForTrack=async id=>page.waitForFunction(id=>{
+            const state=window.BlazeMacStudio.snapshot();
+            return state.selectedTrack===id&&sourceName===id[0].toUpperCase()+id.slice(1)+'.wav'&&state.sourceRevision===sourceRevision&&state.waveformReady;
+        },id);
+        const chooseTrack=async id=>{
+            await page.locator('.daw-track[data-track-id="'+id+'"] .daw-track-select').focus();
+            await page.keyboard.press('Enter');await waitForTrack(id);
+        };
+        const delaySelection=async(id,key='Enter',inspectPending=()=>{})=>{
+            let release,entered;
+            const reached=new Promise(resolve=>entered=resolve);
+            const handler=async route=>{await new Promise(resolve=>{release=resolve;entered();});await route.continue();};
+            await page.route('**/api/stems-select',handler,{times:1});
+            try{
+                await page.locator('.daw-track[data-track-id="'+id+'"] .daw-track-select').focus();
+                await page.keyboard.press(key);
+                let timer;
+                try{await Promise.race([reached,new Promise((_,reject)=>{timer=setTimeout(()=>reject(Error('Track selection did not reach the controlled request')),10000);})]);}
+                finally{clearTimeout(timer);}
+                await inspectPending();release();await waitForTrack(id);
+            }finally{release?.();await page.unroute('**/api/stems-select',handler);}
+        };
+        await chooseTrack('piano');
+        await page.evaluate(()=>document.getElementById('media').pause());
+        assert.equal(await page.locator('.daw-track[role="button"]').count(),0,'Track controls must be siblings of the selection button');
+        assert.equal(await page.locator('.daw-track-select button,.daw-track-select input').count(),0);
+        if(await page.locator('#media').evaluate(element=>element.muted))await page.locator('#daw-mute').click();
+        await page.locator('#daw-mute').click();
+        await page.locator('#daw-pan').fill('0.3');await page.locator('#daw-pan').dispatchEvent('input');
+        assert.equal(await page.locator('.daw-track[data-track-id="piano"] .daw-row-mute').getAttribute('aria-pressed'),'true');
+        assert.equal(await page.locator('.daw-track[data-track-id="piano"] .daw-row-pan input').inputValue(),'0.3');
+        await delaySelection('guitar','Space',async()=>{
+            assert.equal(await page.locator('.daw-track[data-track-id="guitar"]').getAttribute('aria-busy'),'true');
+            assert.equal(await page.locator('#daw-message').getAttribute('data-state'),'loading');
+            assert(await page.locator('#daw-message').isVisible(),'Opening a real stem lacked visible feedback');
+        });
+        await page.waitForFunction(()=>document.activeElement.matches('.daw-track[data-track-id="guitar"] .daw-track-select'));
+        assert(await page.locator('#media').evaluate(element=>element.paused),'Space selected a track and also toggled global playback');
+        await chooseTrack('piano');
+        assert(await page.locator('#media').evaluate(element=>element.muted),'Inspector mute did not survive a stem round trip');
+        assert.equal(await page.locator('#daw-pan').inputValue(),'0.3','Inspector pan did not survive a stem round trip');
+        await page.locator('#daw-analysis-toggle').click();
+        assert.equal(await page.locator('#daw-analysis-toggle').getAttribute('aria-expanded'),'true');
+        assert(await page.locator('#daw-rate').evaluate(element=>element===document.activeElement));
+        await page.keyboard.press('Escape');
+        assert.equal(await page.locator('#daw-analysis-toggle').getAttribute('aria-expanded'),'false');
+        assert(await page.locator('#daw-inspector-extra').evaluate(element=>element.hidden));
+        assert(await page.locator('#daw-analysis-toggle').evaluate(element=>element===document.activeElement));
+        await delaySelection('drums','Enter',async()=>{await page.locator('#daw-zoom').focus();});
+        assert(await page.locator('#daw-zoom').evaluate(element=>element===document.activeElement),'Async stem completion stole focus from another control');
+        const errorsBeforeFailure=errors.length;
+        const expectedFailureConsole=page.waitForEvent('console',{predicate:message=>message.type()==='error'&&message.location().url===base+'/api/stems-select'&&/503\b/.test(message.text())});
+        await page.route('**/api/stems-select',route=>route.fulfill({status:503,json:{error:'Controlled stem selection failure.'}}),{times:1});
+        await page.locator('.daw-track[data-track-id="bass"] .daw-track-select').focus();await page.keyboard.press('Enter');
+        await page.waitForFunction(()=>document.getElementById('daw-message').dataset.state==='error');
+        assert.equal(await page.locator('#daw-message').textContent(),'Controlled stem selection failure.');
+        const failureMessage=await expectedFailureConsole;
+        const expectedErrorIndex=errors.indexOf(failureMessage.text(),errorsBeforeFailure);
+        assert(expectedErrorIndex>=errorsBeforeFailure,'The controlled request did not produce its expected console diagnostic');
+        errors.splice(expectedErrorIndex,1); // Consume this exact injected API failure only.
+        await page.setViewportSize({width:780,height:572});
+        assert(await page.locator('#daw-message').isVisible(),'Compact Studio hid the stem selection error');
+        await page.setViewportSize({width:1230,height:840});
+        if(!(await page.evaluate(()=>window.BlazeMacStudio.snapshot().inspectorOpen)))await page.locator('#daw-inspector-toggle').click();
+        await chooseTrack('piano');
+        if(await page.locator('#media').evaluate(element=>element.muted))await page.locator('#daw-mute').click();
+        await page.locator('#daw-pan').fill('0');await page.locator('#daw-pan').dispatchEvent('input');
+        await page.locator('#daw-volume').fill('1');await page.locator('#daw-volume').dispatchEvent('input');
+        if(await page.locator('#daw-audition').getAttribute('aria-pressed')==='true')await page.locator('#daw-audition').click();
+        await page.evaluate(()=>document.getElementById('media').pause());
 
         // Unrelated imports must not relabel the previous separation as their own.
         const response=await page.request.post(base+'/api/import',{headers:{'X-Blaze-Token':token,'X-File-Name':'Fresh recording.wav'},data:downloaded});

@@ -244,7 +244,7 @@
     // content is focused or AppKit chrome could not be installed.
     document.addEventListener('keydown', event => {
         if (event.isComposing || event.altKey) return;
-        const editing = event.target.closest?.('input,textarea,select,button,a,summary,[contenteditable=true]');
+        const editing = event.target.closest?.('input,textarea,select,button,a,summary,[role=button],[contenteditable=true]');
         const key = event.key.toLowerCase();
         let handled = false;
         if (event.metaKey && !event.shiftKey && !modalOpen()) {
