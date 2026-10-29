@@ -57,6 +57,7 @@ jobs:
           python tests/Blaze-Reliability-Tests.py
           python tests/Blaze-Integration-Tests.py
           python tests/Blaze-Termux-Tests.py
+          python tests/Blaze-Mac-Publication-Tests.py
   installer-tests:
     name: Installer / ${{ matrix.os }}
     runs-on: ${{ matrix.os }}

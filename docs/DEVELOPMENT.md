@@ -81,9 +81,12 @@ The [Windows/Linux workflow](https://github.com/Brooth-C/blaze/actions/workflows
 freezes the Windows app and packages the Linux GTK installer. It installs and runs the actual packages,
 checks real model inference and edits/exports, then exercises local downloading, native playback,
 seeking and layout. Linux desktop targets Ubuntu 22.04 x86_64 with system GTK/WebKit and FFmpeg.
-The [Mac workflow](https://github.com/Brooth-C/blaze/actions/workflows/macos-app.yml) builds and tests
-Apple Silicon and Intel apps separately, including decoder formats and the rendered Cocoa interface.
+The [Mac workflow](https://github.com/Brooth-C/blaze/actions/workflows/macos-app.yml) builds Apple Silicon
+and tests on macOS 26 only, including decoder formats and the rendered Cocoa interface.
 Main-branch native gates publish new immutable platform releases; PRs retain artifacts and screenshots.
+After both Mac jobs pass on main, the Mac publisher creates a normal stable release
+and marks it Latest. Existing source and asset hashes must match before a release's
+Latest metadata may be promoted; other platform binaries are preserved.
 
 The [distribution workflow](https://github.com/Brooth-C/blaze/actions/workflows/distribution-release.yml)
 uses `tools/release_catalog.json` to bring the independently versioned packages together.

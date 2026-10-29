@@ -7,11 +7,12 @@ or model installation is required to use the app.
 
 ## Install
 
-Download **Blaze-Mac-arm64.zip** from the [Apple Silicon 0.14.0 release](https://github.com/Brooth-C/blaze/releases/tag/macos-v0.14.0). New development targets M1 and newer Macs only.
+Download **Blaze-Mac-arm64.zip** from the [Apple Silicon 0.15.0 release](https://github.com/Brooth-C/blaze/releases/tag/macos-v0.15.0). New development targets M1 and newer Macs only.
 
 Intel users can keep using the final [0.9.0 Intel build](https://github.com/Brooth-C/blaze/releases/download/macos-v0.9.0-preview/Blaze-Mac-x86_64.zip); no new Intel builds are produced.
 
-Requires macOS 13 or newer. Extract the ZIP completely, then move **Blaze.app**
+The bundle declares macOS 13 or newer; this release is validated on macOS 26 only.
+Extract the ZIP completely, then move **Blaze.app**
 to Applications. The app name is **Blaze**. Music Studio is a section inside it.
 
 This build is ad-hoc signed, without an Apple Developer ID or notarization.
