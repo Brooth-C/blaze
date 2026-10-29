@@ -8,7 +8,7 @@
 
 Windows · macOS · Linux · Android
 
-[Download Blaze](https://github.com/Brooth-C/blaze/releases/latest) · [Guides](docs/README.md) · [Get help](SUPPORT.md)
+[Download Blaze](#get-blaze) · [Guides](docs/README.md) · [Get help](SUPPORT.md)
 
 [![Quality checks](https://github.com/Brooth-C/blaze/actions/workflows/quality-and-release.yml/badge.svg?branch=main)](https://github.com/Brooth-C/blaze/actions/workflows/quality-and-release.yml)
 
@@ -18,22 +18,23 @@ Windows · macOS · Linux · Android
 
 | Platform | Download |
 | --- | --- |
-| Windows 10/11 · x64, 0.9.0 | [Blaze Windows app](https://github.com/Brooth-C/blaze/releases/latest/download/Blaze-Windows.zip) |
-| macOS 13+ · Apple Silicon, 0.9.0 preview | [Blaze Mac app](https://github.com/Brooth-C/blaze/releases/latest/download/Blaze-Mac-arm64.zip) |
-| macOS 13+ · Intel, 0.9.0 preview | [Blaze Mac app](https://github.com/Brooth-C/blaze/releases/latest/download/Blaze-Mac-x86_64.zip) |
-| Linux desktop · Ubuntu 22.04 x86_64, 0.9.0 preview | [Blaze Linux desktop](https://github.com/Brooth-C/blaze/releases/latest/download/Blaze-Linux-x86_64.tar.gz) |
-| Linux terminal · x86_64 / ARM64, glibc | [Linux ZIP](https://github.com/Brooth-C/blaze/releases/latest/download/Blaze-Linux-Installer.zip) |
-| Android 7+ · ARM64, 0.11.0 | [Android APK](https://github.com/Brooth-C/blaze/releases/latest/download/Blaze-Android-Preview.apk) |
+| Windows 10/11 · x64, 0.9.0 | [Blaze Windows app](https://github.com/Brooth-C/blaze/releases/download/v4.5.0/Blaze-Windows.zip) |
+| macOS · Apple Silicon, 0.15.0 (tested on macOS 26) | [Blaze Mac app](https://github.com/Brooth-C/blaze/releases/download/macos-v0.15.0/Blaze-Mac-arm64.zip) |
+| macOS 13+ · Intel, final 0.9.0 preview | [Blaze Mac app](https://github.com/Brooth-C/blaze/releases/download/v4.5.0/Blaze-Mac-x86_64.zip) |
+| Linux desktop · Ubuntu 22.04 x86_64, 0.9.0 preview | [Blaze Linux desktop](https://github.com/Brooth-C/blaze/releases/download/v4.5.0/Blaze-Linux-x86_64.tar.gz) |
+| Linux terminal · x86_64 / ARM64, glibc | [Linux ZIP](https://github.com/Brooth-C/blaze/releases/download/v4.5.0/Blaze-Linux-Installer.zip) |
+| Android 7+ · ARM64, 0.11.0 | [Android APK](https://github.com/Brooth-C/blaze/releases/download/v4.5.0/Blaze-Android-Preview.apk) |
 
-Blaze 4.5.0 Latest includes desktop 0.9.0 with the revised Mac workspace and the tested Android 0.11.0 APK.
+The Latest release is Blaze for macOS 0.15.0 for Apple Silicon. Existing Windows,
+Linux, Intel Mac and Android downloads remain available in [Blaze 4.5.0](https://github.com/Brooth-C/blaze/releases/tag/v4.5.0).
 
 Download one file for your platform using the links above. For Windows, extract
 the ZIP and run Blaze.exe. On Mac, extract the ZIP and move Blaze.app to Applications. Tap the Android APK to install. Linux and Termux installer setup needs an internet connection; follow the matching guide.
 Linux desktop uses a tar.gz installer and system Python, GTK/WebKit and FFmpeg; see the [Linux guide](docs/LINUX-DESKTOP.md). Windows requires Microsoft Edge WebView2 Runtime.
-Mac previews are ad-hoc signed without Apple notarization; see the [macOS guide](docs/MACOS.md) for first launch.
-[Detailed installation](docs/INSTALLATION.md) · [Checksums and release files](https://github.com/Brooth-C/blaze/releases/latest)
+Mac builds are ad-hoc signed without Apple notarization; see the [macOS guide](docs/MACOS.md) for first launch.
+[Detailed installation](docs/INSTALLATION.md) · [Checksums and release files](https://github.com/Brooth-C/blaze/releases)
 
-Prefer a terminal on Android? Download the [Termux ZIP](https://github.com/Brooth-C/blaze/releases/latest/download/Blaze-Termux-Installer.zip) and follow the [Termux guide](docs/ANDROID.md).
+Prefer a terminal on Android? Download the [Termux ZIP](https://github.com/Brooth-C/blaze/releases/download/v4.5.0/Blaze-Termux-Installer.zip) and follow the [Termux guide](docs/ANDROID.md).
 
 ## What you can do
 
@@ -65,7 +66,7 @@ interface. Search updates after a short typing pause, and All includes ordinary
 YouTube videos. Studio video preview and fullscreen keep the same playback session.
 Explore retains music recommendations personalized from listening inside Blaze,
 without YouTube login, alongside Now Playing, Download and offline Studio. The same tested APK
-is included with the desktop downloads in the main [Latest release](https://github.com/Brooth-C/blaze/releases/latest).
+is included with the existing desktop downloads in [Blaze 4.5.0](https://github.com/Brooth-C/blaze/releases/tag/v4.5.0).
 Native screenshots remain available in its [Android release](https://github.com/Brooth-C/blaze/releases/tag/android-v0.11.0).
 
 ## Find your way

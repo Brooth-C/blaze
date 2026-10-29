@@ -1,6 +1,6 @@
 # Blaze guides
 
-[Back to Blaze](../README.md) · [Download releases](https://github.com/Brooth-C/blaze/releases/latest)
+[Back to Blaze](../README.md) · [Download releases](https://github.com/Brooth-C/blaze/releases)
 
 | I want to… | Guide |
 | --- | --- |

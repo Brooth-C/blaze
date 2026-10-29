@@ -8,7 +8,7 @@ Use a current [Termux release from the official installation instructions](https
 
 Blaze runs inside Termux with its usual terminal dashboard. Python, FFmpeg and aria2 come from Termux packages; desktop Linux installers do not work on Android.
 
-1. Download [the Termux installer ZIP](https://github.com/Brooth-C/blaze/releases/latest/download/Blaze-Termux-Installer.zip).
+1. Download [the Termux installer ZIP](https://github.com/Brooth-C/blaze/releases/download/v4.5.0/Blaze-Termux-Installer.zip).
 2. In Termux, run `pkg install unzip`, then `termux-setup-storage` and allow storage access.
 3. Run `unzip ~/storage/shared/Download/Blaze-Termux-Installer.zip -d ~/blaze-setup`.
 4. Run `bash ~/blaze-setup/Blaze-Termux-Installer/Install-Blaze.sh`.

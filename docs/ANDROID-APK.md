@@ -1,6 +1,6 @@
 # Blaze Android
 
-Install the [0.11.0 Android APK](https://github.com/Brooth-C/blaze/releases/latest/download/Blaze-Android-Preview.apk)
+Install the [0.11.0 Android APK](https://github.com/Brooth-C/blaze/releases/download/v4.5.0/Blaze-Android-Preview.apk)
 on an Android 7+ ARM64 phone. Explore, downloads, playback and Music Studio live in one app.
 
 1. Open Explore for real YouTube music picks and thumbnails, or search for songs, videos, artists and playlists without copying links. New users get general music discovery; listening, favourites and repeat listening inside Blaze personalize later picks without YouTube login. Use Music/Videos or Refresh to update recommendations. The profile button explains this and can reset listening history.
