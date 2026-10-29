@@ -1,0 +1,35 @@
+Blaze instrument-family estimates — MVSep Mega 53 open model v1
+
+Credit: ZFTurbo (Roman Solovyev). Original pretrained weights:
+https://github.com/ZFTurbo/Music-Source-Separation-Training/releases/tag/v1.0.21
+File: mvsep_mega_model_bs_roformer_53_stems_v1.ckpt
+SHA256: c62820893bbf86d4e734f966bd142d9157cfc8bb8e79e9d8f9ea553f3ff3519f
+Original configuration SHA256:
+7e198062a251587088adb91215a4f44ab59e67bd62fcc805cf54d6e7dfc51103
+
+The creator explicitly permits commercial use, redistribution and conversion of
+these 53-stem weights under MIT:
+https://github.com/ZFTurbo/Music-Source-Separation-Training/issues/245#issuecomment-5834608838
+The weights are provided AS IS, WITHOUT WARRANTY. The creator does not own all
+training audio and provides no training-data indemnification. A model license
+does not grant rights to users' recordings. Original MIT notices are included.
+
+Architecture/inference: ZFTurbo/Music-Source-Separation-Training at
+6fdad13686bb7e84d029ec66f9dbe76e65c93ebf, derived from lucidrains/BS-RoFormer.
+Spectral export/NumPy transforms adapted from Santiago Quiroz Upegui's MIT port,
+santiquiroz/port-bs-roformer-onnx at 3f727cde9710cd0237130a96155a70e2c850d553.
+
+Blaze retains the shared trunk and six independent, unmodified mask heads:
+acoustic-guitar (1), electric-guitar (16), guitar (20), strings (37), brass (8),
+synth (38). Other unused heads are omitted without changing retained parameters.
+Full author-recommended 882000-sample context (20 seconds), 44.1 kHz stereo,
+periodic Hann FFT2048/hop512, FP32 inference. Components run sequentially.
+
+Guitar evidence is max-pooled across three heads, not summed. Instrument-family
+energy scores produce bounded, nonnegative spectral masks; unexplained energy
+stays in Other. The original phase is retained. This application projection is
+distinct from the raw complex-valued model outputs and their published SDRs.
+Conversion parity validates the raw selected heads, not new musical accuracy.
+
+This is the published open model, not MVSep's newer hosted service model.
+Bleed, missed notes and quiet estimates for absent instruments remain possible.

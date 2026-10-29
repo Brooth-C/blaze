@@ -132,6 +132,18 @@ def stage_stem_models(source, target):
     for name in (*[meta['file'] for meta in MODELS.values()], 'manifest.json', 'LICENSE-MSST.txt', 'LICENSE-Architecture.txt', 'LICENSE-Port.txt', 'NOTICE.txt'):
         shutil.copy2(roformer_source / name, roformer_target / name)
     metadata['roformer'] = roformer_metadata
+    from music_studio.instrument_assets import MODELS as INSTRUMENT_MODELS, CHECKPOINT_SHA as INSTRUMENT_SHA
+    instrument_source, instrument_target = source / 'instruments', target / 'instruments'
+    instrument_metadata = json.loads((instrument_source / 'manifest.json').read_text())
+    if (instrument_metadata.get('models') != INSTRUMENT_MODELS or instrument_metadata.get('license') != 'MIT'
+            or instrument_metadata.get('checkpoint_sha256') != INSTRUMENT_SHA):
+        raise ValueError('The reviewed instrument model manifest is missing or incompatible.')
+    for meta in INSTRUMENT_MODELS.values():
+        checked_file(instrument_source / meta['file'], meta)
+    instrument_target.mkdir()
+    for name in (*[meta['file'] for meta in INSTRUMENT_MODELS.values()], 'manifest.json', 'LICENSE-MSST.txt', 'LICENSE-Architecture.txt', 'LICENSE-Port.txt', 'NOTICE.txt'):
+        shutil.copy2(instrument_source / name, instrument_target / name)
+    metadata['instruments'] = instrument_metadata
     return metadata
 
 

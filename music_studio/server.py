@@ -46,6 +46,7 @@ class Studio:
         self.downloader = None
         self.discovery = None
         self.stems = None
+        self.waveforms = None
         self.presentation = 'desktop'
         self.source_revision = 0
         self.state.update(discoveryItem=None, sourceRevision=0, mediaKind=media_kind(self.source))
@@ -143,6 +144,8 @@ class Studio:
         self.worker.start()
 
     def close(self):
+        if self.waveforms:
+            self.waveforms.close()
         if self.stems:
             self.stems.close()
         if self.discovery:
@@ -178,6 +181,12 @@ def create_server(studio, port=0):
 
     class Handler(BaseHTTPRequestHandler):
         protocol_version = 'HTTP/1.1'
+        def handle(self):
+            try:
+                super().handle()
+            except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError):
+                self.close_connection = True
+
         def log_message(self, *_):
             pass
 
@@ -209,7 +218,12 @@ def create_server(studio, port=0):
             self.wfile.write(data)
 
         def json(self, data, status=200):
-            self.send(json.dumps(data, ensure_ascii=False, allow_nan=False).encode(), status)
+            try:
+                self.send(json.dumps(data, ensure_ascii=False, allow_nan=False).encode(), status)
+            except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError):
+                # A cancelled fetch has no recipient. Do not turn its failed
+                # write into another JSON response on the disconnected socket.
+                self.close_connection = True
 
         def do_GET(self):
             if not self.permitted():
@@ -221,7 +235,10 @@ def create_server(studio, port=0):
                      '/studio.css': 'studio.css', '/blaze-logo.png': 'blaze-logo.png'}
             if mac:
                 names.update({'/mac.css': 'mac.css', '/mac.js': 'mac.js',
-                              '/mac-stems.css': 'mac-stems.css', '/mac-stems.js': 'mac-stems.js'})
+                              '/mac-stems.css': 'mac-stems.css', '/mac-stems.js': 'mac-stems.js',
+                              '/mac-studio.css': 'mac-studio.css', '/mac-studio.js': 'mac-studio.js',
+                              '/studio-grand.png': 'studio-grand.png',
+                              '/studio-instruments.png': 'studio-instruments.png'})
             if path in names:
                 name = names[path]
                 data = (assets / name).read_bytes()
@@ -229,8 +246,8 @@ def create_server(studio, port=0):
                     data = data.replace(b'%%TOKEN%%', studio.token.encode())
                     data = data.replace(b'%%APPEARANCE%%', studio.appearance.encode())
                     data = data.replace(b'%%PRESENTATION%%', b'mac' if mac else b'desktop')
-                    data = data.replace(b'%%MAC_STYLES%%', b'<link rel="stylesheet" href="/mac.css"><link rel="stylesheet" href="/mac-stems.css">' if mac else b'')
-                    data = data.replace(b'%%MAC_SCRIPT%%', b'<script src="/mac.js"></script><script src="/mac-stems.js"></script>' if mac else b'')
+                    data = data.replace(b'%%MAC_STYLES%%', b'<link rel="stylesheet" href="/mac.css"><link rel="stylesheet" href="/mac-stems.css"><link rel="stylesheet" href="/mac-studio.css">' if mac else b'')
+                    data = data.replace(b'%%MAC_SCRIPT%%', b'<script src="/mac.js"></script><script src="/mac-stems.js"></script><script src="/mac-studio.js"></script>' if mac else b'')
                 kind = ('text/html; charset=utf-8' if path == '/' else 'text/css; charset=utf-8'
                         if path.endswith('.css') else 'image/png' if path.endswith('.png')
                         else 'text/javascript; charset=utf-8')
@@ -238,6 +255,35 @@ def create_server(studio, port=0):
                 return
             if not self.permitted(token=True):
                 self.json({'error': 'Access denied.'}, 403)
+                return
+            if path == '/api/studio-waveform':
+                if not mac:
+                    self.json({'error': 'Not found.'}, 404)
+                    return
+                from .waveform import Waveforms, StaleWaveform, WaveformBusy, selection
+                try:
+                    query = parse_qs(urlsplit(self.path).query)
+                    if any(len(query.get(key, [])) > 1 for key in ('sourceRevision', 'jobId', 'stem')):
+                        raise ValueError('Choose one recording and track.')
+                    revision = query.get('sourceRevision', [''])[0]
+                    job_id, stem = query.get('jobId', [''])[0], query.get('stem', [''])[0]
+                    source, valid, _ = selection(studio, revision, job_id, stem)
+                    with studio.lock:
+                        if studio.waveforms is None:
+                            studio.waveforms = Waveforms(studio.ffmpeg)
+                        waveforms = studio.waveforms
+                    value = waveforms.get(source, valid)
+                    with studio.lock:
+                        _, _, owned_job = selection(studio, revision, job_id, stem)
+                        selected_stem = studio.stems.selected_stem() if owned_job else ''
+                    self.json(dict(value, sourceRevision=int(revision), jobId=job_id, stem=stem,
+                                   stemJobId=owned_job, selectedStem=selected_stem))
+                except StaleWaveform as error:
+                    self.json({'error': str(error)}, 409)
+                except WaveformBusy as error:
+                    self.json({'error': str(error)}, 503)
+                except (ValueError, OSError, TypeError) as error:
+                    self.json({'error': str(error) or 'The waveform is unavailable.'}, 400)
                 return
             if path in ('/api/stems', '/api/stem-file'):
                 try:

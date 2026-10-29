@@ -25,8 +25,10 @@ with tempfile.TemporaryDirectory(prefix='blaze-stems-ui-') as directory:
     class UIWorker:
         # The download uses the real authenticated server and filesystem. Only
         # separation job state is controlled by the browser fixture below.
+        files={}
+        def snapshot(self):return {'status':'idle','stems':[]}
         def file(self,job_id,stem):
-            if (job_id,stem) not in [('fixture-job-2','vocals'),('fixture-job-3','piano')]:raise ValueError('Unknown fixture stem')
+            if (job_id,stem) not in [('fixture-job-2','vocals'),('fixture-job-2','synths'),('fixture-job-3','piano')]:raise ValueError('Unknown fixture stem')
             return source
         def close(self):pass
     studio.stems=UIWorker()
@@ -67,11 +69,11 @@ async function layout(page){
         });
         await page.route('**/api/stems',async route=>{
             if(job.status==='running'&&starts>1&&++polls>=3){job={...job,status:'done',progress:1,message:'Tracks ready.',
-                stems:(job.mode==='piano'?['piano','accompaniment']:['vocals','drums','bass','piano','other']).map(id=>({id,label:id,filename:id+'.wav'}))};}
+                stems:(job.mode==='piano'?['piano','accompaniment']:job.mode==='five'?['vocals','drums','bass','piano','other']:['vocals','drums','bass','piano','guitar','strings','brass','synths','other']).map(id=>({id,label:id,filename:id+'.wav'}))};}
             await route.fulfill({json:job});
         });
         await page.route('**/api/stems-start',async route=>{
-            const mode=route.request().postDataJSON().mode;assert(['five','piano'].includes(mode));actions.push('start');++starts;polls=0;
+            const mode=route.request().postDataJSON().mode;assert(['five','piano','nine'].includes(mode));actions.push('start');++starts;polls=0;
             job={available:true,mode,status:'running',progress:.2,message:'Separating this recording…',jobId:'fixture-job-'+starts,
                 sourceRevision:starts,sourceName:'A local recording.wav',stems:[]};
             await route.fulfill({json:job});
@@ -107,13 +109,19 @@ async function layout(page){
         assert.deepEqual(actions,['start','cancel']);
         await page.locator('#stems-start').click();
         await page.locator('.stem-result').first().waitFor();
-        assert.equal(await page.locator('.stem-result').count(),5);
+        assert.equal(await page.locator('.stem-result').count(),9);
         await page.locator('#stems-folder').click();assert(folderOpened);
         await layout(page);await shot(page,'complete');
         for(const [width,height] of [[570,540],[813,632]]){
             await page.setViewportSize({width,height});await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
             await layout(page);
         }
+        await page.getByRole('link',{name:'Save Synths WAV',exact:true}).scrollIntoViewIfNeeded();
+        await layout(page);await shot(page,'nine-scroll');
+        const synthDownload=page.waitForEvent('download');
+        await page.getByRole('link',{name:'Save Synths WAV',exact:true}).click();
+        const synthFile=await synthDownload;assert.equal(synthFile.suggestedFilename(),'Synths.wav');
+        assert.deepEqual(fs.readFileSync(await synthFile.path()),wav);
         const download=page.waitForEvent('download');await page.getByRole('link',{name:'Save Vocals WAV',exact:true}).click();
         const file=await download;assert.equal(file.suggestedFilename(),'Vocals.wav');
         const downloadUrl=new URL(file.url());assert.equal(downloadUrl.searchParams.get('token'),token);
@@ -123,10 +131,10 @@ async function layout(page){
         await page.waitForFunction(()=>!document.getElementById('stems-dialog').open&&sourceName==='Vocals.wav');
         assert(await page.locator('#media').evaluate(el=>el===window.testMedia),'Opening a stem created a second player');
         assert.equal(await page.locator('#studio-panel').isVisible(),true);
-        await page.locator('#mini-play').click();
+        await page.locator('#daw-play').click();
         await page.waitForFunction(()=>{const m=document.getElementById('media');return !m.paused&&m.currentTime>.1;});
         assert.deepEqual(actions,['start','cancel','start','select']);
-        await page.locator('#mini-play').click();
+        await page.locator('#daw-play').click();
         await page.setViewportSize({width:569,height:548});
         await page.emulateMedia({reducedMotion:'reduce',colorScheme:'dark'});
         await page.evaluate(async()=>{applyAppearance('dark');await window.BlazeMacStems.open();});
@@ -149,8 +157,15 @@ async function layout(page){
         await page.getByRole('button',{name:'Open Piano in Studio',exact:true}).click();
         await page.waitForFunction(()=>sourceName==='Piano.wav'&&!document.getElementById('stems-dialog').open);
         assert(await page.locator('#media').evaluate(el=>el===window.testMedia));
+        await page.locator('#split-stems').click();
+        await page.locator('#stems-five').click();
+        await page.waitForFunction(()=>window.BlazeMacStems.snapshot().mode==='five'&&window.BlazeMacStems.snapshot().status==='done');
+        // Completion refreshes the source before rendering the result rows.
+        await page.getByRole('button',{name:'Open Vocals in Studio',exact:true}).waitFor();
+        assert.equal(await page.locator('.stem-result').count(),5);
+        await layout(page);
         assert.deepEqual(errors,[]);
-        console.log('Mac stems UI PASS: start/progress, close and reopen without cancellation, explicit cancel/retry, five separate outputs, token-bound WAV export, folder action, same-player Studio handoff and real WAV playback, compact sheet geometry. Controlled separation worker; no model quality or native AppKit claim.');
+        console.log('Mac stems UI PASS: start/progress, close and reopen without cancellation, explicit cancel/retry, nine instrument outputs, five-stem alternative, scrolling all tracks with persistent actions, token-bound WAV export, folder action, same-player Studio handoff and real WAV playback, compact sheet geometry. Controlled separation worker; no model quality or native AppKit claim.');
     }catch(error){if(stderr.trim())console.error(stderr);if(page)await shot(page,'failure').catch(()=>{});throw error;}
     finally{if(browser)await browser.close();server.kill('SIGTERM');}
 })().catch(error=>{console.error(error);process.exitCode=1;});

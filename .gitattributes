@@ -3,3 +3,6 @@
 *.sh text eol=lf
 *.command text eol=lf
 *.zip binary
+
+# This configuration is retained byte-for-byte to verify its upstream SHA256.
+tools/instruments/config.yaml -whitespace

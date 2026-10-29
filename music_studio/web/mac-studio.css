@@ -1,0 +1,732 @@
+/* Mac-only Studio. The final workstation rules follow Apple's public Logic
+   user-guide anatomy; the dark editing canvas is independent of chrome theme. */
+html[data-presentation=mac] body.studio-active { background:#20272c; color:#e0e6eb; }
+html[data-presentation=mac] body.studio-active .studio { height:100dvh; min-height:0; max-width:none; padding:0; overflow:hidden; }
+html[data-presentation=mac] body.studio-active header,
+html[data-presentation=mac] body.studio-active .app-tabs,
+html[data-presentation=mac] body.studio-active .app-utilities,
+html[data-presentation=mac] body.studio-active:not(.mac-player-expanded) #mini-player { display:none; }
+html[data-presentation=mac] body.studio-active #studio-panel { display:block; position:relative; height:100%; overflow:hidden; }
+#mac-studio-workspace {
+  --daw-bg:#20272c; --daw-panel:#293137; --daw-line:#10171b;
+  --daw-ink:#e1e6eb; --daw-muted:#a2adb7; --daw-orange:#ef8035;
+  --library-width:176px; --inspector-width:182px; --track-width:230px; --lane-height:48px;
+  height:100%; min-width:0; min-height:0; display:grid; grid-template-rows:64px minmax(0,1fr) 24px;
+  background:var(--daw-bg); color:var(--daw-ink); font:12px/1.4 -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+  color-scheme:dark; overflow:hidden;
+}
+#mac-studio-workspace * { box-sizing:border-box; }
+#mac-studio-workspace [hidden] { display:none !important; }
+#mac-studio-workspace button,
+#mac-studio-workspace select,
+#mac-studio-workspace input { font:inherit; letter-spacing:0; }
+html[data-presentation=mac] #mac-studio-workspace button,
+html[data-presentation=mac] #mac-studio-workspace .button,
+html[data-presentation=mac] #mac-studio-workspace select {
+  min-height:28px; padding:4px 9px; border:1px solid #11191e; border-top-color:#505960;
+  background:linear-gradient(#3b454e,#2d353d); color:var(--daw-ink); border-radius:4px;
+  box-shadow:0 1px 1px #0003; font-size:11px; font-weight:400; line-height:1.35;
+}
+html[data-presentation=mac] #mac-studio-workspace button:hover:not(:disabled),
+html[data-presentation=mac] #mac-studio-workspace a:hover { background:#47525b; }
+html[data-presentation=mac] #mac-studio-workspace button:disabled { opacity:.4; cursor:default; }
+html[data-presentation=mac] #mac-studio-workspace button:focus-visible,
+html[data-presentation=mac] #mac-studio-workspace a:focus-visible,
+html[data-presentation=mac] #mac-studio-workspace input:focus-visible { outline:2px solid #e99a5b; outline-offset:-2px; }
+#mac-studio-workspace svg { width:20px; height:20px; flex:none; vertical-align:middle; }
+#mac-studio-workspace input[type=range] { accent-color:#b0bac3; height:16px; min-height:0; padding:0; width:100%; }
+#daw-transport { display:flex; align-items:center; gap:14px; padding:9px 14px; background:linear-gradient(#343d44,#252d33); border-bottom:1px solid #080e11; box-shadow:0 1px 0 #ffffff0c; overflow-x:auto; min-width:0; scrollbar-width:thin; }
+.daw-panel-tools,.daw-transport-buttons,.daw-session-actions { display:flex; align-items:center; flex-shrink:0; gap:3px; }
+html[data-presentation=mac] #daw-transport .daw-panel-tools button { width:34px; height:33px; padding:5px; }
+html[data-presentation=mac] #mac-studio-workspace button[aria-pressed=true] { background:linear-gradient(#62717e,#4c5a67); color:#fff; }
+.daw-panel-tools { gap:5px; }
+.daw-transport-buttons { gap:0; }
+html[data-presentation=mac] #daw-transport .daw-transport-buttons button { width:39px; height:36px; border-radius:0; border-right:0; padding:6px; }
+html[data-presentation=mac] #daw-transport .daw-transport-buttons button:first-child { border-radius:4px 0 0 4px; }
+html[data-presentation=mac] #daw-transport .daw-transport-buttons button:last-child { border-radius:0 4px 4px 0; border-right:1px solid #11191e; }
+#daw-play svg,#daw-stop svg { fill:currentColor; stroke-width:0; }
+html[data-presentation=mac] #daw-transport #daw-play.playing { background:linear-gradient(#43a25a,#298144); color:white; }
+html[data-presentation=mac] #daw-transport #daw-loop[aria-pressed=true] { background:#b29b44; color:#191c1c; }
+.daw-display { display:flex; align-self:stretch; min-width:360px; max-width:540px; flex:1; background:linear-gradient(#080c0e,#13191d); border:1px solid #05090b; border-radius:5px; box-shadow:inset 0 1px 4px #000a,0 1px #ffffff12; }
+.daw-display>div { display:flex; flex:1; min-width:0; justify-content:center; align-items:center; flex-direction:column; border-right:1px solid #ffffff0b; padding:2px 11px; white-space:nowrap; }
+.daw-display>div:last-child { border-right:0; }
+.daw-display .daw-musical-position { flex:1.25; }
+.daw-display strong { font-size:17px; font-weight:450; font-variant-numeric:tabular-nums; letter-spacing:-.035em; }
+.daw-display small { font-size:8px; line-height:1.4; color:#9aa7b2; letter-spacing:.07em; }
+.daw-session-actions { margin-left:auto; gap:6px; }
+html[data-presentation=mac] #daw-transport .daw-session-actions button { height:31px; }
+html[data-presentation=mac] #daw-transport #daw-import { padding:4px 8px; }
+.daw-body { display:grid; grid-template-columns:var(--library-width) var(--inspector-width) minmax(0,1fr); min-width:0; min-height:0; }
+#mac-studio-workspace.daw-library-hidden { --library-width:0px; }
+#mac-studio-workspace.daw-inspector-hidden { --inspector-width:0px; }
+#daw-library,#daw-inspector { min-width:0; min-height:0; overflow:auto; scrollbar-width:thin; background:linear-gradient(100deg,#232c32,#273037); border-right:1px solid #080d10; }
+.daw-library-hidden #daw-library,.daw-inspector-hidden #daw-inspector { visibility:hidden; border:0; }
+.daw-panel-heading { padding:8px 12px; font-size:11px; border-bottom:1px solid #11191e; box-shadow:0 1px #ffffff08; white-space:nowrap; font-weight:550; }
+.daw-library-search { display:flex; align-items:center; gap:5px; margin:10px 8px; border:1px solid #57636b; border-radius:5px; padding:3px 5px; color:#a8b5bf; height:27px; }
+#mac-studio-workspace .daw-library-search input { width:100%; height:21px; padding:0; min-width:0; border:0; background:none; color:#d9e1e7; font-size:11px; outline:none; box-shadow:none; }
+#mac-studio-workspace .daw-library-search input::placeholder { color:#9ca8b2; }
+#daw-families { padding:0 6px 12px; }
+html[data-presentation=mac] #mac-studio-workspace #daw-families button { display:flex; align-items:center; gap:9px; width:100%; height:31px; padding:4px 7px; border:0; box-shadow:none; background:none; text-align:left; border-radius:4px; }
+#daw-families svg { width:17px; height:17px; }
+#daw-families .daw-disclosure { color:#85929d; margin-left:auto; font-size:17px; }
+html[data-presentation=mac] #mac-studio-workspace #daw-families button.selected { background:#3e4e5b; color:#fff; }
+.daw-recordings-heading { color:#a6b2bc; font-size:10px; margin-top:4px; border-top:1px solid #121c22; }
+#daw-recordings { padding:7px 6px; }
+html[data-presentation=mac] #mac-studio-workspace .daw-recording { display:block; width:100%; text-align:left; border:0; border-radius:3px; box-shadow:none; background:none; height:28px; padding-left:12px; text-overflow:ellipsis; overflow:hidden; white-space:nowrap; position:relative; }
+html[data-presentation=mac] #mac-studio-workspace .daw-recording.selected { background:#3d4b56; }
+.daw-recording.selected::before { content:''; position:absolute; left:1px; top:3px; bottom:3px; width:3px; border-radius:2px; background:var(--daw-orange); }
+.daw-library-foot { margin:22px 12px 12px; font-size:10px; color:#a1adb6; }
+.daw-library-foot span { display:block; color:#6f7d87; margin-top:2px; }
+.daw-instrument-art { display:flex; align-items:center; justify-content:center; flex-direction:column; height:108px; gap:9px; color:#c5d0da; background:radial-gradient(ellipse at center,#36434c,#252e34 75%); border-bottom:1px solid #10191e; }
+#mac-studio-workspace .daw-instrument-art svg { height:48px; width:48px; stroke-width:.8; filter:drop-shadow(0 4px 3px #0009); }
+.daw-instrument-art strong { font-size:12px; font-weight:500; }
+#daw-inspector details { padding:0 10px 7px; margin:0; border:0; border-radius:0; background:none; border-bottom:1px solid #111a20; }
+#daw-inspector details summary { margin:0 -10px 6px; padding:6px 10px; font-size:11px; color:#e2e7eb; background:linear-gradient(#303b43,#29323a); border-top:1px solid #ffffff08; cursor:pointer; }
+#daw-inspector dl { margin:0; font-size:10px; }
+#daw-inspector dl>div { display:flex; justify-content:space-between; gap:8px; padding:4px 2px; border-bottom:1px solid #ffffff07; }
+#daw-inspector dt { color:#aab5bf; }
+#daw-inspector dd { margin:0; color:#d4dce3; text-align:right; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.daw-save { display:block; color:#e9bf8b; font-size:10px; padding:6px 2px 2px; text-decoration:none; }
+.daw-control-label { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:5px; font-size:10px; padding:5px 2px; color:#bac4cc; }
+.daw-control-label input { flex-basis:100%; }
+html[data-presentation=mac] #mac-studio-workspace .daw-control-label select { width:68px; min-height:22px; padding:2px 5px; font-size:10px; }
+.daw-channel-buttons { display:flex; gap:5px; padding-top:6px; }
+html[data-presentation=mac] #mac-studio-workspace .daw-channel-buttons button { flex:1; min-height:24px; font-size:10px; padding:3px; }
+#daw-analysis-actions { display:flex; gap:4px; margin-top:8px; flex-wrap:wrap; }
+html[data-presentation=mac] #mac-studio-workspace #daw-analysis-actions button { font-size:10px; min-height:24px; padding:3px 7px; }
+.daw-channel-strip { padding:12px 18px; }
+.daw-channel-caption { color:#8f9ca7; font-size:8px; letter-spacing:.1em; text-align:center; }
+.daw-channel-fader { display:flex; gap:12px; height:140px; margin-top:12px; justify-content:center; }
+.daw-channel-fader>span { font-size:8px; color:#7d8b97; text-align:right; line-height:1.2; }
+.daw-fader-line { width:7px; margin:3px 0 12px; background:#11191e; border:1px solid #080d10; border-right-color:#4b5963; position:relative; }
+.daw-fader-line i { position:absolute; left:-5px; top:0; width:15px; height:27px; border-radius:2px; background:linear-gradient(#b6c2ca,#8b969f); border:1px solid #131c22; box-shadow:0 2px 4px #0009,inset 0 12px #ffffff0b; }
+.daw-fader-line i::after { content:''; position:absolute; top:50%; left:0; right:0; height:1px; background:#26323b; }
+.daw-channel-state { display:flex; flex-direction:column; color:#9eacb7; align-items:center; justify-content:center; gap:7px; font-size:9px; }
+.daw-main { grid-column:3; display:grid; grid-template-rows:minmax(160px,1.55fr) minmax(150px,1fr); min-width:0; min-height:0; overflow:hidden; }
+#daw-arrangement { display:flex; flex-direction:column; min-width:0; min-height:0; position:relative; background:#1a2227; border-bottom:4px solid #0e161b; }
+.daw-arrangement-title { display:flex; flex-shrink:0; align-items:center; justify-content:space-between; height:27px; padding:0 12px; background:linear-gradient(#303b42,#273138); border-bottom:1px solid #0d161c; font-size:10px; gap:10px; }
+.daw-arrangement-title strong { font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.daw-arrangement-title span { color:#8d9ba6; white-space:nowrap; }
+.daw-arrangement-scroll { flex:1; min-height:0; overflow:auto; scrollbar-width:thin; }
+.daw-arrangement-grid { display:grid; grid-template-columns:var(--track-width) minmax(180px,1fr); grid-template-rows:30px auto; min-height:100%; min-width:0; }
+.daw-track-heading { display:flex; align-items:center; justify-content:space-between; padding:0 12px; border-bottom:1px solid #0e161b; border-right:1px solid #10191e; background:linear-gradient(#303b43,#29333b); position:sticky; top:0; z-index:4; font-size:10px; color:#afbbc4; }
+.daw-track-heading span { font-size:9px; color:#7e8e9b; }
+.daw-ruler { height:30px; position:relative; border-bottom:1px solid #0c1419; background:repeating-linear-gradient(90deg,transparent 0,transparent calc(6.25% - 1px),#ffffff10 calc(6.25% - 1px),#ffffff10 6.25%),linear-gradient(#273239,#232c33); }
+#daw-ruler { position:sticky; top:0; z-index:4; }
+.daw-ruler span { position:absolute; top:3px; color:#c0cbd4; font-size:10px; padding-left:5px; transform:translateX(0); font-variant-numeric:tabular-nums; white-space:nowrap; }
+.daw-ruler span:last-child { transform:translateX(-100%); padding-right:6px; }
+#daw-track-list { background:repeating-linear-gradient(#323e47 0,#323e47 calc(var(--lane-height) - 1px),#111a20 calc(var(--lane-height) - 1px),#111a20 var(--lane-height)); border-right:1px solid #0d171d; }
+html[data-presentation=mac] #mac-studio-workspace .daw-track { display:flex; align-items:center; gap:12px; width:100%; height:var(--lane-height); padding:0 12px 0 9px; border:0; border-radius:0; box-shadow:none; background:linear-gradient(#35424c,#2d3942); border-bottom:1px solid #101a21; position:relative; text-align:left; font-size:11px; }
+html[data-presentation=mac] #mac-studio-workspace .daw-track.selected { background:linear-gradient(#56616b,#46535e); }
+.daw-track.selected::before { content:''; position:absolute; left:0; top:0; bottom:0; width:4px; background:var(--daw-orange); }
+.daw-track-number { width:14px; font-size:9px; color:#9eafbc; }
+#mac-studio-workspace .daw-track svg { color:#c1ced7; width:25px; height:25px; }
+.daw-track-label { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.daw-track-audition { color:#b1bfca; margin-left:auto; font-size:17px; }
+#daw-regions { min-height:0; position:relative; background:repeating-linear-gradient(90deg,transparent 0,transparent calc(6.25% - 1px),#ffffff09 calc(6.25% - 1px),#ffffff09 6.25%),repeating-linear-gradient(#1f2930 0,#1f2930 var(--lane-height),#222d35 var(--lane-height),#222d35 calc(var(--lane-height) * 2)); }
+.daw-lane { height:var(--lane-height); padding:2px 4px; border-bottom:1px solid #0c161c; }
+html[data-presentation=mac] #mac-studio-workspace .daw-region { display:block; position:relative; width:100%; height:100%; min-height:0; padding:0; border-radius:4px; overflow:hidden; border:1px solid color-mix(in srgb,var(--track-color),#000 35%); border-top-color:color-mix(in srgb,var(--track-color),white 15%); background:color-mix(in srgb,var(--track-color),#0c1824 75%); box-shadow:0 1px 2px #0007,inset 0 1px #ffffff0a; }
+html[data-presentation=mac] #mac-studio-workspace .daw-region.selected { background:color-mix(in srgb,var(--track-color),#22170f 55%); border-color:#efa04b; box-shadow:0 0 0 1px #f4a54845; }
+.daw-region>span { position:absolute; left:7px; top:1px; font-size:9px; color:#edf3f9; z-index:1; white-space:nowrap; max-width:95%; overflow:hidden; text-overflow:ellipsis; }
+.daw-region-wave { width:100%; height:100%; display:block; padding-top:9px; }
+.daw-playhead { position:absolute; top:0; bottom:0; width:2px; pointer-events:none; background:var(--daw-orange); z-index:3; box-shadow:0 0 2px #0007; }
+.daw-playhead::before { content:''; position:absolute; top:0; left:-4px; border-top:7px solid var(--daw-orange); border-left:5px solid transparent; border-right:5px solid transparent; }
+#daw-empty { position:absolute; top:57px; bottom:0; left:var(--track-width); right:0; display:grid; place-items:center; padding:24px; text-align:center; background:#1a232ade; z-index:3; }
+#daw-empty>div { max-width:310px; }
+#mac-studio-workspace #daw-empty svg { width:40px; height:40px; color:#8399aa; }
+html[data-presentation=mac] #mac-studio-workspace #daw-empty h2 { font-size:17px; font-weight:500; letter-spacing:-.02em; color:#d8e3eb; margin:13px 0 8px; }
+#daw-empty p { color:#8e9eab; font-size:11px; line-height:1.6; margin:0 0 16px; }
+html[data-presentation=mac] #mac-studio-workspace #daw-empty button { padding:6px 13px; background:#ad5b2e; color:#fff; border-top-color:#db8a58; }
+#daw-editor { display:grid; grid-template-rows:38px minmax(0,1fr) 26px; min-height:0; min-width:0; background:#171f24; border-top:1px solid #4a5862; }
+.daw-editor-toolbar { display:flex; align-items:center; gap:15px; padding:4px 10px; border-bottom:1px solid #0c151a; background:linear-gradient(#303b43,#242e36); min-width:0; overflow-x:auto; scrollbar-width:thin; }
+.daw-editor-toolbar>strong { display:flex; align-items:center; flex-shrink:0; font-size:11px; font-weight:500; white-space:nowrap; gap:5px; }
+.daw-editor-toolbar i { width:4px; height:17px; border-radius:1px; background:#ef9b42; margin-right:2px; }
+.daw-rendered-label { color:#aab7c1; }
+.daw-editor-tabs { display:flex; align-items:center; flex-shrink:0; }
+html[data-presentation=mac] #mac-studio-workspace .daw-editor-tabs button { min-height:23px; padding:3px 14px; font-size:10px; border-radius:0 4px 4px 0; }
+html[data-presentation=mac] #mac-studio-workspace .daw-editor-tabs button[aria-pressed=true] { border-radius:4px 0 0 4px; background:#81512f; border-color:#d4823b; }
+.daw-zoom-control { margin-left:auto; display:flex; align-items:center; gap:9px; font-size:10px; color:#b9c5cf; white-space:nowrap; flex-shrink:0; }
+#mac-studio-workspace .daw-zoom-control input { width:90px; }
+#daw-editor-scroll { min-height:0; min-width:0; position:relative; overflow-x:auto; overflow-y:hidden; scrollbar-width:thin; background:linear-gradient(#172027,#121a1f); }
+#daw-editor-content { position:relative; height:100%; min-width:100%; background:repeating-linear-gradient(90deg,transparent 0,transparent calc(6.25% - 1px),#ffffff07 calc(6.25% - 1px),#ffffff07 6.25%); }
+#daw-editor-ruler { height:27px; }
+#daw-waveform { display:block; width:100%; height:calc(100% - 27px); touch-action:none; cursor:crosshair; position:relative; z-index:1; }
+html[data-presentation=mac] #mac-studio-workspace canvas:focus-visible { outline:1px solid #e99a5b; outline-offset:-1px; }
+#daw-editor-playhead { top:27px; }
+#daw-wave-selection { position:absolute; top:27px; bottom:0; pointer-events:none; z-index:2; border:1px solid #e5a14b; background:#d78e3326; }
+#daw-wave-empty { position:absolute; inset:45% 12px auto; font-size:11px; color:#7e909e; text-align:center; pointer-events:none; }
+.daw-editor-footer { display:flex; align-items:center; justify-content:space-between; gap:8px; color:#94a6b5; font-size:9px; padding:0 12px; background:#212b33; border-top:1px solid #0a151c; font-variant-numeric:tabular-nums; white-space:nowrap; overflow:hidden; }
+.daw-status-bar { display:flex; align-items:center; gap:16px; padding:0 12px; border-top:1px solid #0d161b; background:linear-gradient(#2f3a42,#253039); font-size:9px; color:#9cadbb; min-width:0; }
+.daw-status-brand { font-weight:550; color:#c3cfd8; }
+#daw-message { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+#daw-local-indicator { margin-left:auto; flex:none; font-size:8px; text-transform:uppercase; letter-spacing:.08em; color:#7f949f; }
+/* The existing notation UI remains available in a dedicated, keyboard-accessible drawer. */
+html[data-presentation=mac] #daw-practice { position:absolute; inset:0 0 0 auto; width:min(820px,100%); padding:0 16px 14px; overflow:auto; background:var(--panel); color:var(--text); box-shadow:-8px 0 40px #0008; z-index:12; }
+html[data-presentation=mac] #daw-practice[hidden] { display:none; }
+.daw-practice-heading { position:sticky; top:0; z-index:3; display:flex; align-items:center; justify-content:space-between; padding:12px 0; background:var(--panel); border-bottom:1px solid var(--border); margin-bottom:12px; }
+.daw-practice-heading svg { width:18px; height:18px; }
+html[data-presentation=mac] #daw-practice .studio-heading { margin:0 0 10px; min-height:30px; }
+html[data-presentation=mac] #daw-practice .studio-heading .section-title { display:none; }
+html[data-presentation=mac] #daw-practice .song-top { margin-top:6px; }
+html[data-presentation=mac] #daw-practice .workspace { display:block; overflow:visible; min-height:0; height:auto; }
+html[data-presentation=mac] #daw-practice .play-workspace { height:auto; overflow:visible; }
+html[data-presentation=mac] #daw-practice .diagram-section { flex:none; min-height:210px; }
+html[data-presentation=mac] #daw-practice #diagram-strip { height:176px; }
+html[data-presentation=mac] #daw-practice .diagram-card canvas { min-height:90px; }
+html[data-presentation=mac] #daw-practice .studio-primary-actions { display:none; }
+@media(min-width:1500px) {
+  #mac-studio-workspace { --library-width:180px; --inspector-width:188px; --track-width:270px; --lane-height:51px; grid-template-rows:72px minmax(0,1fr) 25px; }
+  #daw-transport { gap:24px; padding-inline:16px; }
+  .daw-display { max-width:650px; }
+  .daw-display strong { font-size:20px; }
+  #mac-studio-workspace .daw-track { font-size:12px; }
+}
+@media(max-width:1100px) {
+  #mac-studio-workspace { --library-width:150px; --inspector-width:164px; --track-width:170px; --lane-height:43px; }
+  #daw-transport { gap:9px; padding-inline:8px; }
+  .daw-display { min-width:300px; }
+  .daw-display>div { padding:2px 7px; }
+  .daw-display strong { font-size:15px; }
+  #mac-studio-workspace svg { width:17px; height:17px; }
+  html[data-presentation=mac] #daw-transport .daw-panel-tools button { width:29px; }
+  html[data-presentation=mac] #daw-transport .daw-transport-buttons button { width:31px; }
+}
+@media(max-width:799px) {
+  #mac-studio-workspace { --track-width:122px; --lane-height:38px; grid-template-rows:53px minmax(0,1fr) 22px; }
+  .daw-display { min-width:195px; }
+  .daw-display .daw-musical-position,.daw-display>div:last-child { display:none; }
+  .daw-display strong { font-size:13px; }
+  .daw-display small { font-size:7px; }
+  .daw-panel-tools { gap:1px; }
+  html[data-presentation=mac] #daw-transport .daw-panel-tools button { width:26px; padding:4px; }
+  #daw-rewind,#daw-forward { display:none; }
+  html[data-presentation=mac] #daw-transport .daw-transport-buttons button { width:29px; }
+  .daw-session-actions { gap:4px; }
+  html[data-presentation=mac] #daw-transport .daw-session-actions button { padding:3px 6px; font-size:9px; }
+  .daw-arrangement-title { height:25px; }
+  .daw-arrangement-title span { display:none; }
+  .daw-main { grid-template-rows:minmax(120px,1.35fr) minmax(140px,1fr); }
+  html[data-presentation=mac] #mac-studio-workspace .daw-track { gap:6px; padding-inline:6px; font-size:10px; }
+  .daw-track-number { width:10px; font-size:8px; }
+  #mac-studio-workspace .daw-track svg { width:19px; height:19px; }
+  .daw-track-audition { display:none; }
+  .daw-editor-toolbar { gap:8px; padding-inline:8px; }
+  .daw-editor-toolbar>strong { font-size:10px; }
+  .daw-rendered-label { display:none; }
+  .daw-zoom-control { gap:5px; }
+  #mac-studio-workspace .daw-zoom-control input { width:60px; }
+  html[data-presentation=mac] #mac-studio-workspace .daw-editor-tabs button { padding:3px 8px; }
+  .daw-editor-footer { font-size:8px; padding-inline:8px; }
+  .daw-status-bar { gap:10px; font-size:8px; }
+  #daw-empty { left:0; top:55px; padding:15px; }
+  #mac-studio-workspace #daw-empty h2 { font-size:14px; }
+  #daw-empty p { font-size:10px; max-width:240px; }
+  #mac-studio-workspace:not(.daw-library-hidden) #daw-library,
+  #mac-studio-workspace:not(.daw-inspector-hidden) #daw-inspector { position:absolute; top:53px; bottom:22px; left:0; width:190px; z-index:8; box-shadow:10px 0 25px #0008; }
+  #mac-studio-workspace:not(.daw-inspector-hidden) #daw-inspector { left:auto; right:0; }
+  #mac-studio-workspace .daw-body { grid-template-columns:0 0 minmax(0,1fr); }
+}
+@media(prefers-reduced-motion:no-preference) {
+  #mac-studio-workspace button { transition:background-color .12s; }
+}
+
+/* Measured 1672 × 941 reference. The titlebar is native inside Blaze; the
+   browser fallback reserves exactly its 26px when reviewing the content. */
+#mac-studio-workspace {
+  --library-width:180px;--inspector-width:188px;--track-width:300px;--lane-height:52px;
+  position:relative;grid-template-rows:26px 56px minmax(0,1fr);font-size:12px;
+  background:#22292e;--daw-muted:#aab3bd;
+}
+.daw-window-bar {display:flex;align-items:center;justify-content:center;position:relative;background:linear-gradient(#262d33,#20272d);border-bottom:1px solid #11191e;color:#cbd4dc;font-size:13px;line-height:25px;letter-spacing:.01em;}
+.daw-window-lights {position:absolute;left:9px;display:flex;gap:8px;top:8px;}
+.daw-window-lights i {display:block;width:12px;height:12px;border-radius:50%;background:#ff5f57;box-shadow:inset 0 0 0 1px #0002;}
+.daw-window-lights i:nth-child(2){background:#ffbd2e}.daw-window-lights i:nth-child(3){background:#28c840}
+body[data-native-window=true] #mac-studio-workspace {grid-template-rows:56px minmax(0,1fr);}
+body[data-native-window=true] .daw-window-bar {display:none;}
+#daw-transport {display:grid;grid-template-columns:351px 286px minmax(400px,578px) 84px minmax(150px,1fr);column-gap:12px;padding:4px 15px 9px;overflow:hidden;background:linear-gradient(#282f35,#20282e);}
+.daw-panel-tools {position:relative;display:grid;grid-template-columns:98px 108px 78px;gap:8px;height:34px;}
+.daw-button-caption{display:none}
+html[data-presentation=mac] #daw-transport .daw-panel-tools>button {width:100%;height:34px;display:flex;align-items:center;justify-content:flex-start;gap:7px;padding:6px 11px;font-size:12px;}
+html[data-presentation=mac] #daw-library-toggle::after{content:'Library'}
+html[data-presentation=mac] #daw-inspector-toggle::after{content:'Inspector'}
+.daw-history{display:flex;margin-left:5px;}
+html[data-presentation=mac] #daw-transport .daw-history button{height:33px;width:39px;padding:7px;border-radius:0;}
+html[data-presentation=mac] #daw-transport .daw-history button:first-child{border-radius:4px 0 0 4px;border-right:0}
+html[data-presentation=mac] #daw-transport .daw-history button:last-child{border-radius:0 4px 4px 0}
+html[data-presentation=mac] #daw-transport .daw-transport-buttons button {width:47.66px;height:40px;padding:9px 11px;}
+html[data-presentation=mac] #daw-transport #daw-play {background:linear-gradient(#4cac60,#328946);border-top-color:#73c284;color:#fff;}
+html[data-presentation=mac] #mac-studio-workspace #daw-record{opacity:1;color:#ff514b;}
+#daw-record svg{fill:currentColor;stroke-width:0;}
+.daw-display {height:49px;min-width:0;max-width:none;align-self:center;border-radius:6px;display:grid;grid-template-columns:2fr 1.55fr .9fr .9fr 1fr;}
+.daw-display>div,.daw-display>button{padding:3px 9px;min-width:0;border-right:1px solid #ffffff09;display:flex;flex-direction:column;align-items:center;justify-content:center;white-space:nowrap;}
+html[data-presentation=mac] #mac-studio-workspace .daw-display>button{height:100%;min-height:0;background:none;border:0;border-right:1px solid #ffffff09;box-shadow:none;border-radius:0;}
+.daw-display strong {font-size:20px;font-weight:450;line-height:1.2;letter-spacing:-.04em;font-variant-numeric:tabular-nums;}
+.daw-display small{font-size:9px;letter-spacing:.035em;color:#a1aeba;line-height:1.4}
+.daw-display>div:first-child strong{white-space:pre;word-spacing:6px;}
+.daw-click-controls{display:flex;gap:9px;}
+html[data-presentation=mac] #mac-studio-workspace .daw-click-controls button{height:34px;width:36px;padding:6px;font-size:13px;opacity:1;}
+.daw-master{display:flex;align-items:center;gap:13px;min-width:0;}
+.daw-master-meters{height:29px;flex:1;min-width:70px;border:1px solid #0d1419;border-top-color:#44515a;background:#11191e;padding:6px;display:flex;flex-direction:column;gap:4px;border-radius:3px;}
+.daw-master-meters i{display:block;height:5px;background:#222e32;position:relative;}
+.daw-master-meters span{display:block;width:0;height:100%;background:linear-gradient(90deg,#2cce69 0%,#86da62 65%,#f6cd42 85%,#f39b39);}
+#mac-studio-workspace #daw-master-volume{width:101px;height:25px;flex:none;}
+#daw-transport .daw-master>svg{width:16px;height:16px;margin-left:-5px;}
+.daw-body{min-height:0;}
+#daw-library,#daw-inspector{background:linear-gradient(100deg,#1d252b,#242c32);scrollbar-width:thin;}
+.daw-panel-heading{height:32px;display:flex;align-items:center;padding:0 12px;font-size:12px;font-weight:450;background:linear-gradient(#252e34,#1d252b);}
+.daw-library-search{margin:6px 8px;height:28px;gap:5px;padding:3px 6px;border-color:#4b5761;}
+#mac-studio-workspace .daw-library-search svg{width:16px;height:16px;}
+#mac-studio-workspace .daw-library-search input{font-size:12px;}
+#daw-families{padding:0 6px 25px;margin-top:6px;border-bottom:1px solid #3b454d;box-shadow:0 1px #10171c;}
+html[data-presentation=mac] #mac-studio-workspace #daw-families button{height:30px;min-height:30px;font-size:12px;gap:10px;padding:4px 7px;}
+#daw-families svg{width:18px;height:18px;}
+#daw-patches{margin:14px 8px 0;}
+html[data-presentation=mac] #mac-studio-workspace #daw-patches button{display:block;width:100%;height:28px;min-height:28px;border:0;box-shadow:none;border-radius:3px;padding:4px 10px 4px 25px;text-align:left;font-size:12px;line-height:20px;background:none;opacity:1;color:#cbd3db;position:relative;cursor:default;}
+html[data-presentation=mac] #mac-studio-workspace #daw-patches button.selected{background:linear-gradient(#354049,#2b353d);box-shadow:inset 0 1px #4c5861;}
+#daw-patches button.selected::before{content:'';position:absolute;left:1px;top:2px;bottom:2px;width:6px;background:linear-gradient(#fd9d4e,#dc5b22);border-radius:2px;}
+.daw-library-foot{margin:12px 8px;display:flex;align-items:center;gap:5px;font-size:9px;}
+html[data-presentation=mac] #mac-studio-workspace #daw-back{width:24px;height:22px;min-height:22px;padding:2px;opacity:.6;}
+#daw-track-count{overflow:hidden;white-space:nowrap;text-overflow:ellipsis;}
+#daw-inspector{position:relative;}
+#daw-inspector>.daw-panel-heading{height:36px;gap:3px;white-space:nowrap;}
+.daw-instrument-art{height:104px;gap:5px;background:radial-gradient(ellipse at center,#2a353d,#242c32 75%);}
+.daw-instrument-art img{width:90px;height:78px;object-fit:contain;margin-top:-1px;}
+.daw-instrument-art strong{font-size:12px;line-height:16px;font-weight:450;}
+#mac-studio-workspace .daw-instrument-art>svg{width:60px;height:62px;}
+#daw-inspector details{padding:0 10px 0;border-bottom:1px solid #121a20;}
+#daw-inspector details summary{height:25px;min-height:25px;display:list-item;list-style-position:inside;padding:4px 0 4px 10px;margin:0 -10px;background:linear-gradient(#2d373f,#252e35);font-size:12px;line-height:17px;}
+#daw-inspector dl{font-size:12px;}
+#daw-inspector dl>div{min-height:27px;padding:4px 1px;align-items:center;}
+#daw-inspector dd{color:#d2dbe4;font-size:12px;}
+#daw-track-icon svg{height:22px;width:27px;}
+#daw-inspector #daw-color{width:28px;height:18px;padding:0;border:1px solid #bf8b5a;background:none;cursor:pointer;}
+#daw-color::-webkit-color-swatch-wrapper{padding:0}
+#daw-color::-webkit-color-swatch{border:0}
+.daw-mini-track-controls{display:flex;gap:3px;}
+html[data-presentation=mac] #mac-studio-workspace .daw-mini-track-controls button{padding:0;width:20px;height:21px;min-height:21px;font-size:11px;}
+.daw-arm{color:#f95352!important;}
+html[data-presentation=mac] #mac-studio-workspace .daw-arm:disabled{opacity:1;}
+html[data-presentation=mac] #mac-studio-workspace .daw-instrument-slot{width:100%;height:26px;min-height:26px;margin:2px 0 3px;border:1px solid #36434d;background:#27323a;opacity:1;text-align:left;font-size:12px;padding:4px 7px;}
+html[data-presentation=mac] #mac-studio-workspace .daw-effect-slot{display:flex;align-items:center;gap:6px;width:100%;height:22px;min-height:22px;margin-top:3px;border-radius:3px;padding:2px 6px;font-size:12px;background:linear-gradient(#27577a,#224761);border:1px solid #437294;}
+#mac-studio-workspace .daw-effect-slot svg{width:15px;height:15px;}
+html[data-presentation=mac] #mac-studio-workspace .daw-effect-slot[aria-pressed=true]{background:linear-gradient(#3b7295,#2a5d80);box-shadow:inset 0 0 0 1px #6793b3;}
+.daw-effects-plus{height:24px;padding:3px 0;}
+html[data-presentation=mac] #mac-studio-workspace .daw-effects-plus button{width:20px;min-height:18px;height:18px;padding:0;font-size:16px;}
+.daw-sends{height:27px;display:flex;align-items:center;justify-content:space-between;background:linear-gradient(#303a42,#26313a);border-top:1px solid #4b5660;border-bottom:1px solid #121a20;font-size:11px;padding:0 10px;}
+.daw-channel-strip{padding:13px 17px 15px;}
+.daw-channel-main{height:179px;display:grid;grid-template-columns:61px 21px 24px 18px;position:relative;padding-top:5px;}
+.daw-pan{grid-row:1;grid-column:1;display:flex;flex-direction:column;align-items:center;gap:5px;font-size:9px;max-width:61px;}
+.daw-pan>span{font-size:10px;white-space:nowrap;max-width:70px;overflow:hidden;}
+.daw-pan-knob{width:31px;height:31px;border-radius:50%;background:linear-gradient(#a5b2bc,#788793);border:2px solid #111b22;box-shadow:0 0 0 1px #58646e;position:relative;}
+.daw-pan-knob input{opacity:0;position:absolute;inset:0;cursor:ew-resize;}
+.daw-pan-knob i{position:absolute;top:1px;left:12px;width:2px;height:14px;background:#101a21;transform-origin:50% 13px;pointer-events:none;}
+.daw-pan>div{display:flex;gap:12px;white-space:nowrap;color:#b4c2ce;font-size:9px;}
+.daw-channel-fader{height:100%;grid-column:1;grid-row:1;display:block;margin:0;position:relative;pointer-events:none;}
+#mac-studio-workspace .daw-channel-fader input{position:absolute;top:82px;left:22px;width:17px;height:83px;writing-mode:vertical-lr;direction:rtl;pointer-events:auto;accent-color:#a7b4be;}
+.daw-channel-scale{grid-column:3;grid-row:1;display:flex;flex-direction:column;justify-content:space-between;padding:3px 0;color:#94a2ad;font-size:8px;text-align:right;}
+.daw-level-pair{grid-column:4;grid-row:1;display:flex;gap:2px;padding-top:1px;margin-left:4px;height:100%;}
+.daw-level-pair i{position:relative;height:100%;width:6px;background:#11191e;border:1px solid #46505a;}
+.daw-level-pair span{position:absolute;bottom:0;width:100%;height:0;background:linear-gradient(to top,#22ca67,#60d96d 65%,#ecdf46 90%,#ebad41);}
+.daw-channel-buttons{margin-top:13px;gap:6px;padding:0;}
+html[data-presentation=mac] #mac-studio-workspace .daw-channel-buttons button{height:31px;min-height:31px;padding:4px 8px;font-size:14px;}
+#daw-inspector-extra{position:absolute;left:5px;right:5px;top:120px;z-index:7;padding:12px;background:#293640;border:1px solid #60707d;border-radius:7px;box-shadow:0 12px 35px #0009;font-size:11px;}
+#daw-inspector-extra>div:first-child{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}
+#daw-inspector-extra label{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;}
+.daw-main{row-gap:3px;grid-template-rows:minmax(160px,1.555fr) minmax(150px,1fr);background:#11191e;}
+.daw-arrangement-grid{grid-template-rows:40px auto;}
+.daw-track-heading{padding:0 9px;background:linear-gradient(#242c33,#1c252b);}
+.daw-session-actions{margin:0;gap:8px;}
+html[data-presentation=mac] #mac-studio-workspace .daw-session-actions button{width:29px;height:26px;min-height:26px;padding:4px;background:linear-gradient(#2a333b,#212a32);}
+#mac-studio-workspace .daw-session-actions svg{height:18px;width:18px;}
+html[data-presentation=mac] #mac-studio-workspace #split-stems{font-size:0!important;}
+#split-stems::after{content:'≋';font-size:19px;line-height:15px;}
+.daw-ruler{height:40px;background:repeating-linear-gradient(90deg,transparent 0,transparent calc(1.5625% - 1px),#8196a23d calc(1.5625% - 1px),#8196a23d 1.5625%),linear-gradient(#232b32,#1d262d);background-size:100% 14px,100% 100%;background-repeat:no-repeat;background-position:bottom,0 0;}
+.daw-ruler span{font-size:12px;top:7px;padding-left:5px;}
+.daw-ruler .daw-cycle-strip{position:absolute;height:13px;top:2px;background:linear-gradient(#e7bd56,#cba343);border:1px solid #f7d477;box-shadow:inset 0 1px #ffffff44;border-radius:2px;left:0;color:#211b10;}
+.daw-ruler .daw-cycle-strip::after{content:'';position:absolute;right:-1px;top:0;height:100%;width:4px;background:#eac25a;}
+html[data-presentation=mac] #mac-studio-workspace .daw-track{display:grid;grid-template-columns:16px 36px minmax(0,1fr) 128px;gap:12px;padding:0 9px;height:52px;font-size:13px;line-height:1.4;user-select:none;cursor:pointer;background:linear-gradient(#34404a,#2d3740);}
+.daw-track-label{font-weight:500;}
+.daw-track-number{width:16px;font-size:11px;color:#aebbc7;}
+#mac-studio-workspace .daw-track>svg{width:31px;height:31px;color:#c8d2db;stroke-width:1.25;}
+.daw-row-controls{display:flex;gap:3px;align-items:center;}
+html[data-presentation=mac] #mac-studio-workspace .daw-row-controls button{padding:0;min-height:21px;height:21px;min-width:19px;width:19px;font-size:11px;line-height:19px;border-radius:3px;}
+.daw-row-controls .daw-arm{font-size:14px!important;}
+.daw-track-meter{width:32px;height:15px;display:block;border-radius:2px;border:1px solid #141e25;background:repeating-linear-gradient(#101c21 0,#101c21 5px,#34434b 5px,#34434b 6px);padding:2px;flex:none;}
+.daw-track-meter i{display:block;height:100%;width:0;background:repeating-linear-gradient(#53d777 0,#53d777 4px,#202d35 4px,#202d35 5px);}
+.daw-row-pan{position:relative;display:block;width:24px;height:24px;border:1px solid #101920;box-shadow:inset 0 0 0 2px #596772;border-radius:50%;background:linear-gradient(#596773,#3d4a56);flex:none;margin-left:2px;}
+.daw-row-pan input{position:absolute;inset:0;opacity:0;cursor:ew-resize;}
+.daw-row-pan i{position:absolute;top:2px;left:10px;width:1px;height:9px;background:#121c24;pointer-events:none;transform-origin:center 10px;}
+#daw-regions{background:repeating-linear-gradient(90deg,transparent 0,transparent calc(3.125% - 1px),#63748226 calc(3.125% - 1px),#63748226 3.125%),repeating-linear-gradient(#202932 0,#202932 52px,#242e37 52px,#242e37 104px);}
+.daw-lane{height:52px;padding:2px 3px;}
+html[data-presentation=mac] #mac-studio-workspace .daw-region{border-radius:4px;border-top-color:color-mix(in srgb,var(--track-color),white 15%);background:color-mix(in srgb,var(--track-color),#08131e 72%);}
+.daw-region>span{font-size:11px;top:0;left:6px;}
+.daw-region-wave{padding-top:12px;}
+.daw-arrangement-scroll::-webkit-scrollbar,#daw-editor-scroll::-webkit-scrollbar{height:10px;width:10px;}
+.daw-arrangement-scroll::-webkit-scrollbar-thumb,#daw-editor-scroll::-webkit-scrollbar-thumb{background:#566671;border:2px solid #25303a;border-radius:5px;}
+.daw-arrangement-scroll::-webkit-scrollbar-track,#daw-editor-scroll::-webkit-scrollbar-track{background:#1b252d;}
+#daw-editor{grid-template-rows:43px minmax(0,1fr) 18px 42px;border-bottom:2px solid #0d151c;}
+.daw-editor-toolbar{padding:5px 12px;gap:28px;overflow-x:auto;}
+.daw-editor-toolbar>strong{font-size:13px;font-weight:550;gap:5px;}
+.daw-editor-toolbar i{width:7px;height:22px;}
+.daw-rendered-label{color:#e1e6eb;font-size:13px;}
+html[data-presentation=mac] #mac-studio-workspace .daw-editor-tabs button{height:26px;min-height:26px;padding:3px 21px;font-size:12px;}
+.daw-edit-tools{display:flex;margin-left:auto;flex-shrink:0;}
+html[data-presentation=mac] #mac-studio-workspace .daw-edit-tools button{width:37px;height:29px;min-height:29px;padding:5px 8px;border-radius:0;}
+html[data-presentation=mac] #mac-studio-workspace .daw-edit-tools button:disabled{opacity:.6;}
+.daw-edit-tools svg{width:18px!important;height:18px!important;}
+.daw-snap-label{display:flex;align-items:center;gap:6px;font-size:12px;white-space:nowrap;}
+html[data-presentation=mac] #mac-studio-workspace .daw-snap-label select{width:99px;height:28px;padding:3px 10px;font-size:12px;}
+.daw-zoom-control{margin-left:0;font-size:12px;gap:10px;}
+#mac-studio-workspace .daw-zoom-control input{width:102px;}
+#daw-editor-content{background:repeating-linear-gradient(90deg,transparent 0,transparent calc(6.25% - 1px),#60717d22 calc(6.25% - 1px),#60717d22 6.25%);}
+#daw-editor-ruler{height:27px;margin-left:34px;}
+#daw-editor-ruler span{top:3px;}
+#daw-waveform,#daw-midi-guide{display:block;width:calc(100% - 34px);margin-left:34px;height:calc(100% - 27px);position:relative;z-index:1;}
+.daw-amplitude-scale{position:absolute;top:27px;bottom:0;left:0;width:34px;display:flex;flex-direction:column;background:#162027;color:#8fa0ae;}
+.daw-amplitude-scale span{height:50%;font-size:10px;display:block;text-align:right;padding-right:5px;line-height:calc((100dvh - 755px)/10 + 7px);}
+#daw-wave-selection{border-color:#d99a45;background:#d7993321;}
+#daw-wave-selection>i{position:absolute;top:-1px;width:7px;height:13px;border:1px solid #e5a64e;background:#42331d;}
+#daw-wave-selection>i:first-child{left:-1px;}#daw-wave-selection>i:last-child{right:-1px;}
+.daw-editor-footer{padding:0 18px;font-size:11px;color:#a9b6c3;background:linear-gradient(#232e37,#202b33);}
+#mac-studio-workspace{font-optical-sizing:auto;-webkit-font-smoothing:antialiased;}
+.daw-instrument-art img{width:102px;height:82px;}
+#mac-studio-workspace #daw-master-volume{appearance:none;-webkit-appearance:none;background:#a4b0bb;height:2px;border:0;border-radius:0;}
+#daw-master-volume::-webkit-slider-thumb{appearance:none;-webkit-appearance:none;width:34px;height:34px;border-radius:50%;border:2px solid #a7b3bd;background:linear-gradient(#53606c,#303e49);box-shadow:0 1px 3px #0008;cursor:ew-resize;}
+#daw-master-volume::-moz-range-thumb{width:30px;height:30px;border-radius:50%;border:2px solid #a7b3bd;background:linear-gradient(#53606c,#303e49);}
+#mac-studio-workspace .daw-channel-fader input{appearance:none;-webkit-appearance:none;left:28px;width:6px;top:79px;height:94px;background:#11191e;border:1px solid #495761;border-left-color:#050d13;border-radius:0;}
+.daw-channel-fader input::-webkit-slider-thumb{appearance:none;-webkit-appearance:none;width:17px;height:31px;border-radius:2px;border:1px solid #13222d;background:linear-gradient(#b9c4ce 0,#b9c4ce 46%,#697984 47%,#d2d9df 51%,#9aa8b4 52%,#9aa8b4 100%);box-shadow:0 2px 3px #0007;cursor:ns-resize;}
+.daw-channel-fader input::-moz-range-thumb{width:15px;height:29px;border-radius:2px;border:1px solid #13222d;background:linear-gradient(#b9c4ce,#8495a2);}
+.daw-amplitude-scale>span{position:relative;line-height:normal;padding:0;}
+.daw-amplitude-scale i{position:absolute;right:5px;font-style:normal;font-size:10px;line-height:12px;transform:translateY(-50%);}
+.daw-amplitude-scale i:first-child{transform:none;}
+.daw-amplitude-scale i:last-child{transform:translateY(-100%);}
+.daw-library-foot{opacity:0;transition:opacity .15s;}
+#daw-library:hover .daw-library-foot,.daw-library-foot:focus-within{opacity:1;}
+#daw-library{background:linear-gradient(#20272e 0%,#1d242b 48%,#151a1e 100%);}
+#daw-transport{background:linear-gradient(#283038,#14191f);}
+html[data-presentation=mac] #mac-studio-workspace .daw-track{background:linear-gradient(#323a44,#26303a);}
+html[data-presentation=mac] #mac-studio-workspace .daw-track.selected{background:linear-gradient(#4d5862,#3c4852);}
+.daw-editor-toolbar{background:linear-gradient(#212930,#131b21);}
+#daw-editor-scroll{background:linear-gradient(#121b22,#0d171f);}
+#daw-wave-selection{background:#c4771c33;}
+.daw-instrument-art{height:105px;}
+#daw-inspector details:nth-of-type(1) dl>div{min-height:29.3333px;}
+#daw-inspector details:nth-of-type(2) dl>div{min-height:29.6px;}
+html[data-presentation=mac] #mac-studio-workspace .daw-instrument-slot{margin:1px 0;}
+html[data-presentation=mac] #mac-studio-workspace .daw-effect-slot{height:24px;min-height:24px;}
+.daw-effects-plus{height:30px;}
+.daw-instrument-icon{display:inline-block;flex:none;width:20px;height:20px;background-image:url('/studio-instruments.png');background-size:300% 300%;background-repeat:no-repeat;filter:drop-shadow(0 1px 1px #0007);}
+.daw-instrument-vocals{background-position:0% 0%}.daw-instrument-drums{background-position:50% 0%}.daw-instrument-bass{background-position:100% 0%}.daw-instrument-piano{background-position:0% 50%}.daw-instrument-guitar{background-position:50% 50%}.daw-instrument-strings{background-position:100% 50%}.daw-instrument-brass{background-position:0% 100%}.daw-instrument-synths{background-position:50% 100%}.daw-instrument-other{background-position:100% 100%}
+.daw-instrument-piano{filter:grayscale(1) brightness(3.4) contrast(.8) drop-shadow(0 1px 1px #0007);}
+.daw-ruler.daw-has-cycle>span{top:17px;}
+.daw-ruler .daw-cycle-strip{font-size:10px;font-style:normal;line-height:11px;padding-left:3px;}
+#daw-ruler{touch-action:none;cursor:crosshair;}
+.daw-track>.daw-instrument-icon{width:36px;height:36px;}
+#daw-track-icon .daw-instrument-icon{width:25px;height:25px;vertical-align:middle;}
+html[data-presentation=mac] #mac-studio-workspace .daw-region,html[data-presentation=mac] #mac-studio-workspace .daw-region.selected{background:var(--region-bg,#26323e);}
+.daw-region>span{left:0;right:0;max-width:100%;height:14px;padding-left:6px;text-align:left;background:var(--region-header,#35424f);}
+.daw-practice-heading{gap:10px;}
+.daw-practice-heading #daw-analysis-actions{order:1;margin:0 0 0 auto;}
+.daw-practice-heading #daw-practice-close{order:2;}
+#daw-inspector{overflow-x:hidden;}
+#daw-inspector>.daw-panel-heading{overflow:hidden;}
+#daw-inspector-name{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.daw-instrument-art strong{width:100%;max-width:100%;padding-inline:8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:center;}
+.daw-editor-toolbar>strong{flex:0 1 auto;min-width:70px;max-width:45%;overflow:hidden;}
+#daw-editor-title{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.daw-rendered-label{flex-shrink:0;}
+#daw-editor-scroll{overflow-x:hidden;}
+.daw-editor-scrollbar{display:flex;align-items:center;background:linear-gradient(#26323b,#1e2a34);border-top:1px solid #111c24;padding:0 4px;gap:5px;}
+html[data-presentation=mac] #mac-studio-workspace .daw-editor-scrollbar button{width:13px;height:15px;min-height:15px;padding:0;border:0;box-shadow:none;background:none;color:#8395a5;font-size:12px;}
+#mac-studio-workspace #daw-scroll{appearance:none;-webkit-appearance:none;flex:1;height:8px;background:#19242d;border:1px solid #111e28;border-radius:4px;accent-color:#637887;}
+#daw-scroll::-webkit-slider-thumb{appearance:none;-webkit-appearance:none;background:#627787;border:1px solid #3b4c59;border-top-color:#8495a3;border-radius:4px;height:10px;width:var(--scroll-thumb,120px);max-width:100%;}
+#daw-scroll::-moz-range-thumb{background:#627787;border:1px solid #3b4c59;border-radius:4px;height:9px;width:var(--scroll-thumb,120px);}
+body:not([data-native-window=true]) #mac-studio-workspace{border-radius:12px;box-shadow:inset 0 0 0 1px #7d8b9666;}
+#daw-message{font-size:10px;max-width:24%;color:#7d91a0;}
+#daw-project-dialog{color:var(--text);width:360px;}
+#daw-project-dialog label{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-block:12px;}
+#daw-project-dialog input{width:90px;}
+#daw-project-dialog p{font-size:12px;color:var(--muted);}
+@media(max-width:1499px){
+  #daw-transport{grid-template-columns:270px 240px minmax(300px,1fr) 70px 130px;gap:10px;padding-inline:10px;}
+  .daw-panel-tools{grid-template-columns:88px 96px 64px;gap:5px;}
+  html[data-presentation=mac] #daw-transport .daw-history button{width:32px;}
+  html[data-presentation=mac] #daw-transport .daw-transport-buttons button{width:40px;}
+  .daw-display strong{font-size:17px;}
+  .daw-master-meters{display:none}.daw-master{gap:5px}.daw-click-controls{gap:4px;}
+  #mac-studio-workspace{--library-width:165px;--inspector-width:178px;--track-width:240px;}
+  html[data-presentation=mac] #mac-studio-workspace .daw-track{grid-template-columns:14px 27px minmax(0,1fr) 99px;gap:8px;font-size:12px;}
+  .daw-row-pan{display:none;}
+  .daw-editor-toolbar{gap:12px;}.daw-edit-tools{display:none;}
+  .daw-rendered-label{font-size:11px;}.daw-snap-label{font-size:11px;}
+}
+@media(max-width:1199px){
+  #daw-transport{grid-template-columns:78px 216px minmax(250px,1fr) 66px 100px;gap:8px;}
+  .daw-panel-tools{grid-template-columns:34px 34px;gap:5px;}.daw-history{display:none;}
+  html[data-presentation=mac] #daw-transport .daw-panel-tools>button{padding:6px;width:34px;}
+  html[data-presentation=mac] #daw-library-toggle::after,html[data-presentation=mac] #daw-inspector-toggle::after{display:none;}
+  html[data-presentation=mac] #daw-transport .daw-transport-buttons button{width:36px;}
+  #daw-master-volume{max-width:75px;}.daw-click-controls button{max-width:31px;}
+  #mac-studio-workspace{--track-width:210px;}
+  html[data-presentation=mac] #mac-studio-workspace .daw-track{grid-template-columns:13px 24px minmax(0,1fr) 63px;gap:6px;font-size:11px;}
+  .daw-track-meter{display:none;}.daw-snap-label{display:none;}.daw-rendered-label{display:none;}
+}
+@media(max-width:799px){
+  #mac-studio-workspace{--track-width:150px;grid-template-rows:26px 52px minmax(0,1fr);}
+  body[data-native-window=true] #mac-studio-workspace{grid-template-rows:52px minmax(0,1fr);}
+  #daw-transport{grid-template-columns:72px 126px minmax(160px,1fr);gap:9px;padding:4px 8px 8px;}
+  .daw-click-controls,.daw-master{display:none;}
+  #daw-start,#daw-rewind,#daw-record{display:none;}
+  html[data-presentation=mac] #daw-transport .daw-transport-buttons button{display:block;width:42px;height:35px;}
+  html[data-presentation=mac] #daw-transport #daw-start,html[data-presentation=mac] #daw-transport #daw-rewind,html[data-presentation=mac] #daw-transport #daw-record{display:none;}
+  .daw-display{height:40px;grid-template-columns:minmax(80px,1fr) 45px 48px;}
+  .daw-display>div:first-child,.daw-display>#daw-key-control{display:none;}
+  .daw-display strong{font-size:13px;}.daw-display small{font-size:7px;}
+  .daw-display>div,.daw-display>button{padding:3px;}
+  .daw-window-bar{font-size:10px;}
+  .daw-window-lights i{height:10px;width:10px;}
+  .daw-window-lights{top:8px;gap:6px;}
+  #mac-studio-workspace .daw-body{grid-template-columns:0 0 minmax(0,1fr);}
+  #mac-studio-workspace:not(.daw-library-hidden) #daw-library,#mac-studio-workspace:not(.daw-inspector-hidden) #daw-inspector{top:78px;bottom:0;}
+  body[data-native-window=true] #mac-studio-workspace:not(.daw-library-hidden) #daw-library,body[data-native-window=true] #mac-studio-workspace:not(.daw-inspector-hidden) #daw-inspector{top:52px;}
+  .daw-main{grid-template-rows:minmax(120px,1.35fr) minmax(140px,1fr);}
+  .daw-arrangement-grid{grid-template-rows:32px auto;}
+  .daw-ruler{height:32px;}.daw-ruler span{font-size:9px;}
+  html[data-presentation=mac] #mac-studio-workspace .daw-track{grid-template-columns:10px 20px minmax(0,1fr) 40px;gap:4px;padding:0 5px;height:38px;font-size:10px;}
+  #mac-studio-workspace .daw-track>svg{height:20px;width:20px;}
+  .daw-track>.daw-instrument-icon{width:20px;height:20px;}
+  .daw-row-controls .daw-arm{display:none;}
+  html[data-presentation=mac] #mac-studio-workspace .daw-row-controls button{width:18px;min-width:18px;height:18px;min-height:18px;font-size:9px;}
+  .daw-lane{height:38px;}.daw-region>span{font-size:9px;}
+  #daw-editor{grid-template-rows:37px minmax(0,1fr) 15px 28px;}
+  .daw-editor-toolbar{padding:3px 8px;gap:10px;}.daw-editor-toolbar>strong{font-size:11px;}
+  html[data-presentation=mac] #mac-studio-workspace .daw-editor-tabs button{font-size:10px;padding:3px 12px;}
+  .daw-editor-toolbar i{height:18px;width:4px;}
+  .daw-zoom-control{font-size:10px;gap:5px;margin-left:auto;}
+  #mac-studio-workspace .daw-zoom-control input{width:56px;}
+  .daw-editor-footer{font-size:8px;padding:0 8px;}
+  #daw-message{display:none;}.daw-amplitude-scale span{font-size:8px;line-height:13px;}
+}
+
+/* Logic-style workstation: neutral system chrome, flat content surfaces and
+   a separate audio editor. Reference sources: docs/MAC-STUDIO-DESIGN.md.
+   This scope deliberately leaves Browse and the other platforms untouched. */
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic] {
+  --logic-chrome:#b1b1b1;--logic-chrome-edge:#858585;--logic-chrome-ink:#393939;
+  --logic-button:#9c9c9c;--logic-button-hover:#bfbfbf;--logic-button-selected:#858585;
+  --daw-bg:#292929;--daw-panel:#454545;--daw-ink:#ececec;--daw-muted:#b5b5b5;
+  --library-width:210px;--inspector-width:210px;--track-width:310px;--lane-height:46px;
+  --daw-orange:#d6ae38;--daw-line:#252525;
+  background:#292929;color:var(--daw-ink);font-size:12px;border-radius:0;box-shadow:none;
+}
+html[data-presentation=mac][data-appearance=dark] #mac-studio-workspace[data-design=logic] {
+  --logic-chrome:#383838;--logic-chrome-edge:#202020;--logic-chrome-ink:#dedede;
+  --logic-button:#515151;--logic-button-hover:#626262;--logic-button-selected:#696969;
+}
+@media(prefers-color-scheme:dark) {
+  html[data-presentation=mac][data-appearance=system] #mac-studio-workspace[data-design=logic] {
+    --logic-chrome:#383838;--logic-chrome-edge:#202020;--logic-chrome-ink:#dedede;
+    --logic-button:#515151;--logic-button-hover:#626262;--logic-button-selected:#696969;
+  }
+}
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic].daw-library-hidden{--library-width:0px}
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic].daw-inspector-hidden{--inspector-width:0px}
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic] .daw-window-bar{background:var(--logic-chrome);border-color:var(--logic-chrome-edge);color:var(--logic-chrome-ink);font-size:12px;letter-spacing:0}
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic] #daw-transport{background:var(--logic-chrome);border-color:var(--logic-chrome-edge);box-shadow:none;grid-template-columns:minmax(155px,1fr) 248px minmax(350px,430px) 78px minmax(160px,1fr);gap:18px;padding:4px 18px 8px}
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic] button{box-shadow:none;border:1px solid #303030;border-top-color:#6d6d6d;background:#5a5a5a;border-radius:4px;color:#f2f2f2}
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic] button:hover:not(:disabled){background:#707070}
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic] button:focus-visible,html[data-presentation=mac] #mac-studio-workspace[data-design=logic] input:focus-visible,html[data-presentation=mac] #mac-studio-workspace[data-design=logic] select:focus-visible,html[data-presentation=mac] #mac-studio-workspace[data-design=logic] a:focus-visible{outline:2px solid #78b8fa;outline-offset:-2px}
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic] .daw-panel-tools{display:flex;gap:6px;justify-content:flex-start;width:auto;min-width:0}
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic] #daw-transport .daw-panel-tools>button{width:34px;height:28px;padding:5px;justify-content:center;background:var(--logic-button);color:var(--logic-chrome-ink);border:0;border-radius:5px}
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic] #daw-transport .daw-panel-tools>button[aria-pressed=true]{background:var(--logic-button-selected);color:var(--logic-chrome-ink)}
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic] #daw-library-toggle::after,html[data-presentation=mac] #mac-studio-workspace[data-design=logic] #daw-inspector-toggle::after{content:none}
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic] .daw-history{margin-left:12px;gap:1px}
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic] #daw-transport .daw-history button{width:29px;height:28px;padding:6px;border:0;background:var(--logic-button);color:var(--logic-chrome-ink)}
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic] #daw-transport .daw-transport-buttons button{width:41px;height:32px;padding:7px;border:0;background:var(--logic-button);color:var(--logic-chrome-ink);border-radius:0}
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic] #daw-transport .daw-transport-buttons button:first-child{border-radius:5px 0 0 5px}
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic] #daw-transport .daw-transport-buttons button:last-child{border-radius:0 5px 5px 0}
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic] #daw-transport #daw-play{background:var(--logic-button);color:var(--logic-chrome-ink);border:0}
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic] #daw-transport #daw-play.playing{background:#238b36;color:white}
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic] #daw-transport #daw-loop[aria-pressed=true]{background:#dac34c;color:#3c3514}
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic] .daw-display{height:44px;background:#24272d;border:1px solid #51545a;border-radius:8px;box-shadow:none;grid-template-columns:1.3fr 1.35fr .72fr .7fr .85fr}
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic] .daw-display>div,html[data-presentation=mac] #mac-studio-workspace[data-design=logic] .daw-display>button{border-right:1px solid #ffffff0c;padding-inline:7px}
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic] .daw-display strong{font-size:18px;font-weight:400;color:#d4e1ee}
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic] .daw-display small{font-size:8px;color:#a8b2bf;letter-spacing:.02em}
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic] #daw-transport .daw-click-controls button{width:32px;height:28px;padding:5px;border:0;background:var(--logic-button);color:var(--logic-chrome-ink)}
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic] #daw-transport #daw-metronome[aria-pressed=true]{background:#8c3aae;color:white}
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic] .daw-master{position:relative;min-width:120px;gap:9px}
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic] .daw-master-meters{height:18px;padding:4px;gap:2px;border:1px solid #676767;border-radius:9px;min-width:110px;background:#303030}
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic] .daw-master-meters i{height:3px;background:#292929}
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic] #daw-master-volume{position:absolute;left:0;right:26px;width:calc(100% - 26px);height:16px;background:transparent;border:0;opacity:.85}
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic] #daw-master-volume::-webkit-slider-thumb{width:13px;height:13px;border:1px solid #777;border-radius:50%;background:#d0d0d0;box-shadow:0 1px 1px #0004}
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic] #daw-master-volume::-moz-range-thumb{width:12px;height:12px;border:1px solid #777;background:#d0d0d0}
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic] .daw-master>svg{color:var(--logic-chrome-ink);margin-left:auto}
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic] #daw-library,html[data-presentation=mac] #mac-studio-workspace[data-design=logic] #daw-inspector{background:#414141;border-color:#252525}
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic] .daw-panel-heading{height:32px;background:#484848;border-color:#303030;box-shadow:none;font-size:12px}
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic] .daw-library-search{border-color:#686868;background:#363636}
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic] #daw-families{border-color:#555;box-shadow:none;padding-bottom:12px}
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic] #daw-families button{height:28px;min-height:28px;background:none;border:0}
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic] #daw-families button.selected{background:#626262}
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic] #daw-patches{margin-top:12px}
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic] #daw-patches button.selected{background:#626262;box-shadow:none}
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic] .daw-library-foot{opacity:1;border-top:1px solid #555;padding-top:12px;margin-top:15px}
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic] .daw-instrument-art{display:none}
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic] #daw-inspector>.daw-panel-heading{height:32px}
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic] #daw-inspector details{border-color:#333;padding-inline:12px}
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic] #daw-inspector details summary{height:28px;min-height:28px;padding:5px 12px;margin-inline:-12px;background:#4b4b4b;border-top:1px solid #595959;font-size:12px}
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic] #daw-inspector dl>div{min-height:27px;border:0;padding-block:3px}
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic] #daw-inspector dt{color:#c3c3c3}
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic] #daw-inspector dd{color:#ececec}
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic] #daw-inspector>details:nth-of-type(3),html[data-presentation=mac] #mac-studio-workspace[data-design=logic] .daw-sends{display:none}
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic] #daw-color{height:14px;width:27px;border:1px solid #777;border-radius:3px}
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic] .daw-effect-slot{background:#346b91;border:1px solid #6e8ca1;height:24px;min-height:24px;border-radius:4px}
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic] .daw-effect-slot[aria-pressed=true]{background:#3683b8;box-shadow:none}
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic] .daw-channel-strip{padding:16px 24px 15px;border-top:1px solid #555}
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic] .daw-channel-main{height:212px;grid-template-columns:61px 21px 30px 18px}
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic] .daw-pan-knob{background:#929292;border-color:#333;box-shadow:none}
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic] .daw-pan-knob i{background:#454545}
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic] .daw-channel-fader input{height:118px;background:#2c2c2c;border-color:#626262}
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic] .daw-level-pair i{background:#303030;border-color:#696969}
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic] .daw-channel-scale{color:#b4b4b4}
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic] .daw-channel-buttons button{background:#676767;border:0;height:25px;min-height:25px;border-radius:4px}
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic] .daw-main{grid-template-rows:minmax(165px,1.65fr) minmax(155px,1fr);row-gap:2px;background:#202020}
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic] #daw-arrangement{background:#292929;border-bottom:2px solid #202020}
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic] .daw-track-heading{background:#484848;border-color:#303030}
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic] .daw-arrangement-grid{grid-template-rows:38px auto}
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic] .daw-session-actions button{background:#626262;border-color:#303030;border-top-color:#777;border-radius:4px}
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic] .daw-ruler{height:38px;background:repeating-linear-gradient(90deg,transparent 0,transparent calc(var(--beat-pixels,25px) - 1px),#b8b8b84d calc(var(--beat-pixels,25px) - 1px),#b8b8b84d var(--beat-pixels,25px)),#4b4b4b;background-size:100% 12px,100% 100%;background-position:bottom,0 0;background-repeat:no-repeat;border-bottom:1px solid #242424}
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic] .daw-ruler span{top:3px;font-size:12px;color:#dfdfdf;letter-spacing:0}
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic] #daw-ruler.daw-has-cycle>span{top:17px}
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic] .daw-cycle-strip{background:#c5ad38;border-color:#d9c25b;box-shadow:none}
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic] .daw-track{height:46px;min-height:46px;display:grid;grid-template-columns:minmax(0,1fr) 123px;gap:7px;padding:0 8px 0 0;background:#454545;border-bottom:1px solid #303030;border-left:5px solid var(--track-color);font-size:12px}
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic] .daw-track:nth-child(even){background:#3e3e3e}
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic] .daw-track.selected{background:#626262;box-shadow:none}
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic] .daw-track-select{display:grid;grid-template-columns:16px 27px minmax(0,1fr);gap:7px;align-items:center;width:100%;height:100%;min-height:0;padding:0 3px;border:0;border-radius:0;background:none;text-align:left;color:#f1f1f1;font-size:12px;overflow:hidden}
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic] .daw-track-select:hover{background:#ffffff0a}
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic] .daw-track-select .daw-track-number{font-size:10px;text-align:center;width:16px;color:#c6c6c6}
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic] .daw-track-select .daw-instrument-icon{height:27px;width:27px;filter:grayscale(1) brightness(1.7);}
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic] .daw-track-select>svg{height:25px;width:25px}
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic] .daw-track-label{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:500}
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic] .daw-row-controls{gap:3px;justify-content:flex-end}
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic] .daw-row-controls button{width:18px;min-width:18px;height:18px;min-height:18px;line-height:17px;padding:0;font-size:10px;background:#737373;border:1px solid #3a3a3a;border-top-color:#929292}
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic] .daw-row-controls button[aria-pressed=true]{background:#d5b849;color:#292512}
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic] .daw-track-meter{height:10px;width:27px;border:0;padding:1px;background:#292929;border-radius:5px}
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic] .daw-row-pan{width:20px;height:20px;box-shadow:none;background:#9a9a9a;border:2px solid #303030}
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic] .daw-row-pan i{left:7px;top:0;height:8px;transform-origin:center 8px}
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic] #daw-regions{background:repeating-linear-gradient(90deg,transparent 0,transparent calc(var(--bar-grid,6.25%) - 1px),#77777724 calc(var(--bar-grid,6.25%) - 1px),#77777724 var(--bar-grid,6.25%)),repeating-linear-gradient(#292929 0,#292929 46px,#303030 46px,#303030 92px)}
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic] .daw-lane{height:46px;padding:2px 2px}
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic] .daw-region{border:1px solid #171717;border-top-color:var(--region-header);background:var(--region-bg);border-radius:4px;box-shadow:none}
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic] .daw-region.selected{border-color:#d9e8f3;box-shadow:inset 0 0 0 1px #d9e8f3}
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic] .daw-region>span{background:var(--region-header);color:var(--region-ink,#f2f5f7);height:14px;line-height:13px;font-size:10px}
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic] .daw-region-wave{padding-top:12px}
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic] .daw-playhead{background:#e8e8e8;width:1px;box-shadow:none}
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic] .daw-playhead::before{background:#dedede;border-color:#444;border-radius:3px 3px 0 0}
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic] #daw-editor{grid-template-rows:38px minmax(0,1fr) 16px 32px;background:#323232;border-top:1px solid #656565;border-bottom:0}
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic] .daw-editor-toolbar{background:#494949;border-color:#2d2d2d;padding:4px 10px;gap:17px}
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic] .daw-editor-toolbar>strong{font-size:12px;font-weight:500;gap:5px;max-width:34%}
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic] .daw-rendered-label{display:none}
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic] .daw-editor-toolbar i{height:17px;width:4px}
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic] .daw-editor-tabs button{height:24px;min-height:24px;padding:2px 16px;background:#666;border-color:#333;font-size:11px}
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic] .daw-editor-tabs button[aria-pressed=true]{background:#8b8b8b;border-color:#444;color:white}
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic] .daw-edit-tools button{height:25px;min-height:25px;width:31px;padding:4px;background:#626262;border-color:#333}
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic] .daw-snap-label{font-size:11px}
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic] .daw-snap-label select{height:25px;min-height:25px;width:95px;padding:2px 6px;background:#5d5d5d;border-color:#383838;border-top-color:#777;font-size:11px}
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic] .daw-zoom-control{font-size:11px;color:#ddd;gap:6px}
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic] .daw-zoom-control input{width:85px}
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic] .daw-editor-surface{display:grid;grid-template-columns:58px minmax(0,1fr);min-height:0;overflow:hidden;background:#414141}
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic] .daw-amplitude-scale{position:relative;inset:auto;width:auto;margin-top:50px;min-height:0;display:flex;flex-direction:column;background:#454545;border-right:1px solid #282828;color:#b3b3b3}
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic] .daw-amplitude-scale>span{height:50%;position:relative;padding:0;line-height:normal;border-bottom:1px solid #666}
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic] .daw-amplitude-scale b{position:absolute;top:50%;left:9px;font-size:9px;line-height:12px;transform:translateY(-50%);font-weight:400;color:#d3d3d3}
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic] .daw-amplitude-scale i{position:absolute;right:6px;font-size:10px;line-height:12px;font-style:normal;transform:translateY(-50%)}
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic] #daw-editor-scroll{background:#33516f;overflow-x:hidden}
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic] #daw-editor-content{background:repeating-linear-gradient(90deg,transparent 0,transparent calc(var(--bar-grid,6.25%) - 1px),#ffffff15 calc(var(--bar-grid,6.25%) - 1px),#ffffff15 var(--bar-grid,6.25%))}
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic] #daw-editor-ruler{height:27px;margin:0;background-color:#505050}
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic] #daw-editor-ruler span{top:3px}
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic] #daw-editor-region{height:23px;background:#c2def6;color:#244159;font-size:12px;padding:2px 8px;line-height:19px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;border-bottom:1px solid #23425e}
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic] #daw-waveform,html[data-presentation=mac] #mac-studio-workspace[data-design=logic] #daw-midi-guide{width:100%;margin:0;height:calc(100% - 50px)}
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic] #daw-editor-playhead{top:0}
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic] #daw-wave-selection{top:50px;border-color:#def0ff;background:#c4e3ff26}
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic] #daw-wave-selection>i{border-color:#d9eeff;background:#6686a0}
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic] .daw-editor-scrollbar{background:#404040;border-color:#282828;gap:6px}
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic] #daw-scroll{background:#303030;border-color:#333;height:7px}
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic] #daw-scroll::-webkit-slider-thumb{background:#8c8c8c;border-color:#4a4a4a;border-radius:4px;height:9px}
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic] .daw-editor-footer{background:#3c3c3c;color:#c6c6c6;border-color:#2b2b2b;font-size:10px;padding-inline:12px}
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic] #daw-message{display:block;max-width:34%;font-size:10px;color:#c6c6c6}
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic] #daw-message[data-state=error]{color:#ffc1b7}
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic] #daw-message[data-state=loading]{color:#d0e8ff}
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic] .daw-track[aria-busy=true] .daw-track-label{color:#d2e8ff}
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic] #daw-inspector-extra{top:120px;background:#484848;border-color:#777;color:#eee;box-shadow:0 8px 25px #0005}
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic] #daw-empty{inset:40px 0 0 var(--track-width)}
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic] #daw-empty h2{color:#e5e5e5;font-size:17px}
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic] #daw-empty p{color:#b8b8b8;font-size:12px}
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic] #daw-empty button{background:#686868;border-color:#777}
+@media(max-width:1399px){
+  html[data-presentation=mac] #mac-studio-workspace[data-design=logic] #daw-transport{grid-template-columns:112px 222px minmax(300px,1fr) 65px 125px;gap:12px;padding-inline:12px}
+  html[data-presentation=mac] #mac-studio-workspace[data-design=logic] .daw-history{display:none}
+  html[data-presentation=mac] #mac-studio-workspace[data-design=logic] #daw-transport .daw-transport-buttons button{width:37px}
+  html[data-presentation=mac] #mac-studio-workspace[data-design=logic] .daw-display strong{font-size:16px}
+  html[data-presentation=mac] #mac-studio-workspace[data-design=logic] .daw-display>div:first-child strong{word-spacing:1px}
+  html[data-presentation=mac] #mac-studio-workspace[data-design=logic]{--track-width:280px;--inspector-width:200px}
+  html[data-presentation=mac] #mac-studio-workspace[data-design=logic] .daw-row-pan{display:block}
+  html[data-presentation=mac] #mac-studio-workspace[data-design=logic] .daw-editor-toolbar{gap:12px}
+  html[data-presentation=mac] #mac-studio-workspace[data-design=logic] .daw-edit-tools{display:none}
+}
+@media(max-width:1099px){
+  html[data-presentation=mac] #mac-studio-workspace[data-design=logic] #daw-transport{grid-template-columns:80px 198px minmax(270px,1fr) 65px 105px;gap:8px;padding-inline:10px}
+  html[data-presentation=mac] #mac-studio-workspace[data-design=logic] #daw-transport .daw-transport-buttons button{width:33px}
+  html[data-presentation=mac] #mac-studio-workspace[data-design=logic] .daw-master-meters{display:flex;min-width:75px}
+  html[data-presentation=mac] #mac-studio-workspace[data-design=logic] #daw-transport .daw-click-controls button{width:28px}
+  html[data-presentation=mac] #mac-studio-workspace[data-design=logic] .daw-display strong{font-size:14px}
+  html[data-presentation=mac] #mac-studio-workspace[data-design=logic]{--track-width:240px;--inspector-width:190px}
+  html[data-presentation=mac] #mac-studio-workspace[data-design=logic] .daw-track{grid-template-columns:minmax(0,1fr) 92px;gap:3px}
+  html[data-presentation=mac] #mac-studio-workspace[data-design=logic] .daw-track-select{grid-template-columns:12px 24px minmax(0,1fr);gap:5px;font-size:11px}
+  html[data-presentation=mac] #mac-studio-workspace[data-design=logic] .daw-row-pan{display:none}
+  html[data-presentation=mac] #mac-studio-workspace[data-design=logic] .daw-row-controls{gap:2px}
+  html[data-presentation=mac] #mac-studio-workspace[data-design=logic] .daw-snap-label{display:none}
+  html[data-presentation=mac] #mac-studio-workspace[data-design=logic] .daw-editor-toolbar>strong{max-width:40%}
+}
+@media(max-width:799px){
+  html[data-presentation=mac] #mac-studio-workspace[data-design=logic]{--track-width:180px;--lane-height:40px}
+  html[data-presentation=mac] #mac-studio-workspace[data-design=logic] #daw-transport{grid-template-columns:72px 126px minmax(160px,1fr);gap:8px;padding:4px 8px 8px}
+  html[data-presentation=mac] #mac-studio-workspace[data-design=logic] #daw-transport .daw-transport-buttons button{width:42px;height:32px}
+  html[data-presentation=mac] #mac-studio-workspace[data-design=logic] #daw-start,html[data-presentation=mac] #mac-studio-workspace[data-design=logic] #daw-rewind,html[data-presentation=mac] #mac-studio-workspace[data-design=logic] #daw-record,html[data-presentation=mac] #mac-studio-workspace[data-design=logic] .daw-click-controls,html[data-presentation=mac] #mac-studio-workspace[data-design=logic] .daw-master{display:none!important}
+  html[data-presentation=mac] #mac-studio-workspace[data-design=logic] .daw-display{height:40px;grid-template-columns:minmax(80px,1fr) 45px 48px}
+  html[data-presentation=mac] #mac-studio-workspace[data-design=logic] .daw-display strong{font-size:13px}
+  html[data-presentation=mac] #mac-studio-workspace[data-design=logic] .daw-track{height:40px;min-height:40px;grid-template-columns:minmax(0,1fr) 40px;padding-right:4px}
+  html[data-presentation=mac] #mac-studio-workspace[data-design=logic] .daw-track-select{grid-template-columns:10px 20px minmax(0,1fr);gap:4px;font-size:10px}
+  html[data-presentation=mac] #mac-studio-workspace[data-design=logic] .daw-track-select .daw-instrument-icon{width:20px;height:20px}
+  html[data-presentation=mac] #mac-studio-workspace[data-design=logic] .daw-row-controls .daw-arm,html[data-presentation=mac] #mac-studio-workspace[data-design=logic] .daw-track-meter{display:none}
+  html[data-presentation=mac] #mac-studio-workspace[data-design=logic] .daw-lane{height:40px}
+  html[data-presentation=mac] #mac-studio-workspace[data-design=logic] #daw-regions{background-size:auto,100% 80px}
+  html[data-presentation=mac] #mac-studio-workspace[data-design=logic] .daw-arrangement-grid{grid-template-rows:32px auto}
+  html[data-presentation=mac] #mac-studio-workspace[data-design=logic] #daw-ruler{height:32px}
+  html[data-presentation=mac] #mac-studio-workspace[data-design=logic] #daw-editor{grid-template-rows:37px minmax(0,1fr) 15px 44px}
+  html[data-presentation=mac] #mac-studio-workspace[data-design=logic] .daw-editor-toolbar{padding-inline:8px;gap:10px}
+  html[data-presentation=mac] #mac-studio-workspace[data-design=logic] .daw-editor-toolbar>strong{max-width:35%;font-size:11px}
+  html[data-presentation=mac] #mac-studio-workspace[data-design=logic] .daw-editor-tabs button{font-size:10px;padding-inline:12px}
+  html[data-presentation=mac] #mac-studio-workspace[data-design=logic] .daw-zoom-control{font-size:10px}
+  html[data-presentation=mac] #mac-studio-workspace[data-design=logic] .daw-zoom-control input{width:56px}
+  html[data-presentation=mac] #mac-studio-workspace[data-design=logic] .daw-editor-surface{grid-template-columns:43px minmax(0,1fr)}
+  html[data-presentation=mac] #mac-studio-workspace[data-design=logic] .daw-amplitude-scale b{left:5px;font-size:8px}
+  html[data-presentation=mac] #mac-studio-workspace[data-design=logic] .daw-amplitude-scale i{right:4px;font-size:8px}
+  html[data-presentation=mac] #mac-studio-workspace[data-design=logic] .daw-editor-footer{display:grid;grid-template-columns:auto 1fr;gap:1px 8px;padding:4px 8px;font-size:8px;line-height:1.3}
+  html[data-presentation=mac] #mac-studio-workspace[data-design=logic] #daw-message{grid-row:2;grid-column:1/-1;max-width:none;font-size:9px}
+  html[data-presentation=mac] #mac-studio-workspace[data-design=logic] #daw-selection-readout{text-align:right;overflow:hidden;text-overflow:ellipsis}
+  html[data-presentation=mac] #mac-studio-workspace[data-design=logic] #daw-empty{left:0}
+}
+@media(prefers-reduced-motion:reduce){html[data-presentation=mac] #mac-studio-workspace[data-design=logic] *{scroll-behavior:auto;transition:none;animation:none}}
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic] .daw-display>button{background:none;border:0;border-right:1px solid #ffffff0c;border-radius:0;box-shadow:none}
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic] #daw-track-list{background:repeating-linear-gradient(#3e3e3e 0,#3e3e3e 46px,#454545 46px,#454545 92px)}
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic] .daw-arrangement-scroll::-webkit-scrollbar-thumb{background:#888;border-color:#404040}
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic] .daw-arrangement-scroll::-webkit-scrollbar-track{background:#333}
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic] .daw-recordings-heading{padding:12px 12px 5px;margin:0;border-top:1px solid #555;color:#bcbcbc;font-size:11px}
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic] #daw-recordings{padding:4px 7px 12px}
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic] .daw-recording{background:none;border:0;height:28px;padding:4px 12px;font-size:12px}
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic] .daw-recording.selected{background:#626262}
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic] .daw-master{min-width:0;max-width:180px;width:100%;justify-self:center}
+@media(max-height:760px){
+  html[data-presentation=mac] #mac-studio-workspace[data-design=logic] .daw-channel-strip{padding-top:8px;padding-bottom:8px}
+  html[data-presentation=mac] #mac-studio-workspace[data-design=logic] .daw-channel-main{height:128px}
+  html[data-presentation=mac] #mac-studio-workspace[data-design=logic] .daw-channel-fader input{top:65px;height:60px}
+  html[data-presentation=mac] #mac-studio-workspace[data-design=logic] .daw-channel-buttons{margin-top:6px}
+}

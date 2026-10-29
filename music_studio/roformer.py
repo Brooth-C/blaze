@@ -23,6 +23,12 @@ CHECKPOINT_SHA = '3e9daecd70aaed5b5a0d1f861cc4d77eaa45afb3fc6301b1cf32c1be0f5868
 
 
 class RoformerSeparator(Separator):
+    outputs = STEMS
+    segment_samples = SEGMENT
+    other_index = 2
+    processing_message = 'Separating vocals, drums, bass and other…'
+    completed_message = 'The main stems are ready.'
+
     def __init__(self, model_directory=None, ffmpeg='ffmpeg'):
         super().__init__(model_directory, ffmpeg)
         self.directory = self.directory / 'roformer'
@@ -114,6 +120,7 @@ class RoformerSeparator(Separator):
         return np.stack([istft_bands_last(value, 2, FFT, HOP, SEGMENT) for value in masked]).astype(np.float32)
 
     def separate(self, source, output_dir, progress=None, cancel_event=None):
+        segment, outputs = self.segment_samples, self.outputs
         event = cancel_event or threading.Event()
         progress = progress or (lambda fraction, message: None)
         check_cancel(event)
@@ -124,7 +131,7 @@ class RoformerSeparator(Separator):
         output.mkdir(parents=True, exist_ok=True)
         if any(output.iterdir()):
             raise ValueError('Stem separation requires a new empty output folder.')
-        paths = {name: output / (name + '.wav') for name in STEMS}
+        paths = {name: output / (name + '.wav') for name in outputs}
         streams = []
         try:
             progress(0, 'Opening the high-quality stem model…')
@@ -132,39 +139,39 @@ class RoformerSeparator(Separator):
             with tempfile.TemporaryDirectory(prefix='blaze-roformer-') as temporary:
                 decoded = Path(temporary) / 'audio.f32'
                 count = self._decode(source, decoded, event)
-                if shutil.disk_usage(output).free < count * 8 * 4 + DISK_RESERVE:
+                if shutil.disk_usage(output).free < count * 8 * len(outputs) + DISK_RESERVE:
                     raise ValueError('There is not enough free space to save the separated tracks.')
                 pcm = np.memmap(decoded, mode='r', dtype='<f4', shape=(count, 2))
                 try:
                     for path in paths.values():
                         stream = path.open('wb'); streams.append(stream); _write_header(stream, count)
-                    stride = SEGMENT // 2
+                    stride = segment // 2
                     border = stride if count > 2 * stride else 0
                     total = count + 2 * border
-                    fade = SEGMENT // 10
-                    weight = np.ones(SEGMENT, dtype=np.float32)
+                    fade = segment // 10
+                    weight = np.ones(segment, dtype=np.float32)
                     weight[:fade] = np.linspace(0, 1, fade)
                     weight[-fade:] = np.linspace(1, 0, fade)
-                    accumulated = np.zeros((4, 2, SEGMENT), dtype=np.float32)
-                    denominator = np.zeros(SEGMENT, dtype=np.float32)
+                    accumulated = np.zeros((len(outputs), 2, segment), dtype=np.float32)
+                    denominator = np.zeros(segment, dtype=np.float32)
                     written_frames = 0
                     for offset in range(0, total, stride):
                         check_cancel(event)
-                        length = min(SEGMENT, total - offset)
+                        length = min(segment, total - offset)
                         indices = np.arange(offset, offset + length) - border
                         indices = np.where(indices < 0, -indices, indices)
                         indices = np.where(indices >= count, 2 * count - 2 - indices, indices)
                         audio = np.asarray(pcm[indices].T, dtype=np.float32)
                         if not np.isfinite(audio).all():
                             raise ValueError('The recording contains invalid audio samples.')
-                        if length < SEGMENT:
-                            audio = np.pad(audio, ((0, 0), (0, SEGMENT - length)),
+                        if length < segment:
+                            audio = np.pad(audio, ((0, 0), (0, segment - length)),
                                            mode='reflect' if length > stride else 'constant')
                         self.block_progress = lambda fraction: progress(
                             .03 + .95 * min(1, (offset + min(stride, total - offset) * fraction) / total),
-                            'Separating vocals, drums, bass and other…')
+                            self.processing_message)
                         estimates = self._chunk(audio, event)
-                        if estimates.shape != (4, 2, SEGMENT) or not np.isfinite(estimates).all():
+                        if estimates.shape != (len(outputs), 2, segment) or not np.isfinite(estimates).all():
                             raise ValueError('The model returned invalid audio samples.')
                         current_weight = weight.copy()
                         if offset == 0:
@@ -180,7 +187,7 @@ class RoformerSeparator(Separator):
                             block = block[:, :, left:right]
                             original = np.asarray(pcm[offset + left - border:offset + right - border].T)
                             # Keep original gain/bandwidth and unity-gain reconstruction.
-                            block[2] += original - block.sum(axis=0)
+                            block[self.other_index] += original - block.sum(axis=0)
                             for stream, samples in zip(streams, block):
                                 stream.write(np.asarray(samples.T, dtype='<f4').tobytes())
                             written_frames += right - left
@@ -189,7 +196,7 @@ class RoformerSeparator(Separator):
                         denominator[:-stride] = denominator[stride:]
                         denominator[-stride:] = 0
                         progress(.03 + .95 * min(1, (offset + written) / total),
-                                 'Separating vocals, drums, bass and other…')
+                                 self.processing_message)
                     if written_frames != count:
                         raise ValueError('The separated recording has an incomplete duration.')
                 finally:
@@ -197,7 +204,7 @@ class RoformerSeparator(Separator):
             check_cancel(event)
             for stream in streams: stream.close()
             streams.clear()
-            progress(1, 'The main stems are ready.')
+            progress(1, self.completed_message)
             return paths
         except Exception:
             for stream in streams: stream.close()

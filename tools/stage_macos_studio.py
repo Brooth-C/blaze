@@ -173,6 +173,42 @@ def stage_roformer(cache, target):
     return manifest
 
 
+def stage_instruments(cache, target):
+    from music_studio.instrument_assets import MODELS, CHECKPOINT_SHA, WEIGHT_LICENSE, SOURCE_REVISION, SELECTED, ORIGINAL_HEADS
+    if len(MODELS) != 19:
+        raise ValueError('The instrument model pins are incomplete.')
+    target.mkdir(parents=True, exist_ok=True)
+    for meta in MODELS.values():
+        destination = cache / meta['file']
+        if not destination.is_file() or destination.stat().st_size != meta['bytes'] or digest(destination) != meta['sha256']:
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            temporary = destination.with_suffix('.part')
+            try:
+                with urllib.request.urlopen(meta['url'], timeout=120) as source, temporary.open('wb') as output:
+                    count = 0
+                    while block := source.read(1048576):
+                        count += len(block)
+                        if count > meta['bytes']:
+                            raise ValueError('Instrument asset exceeds its pinned size.')
+                        output.write(block)
+                if count != meta['bytes'] or digest(temporary) != meta['sha256']:
+                    raise ValueError('Instrument asset checksum mismatch.')
+                temporary.replace(destination)
+            finally:
+                temporary.unlink(missing_ok=True)
+        shutil.copy2(destination, target / meta['file'])
+    for name in ('LICENSE-MSST.txt', 'LICENSE-Architecture.txt', 'LICENSE-Port.txt'):
+        shutil.copy2(ROOT / 'tools/roformer' / name, target / name)
+    shutil.copy2(ROOT / 'tools/instruments/NOTICE.txt', target / 'NOTICE.txt')
+    manifest = {'models': MODELS, 'license': 'MIT', 'checkpoint_sha256': CHECKPOINT_SHA,
+                'weight_license_evidence': WEIGHT_LICENSE, 'source_revision': SOURCE_REVISION,
+                'selected': list(SELECTED), 'original_heads': list(ORIGINAL_HEADS),
+                'sample_rate': 44100, 'segment_samples': 882000,
+                'outputs': ['guitar', 'strings', 'brass', 'synths', 'other'], 'precision': 'FP32'}
+    (target / 'manifest.json').write_text(json.dumps(manifest, indent=2) + '\n')
+    return manifest
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--work', type=Path, required=True)
@@ -182,6 +218,7 @@ def main():
     stage_stems(work / 'stem-models', ROOT / 'music_studio/stem_models')
     stage_piano(work / 'stem-models/piano', ROOT / 'music_studio/stem_models/piano')
     stage_roformer(work / 'stem-models/roformer', ROOT / 'music_studio/stem_models/roformer')
+    stage_instruments(work / 'stem-models/instruments', ROOT / 'music_studio/stem_models/instruments')
     models_zip = fetch(MODEL_URL, work / 'models.zip', MODEL_SHA)
     model_root = ROOT / 'music_studio/models'
     model_root.mkdir(parents=True, exist_ok=True)
