@@ -34,7 +34,8 @@ with tempfile.TemporaryDirectory(prefix='blaze-studio-workspace-') as directory:
             out.setparams((2,3,rate,0,'NONE','not compressed'))
             packed=(np.clip(samples,-1,1)*8388607).astype('<i4').view('u1').reshape(-1,4)[:,:3]
             out.writeframes(packed.tobytes())
-    source=data/'Midnight Session.wav'
+    # An imported mix can have the same name as one of its generated stems.
+    source=data/'Piano.wav'
     render(source,9)
     studio=Studio(data/'state',shutil.which('ffmpeg') or 'ffmpeg',source)
     studio.presentation='mac';studio.discovery=SmokeCatalogue()
@@ -101,7 +102,7 @@ async function fit(page,ids){
         await page.goto(base);
         assert.equal(await page.title(),'Blaze');
         assert.equal(new URL(page.url()).origin,base);
-        await page.waitForFunction(()=>window.BlazeMacStudio&&sourceName==='Midnight Session.wav');
+        await page.waitForFunction(()=>window.BlazeMacStudio&&sourceName==='Piano.wav');
         const token=await page.locator('meta[name=blaze-token]').getAttribute('content');
         await page.evaluate(()=>{window.testMedia=document.getElementById('media');window.BlazeMac.installNativeChrome({sidebar:true,search:true});window.BlazeMac.navigate('explore');});
         assert.equal(await page.locator('#explore-panel').isVisible(),true);
@@ -110,12 +111,22 @@ async function fit(page,ids){
         await page.waitForFunction(()=>window.BlazeMacStudio.snapshot().active);
         assert(await page.locator('#media').evaluate(el=>el===window.testMedia),'Studio navigation replaced the shared media element');
         await page.waitForFunction(()=>['vocals','drums','bass','piano','guitar','strings','brass','synths','other'].every(id=>window.BlazeMacStudio.snapshot().tracks.some(track=>track.id===id)));
+        await page.waitForFunction(()=>window.BlazeMacStudio.snapshot().waveformReady);
+        assert.equal(await page.evaluate(()=>window.BlazeMacStudio.snapshot().selectedTrack),'source','A filename collision relabeled the original mix as a saved stem');
+        assert.equal(await page.locator('#daw-save').isVisible(),false,'The original mix advertised a different saved stem');
+        await page.waitForFunction(()=>document.getElementById('media').readyState>=1);
+        const mixRevision=await page.evaluate(()=>sourceRevision);
+        const mixResponse=await page.request.get(await page.locator('#media').evaluate(element=>element.currentSrc));
+        assert(mixResponse.ok());const mixBytes=await mixResponse.body();
         await page.locator('[data-track-id="piano"]').first().click();
-        await page.waitForFunction(()=>window.BlazeMacStudio.snapshot().selectedTrack==='piano'&&window.BlazeMacStudio.snapshot().waveformReady&&sourceName==='Piano.wav');
+        await page.waitForFunction(revision=>window.BlazeMacStudio.snapshot().selectedTrack==='piano'&&window.BlazeMacStudio.snapshot().waveformReady&&sourceName==='Piano.wav'&&sourceRevision>revision,mixRevision);
         await page.waitForFunction(()=>document.getElementById('media').readyState>=1);
         await page.waitForFunction(()=>{const state=window.BlazeMacStudio.snapshot();return state.tracks.length>=9&&state.waveformsReady>=state.tracks.length;});
         assert(injectedBusy,'Transient waveform loading response was not exercised');
         assert.equal(selections.at(-1).stem,'piano');
+        const pianoResponse=await page.request.get(await page.locator('#media').evaluate(element=>element.currentSrc));
+        assert(pianoResponse.ok());const pianoBytes=await pianoResponse.body();
+        assert(!pianoBytes.equals(mixBytes),'Selecting Piano.wav kept playing the original mix with the same filename');
         assert(await page.locator('#media').evaluate(el=>el===window.testMedia),'Stem selection replaced the shared media element');
         const pixels=await page.locator('#daw-waveform').evaluate(canvas=>{
             const values=canvas.getContext('2d').getImageData(0,0,canvas.width,canvas.height).data;
@@ -235,6 +246,7 @@ async function fit(page,ids){
         const downloaded=fs.readFileSync(await file.path());
         const real=await page.request.get(base+'/api/stem-file?token='+encodeURIComponent(token)+'&jobId='+encodeURIComponent(selections.at(-1).jobId)+'&stem=piano');
         assert(real.ok());assert.deepEqual(downloaded,await real.body(),'Studio export changed saved audio bytes');
+        assert.deepEqual(downloaded,pianoBytes,'Saved stem bytes differ from the actual selected playback source');
         await page.locator('#daw-extra-close').click();
 
         // A source/stem context change may never multiply player elements.

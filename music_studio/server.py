@@ -273,9 +273,11 @@ def create_server(studio, port=0):
                             studio.waveforms = Waveforms(studio.ffmpeg)
                         waveforms = studio.waveforms
                     value = waveforms.get(source, valid)
-                    _, _, owned_job = selection(studio, revision, job_id, stem)
+                    with studio.lock:
+                        _, _, owned_job = selection(studio, revision, job_id, stem)
+                        selected_stem = studio.stems.selected_stem() if owned_job else ''
                     self.json(dict(value, sourceRevision=int(revision), jobId=job_id, stem=stem,
-                                   stemJobId=owned_job))
+                                   stemJobId=owned_job, selectedStem=selected_stem))
                 except StaleWaveform as error:
                     self.json({'error': str(error)}, 409)
                 except WaveformBusy as error:

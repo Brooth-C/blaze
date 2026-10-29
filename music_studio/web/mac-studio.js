@@ -558,7 +558,9 @@
             if(!sessionJob)sessionTitle=title(sourceName);
             text('daw-window-title',sessionTitle+' — Blaze');
             const rows=sessionJob&&stems?.status==='done'&&stems.jobId===sessionJob&&Array.isArray(stems.stems)?stems.stems.filter(r=>labels[r.id]):[];
-            const selectedStem=rows.find(row=>row.filename===sourceName);
+            // Display names can collide (an original mix may be Piano.wav).
+            // The server identifies the selected saved file from its source path.
+            const selectedStem=rows.find(row=>row.id===data.selectedStem);
             selected=selectedStem?.id||'source';
             tracks=rows.map(row=>({id:row.id,label:labels[row.id],jobId:sessionJob,waveform:cache.get(sessionJob+':'+row.id)||null}));
             if(selected==='source')tracks.unshift({id:'source',label:title(sourceName),waveform:data});

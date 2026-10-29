@@ -31,6 +31,18 @@ class StemJobs:
                         (self.models / 'manifest.json').is_file()),
                         stems=[dict(row) for row in self.value['stems']])
 
+    def selected_stem(self):
+        """Identify the current saved output by its path, never its display name."""
+        with self.studio.lock:
+            if self.value['status'] != 'done' or self.studio.source is None:
+                return ''
+            try:
+                selected = self.studio.source.resolve()
+                return next((stem for stem, path in self.files.items()
+                             if Path(path).resolve() == selected), '')
+            except (OSError, RuntimeError):
+                return ''
+
     def start(self, mode="stems"):
         with self.studio.lock:
             if self.closed or self.studio.state['busy'] or (self.worker and self.worker.is_alive()):

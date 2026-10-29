@@ -64,7 +64,7 @@ def selection(studio, revision, job_id='', stem=''):
         snapshot = manager.snapshot() if manager else {}
         owns_job = (snapshot.get('status') == 'done' and
                     (snapshot.get('sourceRevision') == studio.source_revision or
-                     selected in manager.files.values()))
+                     bool(manager.selected_stem())))
         owned_job = snapshot.get('jobId', '') if owns_job else ''
         if job_id or stem:
             if not job_id or not stem or job_id != owned_job:

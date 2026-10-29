@@ -168,11 +168,13 @@ class WaveformHTTPTests(unittest.TestCase):
         status, source = self.get('sourceRevision=0')
         self.assertEqual(status, 200)
         self.assertEqual(source['stemJobId'], 'completed-local-job')
+        self.assertEqual(source['selectedStem'], '')
         query = urlencode(dict(sourceRevision=0, jobId='completed-local-job', stem='synths'))
         status, stem = self.get(query)
         self.assertEqual(status, 200)
         self.assertEqual(stem['sourceRevision'], 0)
         self.assertEqual(stem['stem'], 'synths')
+        self.assertEqual(stem['selectedStem'], '', 'Previewing a sibling must not select it.')
         self.assertNotEqual(source['peaks'], stem['peaks'])
         self.assertNotIn(str(self.root), json.dumps(stem))
 
@@ -218,8 +220,12 @@ class WaveformHTTPTests(unittest.TestCase):
         status, selected = self.get('sourceRevision=1')
         self.assertEqual(status, 200)
         self.assertEqual(selected['stemJobId'], 'completed-local-job')
+        self.assertEqual(selected['selectedStem'], 'piano')
         sibling = urlencode(dict(sourceRevision=1, jobId='completed-local-job', stem='synths'))
-        self.assertEqual(self.get(sibling)[0], 200)
+        status, preview = self.get(sibling)
+        self.assertEqual(status, 200)
+        self.assertEqual(preview['stem'], 'synths')
+        self.assertEqual(preview['selectedStem'], 'piano')
         unrelated = self.root / 'new-recording.wav'
         recording(unrelated, .4)
         self.studio.open_local_file(unrelated)
@@ -227,6 +233,64 @@ class WaveformHTTPTests(unittest.TestCase):
         orphan = urlencode(dict(sourceRevision=2, jobId='completed-local-job', stem='synths'))
         self.assertEqual(self.get(orphan)[0], 400)
         self.assertEqual(self.get('sourceRevision=2')[1]['stemJobId'], '')
+        self.assertEqual(self.get('sourceRevision=2')[1]['selectedStem'], '')
+
+    def test_recording_named_like_a_stem_is_not_the_saved_output(self):
+        for name, stem in (('Piano.wav', 'piano'), ('Vocals.wav', 'vocals')):
+            with self.subTest(name=name):
+                original = self.root / name
+                recording(original, .35)
+                self.studio.open_local_file(original)
+                # A completed separation belongs to this original source.
+                self.jobs.value['sourceRevision'] = self.studio.source_revision
+                status, mix = self.get('sourceRevision=' + str(self.studio.source_revision))
+                self.assertEqual(status, 200)
+                self.assertEqual(mix['stemJobId'], 'completed-local-job')
+                self.assertEqual(mix['selectedStem'], '')
+                self.assertNotIn(str(self.root), json.dumps(mix))
+                self.jobs.select('completed-local-job', stem)
+                self.assertEqual(self.studio.name, name, 'The display names intentionally collide.')
+                status, output = self.get('sourceRevision=' + str(self.studio.source_revision))
+                self.assertEqual(status, 200)
+                self.assertEqual(output['selectedStem'], stem)
+                self.assertNotEqual(output['peaks'], mix['peaks'])
+                self.assertNotIn(str(self.root), json.dumps(output))
+
+    def test_selected_identity_uses_canonical_path_and_current_completed_outputs(self):
+        self.jobs.select('completed-local-job', 'piano')
+        normalization = self.jobs.root / 'normalization'
+        normalization.mkdir()
+        self.jobs.files['piano'] = normalization / '..' / 'piano.wav'
+        self.studio.open_local_file(self.jobs.root / 'piano.wav')
+        status, canonical = self.get('sourceRevision=' + str(self.studio.source_revision))
+        self.assertEqual(status, 200)
+        self.assertEqual(canonical['stemJobId'], 'completed-local-job')
+        self.assertEqual(canonical['selectedStem'], 'piano')
+
+        self.jobs.value['status'] = 'running'
+        status, pending = self.get('sourceRevision=' + str(self.studio.source_revision))
+        self.assertEqual(status, 200)
+        self.assertEqual(pending['stemJobId'], '')
+        self.assertEqual(pending['selectedStem'], '')
+
+        # Separating the selected output again creates a new job. The old piano
+        # file is this job's recording, not its new piano output of the same name.
+        fresh = self.jobs.root / 'fresh'
+        fresh.mkdir()
+        recording(fresh / 'piano.wav', .7)
+        self.jobs.files = {'piano': fresh / 'piano.wav'}
+        self.jobs.value.update(status='done', jobId='fresh-job',
+                               sourceRevision=self.studio.source_revision,
+                               stems=[{'id': 'piano'}])
+        status, original = self.get('sourceRevision=' + str(self.studio.source_revision))
+        self.assertEqual(status, 200)
+        self.assertEqual(original['stemJobId'], 'fresh-job')
+        self.assertEqual(original['selectedStem'], '')
+        self.jobs.select('fresh-job', 'piano')
+        status, output = self.get('sourceRevision=' + str(self.studio.source_revision))
+        self.assertEqual(status, 200)
+        self.assertEqual(output['selectedStem'], 'piano')
+        self.assertNotEqual(output['peaks'], original['peaks'])
 
     def test_rejects_missing_stale_duplicate_and_forged_track_references(self):
         for query in ('', 'sourceRevision=1', 'sourceRevision=-1', 'sourceRevision=not-a-number'):
