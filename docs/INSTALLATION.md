@@ -4,7 +4,7 @@
 
 ## Windows app
 
-[Download Blaze for Windows](https://github.com/Brooth-C/blaze/releases/latest/download/Blaze-Windows.zip). Extract the entire ZIP, then open `Blaze.exe`. Music Studio is included inside Blaze. Windows 10/11 x64 and Microsoft Edge WebView2 Runtime are required. The executable is unsigned; release checksums are on the download page.
+[Download Blaze for Windows](https://github.com/Brooth-C/blaze/releases/download/v4.5.0/Blaze-Windows.zip). Extract the entire ZIP, then open `Blaze.exe`. Music Studio is included inside Blaze. Windows 10/11 x64 and Microsoft Edge WebView2 Runtime are required. The executable is unsigned; release checksums are on the download page.
 
 ## Legacy Windows terminal setup - no Python needed beforehand
 
@@ -33,9 +33,9 @@ New installed files stay inside `%USERPROFILE%\Blaze`:
 Existing installations elsewhere are left untouched. Optional mpv and FFprobe
 are not bundled. aria2c is installed automatically; use `--no-aria2c` to opt out.
 
-## Mac app - Apple Silicon and Intel
+## Mac app
 
-Download one ZIP for your processor: [Apple Silicon](https://github.com/Brooth-C/blaze/releases/latest/download/Blaze-Mac-arm64.zip) or [Intel](https://github.com/Brooth-C/blaze/releases/latest/download/Blaze-Mac-x86_64.zip). Requires macOS 13 or newer. Extract it completely and move **Blaze.app** to Applications. No Python or model setup is needed. See the [macOS guide](MACOS.md) for first launch, offline Studio and preview signing details.
+Download [Blaze 0.15.0 for Apple Silicon](https://github.com/Brooth-C/blaze/releases/download/macos-v0.15.0/Blaze-Mac-arm64.zip), validated on macOS 26. The final [0.9.0 Intel preview](https://github.com/Brooth-C/blaze/releases/download/v4.5.0/Blaze-Mac-x86_64.zip) remains available for macOS 13 or newer; new builds target Apple Silicon only. Extract the ZIP completely and move **Blaze.app** to Applications. No Python or model setup is needed. See the [macOS guide](MACOS.md) for first launch, offline Studio and signing details.
 
 ## Legacy Mac terminal setup
 
@@ -58,11 +58,11 @@ Setup verifies that Rich imports and aria2c runs before reporting success.
 
 ## Linux desktop preview - Ubuntu 22.04 x86_64
 
-Download the [desktop tar.gz](https://github.com/Brooth-C/blaze/releases/latest/download/Blaze-Linux-x86_64.tar.gz), extract it and run `bash Blaze/Install-Blaze.sh`. Setup needs system Python, GTK/WebKit and FFmpeg and internet for pinned Python dependencies. The [Linux desktop guide](LINUX-DESKTOP.md) lists prerequisites and installation paths.
+Download the [desktop tar.gz](https://github.com/Brooth-C/blaze/releases/download/v4.5.0/Blaze-Linux-x86_64.tar.gz), extract it and run `bash Blaze/Install-Blaze.sh`. Setup needs system Python, GTK/WebKit and FFmpeg and internet for pinned Python dependencies. The [Linux desktop guide](LINUX-DESKTOP.md) lists prerequisites and installation paths.
 
 ## Linux terminal setup - x86_64 and ARM64
 
-**[Download the Linux installer ZIP](https://github.com/Brooth-C/blaze/releases/latest/download/Blaze-Linux-Installer.zip)**
+**[Download the Linux installer ZIP](https://github.com/Brooth-C/blaze/releases/download/v4.5.0/Blaze-Linux-Installer.zip)**
 
 1. Extract the entire ZIP and open a terminal in the extracted folder.
 2. Run `bash Install-Blaze.sh` with internet access.
@@ -76,7 +76,7 @@ installer to upgrade while preserving settings and downloads.
 
 ## Android app (APK preview)
 
-Install the [Android 0.8.0 preview APK](https://github.com/Brooth-C/blaze/releases/download/android-v0.8.0-preview/Blaze-Android-Preview.apk) on an Android 7+ ARM64 phone, then open **Blaze**. Python is included and Termux is not required. Use **Save a copy…** to export completed downloads before uninstalling the app.
+Install the [Android 0.11.0 APK](https://github.com/Brooth-C/blaze/releases/download/v4.5.0/Blaze-Android-Preview.apk) on an Android 7+ ARM64 phone, then open **Blaze**. Python is included and Termux is not required. Use **Save a copy…** to export completed downloads before uninstalling the app.
 
 The APK is a debug-signed preview with a persistent queue/history, video quality
 choices, original audio/MP3/M4A/WAV/FLAC, separate-stream merging and playlists.
