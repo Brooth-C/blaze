@@ -19,13 +19,13 @@ Windows · macOS · Linux · Android
 | Platform | Download |
 | --- | --- |
 | Windows 10/11 · x64, 0.9.0 | [Blaze Windows app](https://github.com/Brooth-C/blaze/releases/download/v4.5.0/Blaze-Windows.zip) |
-| macOS · Apple Silicon, 0.15.0 (tested on macOS 26) | [Blaze Mac app](https://github.com/Brooth-C/blaze/releases/download/macos-v0.15.0/Blaze-Mac-arm64.zip) |
+| macOS · Apple Silicon, 0.16.0 (tested on macOS 26) | [Blaze Mac app](https://github.com/Brooth-C/blaze/releases/download/macos-v0.16.0/Blaze-Mac-arm64.zip) |
 | macOS 13+ · Intel, final 0.9.0 preview | [Blaze Mac app](https://github.com/Brooth-C/blaze/releases/download/v4.5.0/Blaze-Mac-x86_64.zip) |
 | Linux desktop · Ubuntu 22.04 x86_64, 0.9.0 preview | [Blaze Linux desktop](https://github.com/Brooth-C/blaze/releases/download/v4.5.0/Blaze-Linux-x86_64.tar.gz) |
 | Linux terminal · x86_64 / ARM64, glibc | [Linux ZIP](https://github.com/Brooth-C/blaze/releases/download/v4.5.0/Blaze-Linux-Installer.zip) |
 | Android 7+ · ARM64, 0.11.0 | [Android APK](https://github.com/Brooth-C/blaze/releases/download/v4.5.0/Blaze-Android-Preview.apk) |
 
-The Latest release is Blaze for macOS 0.15.0 for Apple Silicon. Existing Windows,
+The Latest release is Blaze for macOS 0.16.0 for Apple Silicon. Existing Windows,
 Linux, Intel Mac and Android downloads remain available in [Blaze 4.5.0](https://github.com/Brooth-C/blaze/releases/tag/v4.5.0).
 
 Download one file for your platform using the links above. For Windows, extract

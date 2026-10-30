@@ -524,8 +524,6 @@ def create_server(studio, port=0):
                 elif path == '/api/cancel':
                     if studio.analyzer:
                         studio.analyzer.cancel()
-                    if studio.stems:
-                        studio.stems.cancel()
                 elif path == '/api/edit':
                     if studio.state['result'] is None:
                         raise ValueError('Analyse a recording first.')

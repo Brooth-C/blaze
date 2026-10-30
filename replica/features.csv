@@ -1,0 +1,12 @@
+feature,area,priority,original,clone,notes
+Discoverable transport,Studio,must,yes,yes,Existing player retained
+Track lanes and stereo editor,Studio,must,yes,yes,Actual authorised local waveforms
+Visible core actions,Workflow,must,yes,yes,Independent of optional panels
+Background task progress,Workflow,must,yes,yes,Independent worker and nonmodal details
+Chord analysis alongside stems,Workflow,must,yes,yes,Concurrent worker regression
+YouTube discovery,Search,must,no,partial,Live provider proof required on Mac runner
+Complete WAV export,Studio,must,yes,yes,Original saved stem bytes
+Keyboard and compact layout,Studio,must,yes,yes,Rendered regression coverage
+Simultaneous multitrack mixing,Studio,could,yes,skip,Existing single audition engine
+Recording and MIDI sequencing,Studio,could,yes,skip,Outside the existing engine
+Third-party instrument plug-ins,Studio,could,yes,skip,Not implemented or advertised

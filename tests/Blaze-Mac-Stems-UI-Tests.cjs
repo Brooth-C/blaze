@@ -64,7 +64,7 @@ async function layout(page){
         let polls=0,starts=0,folderOpened=false,token='',wav;
         await page.route('**/api/state',async route=>{
             const response=await route.fetch();const value=await response.json();
-            if(job.status==='running'){value.busy=true;value.progress='Separating stems…';}
+            // Separation has its own job state; chord analysis owns value.busy.
             await route.fulfill({response,json:value});
         });
         await page.route('**/api/stems',async route=>{
@@ -99,7 +99,14 @@ async function layout(page){
         await page.locator('#split-stems').waitFor({state:'visible'});
         await page.locator('#split-stems').click();
         await page.locator('#stems-start').click();
+        await page.waitForFunction(()=>!document.getElementById('stems-dialog').open);
+        assert.equal(await page.evaluate(()=>busy),false,'Background stems blocked chord analysis');
+        assert(await page.evaluate(()=>window.BlazeMac.navigate('explore')),'Could not browse during separation');
+        await page.locator('#stems-task').click();
         await page.locator('#stems-cancel').waitFor({state:'visible'});
+        assert.equal(await page.locator('#stems-dialog').evaluate(el=>el.matches(':modal')),false,'Running task details locked the workspace');
+        assert(await page.evaluate(()=>window.BlazeMac.navigate('studio')),'Task details blocked Studio navigation');
+        assert(await page.locator('#media').evaluate(el=>el===window.testMedia));
         await layout(page);await shot(page,'running');
         await page.locator('#stems-close').click();
         assert.equal(job.status,'running','Closing the sheet cancelled the job');
@@ -108,6 +115,8 @@ async function layout(page){
         await page.waitForFunction(()=>window.BlazeMacStems.snapshot().status==='cancelled');
         assert.deepEqual(actions,['start','cancel']);
         await page.locator('#stems-start').click();
+        await page.waitForFunction(()=>window.BlazeMacStems.snapshot().status==='done');
+        await page.locator('#split-stems').click();
         await page.locator('.stem-result').first().waitFor();
         assert.equal(await page.locator('.stem-result').count(),9);
         await page.locator('#stems-folder').click();assert(folderOpened);
@@ -147,6 +156,7 @@ async function layout(page){
         await page.locator('#split-stems').click();
         await page.locator('#stems-piano').click();
         await page.waitForFunction(()=>window.BlazeMacStems.snapshot().mode==='piano'&&window.BlazeMacStems.snapshot().status==='done');
+        await page.locator('#split-stems').click();
         await page.getByRole('button',{name:'Open Piano in Studio',exact:true}).waitFor();
         assert.equal(await page.locator('.stem-result').count(),2);
         await layout(page);await shot(page,'piano');
@@ -160,10 +170,31 @@ async function layout(page){
         await page.locator('#split-stems').click();
         await page.locator('#stems-five').click();
         await page.waitForFunction(()=>window.BlazeMacStems.snapshot().mode==='five'&&window.BlazeMacStems.snapshot().status==='done');
+        await page.locator('#split-stems').click();
         // Completion refreshes the source before rendering the result rows.
         await page.getByRole('button',{name:'Open Vocals in Studio',exact:true}).waitFor();
         assert.equal(await page.locator('.stem-result').count(),5);
         await layout(page);
+        // A worker failure must remain discoverable after its setup closes,
+        // both in Explore and in Studio, without interrupting either view.
+        await page.locator('#stems-close').click();
+        polls=-1000;job={...job,status:'running',stems:[]};
+        await page.evaluate(()=>window.BlazeMacStems.refresh());
+        await page.evaluate(()=>window.BlazeMac.navigate('explore'));
+        job={...job,status:'failed',error:'Free more storage before splitting this recording.',message:'Stem separation could not finish.'};
+        await page.evaluate(()=>window.BlazeMacStems.refresh());
+        assert.equal(await page.locator('#stems-dialog').evaluate(el=>el.open),false);
+        assert(await page.locator('#stems-task').isVisible(),'Background failure disappeared outside Studio');
+        assert.match(await page.locator('#stems-task').innerText(),/Separation failed/);
+        await page.locator('#stems-task').click();
+        assert.equal(await page.locator('#stems-error').innerText(),job.error);
+        await page.locator('#stems-close').click();
+        await page.evaluate(()=>window.BlazeMac.navigate('studio'));
+        assert.match(await page.locator('#split-stems').innerText(),/Separation failed/);
+        await page.locator('#split-stems').click();
+        await page.locator('#stems-five').click();
+        await page.waitForFunction(()=>window.BlazeMacStems.snapshot().status==='done');
+        assert.equal(await page.locator('#split-stems').innerText(),'Split Stems','Retry retained a stale failure label');
         assert.deepEqual(errors,[]);
         console.log('Mac stems UI PASS: start/progress, close and reopen without cancellation, explicit cancel/retry, nine instrument outputs, five-stem alternative, scrolling all tracks with persistent actions, token-bound WAV export, folder action, same-player Studio handoff and real WAV playback, compact sheet geometry. Controlled separation worker; no model quality or native AppKit claim.');
     }catch(error){if(stderr.trim())console.error(stderr);if(page)await shot(page,'failure').catch(()=>{});throw error;}

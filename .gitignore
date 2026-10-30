@@ -61,3 +61,6 @@ tools/macos_decoder/prefix/
 tools/macos_decoder/output/
 tools/macos_decoder/logs/
 tools/macos_decoder/build.*/
+
+.desloppify/
+.taste-skill/

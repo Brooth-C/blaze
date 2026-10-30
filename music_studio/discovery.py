@@ -383,7 +383,7 @@ class Discovery:
             query = query.strip()
             if scope == 'songs':
                 target = 'https://music.youtube.com/search?' + urlencode({'q': query}) + '#songs'
-            elif scope == 'videos':
+            elif scope in ('videos', 'all'):
                 target = f'ytsearch{limit}:{query}'
             else:
                 parameters = {'search_query': query}

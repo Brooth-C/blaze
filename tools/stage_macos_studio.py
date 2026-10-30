@@ -241,12 +241,12 @@ def main():
             with archive.extractfile(member) as source, target.open('wb') as output:
                 shutil.copyfileobj(source, output)
     for name in ('LICENSE', 'THIRD_PARTY_LICENSES.txt'):
-        fetch(f'https://raw.githubusercontent.com/yt-dlp/yt-dlp/2026.08.19/{name}', notices / ('yt-dlp-' + name))
+        fetch(f'https://raw.githubusercontent.com/yt-dlp/yt-dlp/2026.10.26/{name}', notices / ('yt-dlp-' + name))
     fetch('https://raw.githubusercontent.com/python/cpython/v3.12.10/LICENSE', notices / 'Python-LICENSE.txt')
     (notices / 'SOURCE-LINKS.txt').write_text(
-        'Node 22.20.0 is the unchanged official binary; yt-dlp is built from plain PyPI 2026.8.19 with EJS 0.8.0.\n'
+        'Node 22.20.0 is the unchanged official binary; yt-dlp is built from plain PyPI 2026.10.26 with EJS 0.8.0.\n'
         'Node source: https://nodejs.org/dist/v22.20.0/node-v22.20.0.tar.gz\n'
-        'yt-dlp source: https://github.com/yt-dlp/yt-dlp/releases/download/2026.08.19/yt-dlp.tar.gz\n'
+        'yt-dlp source: https://github.com/yt-dlp/yt-dlp/releases/download/2026.10.26/yt-dlp.tar.gz\n'
         'Bundled third-party sources and notices: yt-dlp-THIRD_PARTY_LICENSES.txt.\n'
         'Optional GPL libraries are excluded from the separate downloader. Each tool remains independently replaceable.\n', encoding='utf-8')
     for path in tools.iterdir():

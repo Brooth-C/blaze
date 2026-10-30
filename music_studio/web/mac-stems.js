@@ -13,9 +13,13 @@
     dialog.innerHTML = '<div class="stems-heading"><h3 id="stems-heading">Split stems</h3><button id="stems-close" aria-label="Close stem separation">×</button></div>' +
         '<p id="stems-source"></p><p class="stems-description">Nine stems separates guitar, strings, brass and synths too. Five stems keeps them in Other. Processing stays on this Mac; nine stems takes longer.</p>' +
         '<div id="stems-progress-panel" hidden><progress id="stems-progress" max="1" value="0" aria-label="Stem separation progress"></progress></div>' +
-        '<p id="stems-message" role="status"></p><p id="stems-error" role="alert" hidden></p><div id="stems-results"></div>' +
-        '<div class="stems-footer"><button id="stems-folder" hidden>Open folder</button><button id="stems-cancel" hidden>Cancel separation</button><button id="stems-piano">Isolate piano</button><button id="stems-five">Five stems</button><button id="stems-start" class="primary">Nine stems</button></div>';
+        '<p id="stems-message" role="status"></p><p id="stems-error" role="alert" hidden></p><p id="stems-results-heading" hidden></p><div id="stems-results"></div>' +
+        '<div class="stems-footer"><button id="stems-folder" hidden>Open folder</button><button id="stems-background" hidden>Run in Background</button><button id="stems-cancel" hidden>Cancel separation</button><button id="stems-piano">Isolate piano</button><button id="stems-five">Five stems</button><button id="stems-start" class="primary">Nine stems</button></div>';
     document.body.append(dialog);
+    const taskButton = document.createElement('button');
+    taskButton.id = 'stems-task'; taskButton.hidden = true;
+    taskButton.setAttribute('aria-label', 'Show background stem separation');
+    document.body.append(taskButton);
     let state = {available: false, status: 'idle', stems: []};
     let requestInFlight = false, submitting = false, stopped = false, mutationEpoch = 0;
     let lastResults = '', timer, actionError = '';
@@ -30,23 +34,33 @@
     };
     const render = () => {
         const running = state.status === 'running';
+        const failed = state.status === 'failed';
+        dialog.querySelector('.stems-description').hidden = running || state.status === 'done';
         button.hidden = state.available !== true;
-        button.textContent = running ? 'Splitting…' : 'Split stems';
-        button.disabled = submitting || (!running && (!sourceName || busy));
-        byId('stems-start').disabled = submitting || busy || !sourceName;
+        button.textContent = running ? 'Stems · ' + Math.round((Number(state.progress) || 0) * 100) + '%' : failed ? 'Separation failed' : 'Split Stems';
+        button.disabled = submitting || (!running && !failed && !sourceName);
+        button.title = failed ? String(state.error || 'Open separation details to try again.') : '';
+        taskButton.hidden = !running && !failed && state.status !== 'done';
+        taskButton.textContent = running ? 'Separating stems · ' + Math.round((Number(state.progress) || 0) * 100) + '%' : failed ? 'Separation failed · View details' : 'Stems ready';
+        taskButton.title = button.title;
+        byId('stems-background').hidden = !running;
+        byId('stems-start').disabled = submitting || !sourceName;
         byId('stems-start').hidden = running;
         byId('stems-five').hidden = running;
-        byId('stems-five').disabled = submitting || busy || !sourceName;
+        byId('stems-five').disabled = submitting || !sourceName;
         byId('stems-piano').hidden = running;
-        byId('stems-piano').disabled = submitting || busy || !sourceName;
+        byId('stems-piano').disabled = submitting || !sourceName;
         byId('stems-cancel').hidden = !running;
         byId('stems-cancel').disabled = submitting;
         byId('stems-progress-panel').hidden = !running;
         byId('stems-progress').value = Math.max(0, Math.min(1, Number(state.progress) || 0));
-        byId('stems-source').textContent = state.sourceName || sourceName || 'Choose a recording in Studio.';
+        byId('stems-source').textContent = running ? 'Processing ' + (state.sourceName || 'your recording') : 'Selected recording: ' + (sourceName || 'Choose a recording in Studio.');
+        byId('stems-source').title = byId('stems-source').textContent;
+        byId('stems-results-heading').hidden = state.status !== 'done';
+        byId('stems-results-heading').textContent = 'Saved stems: ' + (state.sourceName || 'Recording');
         byId('stems-message').textContent = state.message || (state.status === 'done' ? 'Your stems are ready.' : 'Ready to separate this recording.');
         byId('stems-folder').hidden = state.status !== 'done';
-        byId('stems-folder').disabled = submitting || busy;
+        byId('stems-folder').disabled = submitting;
         paintError();
         const rows = state.status === 'done' && Array.isArray(state.stems) ? state.stems.filter(row => labels[row.id]) : [];
         const identity = JSON.stringify([state.jobId, rows]);
@@ -95,22 +109,28 @@
         } finally { requestInFlight = false; }
     };
     const start = async (mode = 'nine') => {
-        if (submitting || busy || !sourceName) return;
+        if (submitting || !sourceName) return;
         submitting = true; ++mutationEpoch; error(''); render();
         try {
             window.BlazeDesktop.cancelPreparation();
             state = await api('/api/stems-start', {mode}); render();
+            dialog.close();
             await refresh();
         } catch (failure) { error(failure.message || 'Stem separation could not start.'); }
         finally { submitting = false; render(); await refreshState(); }
     };
     const open = async () => {
-        if (!dialog.open) dialog.showModal();
+        if (!dialog.open) {
+            dialog.dataset.background = String(state.status === 'running');
+            if (state.status === 'running') dialog.show(); else dialog.showModal();
+        }
         error('');
         await refreshState();
 
     };
     button.onclick = open;
+    taskButton.onclick = open;
+    byId('stems-background').onclick = () => dialog.close();
     byId('stems-start').onclick = () => start();
     byId('stems-five').onclick = () => start('five');
     byId('stems-piano').onclick = () => start('piano');

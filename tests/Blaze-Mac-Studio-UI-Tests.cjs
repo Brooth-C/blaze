@@ -110,6 +110,8 @@ async function fit(page,ids){
         await page.locator('#mac-studio-workspace').waitFor({state:'visible'});
         await page.waitForFunction(()=>window.BlazeMacStudio.snapshot().active);
         assert(await page.locator('#media').evaluate(el=>el===window.testMedia),'Studio navigation replaced the shared media element');
+        await fit(page,['daw-workflow','daw-back','split-stems','analyze','daw-chords']);
+        assert.equal(await page.locator('#daw-key').textContent(),'—','An unanalysed recording advertised a detected key');
         await page.waitForFunction(()=>['vocals','drums','bass','piano','guitar','strings','brass','synths','other'].every(id=>window.BlazeMacStudio.snapshot().tracks.some(track=>track.id===id)));
         await page.waitForFunction(()=>window.BlazeMacStudio.snapshot().waveformReady);
         assert.equal(await page.evaluate(()=>window.BlazeMacStudio.snapshot().selectedTrack),'source','A filename collision relabeled the original mix as a saved stem');
@@ -379,7 +381,7 @@ async function fit(page,ids){
                 const art=document.querySelector('.daw-instrument-art strong'),toolbar=document.querySelector('.daw-editor-toolbar');
                 return art.scrollHeight<=art.clientHeight+1&&toolbar.scrollWidth<=toolbar.clientWidth+1;
             }),'A long recording name overflowed Studio controls');
-            await fit(page,['daw-play','daw-stop','daw-editor','daw-waveform']);
+            await fit(page,['daw-play','daw-stop','daw-editor','daw-waveform','daw-back','split-stems','analyze','daw-chords']);
             if(width===1024)await fit(page,['daw-channel-mute','daw-channel-solo','daw-master-volume']);
             await shot(page,'long-name-'+width);
         }
