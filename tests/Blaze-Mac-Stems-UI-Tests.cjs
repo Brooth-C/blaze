@@ -175,6 +175,26 @@ async function layout(page){
         await page.getByRole('button',{name:'Open Vocals in Studio',exact:true}).waitFor();
         assert.equal(await page.locator('.stem-result').count(),5);
         await layout(page);
+        // A worker failure must remain discoverable after its setup closes,
+        // both in Explore and in Studio, without interrupting either view.
+        await page.locator('#stems-close').click();
+        polls=-1000;job={...job,status:'running',stems:[]};
+        await page.evaluate(()=>window.BlazeMacStems.refresh());
+        await page.evaluate(()=>window.BlazeMac.navigate('explore'));
+        job={...job,status:'failed',error:'Free more storage before splitting this recording.',message:'Stem separation could not finish.'};
+        await page.evaluate(()=>window.BlazeMacStems.refresh());
+        assert.equal(await page.locator('#stems-dialog').evaluate(el=>el.open),false);
+        assert(await page.locator('#stems-task').isVisible(),'Background failure disappeared outside Studio');
+        assert.match(await page.locator('#stems-task').innerText(),/Separation failed/);
+        await page.locator('#stems-task').click();
+        assert.equal(await page.locator('#stems-error').innerText(),job.error);
+        await page.locator('#stems-close').click();
+        await page.evaluate(()=>window.BlazeMac.navigate('studio'));
+        assert.match(await page.locator('#split-stems').innerText(),/Separation failed/);
+        await page.locator('#split-stems').click();
+        await page.locator('#stems-five').click();
+        await page.waitForFunction(()=>window.BlazeMacStems.snapshot().status==='done');
+        assert.equal(await page.locator('#split-stems').innerText(),'Split Stems','Retry retained a stale failure label');
         assert.deepEqual(errors,[]);
         console.log('Mac stems UI PASS: start/progress, close and reopen without cancellation, explicit cancel/retry, nine instrument outputs, five-stem alternative, scrolling all tracks with persistent actions, token-bound WAV export, folder action, same-player Studio handoff and real WAV playback, compact sheet geometry. Controlled separation worker; no model quality or native AppKit claim.');
     }catch(error){if(stderr.trim())console.error(stderr);if(page)await shot(page,'failure').catch(()=>{});throw error;}

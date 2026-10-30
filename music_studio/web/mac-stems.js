@@ -34,12 +34,15 @@
     };
     const render = () => {
         const running = state.status === 'running';
+        const failed = state.status === 'failed';
         dialog.querySelector('.stems-description').hidden = running || state.status === 'done';
         button.hidden = state.available !== true;
-        button.textContent = running ? 'Stems · ' + Math.round((Number(state.progress) || 0) * 100) + '%' : 'Split Stems';
-        button.disabled = submitting || (!running && !sourceName);
-        taskButton.hidden = !running && state.status !== 'done';
-        taskButton.textContent = running ? 'Separating stems · ' + Math.round((Number(state.progress) || 0) * 100) + '%' : 'Stems ready';
+        button.textContent = running ? 'Stems · ' + Math.round((Number(state.progress) || 0) * 100) + '%' : failed ? 'Separation failed' : 'Split Stems';
+        button.disabled = submitting || (!running && !failed && !sourceName);
+        button.title = failed ? String(state.error || 'Open separation details to try again.') : '';
+        taskButton.hidden = !running && !failed && state.status !== 'done';
+        taskButton.textContent = running ? 'Separating stems · ' + Math.round((Number(state.progress) || 0) * 100) + '%' : failed ? 'Separation failed · View details' : 'Stems ready';
+        taskButton.title = button.title;
         byId('stems-background').hidden = !running;
         byId('stems-start').disabled = submitting || !sourceName;
         byId('stems-start').hidden = running;
