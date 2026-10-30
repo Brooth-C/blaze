@@ -337,7 +337,7 @@
             const selectButton=row.querySelector('.daw-track-select');
             selectButton.setAttribute('aria-label','Select '+track.label+' track');selectButton.title=track.label;
             selectButton.onclick=()=>selectTrack(track);
-            row.onclick=event=>{if(event.target===row)selectTrack(track);};
+            row.onclick=event=>{if(!event.target.closest('button,input,label'))selectTrack(track);};
             row.querySelector('.daw-row-mute').onclick=event=>{event.stopPropagation();setTrackMuted(track.id,!mutedTracks.has(track.id));};
             row.querySelector('.daw-row-solo').onclick=async event=>{event.stopPropagation();if(pendingSelection||busy||importing||isModal())return;const alreadySolo=solo&&selected===track.id;await selectTrack(track);if(selected!==track.id||pendingSelection)return;solo=!alreadySolo;if(solo){ensureAudio();player.play().catch(failure);}renderTracks();paintTransport();};
             const panInput=row.querySelector('input');panInput.onclick=event=>event.stopPropagation();panInput.oninput=event=>setTrackPan(track.id,event.target.value);
@@ -595,6 +595,6 @@
     const timer=setInterval(()=>{if(active()){syncSession();paintTransport();}},750);
     window.addEventListener('blaze-mac-media-changed',()=>{signature='';void syncSession();});
     window.addEventListener('pagehide',()=>{stopped=true;clearInterval(timer);controller?.abort();cancelAnimationFrame(frame);resize.disconnect();},{once:true});
-    window.BlazeMacStudio={snapshot:()=>({active:active(),selectedTrack:selected,tracks:tracks.map(t=>({id:t.id,label:t.label})),zoom,libraryOpen,inspectorOpen,waveformReady,waveformsReady:tracks.filter(t=>t.waveform).length,sourceRevision:sessionRevision,sessionTitle,editorMode,guideReady:!!guide?.chords?.length,projectTempo,projectNumerator,projectDenominator,audio:audioGraph?{pan:audioGraph.pan.pan.value,equalizerGain:audioGraph.eq.gain.value,compressionRatio:audioGraph.compressor.ratio.value}:null})};
+    window.BlazeMacStudio={projectDuration:duration,snapshot:()=>({active:active(),selectedTrack:selected,tracks:tracks.map(t=>({id:t.id,label:t.label})),zoom,libraryOpen,inspectorOpen,waveformReady,waveformsReady:tracks.filter(t=>t.waveform).length,sourceRevision:sessionRevision,sessionTitle,editorMode,guideReady:!!guide?.chords?.length,projectTempo,projectNumerator,projectDenominator,audio:audioGraph?{pan:audioGraph.pan.pan.value,equalizerGain:audioGraph.eq.gain.value,compressionRatio:audioGraph.compressor.ratio.value}:null})};
     setPanels();renderTracks();syncSession();
 })();

@@ -98,11 +98,11 @@ html[data-presentation=mac] #mac-studio-workspace[data-design=logic] .daw-effect
 
 /* Four actual bars (or explicitly unconfirmed timing windows), never fabricated
    MIDI. Every button uses the existing media clock and chord editor. */
-#daw-harmony { min-width:0;background:var(--studio-canvas);border-bottom:1px solid var(--studio-line);padding:0 12px 12px; }
-.harmony-toolbar { display:flex;align-items:center;gap:16px;min-height:40px; }
+#daw-harmony { min-width:0;background:var(--studio-canvas);border-bottom:1px solid var(--studio-line);padding:0 12px 8px; }
+.harmony-toolbar { display:flex;align-items:center;gap:16px;min-height:32px; }
 #daw-harmony h2 { font-size:13px;line-height:1.4;letter-spacing:0;font-weight:600;margin:0; }
 .harmony-context { display:flex;align-items:baseline;gap:16px;margin:0;color:var(--studio-secondary);font-size:11px;white-space:nowrap; }
-.harmony-context strong { font-size:15px;font-weight:600;color:var(--studio-ink);margin-left:6px; }
+.harmony-context strong { font-size:14px;font-weight:600;color:var(--studio-ink);margin-left:6px; }
 .harmony-navigation { display:flex;align-items:center;gap:4px;margin-left:auto; }
 #harmony-range { font-size:11px;min-width:32px;text-align:center;font-variant-numeric:tabular-nums;color:var(--studio-secondary); }
 html[data-presentation=mac] #mac-studio-workspace[data-design=logic] #daw-harmony :is(button,select) { background:var(--studio-control);border:1px solid var(--studio-control-edge);color:var(--studio-ink);border-radius:var(--studio-radius);box-shadow:none;min-height:26px;font-size:11px; }
@@ -111,13 +111,13 @@ html[data-presentation=mac] #mac-studio-workspace[data-design=logic] #daw-harmon
 html[data-presentation=mac] #mac-studio-workspace[data-design=logic] #daw-harmony button:disabled { opacity:.5; }
 #harmony-bars { display:grid;grid-template-columns:repeat(var(--harmony-count,4),minmax(110px,1fr));gap:1px;min-width:0;overflow-x:auto;overflow-y:hidden;scrollbar-width:thin;background:var(--studio-line); }
 .harmony-bar { min-width:0;background:var(--studio-canvas); }
-html[data-presentation=mac] #mac-studio-workspace[data-design=logic] #daw-harmony .harmony-bar-ruler { display:block;width:100%;height:24px;min-height:24px;text-align:left;padding:3px 8px;border:0;border-radius:0;background:var(--studio-panel);color:var(--studio-secondary);font-size:11px; }
-.harmony-region-lane { height:72px;position:relative;overflow:hidden;background:var(--studio-lane); }
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic] #daw-harmony .harmony-bar-ruler { display:block;width:100%;height:22px;min-height:22px;text-align:left;padding:2px 8px;border:0;border-radius:0;background:var(--studio-panel);color:var(--studio-secondary);font-size:11px; }
+.harmony-region-lane { height:40px;position:relative;overflow:hidden;background:var(--studio-lane); }
 .harmony-beat { position:absolute;top:0;bottom:0;border-left:1px solid var(--studio-grid);pointer-events:none; }
 html[data-presentation=mac] #mac-studio-workspace[data-design=logic] #daw-harmony .harmony-region {
-  position:absolute;top:8px;bottom:8px;min-width:0;min-height:0;padding:4px 8px;
-  border:1px solid var(--studio-region-edge);border-right-width:2px;border-radius:3px;background:var(--studio-region);color:var(--studio-ink);
-  font-size:20px;font-weight:500;line-height:1.15;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:left;
+  position:absolute;top:2px;bottom:2px;min-width:0;min-height:0;padding:4px 8px;
+  border:1px solid var(--studio-region-edge);border-right-width:1px;border-radius:2px;background:var(--studio-region);color:var(--studio-ink);
+  font-size:14px;font-weight:500;line-height:1.15;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:left;
 }
 html[data-presentation=mac] #mac-studio-workspace[data-design=logic] #daw-harmony .harmony-region.current { background:var(--studio-current);border-color:var(--studio-current-edge); }
 .harmony-playhead { position:absolute;inset:0;width:100%;border-left:2px solid var(--studio-on-primary);pointer-events:none; }
@@ -144,7 +144,7 @@ html[data-presentation=mac] #mac-studio-workspace[data-design=logic] #daw-harmon
   #daw-harmony { padding-inline:8px;padding-bottom:8px; }
   .harmony-toolbar { flex-wrap:wrap;gap:4px 12px;padding-block:6px; }
   .harmony-navigation { margin-left:auto; }
-  .harmony-region-lane { height:56px; }
+  .harmony-region-lane { height:40px; }
   .harmony-context strong { font-size:13px; }
   #mac-studio-workspace #daw-workflow #daw-editor-toggle { padding-inline:6px; }
 }
@@ -186,3 +186,43 @@ html[data-presentation=mac] #daw-practice .diagram-card:last-child { border-righ
 html[data-presentation=mac] #daw-practice .diagram-card.current { background:var(--studio-raised);border-bottom:2px solid var(--studio-current-edge); }
 html[data-presentation=mac] #daw-practice .diagram-card small { color:var(--studio-secondary);font-size:10px;letter-spacing:0; }
 html[data-presentation=mac] #daw-practice :is(.hint,#status,.song-top h2) { color:var(--studio-secondary); }
+
+/* Image-to-code: Logic's global chord track sits below the shared project
+   ruler. The separate four-bar practice view is explicitly opt-in. */
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic].daw-focus-hidden .daw-main {
+  grid-template-rows:0 minmax(80px,1fr) minmax(180px,min(var(--studio-editor-size,36%),calc(100% - 224px)));
+}
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic].daw-focus-hidden.daw-editor-hidden .daw-main { grid-template-rows:0 minmax(0,1fr); }
+#daw-harmony[hidden] { display:none; }
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic] .daw-arrangement-grid { grid-template-rows:38px 32px auto; }
+#daw-track-list { grid-column:1;grid-row:3; }
+#daw-regions { grid-column:2;grid-row:3; }
+#daw-project-chord-header { grid-column:1;grid-row:2;position:sticky;top:38px;z-index:4;display:flex;align-items:center;padding:0 12px;background:var(--studio-panel);border-right:1px solid var(--studio-line);border-bottom:1px solid var(--studio-line); }
+html[data-presentation=mac] #mac-studio-workspace #daw-chord-focus { width:100%;height:26px;min-height:26px;display:flex;align-items:center;justify-content:space-between;padding:0 6px;background:transparent;border:0;font-size:12px;text-align:left; }
+html[data-presentation=mac] #mac-studio-workspace #daw-chord-focus:hover { background:var(--studio-control); }
+#daw-chord-focus[aria-expanded=true] span { transform:rotate(180deg); }
+#daw-project-chords { grid-column:2;grid-row:2;position:sticky;top:38px;height:32px;z-index:4;background:#302b3d;border-bottom:1px solid var(--studio-line);overflow:hidden; }
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic] .project-chord { position:absolute;top:0;bottom:0;height:32px;min-height:0;min-width:0;display:block;padding:0;text-indent:4px;border:0;box-shadow:inset -1px 0 #8f81a866;border-radius:0;background:#48365f;color:#f2eef9;font-size:11px;font-weight:500;line-height:30px;text-align:left;white-space:nowrap;overflow:hidden;text-overflow:clip; }
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic] .project-chord:hover { background:#5e467b; }
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic] .project-chord[aria-current=true] { background:#6b5390;box-shadow:inset 0 -2px #d8c5f4; }
+#project-chord-playhead { position:absolute;inset:0;width:100%;border-left:1px solid #fff;pointer-events:none;z-index:2; }
+.project-chord-empty { display:block;padding:7px 8px;font-size:11px;color:#c7bfd5; }
+/* Match the reference's title-above-controls track headers, without adding
+   unavailable recording or input-monitoring controls. */
+@media(min-width:800px) {
+  html[data-presentation=mac] #mac-studio-workspace[data-design=logic] .daw-track { display:block;padding-right:8px; }
+  html[data-presentation=mac] #mac-studio-workspace[data-design=logic] .daw-track-select { width:100%;height:100%;grid-template-columns:14px 28px minmax(0,1fr);gap:8px;align-items:center; }
+  html[data-presentation=mac] #mac-studio-workspace[data-design=logic] .daw-track-label { align-self:start;margin-top:4px;font-size:12px;font-weight:500; }
+  html[data-presentation=mac] #mac-studio-workspace[data-design=logic] .daw-row-controls { position:absolute;left:70px;right:10px;bottom:3px;justify-content:flex-start;gap:4px; }
+  html[data-presentation=mac] #mac-studio-workspace[data-design=logic] .daw-row-controls button { width:24px;min-width:24px;height:24px;min-height:24px; }
+  html[data-presentation=mac] #mac-studio-workspace[data-design=logic] .daw-track-meter { flex:1;min-width:20px;margin-left:4px; }
+  html[data-presentation=mac] #mac-studio-workspace[data-design=logic] .daw-row-pan { margin-left:auto; }
+}
+@media(max-width:799px) {
+  html[data-presentation=mac] #mac-studio-workspace[data-design=logic] .daw-arrangement-grid { grid-template-rows:32px 32px auto; }
+  #daw-project-chord-header,#daw-project-chords { top:32px; }
+}
+/* Keep explicit slots when the optional focus pane leaves the grid. */
+#daw-harmony { grid-row:1; }
+#daw-arrangement { grid-row:2; }
+#daw-editor { grid-row:3; }

@@ -30,6 +30,8 @@ const settle = page => page.evaluate(() => new Promise(resolve => requestAnimati
         await page.waitForFunction(() => window.BlazeMacHarmony && window.BlazeMacStudio);
         await page.evaluate(() => window.BlazeDesktop.selectSection('studio'));
         await page.waitForFunction(() => window.BlazeMacStudio.snapshot().waveformReady);
+        assert(await page.locator('#daw-harmony').isHidden());
+        await page.locator('#daw-chord-focus').click();
         assert(await page.locator('#harmony-empty').isVisible());
         assert.match(await page.locator('#harmony-status').innerText(), /Analyse this recording/);
         await shot(page, 'empty');
@@ -55,6 +57,21 @@ const settle = page => page.evaluate(() => new Promise(resolve => requestAnimati
         });
         assert.equal(proportions.length,2,'Chord changes became separate bars');
         assert(Math.abs(proportions[0]-.25)<.01 && Math.abs(proportions[1]-.75)<.01,'Regions ignore musical duration');
+        const projectGeometry=await page.evaluate(()=>{
+            const lane=document.getElementById('daw-project-chords').getBoundingClientRect();
+            const audio=document.getElementById('daw-regions').getBoundingClientRect();
+            const first=document.querySelector('.project-chord').getBoundingClientRect();
+            return {laneLeft:lane.left,audioLeft:audio.left,laneWidth:lane.width,audioWidth:audio.width,fraction:first.width/lane.width};
+        });
+        assert.equal(projectGeometry.laneLeft,projectGeometry.audioLeft);
+        assert.equal(projectGeometry.laneWidth,projectGeometry.audioWidth);
+        assert(Math.abs(projectGeometry.fraction-.5/64)<.001,'Project chords use the focus scale instead of the audio scale');
+        await page.locator('.project-chord').nth(2).click();
+        await page.waitForFunction(()=>Math.abs(document.getElementById('media').currentTime-2)<.05);
+        await page.locator('#daw-chord-focus').click();
+        assert(await page.locator('#daw-harmony').isHidden());
+        await shot(page,'project-track');
+        await page.locator('#daw-chord-focus').click();
         await shot(page,'subdivisions');
         await page.locator('.harmony-bar').first().getByRole('button',{name:/Seek to Am/}).click();
         await page.waitForFunction(() => Math.abs(document.getElementById('media').currentTime-.5)<.05 && document.getElementById('harmony-now').textContent==='Am');

@@ -119,7 +119,7 @@ async function layout(page){
         await page.locator('#split-stems').click();
         await page.locator('.stem-result').first().waitFor();
         assert.equal(await page.locator('.stem-result').count(),9);
-        await page.locator('#stems-folder').click();assert(folderOpened);
+        await Promise.all([page.waitForResponse(response=>response.url().endsWith('/api/stems-folder')&&response.status()===200),page.locator('#stems-folder').click()]);assert(folderOpened);
         await layout(page);await shot(page,'complete');
         for(const [width,height] of [[570,540],[813,632]]){
             await page.setViewportSize({width,height});await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));

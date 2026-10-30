@@ -307,10 +307,10 @@ def ui_smoke(window, studio, destination, receipt, probe, timeout=600):
             probe.run(window, "window.BlazeMac.navigate('studio')")
             wait_for("window.BlazeMacStudio?.snapshot().active === true && window.BlazeMacStudio.snapshot().waveformReady === true")
             receipt['mac_design']['studio_waveform'] = probe.probe(window, 'window.BlazeMacStudio.snapshot()')
-            wait_for("window.BlazeMacHarmony?.snapshot().available && document.querySelectorAll('.harmony-region').length > 0")
+            wait_for("window.BlazeMacHarmony?.snapshot().available && document.querySelectorAll('.project-chord').length > 0")
             harmony = probe.probe(window, """(() => {
-              const view=window.BlazeMacHarmony.snapshot(), box=document.getElementById('daw-harmony').getBoundingClientRect();
-              return {four_bar_mode:view.count===4, regions:document.querySelectorAll('.harmony-region').length,
+              const view=window.BlazeMacHarmony.snapshot(), box=document.getElementById('daw-project-chords').getBoundingClientRect();
+              return {four_bar_mode:view.count===4, regions:document.querySelectorAll('.project-chord').length,
                 visible:box.width>0&&box.height>0&&box.top>=0&&box.bottom<=innerHeight,
                 transport_valid:!/(null|NaN|Infinity)/.test(document.getElementById('daw-transport').textContent)};
             })()""")
