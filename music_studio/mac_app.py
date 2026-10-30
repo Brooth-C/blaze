@@ -322,6 +322,7 @@ def ui_smoke(window, studio, destination, receipt, probe, timeout=600):
             probe.run(window, "document.getElementById('diagram-strip').scrollIntoView({block:'center'})")
             wait_for("Array.from(document.querySelectorAll('.diagram-card canvas')).every(canvas=>{const r=canvas.getBoundingClientRect();return r.width>0&&r.height>=65&&r.top>=0&&r.bottom<=innerHeight+1;})")
             receipt['mac_design']['chord_drawer'] = {'opened': True, 'keyboards_visible': True,
+                                                   'dark_controls': probe.probe(window, "getComputedStyle(document.getElementById('daw-practice')).colorScheme === 'dark'"),
                                                    'count': receipt['diagram_count']}
             capture_screenshot(target.with_name('native-chords.png'))
             probe.run(window, "document.getElementById('daw-practice-close').click()")

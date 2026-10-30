@@ -163,6 +163,7 @@ html[data-presentation=mac] #mac-studio-workspace[data-design=logic] #daw-harmon
 /* The existing detailed tools retain their controls and voicing renderer.
    Their palette is inherited by each canvas instead of assuming page colors. */
 html[data-presentation=mac] #daw-practice {
+  color-scheme:dark;
   --panel:var(--studio-panel);--subtle:var(--studio-raised);--text:var(--studio-ink);
   --selected:var(--studio-hover);--bg:var(--studio-canvas);
   --muted:var(--studio-secondary);--border:var(--studio-control-edge);

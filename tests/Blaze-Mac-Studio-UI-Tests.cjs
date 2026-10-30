@@ -277,6 +277,8 @@ async function fit(page,ids){
         // Keep existing chord-analysis tools available through the practice drawer.
         await page.locator('#daw-chords').click();
         await page.locator('#daw-practice').waitFor({state:'visible'});
+        await page.evaluate(()=>applyAppearance('light'));
+        assert.equal(await page.locator('#daw-practice').evaluate(element=>getComputedStyle(element).colorScheme),'dark','Graphite chord tools inherited bright native controls');
         assert.equal(await page.locator('#analyze').count(),1);
         assert.equal(await page.locator('#diagram-strip').count(),1);
         await page.locator('#daw-practice-close').click();

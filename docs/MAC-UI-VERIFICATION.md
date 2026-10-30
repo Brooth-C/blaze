@@ -8,7 +8,7 @@ Other platform application releases and old installer checks remain unchanged.
 - Six browser suites pass: Mac Harmony, Studio, Design, Stems, Desktop and Desktop
   Discovery. Real WAV/video decode and loopback routes; controlled recognition,
   recommendations and separation fixtures. No live provider or model-quality claim.
-- Python: Runtime 21 (one platform-specific skip), Presentation 4, Chrome 22,
+- Python: Runtime 22, Presentation 4, Chrome 21 (one platform-specific skip),
   Waveform 12, Stem Jobs 14, immutable publisher 7: pass.
 - Node: Live Flow, Timeline Cells and Automatic Rhythm: pass.
 - Ruff F/E9 on changed Python, JS syntax and git diff whitespace: pass.

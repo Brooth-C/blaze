@@ -117,6 +117,7 @@ def main():
     assert receipt['layout']['studio_workspace'], receipt
     assert receipt['layout']['names_fit'] and receipt['layout']['editor_toolbar_fits'], receipt
     assert receipt['mac_design']['chord_drawer']['opened'] and receipt['mac_design']['chord_drawer']['keyboards_visible'], receipt
+    assert receipt['mac_design']['chord_drawer']['dark_controls'], receipt
     assert receipt['mac_design']['compact_layout']['studio_workspace'] and receipt['mac_design']['compact_layout']['chord_drawer'], receipt
     assert receipt['mac_design']['studio_waveform']['active'] and receipt['mac_design']['studio_waveform']['waveformReady'], receipt
     assert all(receipt['mac_design']['harmony_workspace'][key] for key in ('four_bar_mode', 'regions', 'visible', 'transport_valid')), receipt
