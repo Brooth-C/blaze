@@ -12,6 +12,8 @@ import tempfile
 import threading
 import time
 import unittest
+from unittest.mock import patch
+from types import SimpleNamespace
 from urllib.parse import urlencode
 import wave
 
@@ -40,6 +42,7 @@ class ControlledSeparator:
 
     def separate(self, source, output_dir, progress, cancel_event):
         self.output = output_dir
+        self.source_bytes = source.read_bytes()
         (output_dir / 'partial').write_bytes(b'incomplete work')
         progress(.25, 'Separating the recording…')
         self.started.set()
@@ -184,23 +187,71 @@ class StemJobTests(unittest.TestCase):
         self.assertEqual(status, 200)
         self.assertEqual(media, wav_bytes())
 
-    def test_running_job_blocks_import_analysis_and_second_job_until_cancel_finishes(self):
-        identity = self.start()
-        self.assertTrue(self.studio.state['busy'])
-        for route in ('/api/analyze', '/api/stems-start'):
-            self.assertEqual(self.request(route, {})[0], 400)
-        self.assertEqual(self.request('/api/import', raw=wav_bytes(),
-                                      headers={'X-File-Name': 'other.wav'})[0], 400)
-        other = self.root / 'Other.wav'
-        other.write_bytes(wav_bytes())
-        with self.assertRaises(ValueError):
-            self.studio.open_local_file(other)
+    def test_real_chord_worker_and_separation_can_run_at_the_same_time(self):
+        entered, release = threading.Event(), threading.Event()
+        def cached(_identity):
+            entered.set()
+            if not release.wait(5):
+                raise RuntimeError('Chord worker did not resume.')
+            return {'cached': True}
+        self.studio.store.load = cached
+        bundle = SimpleNamespace(structured=False, metadata={'sha256': 'model'},
+                                 manifest={'frontend': {'sha256': 'frontend'}})
+        analyzer = SimpleNamespace(check=lambda: None, cancel=release.set)
+        with patch('music_studio.server.ModelBundle', return_value=bundle), patch('music_studio.server.Analyzer', return_value=analyzer):
+            try:
+                self.studio.analyze('powerful')
+                self.assertTrue(entered.wait(2))
+                self.assertTrue(self.studio.state['busy'])
+                self.start()
+                self.assertEqual(self.finish()['status'], 'done')
+                self.assertTrue(self.studio.state['busy'], 'Finishing stems cannot finish the chord worker.')
+                self.assertIsNone(self.studio.state['result'])
+            finally:
+                release.set()
+                self.studio.worker.join(3)
+            self.assertFalse(self.studio.worker.is_alive())
+            self.assertTrue(self.studio.state['result']['cached'])
+            self.assertFalse(self.studio.state['busy'])
+
+    def test_cancel_analysis_does_not_cancel_background_separation(self):
+        self.start()
+        cancelled = threading.Event()
+        self.studio.analyzer = SimpleNamespace(cancel=cancelled.set)
         self.assertEqual(self.request('/api/cancel', {})[0], 200)
-        self.assertTrue(self.jobs.cancel_event.is_set())
-        self.assertTrue(self.studio.state['busy'], 'Cancellation must hold the source until the worker exits.')
-        self.assertEqual(self.finish()['status'], 'cancelled')
-        self.assertEqual(self.studio.source, self.source)
+        self.assertTrue(cancelled.is_set())
+        self.assertFalse(self.jobs.cancel_event.is_set())
+        self.assertEqual(self.finish()['status'], 'done')
+
+    def test_worker_start_failure_cleans_up_and_allows_retry(self):
+        with patch('music_studio.stem_jobs.threading.Thread.start', side_effect=RuntimeError('unavailable')):
+            with self.assertRaises(ValueError):
+                self.jobs.start()
+        self.assertIsNone(self.jobs.worker)
+        self.assertEqual(self.jobs.snapshot()['status'], 'failed')
+        self.assertEqual(list(self.jobs.root.iterdir()), [])
         self.assertFalse(self.studio.state['busy'])
+        self.start()
+        self.assertEqual(self.finish()['status'], 'done')
+
+    def test_background_job_allows_import_and_keeps_chord_state_independent(self):
+        identity = self.start()
+        self.assertFalse(self.studio.state['busy'])
+        self.assertEqual(self.request('/api/stems-start', {})[0], 400)
+        self.assertEqual(self.request('/api/import', raw=wav_bytes(),
+                                      headers={'X-File-Name': 'other.wav'})[0], 200)
+        other = self.studio.source
+        # Simulate an independently running chord worker. Stem progress,
+        # cancellation and completion must never clear its busy/status state.
+        self.studio.state.update(busy=True, progress='Analysing chords…')
+        self.assertEqual(self.request('/api/stems-cancel', {})[0], 200)
+        self.assertTrue(self.jobs.cancel_event.is_set())
+        self.assertTrue(self.studio.state['busy'])
+        self.assertEqual(self.finish()['status'], 'cancelled')
+        self.assertEqual(self.studio.source, other)
+        self.assertTrue(self.studio.state['busy'])
+        self.assertEqual(self.studio.state['progress'], 'Analysing chords…')
+        self.studio.state['busy'] = False
         self.assertEqual(list(self.jobs.root.iterdir()), [])
         self.assertEqual(self.request('/api/stem-file?jobId=' + identity + '&stem=vocals')[0], 400)
 
@@ -255,7 +306,7 @@ class StemJobTests(unittest.TestCase):
         self.assertTrue(self.source.exists())
         self.assertEqual(self.request('/api/stems-start', {})[0], 400)
 
-    def test_upload_started_before_separation_cannot_replace_its_source(self):
+    def test_upload_can_finish_while_separation_retains_its_original_recording(self):
         connection = http.client.HTTPConnection('127.0.0.1', self.server.server_port, timeout=3)
         payload = wav_bytes()
         try:
@@ -272,10 +323,11 @@ class StemJobTests(unittest.TestCase):
             self.start()
             connection.send(payload[32:])
             response = connection.getresponse()
-            self.assertEqual(response.status, 400, response.read())
-            self.assertEqual(self.studio.source, self.source)
-            self.assertEqual(self.studio.source_revision, 0)
-            self.assertEqual(list(self.studio.incoming.iterdir()), [])
+            self.assertEqual(response.status, 200, response.read())
+            self.assertNotEqual(self.studio.source, self.source)
+            self.assertEqual(self.studio.source_revision, 1)
+            self.assertEqual(self.separator.source_bytes, wav_bytes())
+            self.assertEqual(len(list(self.studio.incoming.iterdir())), 1)
             self.assertEqual(self.finish()['status'], 'done')
         finally:
             connection.close()

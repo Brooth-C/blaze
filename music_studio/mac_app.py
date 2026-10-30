@@ -427,6 +427,22 @@ def ui_smoke(window, studio, destination, receipt, probe, timeout=600):
             probe.run(window, "document.getElementById('split-stems').click()")
             wait_for("document.getElementById('stems-dialog').open")
             probe.run(window, "document.getElementById('stems-start').click()")
+            wait_for("window.BlazeMacStems.snapshot().status==='running' && !document.getElementById('stems-dialog').open")
+            interactive = probe.probe(window, "!busy && !document.getElementById('analyze').disabled")
+            if not interactive:
+                raise RuntimeError('Background separation locked chord analysis.')
+            probe.run(window, "window.BlazeMac.search('acoustic sessions', true)")
+            wait_for("!document.getElementById('explore-panel').hidden && document.querySelectorAll('#explore-results button').length>0")
+            probe.run(window, "window.BlazeMac.navigate('studio')")
+            wait_for("!document.getElementById('studio-panel').hidden && !document.getElementById('analyze').disabled")
+            separation_active = studio.stems.snapshot()['status'] == 'running'
+            if not separation_active:
+                raise RuntimeError('The native check did not observe background separation before starting analysis.')
+            probe.run(window, "document.getElementById('analyze').click()")
+            wait_for("!!result && !busy")
+            receipt['background_tasks'] = {'navigation': True, 'fixture_search': True,
+                'chord_analysis': True, 'separation_active_at_analysis_start': separation_active,
+                'separation_active_after_analysis': studio.stems.snapshot()['status'] == 'running'}
             wait_for("window.BlazeMacStems.snapshot().status==='done' || window.BlazeMacStems.snapshot().status==='failed'")
             separation = probe.probe(window, 'window.BlazeMacStems.snapshot()')
             if separation['status'] != 'done' or len(separation['stems']) != 9:

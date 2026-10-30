@@ -1,6 +1,6 @@
 """Freeze the plain PyPI downloader and EJS solver without GPL optional extras.
 
-Install yt-dlp==2026.8.19 and yt-dlp-ejs==0.8.0, without the [default]
+Install yt-dlp==2026.10.26 and yt-dlp-ejs==0.8.0, without the [default]
 extra. The EJS version is pinned by that yt-dlp release's pyproject.toml.
 Native arch builds use Python's standard networking implementation, the
 separately supplied Node interpreter and the standalone LGPL media tools.
@@ -18,7 +18,7 @@ import sys
 import tempfile
 
 
-VERSIONS = {"yt-dlp": "2026.8.19", "yt-dlp-ejs": "0.8.0"}
+VERSIONS = {"yt-dlp": "2026.10.26", "yt-dlp-ejs": "0.8.0"}
 EXCLUDES = (
     "mutagen", "curl_cffi", "certifi", "requests", "urllib3", "websockets",
     "brotli", "brotlicffi", "Cryptodome", "Crypto", "secretstorage", "jeepney",
@@ -154,7 +154,7 @@ if __name__ == '__main__':
     (args.notices / "Blaze-downloader-manifest.json").write_text(
         json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
     (args.notices / "Blaze-downloader-build.txt").write_text(
-        "Built from plain yt-dlp 2026.8.19 and yt-dlp-ejs 0.8.0 PyPI packages, without [default] extras.\n"
+        "Built from plain yt-dlp 2026.10.26 and yt-dlp-ejs 0.8.0 PyPI packages, without [default] extras.\n"
         "yt-dlp is Unlicense. EJS wheels also retain MIT Astring and ISC Meriyah notices.\n"
         "The downloader uses Python standard-library networking and separately supplied Node and FFmpeg.\n"
         "HTTPS uses this Mac's public system root certificates; a caller-supplied SSL_CERT_FILE is honored.\n"

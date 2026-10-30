@@ -338,8 +338,6 @@ html[data-presentation=mac] #mac-studio-workspace .daw-channel-buttons button{he
 .daw-session-actions{margin:0;gap:8px;}
 html[data-presentation=mac] #mac-studio-workspace .daw-session-actions button{width:29px;height:26px;min-height:26px;padding:4px;background:linear-gradient(#2a333b,#212a32);}
 #mac-studio-workspace .daw-session-actions svg{height:18px;width:18px;}
-html[data-presentation=mac] #mac-studio-workspace #split-stems{font-size:0!important;}
-#split-stems::after{content:'≋';font-size:19px;line-height:15px;}
 .daw-ruler{height:40px;background:repeating-linear-gradient(90deg,transparent 0,transparent calc(1.5625% - 1px),#8196a23d calc(1.5625% - 1px),#8196a23d 1.5625%),linear-gradient(#232b32,#1d262d);background-size:100% 14px,100% 100%;background-repeat:no-repeat;background-position:bottom,0 0;}
 .daw-ruler span{font-size:12px;top:7px;padding-left:5px;}
 .daw-ruler .daw-cycle-strip{position:absolute;height:13px;top:2px;background:linear-gradient(#e7bd56,#cba343);border:1px solid #f7d477;box-shadow:inset 0 1px #ffffff44;border-radius:2px;left:0;color:#211b10;}
@@ -730,3 +728,39 @@ html[data-presentation=mac] #mac-studio-workspace[data-design=logic] .daw-master
   html[data-presentation=mac] #mac-studio-workspace[data-design=logic] .daw-channel-fader input{top:65px;height:60px}
   html[data-presentation=mac] #mac-studio-workspace[data-design=logic] .daw-channel-buttons{margin-top:6px}
 }
+
+/* The recording workflow is always visible, independent of optional panels. */
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic] {
+ --workflow-height:42px; --workflow-gap:12px; --workflow-ink:#ececec; --workflow-panel:#414141;
+}
+#mac-studio-workspace .daw-body { grid-template-rows:var(--workflow-height) minmax(0,1fr); }
+#mac-studio-workspace .daw-body > aside,#mac-studio-workspace .daw-body > .daw-main { grid-row:2; }
+#daw-workflow { grid-column:1/-1; grid-row:1; display:flex; align-items:center; gap:var(--workflow-gap); min-width:0; padding:5px 12px; background:var(--workflow-panel); color:var(--workflow-ink); border-bottom:1px solid var(--daw-line); }
+#mac-studio-workspace #daw-workflow #daw-back { width:auto; height:30px; min-height:30px; padding:4px 9px; opacity:1; display:inline-flex; align-items:center; gap:5px; flex-shrink:0; }
+#daw-workflow-title { min-width:0; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; font-size:12px; font-weight:500; }
+.daw-workflow-actions { margin-left:auto; display:flex; align-items:center; gap:8px; flex-shrink:0; }
+#mac-studio-workspace #daw-workflow #daw-analysis-actions { margin:0; flex-wrap:nowrap; }
+#mac-studio-workspace #daw-workflow button { min-height:30px; font-size:12px; padding:4px 10px; white-space:nowrap; }
+#mac-studio-workspace #daw-workflow #daw-chords { display:inline-flex; align-items:center; gap:5px; }
+#mac-studio-workspace #daw-workflow svg { width:16px; height:16px; }
+#mac-studio-workspace #daw-record,#mac-studio-workspace #daw-count-in,#mac-studio-workspace #daw-fade-tool,#mac-studio-workspace #daw-automation-tool,#mac-studio-workspace .daw-arm { display:none; }
+@media(max-width:1099px) { #daw-workflow-title { display:none; } }
+@media(max-width:799px) {
+ #mac-studio-workspace #daw-workflow { padding-inline:8px;gap:6px; }
+ #mac-studio-workspace #daw-workflow button { font-size:11px;padding-inline:7px; }
+ .daw-workflow-actions { gap:5px; }
+ #mac-studio-workspace:not(.daw-library-hidden) #daw-library,#mac-studio-workspace:not(.daw-inspector-hidden) #daw-inspector { margin-top:var(--workflow-height); }
+}
+
+@media(max-height:760px) {
+ html[data-presentation=mac] #mac-studio-workspace[data-design=logic] .daw-channel-main { height:88px; }
+ html[data-presentation=mac] #mac-studio-workspace[data-design=logic] .daw-channel-fader { grid-column:2; }
+ html[data-presentation=mac] #mac-studio-workspace[data-design=logic] .daw-channel-fader input { top:4px;left:5px;height:80px; }
+}
+
+#mac-studio-workspace #daw-workflow .daw-save { display:inline-flex;align-items:center;min-height:30px;padding:4px 10px;font-size:12px;color:var(--workflow-ink);border:1px solid var(--daw-line);border-radius:4px;white-space:nowrap; }
+#mac-studio-workspace .daw-playhead { left:0; }
+
+#mac-studio-workspace #daw-analysis-actions:has(> #cancel:not([hidden])) #analyze { display:none; }
+
+#mac-studio-workspace { font-variant-numeric:tabular-nums; }

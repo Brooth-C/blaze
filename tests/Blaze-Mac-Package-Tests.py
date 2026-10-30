@@ -121,6 +121,7 @@ def main():
     assert receipt['mac_design']['studio_waveform']['active'] and receipt['mac_design']['studio_waveform']['waveformReady'], receipt
     assert receipt['stems']['real_model'] and receipt['stems']['native_playback'], receipt
     assert receipt['stems']['count'] == 9, receipt
+    assert all(receipt['background_tasks'][key] for key in ('navigation', 'fixture_search', 'chord_analysis', 'separation_active_at_analysis_start')), receipt
     assert receipt['stems']['instrument_playback'], receipt
     session = receipt['stems']['studio_workspace']
     assert session['active'] and session['waveformReady'] and session['selectedTrack'] == 'vocals', receipt

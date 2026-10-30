@@ -1,5 +1,6 @@
 """One local stem-separation job, owned by the current Studio session."""
 from pathlib import Path
+from contextlib import suppress
 import shutil
 import subprocess
 import sys
@@ -45,7 +46,7 @@ class StemJobs:
 
     def start(self, mode="stems"):
         with self.studio.lock:
-            if self.closed or self.studio.state['busy'] or (self.worker and self.worker.is_alive()):
+            if self.closed or (self.worker and self.worker.is_alive()):
                 raise ValueError('Finish or cancel the current task first.')
             if not isinstance(mode, str) or mode not in OUTPUTS:
                 raise ValueError('Choose stem separation or piano isolation.')
@@ -60,22 +61,51 @@ class StemJobs:
             pending = self.root / ('.' + identity)
             final = self.root / identity
             pending.mkdir()
+            input_path = self.root / ('.' + identity + '.input')
+            try:
+                input_stream = source.open('rb')
+            except OSError:
+                pending.rmdir()
+                raise ValueError('The recording could not be opened.') from None
             self.cancel_event = threading.Event()
             cancel = self.cancel_event
             self.files = {}
             self.value.update(status='running', progress=0, message='Preparing your recording…',
                               error=None, jobId=identity, sourceRevision=self.studio.source_revision,
                               sourceName=self.studio.name, mode=mode, stems=[])
-            self.studio.state.update(busy=True, progress='Preparing stem separation…', error=None)
 
             def progress(fraction, message):
                 with self.studio.lock:
                     if not cancel.is_set():
                         self.value.update(progress=max(0, min(1, float(fraction))), message=str(message))
-                        self.studio.state['progress'] = str(message)
 
             def run():
+                activity = process_info = None
                 try:
+                    if sys.platform == 'darwin':
+                        from Foundation import (NSThread, NSQualityOfServiceUtility, NSProcessInfo,
+                                                NSActivityUserInitiatedAllowingIdleSystemSleep)
+                        NSThread.currentThread().setQualityOfService_(NSQualityOfServiceUtility)
+                        process_info = NSProcessInfo.processInfo()
+                        activity = process_info.beginActivityWithOptions_reason_(
+                            NSActivityUserInitiatedAllowingIdleSystemSleep, 'Separating audio stems')
+                    # Pin the selected recording before returning to the UI. An
+                    # imported source may be unlinked when another file opens.
+                    # Copy on this worker so a large recording never blocks UI.
+                    with input_stream, input_path.open('xb') as copied:
+                        total = 0
+                        while not cancel.is_set():
+                            block = input_stream.read(1024 * 1024)
+                            if not block:
+                                break
+                            total += len(block)
+                            if total > 2 * 1024 ** 3:
+                                raise ValueError('Choose a recording smaller than 2 GB.')
+                            if shutil.disk_usage(self.root).free < 128 * 1024 ** 2:
+                                raise ValueError('Free more storage before splitting this recording.')
+                            copied.write(block)
+                    if cancel.is_set():
+                        return
                     if self.separator_factory:
                         separator = self.separator_factory(self.models, self.studio.ffmpeg)
                     else:
@@ -86,7 +116,7 @@ class StemJobs:
                         implementation = {'piano': PianoSeparator, 'five': QualityFiveStemSeparator,
                                           'nine': NineStemSeparator, 'stems': Separator}[mode]
                         separator = implementation(self.models, self.studio.ffmpeg)
-                    outputs = separator.separate(source, pending, progress=progress, cancel_event=cancel)
+                    outputs = separator.separate(input_path, pending, progress=progress, cancel_event=cancel)
                     if cancel.is_set():
                         return
                     if set(outputs) != set(expected):
@@ -110,14 +140,27 @@ class StemJobs:
                             self.value.update(status='failed', error=str(error) or 'Could not split this recording.',
                                               message='Stem separation could not finish.')
                 finally:
+                    with suppress(OSError):
+                        input_stream.close()
+                    with suppress(OSError):
+                        input_path.unlink(missing_ok=True)
                     shutil.rmtree(pending, ignore_errors=True)
+                    if activity is not None:
+                        process_info.endActivity_(activity)
                     with self.studio.lock:
                         if cancel.is_set() and self.value['status'] != 'done':
                             self.value.update(status='cancelled', message='Separation cancelled.', error=None, stems=[])
-                        self.studio.state.update(busy=False, progress=self.value['message'])
 
-            self.worker = threading.Thread(target=run, name='BlazeStemSeparation', daemon=True)
-            self.worker.start()
+            try:
+                self.worker = threading.Thread(target=run, name='BlazeStemSeparation', daemon=True)
+                self.worker.start()
+            except Exception:
+                input_stream.close()
+                shutil.rmtree(pending, ignore_errors=True)
+                self.worker = None
+                self.value.update(status='failed', error='The background worker could not start.',
+                                  message='Try separating this recording again.')
+                raise ValueError('The background worker could not start. Try again.') from None
             return self.snapshot()
 
     def cancel(self):

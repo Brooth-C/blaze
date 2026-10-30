@@ -53,7 +53,7 @@ class DesktopDiscoveryTests(unittest.TestCase):
         with patch.object(self.service, '_query', return_value=[recording()]) as query:
             result = self.wait(self.service.request({'action': 'search', 'query': 'hello & world', 'filter': 'all', 'limit': 24}))
         self.assertEqual(result['status'], 'ready')
-        self.assertIn('search_query=hello+%26+world', query.call_args.args[1])
+        self.assertEqual(query.call_args.args[1], 'ytsearch24:hello & world')
         self.assertEqual(query.call_args.args[2:], ('all', 24))
         self.assertTrue(result['items'][0]['thumbnail'].startswith('/api/discovery-image?id='))
         self.assertEqual(list(self.service.cache_directory.iterdir()), [])

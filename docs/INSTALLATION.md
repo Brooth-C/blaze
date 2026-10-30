@@ -35,7 +35,7 @@ are not bundled. aria2c is installed automatically; use `--no-aria2c` to opt out
 
 ## Mac app
 
-Download [Blaze 0.15.0 for Apple Silicon](https://github.com/Brooth-C/blaze/releases/download/macos-v0.15.0/Blaze-Mac-arm64.zip), validated on macOS 26. The final [0.9.0 Intel preview](https://github.com/Brooth-C/blaze/releases/download/v4.5.0/Blaze-Mac-x86_64.zip) remains available for macOS 13 or newer; new builds target Apple Silicon only. Extract the ZIP completely and move **Blaze.app** to Applications. No Python or model setup is needed. See the [macOS guide](MACOS.md) for first launch, offline Studio and signing details.
+Download [Blaze 0.16.0 for Apple Silicon](https://github.com/Brooth-C/blaze/releases/download/macos-v0.16.0/Blaze-Mac-arm64.zip), validated on macOS 26. The final [0.9.0 Intel preview](https://github.com/Brooth-C/blaze/releases/download/v4.5.0/Blaze-Mac-x86_64.zip) remains available for macOS 13 or newer; new builds target Apple Silicon only. Extract the ZIP completely and move **Blaze.app** to Applications. No Python or model setup is needed. See the [macOS guide](MACOS.md) for first launch, offline Studio and signing details.
 
 ## Legacy Mac terminal setup
 

@@ -22,7 +22,7 @@
     };
     const bounded = (value, length = 200) => String(value || '').slice(0, length);
     const currentSection = () => window.BlazeDesktop.activeSection();
-    const modalOpen = () => !!document.querySelector('dialog[open]:not(#now-dialog)');
+    const modalOpen = () => !!document.querySelector('dialog[open]:not(#now-dialog):not(#stems-dialog[data-background=true])');
     const hasMedia = () => !!sourceName;
     const duration = () => Number.isFinite(video.duration) ? video.duration : 0;
     const position = () => Number.isFinite(video.currentTime) ? video.currentTime : 0;

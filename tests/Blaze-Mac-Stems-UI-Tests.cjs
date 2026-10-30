@@ -64,7 +64,7 @@ async function layout(page){
         let polls=0,starts=0,folderOpened=false,token='',wav;
         await page.route('**/api/state',async route=>{
             const response=await route.fetch();const value=await response.json();
-            if(job.status==='running'){value.busy=true;value.progress='Separating stems…';}
+            // Separation has its own job state; chord analysis owns value.busy.
             await route.fulfill({response,json:value});
         });
         await page.route('**/api/stems',async route=>{
@@ -99,7 +99,14 @@ async function layout(page){
         await page.locator('#split-stems').waitFor({state:'visible'});
         await page.locator('#split-stems').click();
         await page.locator('#stems-start').click();
+        await page.waitForFunction(()=>!document.getElementById('stems-dialog').open);
+        assert.equal(await page.evaluate(()=>busy),false,'Background stems blocked chord analysis');
+        assert(await page.evaluate(()=>window.BlazeMac.navigate('explore')),'Could not browse during separation');
+        await page.locator('#stems-task').click();
         await page.locator('#stems-cancel').waitFor({state:'visible'});
+        assert.equal(await page.locator('#stems-dialog').evaluate(el=>el.matches(':modal')),false,'Running task details locked the workspace');
+        assert(await page.evaluate(()=>window.BlazeMac.navigate('studio')),'Task details blocked Studio navigation');
+        assert(await page.locator('#media').evaluate(el=>el===window.testMedia));
         await layout(page);await shot(page,'running');
         await page.locator('#stems-close').click();
         assert.equal(job.status,'running','Closing the sheet cancelled the job');
@@ -108,6 +115,8 @@ async function layout(page){
         await page.waitForFunction(()=>window.BlazeMacStems.snapshot().status==='cancelled');
         assert.deepEqual(actions,['start','cancel']);
         await page.locator('#stems-start').click();
+        await page.waitForFunction(()=>window.BlazeMacStems.snapshot().status==='done');
+        await page.locator('#split-stems').click();
         await page.locator('.stem-result').first().waitFor();
         assert.equal(await page.locator('.stem-result').count(),9);
         await page.locator('#stems-folder').click();assert(folderOpened);
@@ -147,6 +156,7 @@ async function layout(page){
         await page.locator('#split-stems').click();
         await page.locator('#stems-piano').click();
         await page.waitForFunction(()=>window.BlazeMacStems.snapshot().mode==='piano'&&window.BlazeMacStems.snapshot().status==='done');
+        await page.locator('#split-stems').click();
         await page.getByRole('button',{name:'Open Piano in Studio',exact:true}).waitFor();
         assert.equal(await page.locator('.stem-result').count(),2);
         await layout(page);await shot(page,'piano');
@@ -160,6 +170,7 @@ async function layout(page){
         await page.locator('#split-stems').click();
         await page.locator('#stems-five').click();
         await page.waitForFunction(()=>window.BlazeMacStems.snapshot().mode==='five'&&window.BlazeMacStems.snapshot().status==='done');
+        await page.locator('#split-stems').click();
         // Completion refreshes the source before rendering the result rows.
         await page.getByRole('button',{name:'Open Vocals in Studio',exact:true}).waitFor();
         assert.equal(await page.locator('.stem-result').count(),5);

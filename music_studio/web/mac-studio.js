@@ -48,7 +48,7 @@
       <div id="daw-transport" role="toolbar" aria-label="Studio transport">
         <div class="daw-panel-tools">${button('daw-library-toggle','library','Show library','aria-pressed="true"')}<span class="daw-button-caption">Library</span>${button('daw-inspector-toggle','inspector','Show inspector','aria-pressed="true"')}<span class="daw-button-caption">Inspector</span><div class="daw-history">${button('daw-undo','undo','Undo Studio setting')}${button('daw-redo','redo','Redo Studio setting')}</div></div>
         <div class="daw-transport-buttons">${button('daw-start','previous','Go to beginning')}${button('daw-rewind','rewind','Back 10 seconds')}${button('daw-stop','stop','Stop')}${button('daw-play','play','Play')}${button('daw-record','record','Recording is not available in this build','disabled')}${button('daw-loop','loop','Repeat recording','aria-pressed="false"')}</div>
-        <div class="daw-display"><div class="daw-musical-position"><strong id="daw-bars">1&nbsp; 1</strong><small>BAR&nbsp;&nbsp; BEAT</small></div><div><strong id="daw-time">00:00.000</strong><small>TIME</small></div><button id="daw-tempo-control" title="Project tempo"><strong id="daw-tempo">120</strong><small>BPM</small></button><button id="daw-meter-control" title="Project time signature"><strong id="daw-meter">4/4</strong><small>SIGNATURE</small></button><button id="daw-key-control" title="Project key"><strong id="daw-key">C major</strong><small>KEY</small></button></div>
+        <div class="daw-display"><div class="daw-musical-position"><strong id="daw-bars">1&nbsp; 1</strong><small>BAR&nbsp;&nbsp; BEAT</small></div><div><strong id="daw-time">00:00.000</strong><small>TIME</small></div><button id="daw-tempo-control" title="Project tempo"><strong id="daw-tempo">120</strong><small>BPM</small></button><button id="daw-meter-control" title="Project time signature"><strong id="daw-meter">4/4</strong><small>SIGNATURE</small></button><button id="daw-key-control" title="Project key"><strong id="daw-key">—</strong><small>KEY</small></button></div>
         <div class="daw-click-controls">${button('daw-metronome','metronome','Metronome','aria-pressed="false"')}<button id="daw-count-in" aria-label="Count in requires recording" disabled>123</button></div>
         <div class="daw-master"><div class="daw-master-meters" aria-label="Output level"><i><span id="daw-master-left"></span></i><i><span id="daw-master-right"></span></i></div><input id="daw-master-volume" type="range" min="0" max="1" step=".01" value="1" aria-label="Master volume">${svg('volume')}</div>
       </div>
@@ -63,7 +63,7 @@
           <div class="daw-channel-strip"><div class="daw-channel-main"><div class="daw-pan"><span id="daw-channel-name">Recording</span><label class="daw-pan-knob"><input id="daw-pan" type="range" min="-1" max="1" step=".01" value="0" aria-label="Track pan"><i id="daw-pan-pointer"></i></label><div><output id="daw-pan-label">0.0</output><span>R0</span></div></div><div class="daw-channel-fader"><input id="daw-volume" aria-label="Studio volume" type="range" min="0" max="1" step=".01" value="1"><i id="daw-fader-cap" hidden></i></div><div class="daw-channel-scale"><span>+6</span><span>0</span><span>−12</span><span>−24</span><span>−36</span><span>−60</span></div><div class="daw-level-pair"><i><span id="daw-level-left"></span></i><i><span id="daw-level-right"></span></i></div></div><div class="daw-channel-buttons"><button id="daw-channel-mute" aria-label="Mute selected track" aria-pressed="false">M</button><button id="daw-channel-solo" aria-label="Solo selected track" aria-pressed="false">S</button><button class="daw-arm" aria-label="Record arm unavailable" disabled>●</button></div></div>
           <div id="daw-inspector-extra" hidden><div><strong>Playback & analysis</strong><button id="daw-extra-close" aria-label="Close playback options">×</button></div><label>Speed <select id="daw-rate" aria-label="Studio playback speed"><option value=".5">0.5×</option><option value=".75">0.75×</option><option value="1" selected>1×</option><option value="1.25">1.25×</option><option value="1.5">1.5×</option></select></label><dl><div><dt>Length</dt><dd id="daw-region-length">—</dd></div><div><dt>Channels</dt><dd id="daw-region-channels">—</dd></div><div><dt>Source</dt><dd id="daw-region-source">Local recording</dd></div><div><dt>Detected key</dt><dd id="daw-analysis-key">—</dd></div><div><dt>Detected tempo</dt><dd id="daw-analysis-tempo">—</dd></div></dl><div id="daw-analysis-actions"></div><a id="daw-save" class="daw-save" hidden>Save WAV</a><span id="daw-audition-state" hidden>Stopped</span></div></aside>
         <div class="daw-main"><section id="daw-arrangement" aria-label="Track arrangement"><div class="daw-arrangement-title" hidden><strong id="daw-session-title">Untitled session</strong><span id="daw-session-caption">Audio tracks</span></div><div class="daw-arrangement-scroll"><div class="daw-arrangement-grid"><div class="daw-track-heading"><div class="daw-session-actions">${button('daw-import','plus','Import recording')}<span id="daw-stems"></span><button id="daw-chords" aria-expanded="false" aria-controls="daw-practice" title="Chord practice">${svg('chords')}</button></div><span id="daw-lane-count" hidden>0</span></div><div id="daw-ruler" class="daw-ruler"></div><div id="daw-track-list"></div><div id="daw-regions"><div id="daw-arrangement-playhead" class="daw-playhead"></div></div></div></div><div id="daw-empty"><div>${svg('wave')}<h2>Your next session starts here.</h2><p>Open a recording to see its waveform. Split it into stems to work with each instrument.</p><button id="daw-empty-import">Import recording</button></div></div></section>
-        <section id="daw-editor" aria-label="Selected track waveform editor"><div class="daw-editor-toolbar"><strong><i id="daw-track-color"></i><span id="daw-editor-title">Recording</span><span class="daw-rendered-label"> · Rendered audio</span></strong><div class="daw-editor-tabs"><button id="daw-audio-tab" aria-pressed="true">Waveform</button><button id="daw-notation" aria-pressed="false" title="Chord-derived MIDI guide">MIDI</button></div><div class="daw-edit-tools">${button('daw-pointer-tool','pointer','Seek tool','aria-pressed="true"')}${button('daw-range-tool','scissors','Range selection tool','aria-pressed="false"')}${button('daw-fade-tool','fade','Fade editing is not available in this build','disabled')}${button('daw-automation-tool','automation','Automation is not available in this build','disabled')}</div><label class="daw-snap-label">Snap: <select id="daw-snap" aria-label="Selection snap"><option value="beat">Beat</option><option value="off">Off</option></select></label><label class="daw-zoom-control">Zoom: <span aria-hidden="true">−</span><input id="daw-zoom" aria-label="Waveform zoom" type="range" min="1" max="8" step=".25" value="1"><span aria-hidden="true">+</span></label></div><div id="daw-editor-scroll"><div id="daw-editor-content"><div id="daw-editor-ruler" class="daw-ruler"></div><div class="daw-amplitude-scale" aria-hidden="true"><span>1.0<br>0.5<br>0<br>−0.5<br>−1.0</span><span>1.0<br>0.5<br>0<br>−0.5<br>−1.0</span></div><canvas id="daw-waveform" role="slider" tabindex="0" aria-label="Selected track waveform. Click to seek; shift-drag to select a range." aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"></canvas><canvas id="daw-midi-guide" aria-label="Chord-derived MIDI guide" hidden></canvas><div id="daw-wave-selection" hidden><i></i><i></i></div><div id="daw-editor-playhead" class="daw-playhead"></div></div><p id="daw-wave-empty">Import a recording to begin.</p></div><div class="daw-editor-scrollbar"><button id="daw-scroll-back" aria-label="Scroll waveform left">◂</button><input id="daw-scroll" aria-label="Waveform horizontal position" type="range" min="0" max="1000" value="0"><button id="daw-scroll-forward" aria-label="Scroll waveform right">▸</button></div><div class="daw-editor-footer"><span id="daw-format">Local audio</span><span id="daw-message" role="status">Ready</span><span id="daw-selection-readout">No range selected</span></div></section></div>
+        <section id="daw-editor" aria-label="Selected track waveform editor"><div class="daw-editor-toolbar"><strong><i id="daw-track-color"></i><span id="daw-editor-title">Recording</span><span class="daw-rendered-label"> · Rendered audio</span></strong><div class="daw-editor-tabs"><button id="daw-audio-tab" aria-pressed="true">Waveform</button><button id="daw-notation" aria-pressed="false" title="Notes inferred from chord analysis, not a MIDI recording">Chord Guide</button></div><div class="daw-edit-tools">${button('daw-pointer-tool','pointer','Seek tool','aria-pressed="true"')}${button('daw-range-tool','scissors','Range selection tool','aria-pressed="false"')}${button('daw-fade-tool','fade','Fade editing is not available in this build','disabled')}${button('daw-automation-tool','automation','Automation is not available in this build','disabled')}</div><label class="daw-snap-label">Snap: <select id="daw-snap" aria-label="Selection snap"><option value="beat">Beat</option><option value="off">Off</option></select></label><label class="daw-zoom-control">Zoom: <span aria-hidden="true">−</span><input id="daw-zoom" aria-label="Waveform zoom" type="range" min="1" max="8" step=".25" value="1"><span aria-hidden="true">+</span></label></div><div id="daw-editor-scroll"><div id="daw-editor-content"><div id="daw-editor-ruler" class="daw-ruler"></div><div class="daw-amplitude-scale" aria-hidden="true"><span>1.0<br>0.5<br>0<br>−0.5<br>−1.0</span><span>1.0<br>0.5<br>0<br>−0.5<br>−1.0</span></div><canvas id="daw-waveform" role="slider" tabindex="0" aria-label="Selected track waveform. Click to seek; shift-drag to select a range." aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"></canvas><canvas id="daw-midi-guide" aria-label="Chord-derived MIDI guide" hidden></canvas><div id="daw-wave-selection" hidden><i></i><i></i></div><div id="daw-editor-playhead" class="daw-playhead"></div></div><p id="daw-wave-empty">Import a recording to begin.</p></div><div class="daw-editor-scrollbar"><button id="daw-scroll-back" aria-label="Scroll waveform left">◂</button><input id="daw-scroll" aria-label="Waveform horizontal position" type="range" min="0" max="1000" value="0"><button id="daw-scroll-forward" aria-label="Scroll waveform right">▸</button></div><div class="daw-editor-footer"><span id="daw-format">Local audio</span><span id="daw-message" role="status">Ready</span><span id="daw-selection-readout">No range selected</span></div></section></div>
       </div>`;
     const practice = document.createElement('section');
     practice.id = 'daw-practice'; practice.hidden = true;
@@ -84,9 +84,21 @@
     // Move the real engine controls instead of cloning handlers or players.
     el('daw-stems').append(el('split-stems'));
     el('daw-analysis-actions').append(el('analyze'), el('cancel'));
-    practiceHeading.append(el('daw-analysis-actions'));
+    el('analyze').textContent='Analyse Chords';
+    el('cancel').textContent='Cancel Analysis';
+    const workflow = document.createElement('div');
+    workflow.id='daw-workflow'; workflow.setAttribute('role','toolbar');
+    workflow.setAttribute('aria-label','Studio workflow');
+    const browse=el('daw-back'); browse.append(document.createTextNode(' Browse'));
+    const projectName=document.createElement('strong'); projectName.id='daw-workflow-title';
+    projectName.textContent='Recording';
+    const actions=document.createElement('div'); actions.className='daw-workflow-actions';
+    const chords=el('daw-chords'); chords.append(document.createTextNode(' Chord Tools'));
+    actions.append(el('daw-stems'),el('daw-analysis-actions'),chords,el('daw-save'));
+    workflow.append(browse,projectName,actions); root.querySelector('.daw-body').prepend(workflow);
     el('daw-chords').setAttribute('aria-label','Open chord practice');
 
+    let editorPixelWidth=0, arrangementPixelWidth=0;
     let tracks = [], selected = 'source', currentPeaks = null, zoom = 1;
     let sessionRevision = null, sessionJob = '', signature = '', loading = false;
     let generation = 0, controller = null, waveformReady = false, selection = null;
@@ -94,7 +106,7 @@
     let libraryUserChoice=false,inspectorUserChoice=false;
     let pendingSelection = false, pendingTrack = '', frame = 0, stopped = false;
     let deferredTrackFocus = null;
-    let editorMode='audio', rangeTool=false, solo=false, projectTempo=120, projectNumerator=4, projectDenominator=4, projectKey='C major';
+    let editorMode='audio', rangeTool=false, solo=false, projectTempo=120, projectNumerator=4, projectDenominator=4, projectKey='—';
     let manualProject=false, guide=null, guideJob='', metronome=false, lastClickBeat=-1;
     let audioGraph=null;
     const history=[],future=[];
@@ -102,7 +114,7 @@
     let sessionTitle='Untitled',libraryFamily='all',lastGuide=null;
     const cache = new Map();
     const active = () => !panel.hidden;
-    const isModal = () => !!document.querySelector('dialog[open]');
+    const isModal = () => !!document.querySelector('dialog[open]:not(#stems-dialog[data-background=true])');
     const elapsed = value => {
         const v = Math.max(0, Number(value) || 0), minutes = Math.floor(v / 60);
         return String(minutes).padStart(2, '0')+':'+String(Math.floor(v % 60)).padStart(2, '0')+'.'+String(Math.floor(v * 1000) % 1000).padStart(3, '0');
@@ -142,7 +154,7 @@
         const levels=[0,0];
         if(audioGraph&&!player.paused&&!player.muted){for(let ch=0;ch<2;ch++){audioGraph.meters[ch].getByteTimeDomainData(audioGraph.samples);let power=0;for(const value of audioGraph.samples)power+=Math.pow((value-128)/128,2);levels[ch]=Math.max(0,Math.min(1,(20*Math.log10(Math.sqrt(power/256)||1e-4)+60)/60));}}
         for(let i=0;i<2;i++){el(i?'daw-master-right':'daw-master-left').style.width=(levels[i]*100)+'%';el(i?'daw-level-right':'daw-level-left').style.height=(levels[i]*100)+'%';}
-        for(const row of el('daw-track-list').children){const t=tracks.find(t=>t.id===row.dataset.trackId),bins=t?.waveform?.peaks?.[0];const pair=bins?.[Math.min(bins.length-1,Math.floor(position/(t?.waveform?.duration||1)*bins.length))];const level=pair&&!player.paused?Math.max(Math.abs(pair[0]),Math.abs(pair[1])):0;const meter=row.querySelector('.daw-track-meter i');if(meter)meter.style.width=(Math.max(0,Math.min(1,(20*Math.log10(level||1e-4)+48)/48))*100)+'%';}
+        for(const row of el('daw-track-list').children){const meter=row.querySelector('.daw-track-meter i');if(meter)meter.style.width=(row.dataset.trackId===selected?Math.max(...levels)*100:0)+'%';}
     }
     const setPanels = () => {
         root.classList.toggle('daw-library-hidden', !libraryOpen); root.classList.toggle('daw-inspector-hidden', !inspectorOpen);
@@ -237,7 +249,7 @@
     projectDialog.innerHTML='<form method="dialog"><h3>Project timing</h3><label>Tempo <input id="daw-project-bpm" type="number" min="20" max="300" value="120" step=".1" required></label><label>Time signature <select id="daw-project-num"><option>2</option><option>3</option><option selected>4</option><option>5</option><option>6</option><option>7</option><option>9</option><option>12</option></select> / <select id="daw-project-den"><option>2</option><option selected>4</option><option>8</option><option>16</option></select></label><label>Key <select id="daw-project-key"></select></label><p>Project grid settings. Original audio stays unchanged.</p><div class="actions"><button value="cancel">Cancel</button><button id="daw-project-save" value="save">Apply</button></div></form>';
     document.body.append(projectDialog);
     for(const name of roots)for(const quality of ['major','minor']){const option=document.createElement('option');option.textContent=name+' '+quality;el('daw-project-key').append(option);}
-    for(const id of ['daw-tempo-control','daw-meter-control','daw-key-control'])el(id).onclick=()=>{el('daw-project-bpm').value=String(projectTempo);el('daw-project-num').value=String(projectNumerator);el('daw-project-den').value=String(projectDenominator);el('daw-project-key').value=projectKey;projectDialog.showModal();};
+    for(const id of ['daw-tempo-control','daw-meter-control','daw-key-control'])el(id).onclick=()=>{el('daw-project-bpm').value=String(projectTempo);el('daw-project-num').value=String(projectNumerator);el('daw-project-den').value=String(projectDenominator);el('daw-project-key').value=projectKey==='—'?'C major':projectKey;projectDialog.showModal();};
     el('daw-project-save').onclick=()=>{const tempo=Number(el('daw-project-bpm').value);if(tempo<20||tempo>300)return;projectTempo=tempo;projectNumerator=Number(el('daw-project-num').value);projectDenominator=Number(el('daw-project-den').value);projectKey=el('daw-project-key').value;manualProject=true;scheduleDraw();};
 
     function paintTrackPending() {
@@ -405,8 +417,8 @@
         const quarter=position*projectTempo/60,beat=quarter/(4/projectDenominator);
         text('daw-bars',(Math.floor(beat/projectNumerator)+1)+'  '+(Math.floor(beat)%projectNumerator+1));
         const progress = duration() ? Math.max(0,Math.min(1,position/duration())) : 0;
-        el('daw-arrangement-playhead').style.left=(progress*100)+'%';
-        el('daw-editor-playhead').style.left=(progress*el('daw-editor-content').clientWidth)+'px';
+        el('daw-arrangement-playhead').style.transform='translateX('+(progress*arrangementPixelWidth)+'px)';
+        el('daw-editor-playhead').style.transform='translateX('+(progress*editorPixelWidth)+'px)';
         paintMeters(position);
         if(metronome&&audioGraph&&!player.paused){const beatIndex=Math.floor(quarter);if(beatIndex!==lastClickBeat){lastClickBeat=beatIndex;const oscillator=audioGraph.context.createOscillator(),gain=audioGraph.context.createGain(),now=audioGraph.context.currentTime;oscillator.frequency.value=beatIndex%projectNumerator===0?1500:1000;gain.gain.setValueAtTime(.04,now);gain.gain.exponentialRampToValueAtTime(.0001,now+.035);oscillator.connect(gain).connect(audioGraph.context.destination);oscillator.start(now);oscillator.stop(now+.04);}}
         el('daw-waveform').setAttribute('aria-valuenow', String(Math.round(progress*100)));
@@ -472,15 +484,12 @@
         el('daw-editor-content').style.width=(zoom*100)+'%';
         el('daw-scroll').disabled=zoom<=1;
         el('daw-scroll').style.setProperty('--scroll-thumb',Math.max(12,el('daw-editor-scroll').clientWidth/zoom-36)+'px');
+        editorPixelWidth=el('daw-editor-content').clientWidth;arrangementPixelWidth=el('daw-regions').clientWidth;
         ruler(el('daw-ruler'),length); ruler(el('daw-editor-ruler'),length,true);
         for(const lane of el('daw-regions').querySelectorAll('.daw-lane')) {
             const t=tracks.find(t=>t.id===lane.dataset.trackId);
             const canvas=lane.querySelector('canvas');
-            if(['piano','synths'].includes(t?.id)&&guide?.chords?.length){drawNotes(canvas,guide,'#e2f1c1');canvas.setAttribute('aria-label','Chord-derived MIDI guide');}
-            else peakCanvas(canvas,t?.waveform,'#c7e5fc');
-            const g=canvas.getContext('2d'),r=canvas.getBoundingClientRect(),segment=60/projectTempo*(4/projectDenominator)*projectNumerator*8;
-            g.strokeStyle='#09121cdc';g.lineWidth=2;
-            if(length)for(let sec=segment;sec<length;sec+=segment){const x=sec/length*r.width;g.beginPath();g.moveTo(x,0);g.lineTo(x,r.height);g.stroke();}
+            peakCanvas(canvas,t?.waveform,'#c7e5fc');
         }
         el('daw-waveform').hidden=editorMode!=='audio';el('daw-midi-guide').hidden=editorMode!=='midi';
         if(editorMode==='audio')peakCanvas(el('daw-waveform'),currentPeaks,'#c5dff7',true);
@@ -556,7 +565,7 @@
             if(nextJob!==sessionJob||!sessionTitle||sessionTitle==='Untitled'){if(result){guide=result;guideJob=nextJob;}else if(guideJob!==nextJob){guide=null;lastGuide=null;}if(!nextJob||!sessionJob)sessionTitle=title(stems?.sourceName||sourceName);}
             sessionJob=nextJob;
             if(!sessionJob)sessionTitle=title(sourceName);
-            text('daw-window-title',sessionTitle+' — Blaze');
+            text('daw-window-title',sessionTitle+' — Blaze');text('daw-workflow-title',sessionTitle);
             const rows=sessionJob&&stems?.status==='done'&&stems.jobId===sessionJob&&Array.isArray(stems.stems)?stems.stems.filter(r=>labels[r.id]):[];
             // Display names can collide (an original mix may be Piano.wav).
             // The server identifies the selected saved file from its source path.
