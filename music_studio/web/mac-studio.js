@@ -48,7 +48,7 @@
       <div id="daw-transport" role="toolbar" aria-label="Studio transport">
         <div class="daw-panel-tools">${button('daw-library-toggle','library','Show library','aria-pressed="true"')}<span class="daw-button-caption">Library</span>${button('daw-inspector-toggle','inspector','Show inspector','aria-pressed="true"')}<span class="daw-button-caption">Inspector</span><div class="daw-history">${button('daw-undo','undo','Undo Studio setting')}${button('daw-redo','redo','Redo Studio setting')}</div></div>
         <div class="daw-transport-buttons">${button('daw-start','previous','Go to beginning')}${button('daw-rewind','rewind','Back 10 seconds')}${button('daw-stop','stop','Stop')}${button('daw-play','play','Play')}${button('daw-record','record','Recording is not available in this build','disabled')}${button('daw-loop','loop','Repeat recording','aria-pressed="false"')}</div>
-        <div class="daw-display"><div class="daw-musical-position"><strong id="daw-bars">1&nbsp; 1</strong><small>BAR&nbsp;&nbsp; BEAT</small></div><div><strong id="daw-time">00:00.000</strong><small>TIME</small></div><button id="daw-tempo-control" title="Project tempo"><strong id="daw-tempo">120</strong><small>BPM</small></button><button id="daw-meter-control" title="Project time signature"><strong id="daw-meter">4/4</strong><small>SIGNATURE</small></button><button id="daw-key-control" title="Project key"><strong id="daw-key">—</strong><small>KEY</small></button></div>
+        <div class="daw-display"><div class="daw-musical-position"><strong id="daw-bars">1&nbsp; 1</strong><small>BAR&nbsp;&nbsp; BEAT</small></div><div><strong id="daw-time">00:00.000</strong><small>TIME</small></div><button id="daw-tempo-control" title="Project tempo"><strong id="daw-tempo">120</strong><small>BPM</small></button><button id="daw-meter-control" title="Project time signature"><strong id="daw-meter">4/4</strong><small>METER</small></button><button id="daw-key-control" title="Project key"><strong id="daw-key">—</strong><small>KEY</small></button></div>
         <div class="daw-click-controls">${button('daw-metronome','metronome','Metronome','aria-pressed="false"')}<button id="daw-count-in" aria-label="Count in requires recording" disabled>123</button></div>
         <div class="daw-master"><div class="daw-master-meters" aria-label="Output level"><i><span id="daw-master-left"></span></i><i><span id="daw-master-right"></span></i></div><input id="daw-master-volume" type="range" min="0" max="1" step=".01" value="1" aria-label="Master volume">${svg('volume')}</div>
       </div>
@@ -408,10 +408,10 @@
         const measure = flowMap.measures[timing.measure];
         const meter = measure && !['unknown','lead-in'].includes(measure.kind) ? measure.numerator : null;
         if(!manualProject&&bpm)projectTempo=bpm;
-        if(!manualProject&&meter){projectNumerator=meter;projectDenominator=measure.denominator;}
+        if(!manualProject&&meter){projectNumerator=meter;if(measure.denominator)projectDenominator=measure.denominator;}
         if(!manualProject&&result?.key)projectKey=result.key;
         text('daw-tempo',Number(projectTempo).toFixed(projectTempo%1?1:0));
-        text('daw-meter',projectNumerator+'/'+projectDenominator);
+        text('daw-meter',!manualProject&&meter&&!measure.denominator?meter+' beats':projectNumerator+'/'+projectDenominator);
         text('daw-key',projectKey);text('daw-analysis-key',result?.key||'—'); text('daw-analysis-tempo',bpm?Number(bpm).toFixed(0)+' BPM':'—');
         text('daw-time', elapsed(position));
         const quarter=position*projectTempo/60,beat=quarter/(4/projectDenominator);

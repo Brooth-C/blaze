@@ -193,7 +193,7 @@ async function layout(page){
         assert.match(await page.locator('#split-stems').innerText(),/Separation failed/);
         await page.locator('#split-stems').click();
         await page.locator('#stems-five').click();
-        await page.waitForFunction(()=>window.BlazeMacStems.snapshot().status==='done');
+        await page.waitForFunction(()=>window.BlazeMacStems.snapshot().status==='done'&&document.getElementById('split-stems').textContent==='Split Stems');
         assert.equal(await page.locator('#split-stems').innerText(),'Split Stems','Retry retained a stale failure label');
         assert.deepEqual(errors,[]);
         console.log('Mac stems UI PASS: start/progress, close and reopen without cancellation, explicit cancel/retry, nine instrument outputs, five-stem alternative, scrolling all tracks with persistent actions, token-bound WAV export, folder action, same-player Studio handoff and real WAV playback, compact sheet geometry. Controlled separation worker; no model quality or native AppKit claim.');
