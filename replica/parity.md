@@ -23,3 +23,11 @@ checks and live YouTube video/song search. The current local network denied a
 YouTube proxy connection; fixture search is not substituted for live proof.
 The workflow gates packaging on live source-engine search and repeats search
 with the actual packaged downloader before publishing.
+
+## Current 0.17 refinement
+
+See docs/MAC-UI-VERIFICATION.md for fresh tests, honest reference comparison,
+subjective weighted review and native limitations. See replica/reference-spec.md
+for measured versus estimated geometry. New chord regions use the existing map;
+unknown meter remains unconfirmed. The local suites pass; native package CI is
+required separately. Earlier 0.16 observations above are historical context.

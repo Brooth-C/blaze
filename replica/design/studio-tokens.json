@@ -1,0 +1,138 @@
+{
+  "_about": "Executable Studio color roles from mac-harmony.css; geometry is specified in components.md. No claim of complete app WCAG conformance.",
+  "color": {
+    "canvas": "#242426",
+    "panel": "#303033",
+    "raised": "#3b3b3f",
+    "control": "#49494e",
+    "hover": "#56565d",
+    "line": "#1b1b1e",
+    "ink": "#f2f2f4",
+    "secondary": "#c1c1c7",
+    "focus": "#8fc1ff",
+    "region": "#344e66",
+    "current": "#92502a",
+    "current-edge": "#ffb582",
+    "focus-light": "#0875db",
+    "control-edge": "#626269",
+    "control-selected": "#606069",
+    "control-selected-edge": "#a1a1aa",
+    "control-strong-edge": "#73737a",
+    "selection": "#505057",
+    "primary-hover": "#a05a32",
+    "primary-edge": "#b66b40",
+    "on-primary": "#ffffff",
+    "region-edge": "#93a5b8",
+    "muted-track": "#d9c46a",
+    "on-muted-track": "#242017",
+    "muted-track-edge": "#e5d895",
+    "effect": "#315675",
+    "effect-active": "#3c678c",
+    "lane": "#2b2b2e",
+    "tab-selected": "#6a6a73",
+    "tab-edge": "#8b8b94",
+    "search-edge": "#77777f",
+    "grid-contrast": "#a0a0a8",
+    "current-soft": "#563d2e",
+    "note": "#df6b32"
+  },
+  "pairs": [
+    [
+      "ink",
+      "canvas"
+    ],
+    [
+      "secondary",
+      "canvas"
+    ],
+    [
+      "ink",
+      "panel"
+    ],
+    [
+      "secondary",
+      "panel"
+    ],
+    [
+      "ink",
+      "control"
+    ],
+    [
+      "ink",
+      "region"
+    ],
+    [
+      "ink",
+      "current"
+    ],
+    [
+      "ink",
+      "primary-hover"
+    ],
+    [
+      "focus",
+      "canvas",
+      "ui"
+    ],
+    [
+      "region-edge",
+      "region",
+      "ui"
+    ],
+    [
+      "current-edge",
+      "current",
+      "ui"
+    ],
+    [
+      "on-muted-track",
+      "muted-track"
+    ],
+    [
+      "on-primary",
+      "tab-selected"
+    ]
+  ],
+  "font": {
+    "sans": "-apple-system, BlinkMacSystemFont, sans-serif"
+  },
+  "type": {
+    "meta": {
+      "size": 11,
+      "line": 15,
+      "weight": 400
+    },
+    "body": {
+      "size": 12,
+      "line": 17,
+      "weight": 400
+    },
+    "section": {
+      "size": 13,
+      "line": 18,
+      "weight": 600
+    },
+    "chord": {
+      "size": 20,
+      "line": 23,
+      "weight": 500
+    }
+  },
+  "space": [
+    0,
+    4,
+    8,
+    12,
+    16,
+    20,
+    24,
+    32
+  ],
+  "radius": {
+    "region": 3,
+    "control": 4
+  },
+  "motion": {
+    "playhead": "transform follows the existing media clock; no decoration"
+  }
+}

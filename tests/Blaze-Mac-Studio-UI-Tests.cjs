@@ -140,7 +140,7 @@ async function fit(page,ids){
         const geometry=await page.evaluate(()=>Object.fromEntries(['daw-library','daw-inspector','daw-track-list','daw-editor'].map(id=>{const r=document.getElementById(id).getBoundingClientRect();return[id,{left:r.left,top:r.top,width:r.width}];})));
         assert.equal(geometry['daw-library'].width,0,'The main workstation should open with the optional Library closed');
         assert.equal(geometry['daw-inspector'].left,0);assert.equal(geometry['daw-inspector'].width,210);
-        assert.equal(geometry['daw-track-list'].left,210);assert.equal(geometry['daw-track-list'].width,310);
+        assert.equal(geometry['daw-track-list'].left,214);assert.equal(geometry['daw-track-list'].width,310);
         assert(geometry['daw-editor'].top>500&&geometry['daw-editor'].top<660,'Audio editor left the lower workspace');
         assert.equal(await page.locator('#daw-format').textContent(),'48 kHz · 24-bit · Stereo');
         // Controlled chord evidence exercises the reference's note-guide lanes;

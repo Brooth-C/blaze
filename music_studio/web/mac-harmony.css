@@ -1,0 +1,186 @@
+/* Studio refinement. The native AppKit frame keeps its system materials;
+   audio, chord regions and inspector surfaces stay opaque and task-focused. */
+html[data-presentation=mac] {
+  --studio-canvas:#242426;
+  --studio-panel:#303033;
+  --studio-raised:#3b3b3f;
+  --studio-control:#49494e;
+  --studio-hover:#56565d;
+  --studio-line:#1b1b1e;
+  --studio-ink:#f2f2f4;
+  --studio-secondary:#c1c1c7;
+  --studio-focus:#8fc1ff;
+  --studio-region:#344e66;
+  --studio-current:#92502a;
+  --studio-current-edge:#ffb582;
+  --studio-space:8px;
+  --studio-radius:4px;
+  --studio-focus-light:#0875db;
+  --studio-control-edge:#626269;
+  --studio-control-selected:#606069;
+  --studio-control-selected-edge:#a1a1aa;
+  --studio-control-strong-edge:#73737a;
+  --studio-selection:#505057;
+  --studio-primary-hover:#a05a32;
+  --studio-primary-edge:#b66b40;
+  --studio-on-primary:#ffffff;
+  --studio-region-edge:#93a5b8;
+  --studio-muted-track:#d9c46a;
+  --studio-on-muted-track:#242017;
+  --studio-muted-track-edge:#e5d895;
+  --studio-effect:#315675;
+  --studio-effect-active:#3c678c;
+  --studio-grid:#ffffff0d;
+  --studio-lane:#2b2b2e;
+  --studio-resize-hover:#8fc1ff55;
+  --studio-tab-selected:#6a6a73;
+  --studio-tab-edge:#8b8b94;
+  --studio-search-edge:#77777f;
+  --studio-grid-contrast:#a0a0a8;
+  --studio-current-soft:#563d2e;
+  --studio-note:#df6b32;
+}
+html[data-presentation=mac] :is(button,a,input,select,textarea,summary,[tabindex]):focus-visible {
+  outline:2px solid var(--studio-focus-light);
+  outline-offset:2px;
+}
+html[data-presentation=mac][data-appearance=dark] :is(button,a,input,select,textarea,summary,[tabindex]):focus-visible { outline-color:var(--studio-focus); }
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic] {
+  --daw-bg:var(--studio-canvas); --daw-panel:var(--studio-panel);
+  --daw-ink:var(--studio-ink); --daw-muted:var(--studio-secondary);
+  --daw-line:var(--studio-line); --workflow-ink:var(--studio-ink);
+  background:var(--studio-canvas); color:var(--studio-ink);
+}
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic] :is(button,a,input,select,[tabindex]):focus-visible {
+  outline:2px solid var(--studio-focus); outline-offset:-2px;
+}
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic] .daw-main {
+  grid-column:4;
+  grid-template-rows:auto minmax(80px,1fr) minmax(180px,min(var(--studio-editor-size,36%),calc(100% - 224px)));
+}
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic] .daw-body { grid-template-columns:var(--library-width) var(--inspector-width) var(--studio-inspector-gutter,4px) minmax(0,1fr); }
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic].daw-inspector-hidden { --studio-inspector-gutter:0px; }
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic].daw-editor-hidden .daw-main { grid-template-rows:auto minmax(0,1fr); }
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic] :is(#daw-inspector,#daw-library) { background:var(--studio-panel); }
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic] :is(.daw-panel-heading,#daw-workflow,.daw-editor-toolbar,.daw-track-heading,#daw-inspector details summary) {
+  background:var(--studio-raised); color:var(--studio-ink); border-color:var(--studio-line);
+}
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic] #daw-workflow button,
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic] #daw-workflow .daw-save {
+  background:var(--studio-control); border:1px solid var(--studio-control-edge); color:var(--studio-ink); border-radius:var(--studio-radius);
+}
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic] #daw-workflow button:hover:not(:disabled),
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic] #daw-workflow .daw-save:hover { background:var(--studio-hover); }
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic] #daw-workflow #analyze { background:var(--studio-current); border-color:var(--studio-primary-edge); }
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic] #daw-workflow #analyze:hover:not(:disabled) { background:var(--studio-primary-hover); }
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic] .daw-track { background:var(--studio-panel); border-color:var(--studio-line); grid-template-columns:minmax(0,1fr) 120px; }
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic] .daw-track.selected { background:var(--studio-selection); }
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic] .daw-track:hover:not(.selected) { background:var(--studio-raised); }
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic] .daw-track-select { font-size:12px; }
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic] .daw-row-controls { gap:4px; }
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic] .daw-row-controls button {
+  width:24px;min-width:24px;height:24px;min-height:24px;font-size:11px;
+  background:var(--studio-control);color:var(--studio-ink);border:1px solid var(--studio-control-strong-edge);
+}
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic] .daw-row-controls button[aria-pressed=true] { background:var(--studio-muted-track);color:var(--studio-on-muted-track);border-color:var(--studio-muted-track-edge); }
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic] :is(.daw-editor-footer,#daw-editor-ruler,.daw-amplitude-scale,.daw-editor-scrollbar) { background:var(--studio-panel);color:var(--studio-secondary); }
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic] :is(.daw-editor-footer,#daw-message,.daw-amplitude-scale i,.daw-ruler span) { font-size:11px; }
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic] .daw-amplitude-scale b { font-size:10px; }
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic] .daw-display small { font-size:10px;letter-spacing:0; }
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic] .daw-editor-tabs button[aria-pressed=true] { background:var(--studio-tab-selected);color:var(--studio-on-primary);border-color:var(--studio-tab-edge); }
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic] #daw-inspector :is(dt,dd,.daw-control-label) { color:var(--studio-secondary); }
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic] .daw-library-search { background:var(--studio-canvas);border-color:var(--studio-search-edge); }
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic] .daw-library-search:focus-within { outline:2px solid var(--studio-focus);outline-offset:1px; }
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic] .daw-library-foot { opacity:1;color:var(--studio-secondary); }
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic] .daw-effect-slot { background:var(--studio-effect);color:var(--studio-ink); }
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic] .daw-effect-slot[aria-pressed=true] { background:var(--studio-effect-active); }
+
+/* Four actual bars (or explicitly unconfirmed timing windows), never fabricated
+   MIDI. Every button uses the existing media clock and chord editor. */
+#daw-harmony { min-width:0;background:var(--studio-canvas);border-bottom:1px solid var(--studio-line);padding:0 12px 12px; }
+.harmony-toolbar { display:flex;align-items:center;gap:16px;min-height:40px; }
+#daw-harmony h2 { font-size:13px;line-height:1.4;letter-spacing:0;font-weight:600;margin:0; }
+.harmony-context { display:flex;align-items:baseline;gap:16px;margin:0;color:var(--studio-secondary);font-size:11px;white-space:nowrap; }
+.harmony-context strong { font-size:15px;font-weight:600;color:var(--studio-ink);margin-left:6px; }
+.harmony-navigation { display:flex;align-items:center;gap:4px;margin-left:auto; }
+#harmony-range { font-size:11px;min-width:32px;text-align:center;font-variant-numeric:tabular-nums;color:var(--studio-secondary); }
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic] #daw-harmony :is(button,select) { background:var(--studio-control);border:1px solid var(--studio-control-edge);color:var(--studio-ink);border-radius:var(--studio-radius);box-shadow:none;min-height:26px;font-size:11px; }
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic] #daw-harmony :is(button,select):hover:not(:disabled) { background:var(--studio-hover); }
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic] #daw-harmony #harmony-follow[aria-pressed=true] { border-color:var(--studio-control-selected-edge);background:var(--studio-control-selected); }
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic] #daw-harmony button:disabled { opacity:.5; }
+#harmony-bars { display:grid;grid-template-columns:repeat(var(--harmony-count,4),minmax(110px,1fr));gap:1px;min-width:0;overflow-x:auto;overflow-y:hidden;scrollbar-width:thin;background:var(--studio-line); }
+.harmony-bar { min-width:0;background:var(--studio-canvas); }
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic] #daw-harmony .harmony-bar-ruler { display:block;width:100%;height:24px;min-height:24px;text-align:left;padding:3px 8px;border:0;border-radius:0;background:var(--studio-panel);color:var(--studio-secondary);font-size:11px; }
+.harmony-region-lane { height:72px;position:relative;overflow:hidden;background:var(--studio-lane); }
+.harmony-beat { position:absolute;top:0;bottom:0;border-left:1px solid var(--studio-grid);pointer-events:none; }
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic] #daw-harmony .harmony-region {
+  position:absolute;top:8px;bottom:8px;min-width:0;min-height:0;padding:4px 8px;
+  border:1px solid var(--studio-region-edge);border-right-width:2px;border-radius:3px;background:var(--studio-region);color:var(--studio-ink);
+  font-size:20px;font-weight:500;line-height:1.15;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:left;
+}
+html[data-presentation=mac] #mac-studio-workspace[data-design=logic] #daw-harmony .harmony-region.current { background:var(--studio-current);border-color:var(--studio-current-edge); }
+.harmony-playhead { position:absolute;inset:0;width:100%;border-left:2px solid var(--studio-on-primary);pointer-events:none; }
+#harmony-empty { display:flex;align-items:center;justify-content:space-between;gap:16px;min-height:96px;background:var(--studio-panel);padding:16px; }
+#harmony-empty p { font-size:12px;line-height:1.5;color:var(--studio-secondary);margin:0; }
+#harmony-bars[hidden],#harmony-empty[hidden] { display:none; }
+.daw-panel-resize { position:absolute;z-index:8;touch-action:none; }
+.daw-panel-resize:hover,.daw-panel-resize:focus-visible { background:var(--studio-resize-hover); }
+#daw-inspector-resize { grid-column:3;grid-row:2;position:relative;width:100%;min-width:0;cursor:col-resize;background:var(--studio-line); }
+.daw-inspector-hidden #daw-inspector-resize { display:none; }
+#daw-editor { position:relative; }
+#daw-editor-resize { left:0;right:0;top:0;height:4px;cursor:row-resize; }
+@media(max-width:1099px) {
+  html[data-presentation=mac] #mac-studio-workspace[data-design=logic] .daw-track { grid-template-columns:minmax(0,1fr) 92px; }
+  .harmony-toolbar { gap:8px; }
+  .harmony-context { gap:8px; }
+  #harmony-countdown { display:none; }
+}
+@media(max-width:799px) {
+  html[data-presentation=mac] #mac-studio-workspace[data-design=logic] .daw-body { grid-template-columns:0 0 0 minmax(0,1fr); }
+  html[data-presentation=mac] #mac-studio-workspace[data-design=logic] .daw-track { grid-template-columns:minmax(0,1fr) 52px; }
+  html[data-presentation=mac] #mac-studio-workspace[data-design=logic] .daw-track-select { font-size:11px; }
+  #daw-inspector-resize { display:none; }
+  #daw-harmony { padding-inline:8px;padding-bottom:8px; }
+  .harmony-toolbar { flex-wrap:wrap;gap:4px 12px;padding-block:6px; }
+  .harmony-navigation { margin-left:auto; }
+  .harmony-region-lane { height:56px; }
+  .harmony-context strong { font-size:13px; }
+  #mac-studio-workspace #daw-workflow #daw-editor-toggle { padding-inline:6px; }
+}
+@media(max-width:620px) {
+  .harmony-context { margin-left:auto; }
+  .harmony-navigation { flex-basis:100%;justify-content:flex-end; }
+  #harmony-bars { grid-template-columns:repeat(var(--harmony-count,4),minmax(100px,1fr)); }
+  #daw-workflow .daw-workflow-actions { gap:3px; }
+  #mac-studio-workspace #daw-workflow button { padding-inline:5px;font-size:10px; }
+}
+@media(prefers-contrast:more) {
+  html[data-presentation=mac] { --studio-secondary:#e2e2e7;--studio-line:#808088; }
+  #daw-harmony .harmony-beat { border-color:var(--studio-grid-contrast); }
+}
+
+/* The existing detailed tools retain their controls and voicing renderer.
+   Their palette is inherited by each canvas instead of assuming page colors. */
+html[data-presentation=mac] #daw-practice {
+  --panel:var(--studio-panel);--subtle:var(--studio-raised);--text:var(--studio-ink);
+  --selected:var(--studio-hover);--bg:var(--studio-canvas);
+  --muted:var(--studio-secondary);--border:var(--studio-control-edge);
+  --accent:var(--studio-current-edge);--accent-bright:var(--studio-note);
+  --accent-soft:var(--studio-current-soft);
+  background:var(--studio-panel);color:var(--studio-ink);
+  border-left:1px solid var(--studio-line);
+}
+html[data-presentation=mac] #daw-practice .daw-practice-heading { background:var(--studio-panel); }
+html[data-presentation=mac] #daw-practice :is(button,select,input) { color:var(--studio-ink);background:var(--studio-control);border-color:var(--studio-control-edge); }
+html[data-presentation=mac] #daw-practice button:hover:not(:disabled) { background:var(--studio-hover); }
+html[data-presentation=mac] #daw-practice button:focus-visible { outline-color:var(--studio-focus); }
+html[data-presentation=mac] #daw-practice .reference-cell.active { background:var(--studio-current-soft);border-color:var(--studio-current-edge);color:var(--studio-ink); }
+html[data-presentation=mac] #daw-practice .diagram-toolbar button[aria-pressed=true] { background:var(--studio-hover);border-bottom-color:var(--studio-current-edge); }
+html[data-presentation=mac] #daw-practice .diagram-card {
+  background:transparent;border:0;border-right:1px solid var(--studio-control-edge);
+  border-radius:0;box-shadow:none;
+}
+html[data-presentation=mac] #daw-practice .diagram-card:last-child { border-right:0; }
+html[data-presentation=mac] #daw-practice .diagram-card.current { background:var(--studio-raised);border-bottom:2px solid var(--studio-current-edge); }
+html[data-presentation=mac] #daw-practice .diagram-card small { color:var(--studio-secondary);font-size:10px;letter-spacing:0; }
+html[data-presentation=mac] #daw-practice :is(.hint,#status,.song-top h2) { color:var(--studio-secondary); }

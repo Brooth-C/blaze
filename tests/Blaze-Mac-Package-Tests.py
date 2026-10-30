@@ -119,6 +119,7 @@ def main():
     assert receipt['mac_design']['chord_drawer']['opened'] and receipt['mac_design']['chord_drawer']['keyboards_visible'], receipt
     assert receipt['mac_design']['compact_layout']['studio_workspace'] and receipt['mac_design']['compact_layout']['chord_drawer'], receipt
     assert receipt['mac_design']['studio_waveform']['active'] and receipt['mac_design']['studio_waveform']['waveformReady'], receipt
+    assert all(receipt['mac_design']['harmony_workspace'][key] for key in ('four_bar_mode', 'regions', 'visible', 'transport_valid')), receipt
     assert receipt['stems']['real_model'] and receipt['stems']['native_playback'], receipt
     assert receipt['stems']['count'] == 9, receipt
     assert all(receipt['background_tasks'][key] for key in ('navigation', 'fixture_search', 'chord_analysis', 'separation_active_at_analysis_start')), receipt
