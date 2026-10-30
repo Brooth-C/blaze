@@ -189,7 +189,7 @@
         window.addEventListener('pagehide', () => { observer.disconnect(); window.removeEventListener('blur', release); }, {once: true});
     }
     separator(root.querySelector('.daw-body'), 'daw-inspector-resize', 'vertical', () => el('daw-inspector').getBoundingClientRect().width,
-        value => root.style.setProperty('--inspector-width', value + 'px'), 160, 300);
+        value => root.style.setProperty('--studio-inspector-preferred-width', value + 'px'), 160, 300);
     separator(el('daw-editor'), 'daw-editor-resize', 'horizontal', () => el('daw-editor').getBoundingClientRect().height,
         value => root.style.setProperty('--studio-editor-size', value + 'px'), 180, () => Math.min(360, main.clientHeight - 224));
     function queueFrame() {

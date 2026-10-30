@@ -73,6 +73,12 @@ const settle = page => page.evaluate(() => new Promise(resolve => requestAnimati
         const inspectorWidth = await page.locator('#daw-inspector').evaluate(element => element.getBoundingClientRect().width);
         await page.locator('#daw-inspector-resize').focus(); await page.keyboard.press('ArrowRight'); await settle(page);
         assert.equal(await page.locator('#daw-inspector').evaluate(element => element.getBoundingClientRect().width),inspectorWidth+8);
+        const expandedLeft = await page.locator('#daw-harmony').evaluate(element => element.getBoundingClientRect().left);
+        await page.locator('#daw-inspector-toggle').click(); await settle(page);
+        assert.equal(await page.locator('#daw-harmony').evaluate(element => element.getBoundingClientRect().left),0,'Resized inspector left an empty column when hidden');
+        await page.locator('#daw-inspector-toggle').click(); await settle(page);
+        assert.equal(await page.locator('#daw-harmony').evaluate(element => element.getBoundingClientRect().left),expandedLeft,'Inspector did not restore its preferred expanded width');
+        await page.locator('#daw-inspector-resize').focus();
         await page.keyboard.press('ArrowLeft');
         const editorHeight = await page.locator('#daw-editor').evaluate(element => element.getBoundingClientRect().height);
         await page.locator('#daw-editor-resize').focus(); await page.keyboard.press('ArrowUp'); await settle(page);
