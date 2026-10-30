@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light dark"><title>Blaze — Studio visual preview</title><link rel="stylesheet" href="/mac-logic-preview.css"></head>
+<body data-visual-prototype="true"><main id="logic-preview" aria-label="Blaze Studio visual prototype">
+<header class="control-bar">
+ <div class="window-tools"><div class="tool-group" id="navigation-tools"></div><div class="tool-group" id="workspace-tools"></div></div>
+ <div class="transport tool-group" id="transport"></div>
+ <div class="lcd" aria-label="Project position and tempo"><div class="position"><span class="dim">00</span><span id="position-bar">9</span><span>1</span><span class="subdivision">1</span></div><div class="tempo"><b>120</b><small>KEEP TEMPO</small></div><div class="signature"><b>4/4</b><span>Cmaj</span></div><span class="lcd-chevron">⌄</span></div>
+ <div class="tool-group timing-tools" id="timing-tools"></div>
+ <div class="output-section"><div class="output-meter" role="img" aria-label="Illustrative output meter"><i></i><i></i><span></span></div></div>
+ <div class="tool-group browser-tools" id="browser-tools"></div>
+</header>
+<nav class="workspace-bar" aria-label="Workspace appearance controls"><div class="menu-group"><button data-menu="edit">Edit <span>⌄</span></button><button data-menu="functions">Functions <span>⌄</span></button><button data-menu="view">View <span>⌄</span></button></div><div class="tool-group view-tools" id="view-tools"></div><div class="tool-group pointer-tools" id="pointer-tools"></div><div class="snap-controls"><label>Snap: <select aria-label="Visual snap setting"><option>Smart</option><option>Bar</option><option>Beat</option></select></label><label>Drag: <select aria-label="Visual drag setting"><option>No Overlap</option><option>Overlap</option></select></label></div><div class="zoom-controls"><span>↕</span><input type="range" aria-label="Track visual height" min="36" max="76" value="44"><span>↔</span><input type="range" aria-label="Timeline visual zoom" min="1" max="4" value="1"></div></nav>
+<section class="arrangement" aria-label="Illustrative arrangement">
+ <div class="track-list-tools"><button id="add-track" aria-label="Add track appearance">＋</button><button id="duplicate-track" aria-label="Duplicate track appearance">▣</button><span></span><button id="show-editor" aria-label="Show or hide lower editor" aria-pressed="true">▱</button></div>
+ <div id="project-ruler" class="ruler"></div>
+ <div class="chord-label">Chords</div><div id="chord-lane"></div>
+ <div id="track-headers" aria-label="Track headers"></div><div id="regions" aria-label="Illustrative audio regions"><div class="playhead" id="project-playhead"></div></div>
+</section>
+<section class="audio-editor" aria-label="Audio editor appearance">
+ <header class="editor-heading"><strong id="editor-track">Piano</strong><span>Audio Editor</span><div class="editor-heading-tools tool-group" id="editor-heading-tools"></div></header>
+ <nav class="editor-toolbar" aria-label="Editor appearance controls"><div class="menu-group"><button data-menu="editor-edit">Edit <span>⌄</span></button><button data-menu="editor-functions">Functions <span>⌄</span></button><button data-menu="editor-view">View <span>⌄</span></button></div><div id="editor-tools" class="tool-group"></div><div class="editor-zoom"><span>↔</span><input type="range" aria-label="Editor visual zoom" min="1" max="8" value="3"></div></nav>
+ <div class="editor-body"><div class="amplitude"><div><b>L</b><span>100</span><span>0</span><span>−100</span></div><div><b>R</b><span>100</span><span>0</span><span>−100</span></div></div><div class="editor-wave-area"><div id="editor-ruler" class="ruler"></div><div class="editor-region-caption"><span>▷</span><span id="editor-caption">Piano</span><span>◯</span></div><div class="wave-surface"><canvas id="editor-wave" aria-label="Illustrative stereo waveform"></canvas><div id="wave-selection"><i></i><i></i></div><div id="editor-playhead" class="playhead"></div></div></div></div>
+ <footer><span>48 kHz · 24-bit · Stereo</span><span id="visual-time">00:16.000</span><span>Selection&nbsp; 00:16.000 – 00:32.000</span></footer>
+</section>
+<div class="appearance-menu" id="appearance-menu" hidden></div>
+</main><script src="/mac-logic-preview.js"></script></body></html>
