@@ -48,7 +48,7 @@ def main():
         version = run(tools / name, '-version').stdout
         assert '--disable-gpl' in version and '--disable-nonfree' in version
     assert run(tools / 'node', '--version').stdout.strip() == 'v22.20.0'
-    assert run(tools / 'yt-dlp', '--version').stdout.strip() == '2026.08.19'
+    assert run(tools / 'yt-dlp', '--version').stdout.strip() == '2026.10.26'
     audio = work / 'Advanced-chords.wav'
     fixture(audio)
     for suffix, codec in [('mp3', 'libmp3lame'), ('m4a', 'aac'), ('flac', 'flac'), ('ogg', 'libvorbis'), ('opus', 'libopus')]:

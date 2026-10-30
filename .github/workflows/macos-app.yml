@@ -115,7 +115,7 @@ jobs:
         id: tools-cache
         with:
           path: build/mac-assets
-          key: blaze-mac-tools-minimal-${{ matrix.arch }}-73bfa1bc-node2220-ytdlp20261026
+          key: blaze-mac-tools-minimal-${{ matrix.arch }}-73bfa1bc-node2220-ytdlp20261026-notices2
       - uses: actions/cache@v6.1.0
         with:
           path: build/mac-assets/stem-models

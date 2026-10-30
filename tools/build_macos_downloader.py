@@ -128,7 +128,7 @@ if __name__ == '__main__':
                                  "--workpath", str(args.work / "pyinstaller"), str(spec)])
     binary = args.output / "yt-dlp"
     result = subprocess.run([str(binary), "--version"], check=True, text=True, capture_output=True)
-    if result.stdout.strip() != "2026.08.19":
+    if result.stdout.strip() != VERSIONS["yt-dlp"]:
         raise ValueError("Frozen downloader returned an unexpected version.")
     # Inspect the actual embedded Python modules, including modules brought
     # into the analysis by hooks, before claiming that optional GPL code is absent.
@@ -148,7 +148,7 @@ if __name__ == '__main__':
         "python": platform.python_version(), "pyinstaller": importlib.metadata.version("pyinstaller"),
         "sha256": hashlib.sha256(binary.read_bytes()).hexdigest(), "bytes": binary.stat().st_size,
         "excluded_optional_modules": list(EXCLUDES), "licenses": notice_files,
-        "sources": {"yt-dlp": "https://github.com/yt-dlp/yt-dlp/tree/2026.08.19",
+        "sources": {"yt-dlp": "https://github.com/yt-dlp/yt-dlp/tree/" + VERSIONS["yt-dlp"],
                     "yt-dlp-ejs": "https://pypi.org/project/yt-dlp-ejs/0.8.0/"},
     }
     (args.notices / "Blaze-downloader-manifest.json").write_text(
