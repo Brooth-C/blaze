@@ -11,3 +11,8 @@ height regressions; compact LCD baseline/captions, contextual toolbar geometry,
 shared ruler/chord-strip heights, blue/violet region roles, stereo arrangement
 peaks, shared channel display gain and musical grid. Exact match is not claimed:
 session content, authored icons and native font/chrome evidence differ.
+
+2026-10-31 — Replaced circular linear sliders with rotary pan controls and
+interactive recessed track/master faders. Real per-job track audition gain,
+shared inspector controls, fine/reset/keyboard behavior and fixed meter scale;
+gesture updates avoid canvas redraws. Native macOS 26 validation still pending.

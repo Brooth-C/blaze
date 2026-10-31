@@ -111,6 +111,10 @@
     let audioGraph=null;
     const history=[],future=[];
     const mutedTracks=new Set(),trackPans=new Map();
+    const trackGains=new Map();
+    const gainKey=track=>(track?.jobId||'source:'+sessionRevision)+':'+(track?.id||'source');
+    const gainFor=track=>trackGains.get(gainKey(track))??1;
+    const selectedGain=()=>gainFor(tracks.find(track=>track.id===selected));
     let sessionTitle='Untitled',libraryFamily='all',lastGuide=null;
     const cache = new Map();
     const active = () => !panel.hidden;
@@ -140,12 +144,13 @@
             const Context=window.AudioContext||window.webkitAudioContext;
             if(!Context)return null;
             try{
-                const context=new Context(),source=context.createMediaElementSource(player),eq=context.createBiquadFilter(),compressor=context.createDynamicsCompressor(),pan=context.createStereoPanner(),split=context.createChannelSplitter(2);
+                const context=new Context(),source=context.createMediaElementSource(player),eq=context.createBiquadFilter(),compressor=context.createDynamicsCompressor(),pan=context.createStereoPanner(),channelGain=context.createGain(),split=context.createChannelSplitter(2);
                 eq.type='peaking';eq.frequency.value=1200;eq.Q.value=.7;eq.gain.value=0;compressor.ratio.value=1;
-                source.connect(eq).connect(compressor).connect(pan);pan.connect(context.destination);pan.connect(split);
+                channelGain.gain.value=selectedGain();
+                source.connect(eq).connect(compressor).connect(pan).connect(channelGain);channelGain.connect(context.destination);channelGain.connect(split);
                 const meters=[context.createAnalyser(),context.createAnalyser()];
                 for(let i=0;i<2;i++){meters[i].fftSize=256;split.connect(meters[i],i);}
-                audioGraph={context,eq,compressor,pan,meters,samples:new Uint8Array(256)};
+                audioGraph={context,eq,compressor,pan,channelGain,meters,samples:new Uint8Array(256)};
             }catch(error){message('Audio controls could not be opened: '+error.message,'error');return null;}
         }
         audioGraph.context.resume().catch(()=>{});return audioGraph;
@@ -177,6 +182,22 @@
         const input=row?.querySelector('.daw-row-pan input');
         if(input){input.value=String(pan);input.nextElementSibling.style.transform='rotate('+(pan*120)+'deg)';}
         if(id===selected){el('daw-pan').value=String(pan);const graph=ensureAudio();if(graph)graph.pan.pan.value=pan;}
+        paintTransport();
+    }
+    function setTrackGain(id, value) {
+        const track=tracks.find(track=>track.id===id),gain=Number(value);
+        if(!track||!Number.isFinite(gain))return;
+        const bounded=Math.max(0,Math.min(2,gain));
+        trackGains.set(gainKey(track),bounded);
+        if(trackGains.size>128)trackGains.delete(trackGains.keys().next().value);
+        if(id===selected){
+            const graph=ensureAudio();
+            if(graph){const now=graph.context.currentTime;
+                const previous=graph.channelGain.gain.value;
+                graph.channelGain.gain.cancelScheduledValues(now);
+                graph.channelGain.gain.setValueAtTime(previous,now);
+                graph.channelGain.gain.linearRampToValueAtTime(bounded,now+.008);}
+        }
         paintTransport();
     }
     const doImport = () => window.BlazeMac.action('import');
@@ -271,6 +292,7 @@
             await window.BlazeMac.importCompleted();
             player.muted=mutedTracks.has(track.id);el('daw-pan').value=String(trackPans.get(track.id)||0);
             if(audioGraph)audioGraph.pan.pan.value=Number(el('daw-pan').value);
+            if(audioGraph){audioGraph.channelGain.gain.cancelScheduledValues(audioGraph.context.currentTime);audioGraph.channelGain.gain.value=gainFor(track);}
             const revision = sourceRevision;
             // Preserve audition position only for this completed selection.
             const resume = () => {
@@ -555,7 +577,9 @@
         const sourceChanged=sessionRevision!==revision;
         const previousGuide=guide&&sessionJob?{jobId:sessionJob,data:guide}:null;
         sessionRevision=revision;loading=true;
-        if(sourceChanged){currentPeaks=null;guide=null;lastGuide=null;tracks=[{id:'source',label:title(sourceName),waveform:null}];selected='source';renderTracks();}
+        if(sourceChanged){currentPeaks=null;guide=null;lastGuide=null;tracks=[{id:'source',label:title(sourceName),waveform:null}];selected='source';
+            if(audioGraph){audioGraph.channelGain.gain.cancelScheduledValues(audioGraph.context.currentTime);audioGraph.channelGain.gain.value=selectedGain();}
+            renderTracks();}
         message('Reading local waveform…','loading');
         text('daw-session-title',title(sourceName));
         try{
@@ -578,6 +602,7 @@
             tracks=rows.map(row=>({id:row.id,label:labels[row.id],jobId:sessionJob,waveform:cache.get(sessionJob+':'+row.id)||null}));
             if(selected==='source')tracks.unshift({id:'source',label:title(sourceName),waveform:data});
             else tracks.find(t=>t.id===selected).waveform=data;
+            if(audioGraph){audioGraph.channelGain.gain.cancelScheduledValues(audioGraph.context.currentTime);audioGraph.channelGain.gain.value=selectedGain();}
             for(const key of cache.keys())if(!key.startsWith(sessionJob+':'))cache.delete(key);
             loading=false;renderTracks();message('Ready · '+(selected==='source'?'Recording':labels[selected]));
             text('daw-session-caption',tracks.length>1?'Separated audio tracks':'Audio recording');
@@ -603,7 +628,7 @@
         active:active(), revision:sessionRevision, title:sessionTitle,
         tracks:tracks.map(track=>({...track,color:colors[track.id]||colors.source,
             region:(regionColors[track.id]||regionColors.source)[1],
-            muted:mutedTracks.has(track.id), pan:trackPans.get(track.id)||0})),
+            muted:mutedTracks.has(track.id), pan:trackPans.get(track.id)||0, gain:gainFor(track)})),
         selected, peaks:currentPeaks, duration:duration(), loading,
         pending:pendingSelection, pendingTrack, enabled:!!sourceName&&!pendingSelection,
         position:Number(player.currentTime)||0, paused:player.paused,
@@ -625,6 +650,7 @@
             if(selected!==id||pendingSelection)return;solo=!wasSolo;
             if(solo){ensureAudio();player.play().catch(failure);}renderTracks();paintTransport();},
         pan:(id,value)=>setTrackPan(id,value),
+        trackGain:setTrackGain,
         seek:seconds=>{if(sourceName&&!pendingSelection)seek(Math.max(0,Math.min(duration(),Number(seconds)||0)));},
         range:(start,end)=>{const length=duration();selection=length?[Math.max(0,Math.min(length,start,end)),Math.max(0,Math.min(length,Math.max(start,end)))]:null;paintRange();},
         play:()=>el('daw-play').click(),stop:()=>el('daw-stop').click(),
@@ -640,6 +666,6 @@
         eq:()=>el('daw-eq').click(),compressor:()=>el('daw-compressor').click(),
         undo:()=>el('daw-undo').click(),redo:()=>el('daw-redo').click(),
     };
-    window.BlazeMacStudio={viewState,commands,projectDuration:duration,snapshot:()=>({active:active(),selectedTrack:selected,tracks:tracks.map(t=>({id:t.id,label:t.label})),zoom,libraryOpen,inspectorOpen,waveformReady,waveformsReady:tracks.filter(t=>t.waveform).length,sourceRevision:sessionRevision,sessionTitle,editorMode,guideReady:!!guide?.chords?.length,projectTempo,projectNumerator,projectDenominator,audio:audioGraph?{pan:audioGraph.pan.pan.value,equalizerGain:audioGraph.eq.gain.value,compressionRatio:audioGraph.compressor.ratio.value}:null})};
+    window.BlazeMacStudio={viewState,commands,projectDuration:duration,snapshot:()=>({active:active(),selectedTrack:selected,tracks:tracks.map(t=>({id:t.id,label:t.label})),zoom,libraryOpen,inspectorOpen,waveformReady,waveformsReady:tracks.filter(t=>t.waveform).length,sourceRevision:sessionRevision,sessionTitle,editorMode,guideReady:!!guide?.chords?.length,projectTempo,projectNumerator,projectDenominator,audio:audioGraph?{channelGain:audioGraph.channelGain.gain.value,pan:audioGraph.pan.pan.value,equalizerGain:audioGraph.eq.gain.value,compressionRatio:audioGraph.compressor.ratio.value}:null})};
     setPanels();renderTracks();syncSession();
 })();

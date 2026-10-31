@@ -8,6 +8,7 @@ html[data-presentation=mac] #studio-panel #logic-preview.logic-live { height:100
 #logic-preview button,#logic-preview select { min-height:0; }
 #logic-preview .tool-group button { padding:4px;border-radius:4px; }
 #logic-preview .track-controls button { padding:0;font-size:10px;border-radius:3px; }
+#logic-preview .track-name { display:block;width:100%;height:16px;min-height:0;padding:0;border:0;border-radius:0;background:transparent;color:inherit;text-align:left;font-size:12px;line-height:16px;font-weight:500; }
 #logic-preview .menu-group button { padding:2px 7px;border-radius:3px;font-size:11px; }
 #logic-preview .snap-controls select { padding:1px 5px;border-radius:3px;font-size:11px; }
 #logic-preview .lcd small { font-size:6.5px;line-height:7px; }
@@ -28,17 +29,10 @@ html[data-presentation=mac] body.studio-active #logic-session-tools header { dis
  #live-empty { position:absolute;inset:0;display:grid;place-content:center;justify-items:center;color:var(--muted); }
  #live-empty[hidden] { display:none; }
  #live-empty button { padding:5px 12px;border:1px solid #777;border-radius:4px;background:#555; }
- .track-level i { width:var(--level,0%); }
- .track-level::after { display:none; }
- .live-pan { appearance:none;width:18px;height:18px;border-radius:50%;background:#8d8d8d;border:1px solid #393939;margin:0; }
- .live-pan::-webkit-slider-thumb { appearance:none;width:2px;height:9px;background:#333; }
  .track-list-tools { gap:4px; }.track-list-tools button { font-size:10px;line-height:18px; }
  .track-list-tools #add-track { font-size:17px; }
  .live-save { font-size:10px;color:var(--text);white-space:nowrap; }
- .output-section { position:relative;align-items:center;justify-content:center; }.output-meter { width:118px;min-width:42px;max-width:118px; }.output-meter i { width:0; }.output-meter>span { display:none; }
- .live-master { position:absolute;width:118px;min-width:25px;max-width:100%;height:17px;margin:0;padding:0 8px; }
- .live-master::-webkit-slider-runnable-track { background:transparent; }
- .live-master::-webkit-slider-thumb { background:#b0b0b0aa; }
+ .output-section { position:relative;align-items:center;justify-content:center; }
  .live-editor-scroll { min-width:0;min-height:0;overflow:auto;scrollbar-width:thin; }
  .editor-wave-area { width:100%;height:100%; }
  .live-editor-empty { position:absolute;inset:0;display:grid;place-content:center;color:#c0def5;font-size:12px;pointer-events:none; }
@@ -59,6 +53,78 @@ html[data-presentation=mac] #logic-session-tools { width:300px;max-height:80vh;p
 #logic-session-tools .logic-tools-body label { display:flex;justify-content:space-between;align-items:center; }
 #logic-session-tools .logic-tools-body button { text-align:left;background:#555;color:#eee;border:1px solid #666;border-radius:4px;padding:6px 10px; }
 #logic-session-tools button[aria-pressed=true] { background:#2674aa; }
+/* Shared audio controls: one visual/value model in headers and inspector. */
+:is(#logic-preview,#logic-session-tools) {
+ --mix-recess:#363636;--mix-ring:#303030;--mix-face:#a1a1a1;
+ --mix-cap:#c3c3c3a8;--mix-indicator:#242424;--mix-active:#74bd8b;
+ --mix-focus:#b7d6ff;--mix-readout-bg:#262626;--mix-readout-ink:#f2f2f2;
+ --mix-meter-low:#44d265;--mix-meter-mid:#b4cf49;--mix-meter-high:#e9ca43;
+}
+:is(#logic-preview,#logic-session-tools) .mix-fader {
+ position:relative;display:inline-block;flex:1;min-width:32px;height:15px;
+ border-radius:9px;background:var(--mix-recess);vertical-align:middle;
+ box-shadow:inset 0 .5px 1px #0005;isolation:isolate;
+}
+#logic-preview .track-level { margin:0 4px 0 3px; }
+#logic-preview .track-level::after { display:none; }
+:is(#logic-preview,#logic-session-tools) .mix-fader-cap {
+ position:absolute;z-index:1;top:50%;left:calc(6.5px + (100% - 13px) * var(--fader-unit,.75));
+ width:13px;height:13px;transform:translate(-50%,-50%);border-radius:50%;
+ background:var(--mix-cap);box-shadow:inset 0 .5px .5px #ffffff25;
+ pointer-events:none;
+}
+:is(#logic-preview,#logic-session-tools) .mix-meter {
+ position:absolute;z-index:2;inset:4px 7px;display:grid;grid-template-rows:2px 2px;gap:2px;pointer-events:none;
+}
+:is(#logic-preview,#logic-session-tools) .mix-meter>i {
+ display:block;position:static;width:100%;height:2px;margin:0;border:0;box-shadow:none;
+ clip-path:inset(0 calc(100% - var(--meter-level,0%)) 0 0);
+ border-radius:1px;background:linear-gradient(90deg,var(--mix-meter-low) 0%,var(--mix-meter-low) 72%,var(--mix-meter-mid) 88%,var(--mix-meter-high) 100%);
+}
+:is(#logic-preview,#logic-session-tools) .mix-knob {
+ position:relative;display:inline-block;flex:none;width:var(--mix-knob-size,20px);height:var(--mix-knob-size,20px);
+ background:conic-gradient(from 225deg,var(--mix-ring) 0deg 270deg,transparent 270deg 360deg);
+ border-radius:50%;vertical-align:middle;isolation:isolate;
+}
+:is(#logic-preview,#logic-session-tools) .mix-knob-arc {
+ position:absolute;inset:0;border-radius:50%;pointer-events:none;
+ background:conic-gradient(from var(--pan-start,0deg),var(--mix-active) 0deg var(--pan-sweep,0deg),transparent var(--pan-sweep,0deg) 360deg);
+}
+:is(#logic-preview,#logic-session-tools) .mix-knob[data-center=true]::before {
+ content:'';position:absolute;z-index:2;width:1px;height:3px;left:calc(50% - .5px);top:0;background:var(--mix-active);
+}
+:is(#logic-preview,#logic-session-tools) .mix-knob-face {
+ position:absolute;inset:3px;background:var(--mix-face);border-radius:50%;box-shadow:inset 0 .5px .5px #ffffff20;pointer-events:none;
+}
+:is(#logic-preview,#logic-session-tools) .mix-knob-rotor {
+ position:absolute;inset:3px;transform:rotate(var(--pan-angle,0deg));pointer-events:none;
+}
+:is(#logic-preview,#logic-session-tools) .mix-knob-rotor>i {
+ position:absolute;top:0;left:calc(50% - .75px);width:1.5px;height:5px;background:var(--mix-indicator);border-radius:.5px;
+}
+:is(#logic-preview,#logic-session-tools) :is(.mix-fader,.mix-knob)>input[type=range] {
+ appearance:none;-webkit-appearance:none;position:absolute;z-index:3;inset:-4px 0;
+ width:100%;height:calc(100% + 8px);min-height:0;margin:0;padding:0;border:0;opacity:0;
+ touch-action:none;cursor:ew-resize;
+}
+:is(#logic-preview,#logic-session-tools) .mix-knob>input[type=range] { cursor:ns-resize; }
+:is(#logic-preview,#logic-session-tools) :is(.mix-fader,.mix-knob):has(input:focus-visible) {
+ outline:2px solid var(--mix-focus);outline-offset:2px;
+}
+:is(#logic-preview,#logic-session-tools) .mix-readout {
+ position:absolute;z-index:20;bottom:calc(100% + 5px);left:50%;transform:translateX(-50%);
+ padding:3px 6px;border:1px solid #686868;border-radius:4px;white-space:nowrap;
+ background:var(--mix-readout-bg);color:var(--mix-readout-ink);font:10px/13px -apple-system,BlinkMacSystemFont,sans-serif;
+ pointer-events:none;opacity:0;
+}
+:is(#logic-preview,#logic-session-tools) :is(.mix-fader,.mix-knob):is(:hover,:has(input:focus-visible),[data-dragging=true])>.mix-readout { opacity:1; }
+:is(#logic-preview,#logic-session-tools) [data-disabled=true] { opacity:.4; }
+#logic-preview .mix-master { flex:0 1 118px;max-width:100%;height:17px;margin:0; }
+#logic-preview .mix-master .mix-meter { top:5px;bottom:5px; }
+#logic-session-tools .mix-inspector-field { min-height:32px;gap:14px; }
+#logic-session-tools .mix-inspector-field>span:first-child { white-space:nowrap;flex-shrink:0; }
+#logic-session-tools .mix-inspector-field .mix-fader { flex:0 1 150px;width:150px; }
+#logic-session-tools .mix-inspector-field .mix-knob { --mix-knob-size:28px;margin-right:4px; }
 @media(max-width:980px) {
  #logic-preview.logic-live { grid-template-rows:48px 28px minmax(150px,1.3fr) minmax(160px,1fr);--header-width:200px; }
  #logic-preview .control-bar { grid-template-columns:60px 160px minmax(160px,220px) minmax(60px,1fr) 30px;gap:6px;padding:2px 8px; }
@@ -71,7 +137,7 @@ html[data-presentation=mac] #logic-session-tools { width:300px;max-height:80vh;p
  #logic-preview .track-list-tools { padding-inline:4px;gap:3px; }
  #logic-preview .track-list-tools button { padding-inline:3px; }
  #logic-preview .live-save { font-size:9px; }
- #logic-preview .live-master { display:none; }
+ #logic-preview .track-controls button:nth-child(4) { display:none; }
 }
 @media(max-width:640px) {
  #logic-preview .control-bar { grid-template-columns:58px 140px minmax(160px,1fr) 28px;gap:4px; }
@@ -80,7 +146,7 @@ html[data-presentation=mac] #logic-session-tools { width:300px;max-height:80vh;p
  #logic-preview .zoom-controls input { width:28px; }#logic-preview .pointer-tools button:last-child { display:none; }
  #logic-preview.logic-live { --header-width:180px; }
  #logic-preview .track-header { grid-template-columns:18px 27px minmax(0,1fr);gap:4px; }
- #logic-preview .live-pan { display:none; }
+ #logic-preview .track-controls button:nth-child(n+3) { display:none; }
  #logic-preview .track-list-tools #duplicate-track { max-width:45px;overflow:hidden; }
  #logic-preview footer { gap:6px;font-size:9px; }#live-status { display:none; }
 }

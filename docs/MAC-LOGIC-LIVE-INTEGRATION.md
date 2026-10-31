@@ -109,3 +109,40 @@ failure; the corrected source passes. Visual evidence is outside the app at
 screens and `transport-comparison.png`. The coarse Replica edge-map score for
 the narrow control strip improves from 20.1 to 69.6, still classified as partial;
 it is not a whole-application fidelity percentage or a native comparison.
+
+## Rotary controls and level faders
+
+The current listing was rechecked as Logic Pro 12.4. Source close-ups expose a
+20px pan control with a dark open arc and rotating pointer, and a recessed
+15px fader/level meter with a roughly 13px round handle. The previous Blaze
+control used a linear range thumb inside a circle and a noninteractive meter.
+
+The live renderer now shares rotary and fader components across track headers,
+the master control and the inspector. They keep native labeled range inputs,
+visible keyboard focus, direct pointer capture, Shift fine control, keyboard
+steps, Option-click/double-click reset and real readouts. Dragging from an
+existing handle retains the grab offset. Meter colors occupy a fixed level
+scale, clipped to measured levels; quiet audio does not turn yellow merely
+because its meter is short. No inactive track meter is animated artificially.
+
+Track faders have real per-track audition gain, separate from the unchanged
+media master volume. A bounded Web Audio GainNode after the existing pan/FX
+chain applies the selected saved level with an 8ms ramp. Stem gains are keyed
+by job and instrument; unrelated recordings/jobs begin at unity. The app still
+auditions one recording at a time, and exported WAV files remain the original
+bytes. No multitrack mixing, pan modes, automation or model changes are claimed.
+The gain taper and gesture sensitivity are Blaze's, not an assertion about
+undisclosed Logic algorithms. Gain state is for the current app session.
+
+Pointer/value updates no longer redraw the arrangement's waveform canvases.
+The live suite verifies rotary angle, captured/fine dragging, reset, keyboard
+input, actual gain/pan node values, independent master gain, level restoration,
+inspector synchronization and zero canvas redraws during knob input. Track
+headers use groups with actual selection buttons so sliders are not nested
+inside an ARIA option. Five sizes and both appearances remain covered.
+
+Component measurements and scoped contrast pairs are recorded in
+`replica/design/logic-audio-controls.json`. Reference/actual UI close-ups are
+outside the app at `/workspace/logic-controls/`. Replica, BAMA measurement,
+Apple interaction, accessibility and verification guidance were applied;
+native macOS-only measurement utilities were not run on this Linux host.
