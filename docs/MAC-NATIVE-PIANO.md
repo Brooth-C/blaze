@@ -48,6 +48,9 @@ stereo WAVs with exact duration and additive reconstruction. A second export to
 a different directory reproduced the pinned piano-head hash. Tests additionally
 cover cancellation arriving during session creation, releasing the session and
 profile before returning cancellation.
+The packaged UI receipt identifies the actual native piano checkpoint/head and
+is checked against its pins. Its finite smoke-test budget accounts for both
+real nine-stem and new native-piano jobs; it is not a responsiveness benchmark.
 
 The Mac CI workflow builds this artifact in a separate Linux **conversion** job
 and downloads it into the model cache before Mac packaging. This is not a

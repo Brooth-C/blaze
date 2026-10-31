@@ -166,7 +166,7 @@ def capture_screenshot(destination):
         ImageGrab.grab().save(destination)
 
 
-def ui_smoke(window, studio, destination, receipt, probe, timeout=600):
+def ui_smoke(window, studio, destination, receipt, probe, timeout=900):
     """Exercise the packaged Cocoa UI and engine; the report preserves failures."""
     target = Path(destination).resolve()
     deadline = time.monotonic() + timeout
@@ -506,7 +506,10 @@ def ui_smoke(window, studio, destination, receipt, probe, timeout=600):
             wait_for("!document.getElementById('stems-dialog').open && sourceName==='Piano.wav' && document.getElementById('media').readyState>=1")
             probe.run(window, "document.getElementById('mini-play').click()")
             wait_for("(() => {const m=document.getElementById('media');return m===window.blazeSmokeVideo && !m.paused && m.currentTime>.1;})()")
-            receipt['piano'] = {'model': 'Spleeter 5stems', 'real_model': True, 'native_playback': True, 'outputs': 2}
+            from .native_piano_assets import HEAD, CHECKPOINT_SHA
+            receipt['piano'] = {'model': 'Mega53 native acoustic piano', 'checkpoint_sha256': CHECKPOINT_SHA,
+                                'head_sha256': HEAD['sha256'], 'real_model': True,
+                                'native_playback': True, 'outputs': 2}
         receipt['ok'] = True
     except Exception as error:
         receipt.update(ok=False, error=str(error))
