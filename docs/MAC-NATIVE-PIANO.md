@@ -134,7 +134,9 @@ CoreML events prove delegation, not actual Metal GPU utilization; native
 Instruments and compute-plan evidence are still needed for that assertion.
 
 PR/manual Mac CI additionally profiles CPU and cold/warm CoreML runs against
-the actual packaged model assets on macOS26. Its deterministic tone checks
+the same checksum-pinned assets and decoder used by packaging on macOS26. This
+independent model check runs alongside the full app build, which separately
+verifies those assets inside the real package. Its deterministic tone checks
 runtime execution, not piano separation quality. It reports the runner's chip
 and RAM; those timings must not be attributed to the user's M3/8 GB. Profile
 artifacts are retained even if acceleration initialization or delegation fails.

@@ -115,7 +115,7 @@ jobs:
   stem-profile:
     name: Native piano CPU and CoreML profile / macOS 26
     if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
-    needs: app
+    needs: native-piano-model
     runs-on: macos-26
     timeout-minutes: 30
     steps:
@@ -125,16 +125,37 @@ jobs:
           python-version: '3.12.10'
       - name: Install the same pinned Mac inference runtime
         run: python -m pip install numpy==1.26.4 onnxruntime==1.31.0
+      - uses: actions/cache/restore@v6.1.0
+        with:
+          path: build/mac-assets/stem-models
+          key: blaze-mac-stems-native-piano-v1-full-fp32
+          restore-keys: blaze-mac-stems-instruments-v1-full-fp32
       - uses: actions/download-artifact@v8.0.2
         with:
-          name: Blaze-Mac-arm64
-          path: build/profile-artifact
-      - name: Prepare the actual bundled models and a deterministic signal
+          name: Blaze-Native-Piano-fp32
+          path: build/mac-assets/stem-models/native-piano
+      - uses: actions/cache/restore@v6.1.0
+        with:
+          path: |
+            tools/macos_decoder/downloads
+            tools/macos_decoder/output
+          key: blaze-mac-lgpl-arm64-${{ hashFiles('tools/macos_decoder/*.py', 'tools/macos_decoder/*.sh', 'tools/macos_decoder/*.json') }}
+      - name: Prepare the pinned decoder when the cache is missing
         run: |
-          ditto -x -k build/profile-artifact/Blaze-Mac-arm64.zip build/profile-app
+          if [ ! -f tools/macos_decoder/output/decoder-manifest.json ]; then
+            python tools/macos_decoder/fetch_sources.py
+            bash tools/macos_decoder/build.sh
+            python tools/macos_decoder/package_sources.py
+          fi
+      - name: Stage the same checksum-pinned model assets and a deterministic signal
+        run: |
           python - <<'PY'
           from pathlib import Path
           import numpy as np, wave
+          from tools.stage_macos_studio import stage_instruments, stage_native_piano
+          cache = Path('build/mac-assets/stem-models')
+          stage_instruments(cache/'instruments', Path('build/profile-models/instruments'))
+          stage_native_piano(cache/'native-piano', Path('build/profile-models/native-piano'))
           t = np.arange(44100) / 44100
           signal = np.stack((.1*np.sin(2*np.pi*220*t), .1*np.sin(2*np.pi*330*t)), axis=1)
           with wave.open(str(Path('build/profile-source.wav')), 'wb') as out:
@@ -143,9 +164,9 @@ jobs:
           PY
       - name: Measure CPU and cold/warm CoreML execution
         run: |
-          export PATH="$PWD/build/profile-app/Blaze.app/Contents/Resources/bin:$PATH"
-          python tools/benchmark_macos_stems.py --source build/profile-source.wav --models build/profile-app/Blaze.app/Contents/Resources/music_studio/stem_models --output build/stem-profile/cpu --backend cpu --runs 1
-          python tools/benchmark_macos_stems.py --source build/profile-source.wav --models build/profile-app/Blaze.app/Contents/Resources/music_studio/stem_models --output build/stem-profile/coreml --backend coreml --runs 2 --reference build/stem-profile/cpu/benchmark.json
+          export PATH="$PWD/tools/macos_decoder/output/bin:$PATH"
+          python tools/benchmark_macos_stems.py --source build/profile-source.wav --models build/profile-models --output build/stem-profile/cpu --backend cpu --runs 1
+          python tools/benchmark_macos_stems.py --source build/profile-source.wav --models build/profile-models --output build/stem-profile/coreml --backend coreml --runs 2 --reference build/stem-profile/cpu/benchmark.json
       - uses: actions/upload-artifact@v7.0.2
         if: always()
         with:
