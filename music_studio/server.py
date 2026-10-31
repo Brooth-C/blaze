@@ -234,7 +234,10 @@ def create_server(studio, port=0):
             names = {'/': 'index.html', '/studio.js': 'studio.js', '/flow.js': 'flow.js',
                      '/studio.css': 'studio.css', '/blaze-logo.png': 'blaze-logo.png'}
             if mac:
-                names.update({'/mac.css': 'mac.css', '/mac.js': 'mac.js',
+                names.update({'/mac-logic-preview.html': 'mac-logic-preview.html',
+                              '/mac-logic-preview.css': 'mac-logic-preview.css', '/mac-logic-preview.js': 'mac-logic-preview.js',
+                              '/mac-logic-live.js': 'mac-logic-live.js', '/mac-logic-live.css': 'mac-logic-live.css',
+                              '/mac.css': 'mac.css', '/mac.js': 'mac.js',
                               '/mac-stems.css': 'mac-stems.css', '/mac-stems.js': 'mac-stems.js',
                               '/mac-studio.css': 'mac-studio.css', '/mac-studio.js': 'mac-studio.js',
                               '/mac-harmony.css': 'mac-harmony.css', '/mac-harmony.js': 'mac-harmony.js',
@@ -248,8 +251,19 @@ def create_server(studio, port=0):
                     data = data.replace(b'%%APPEARANCE%%', studio.appearance.encode())
                     data = data.replace(b'%%PRESENTATION%%', b'mac' if mac else b'desktop')
                     data = data.replace(b'%%MAC_STYLES%%', b'<link rel="stylesheet" href="/mac.css"><link rel="stylesheet" href="/mac-stems.css"><link rel="stylesheet" href="/mac-studio.css"><link rel="stylesheet" href="/mac-harmony.css">' if mac else b'')
-                    data = data.replace(b'%%MAC_SCRIPT%%', b'<script src="/mac.js"></script><script src="/mac-stems.js"></script><script src="/mac-studio.js"></script><script src="/mac-harmony.js"></script>' if mac else b'')
-                kind = ('text/html; charset=utf-8' if path == '/' else 'text/css; charset=utf-8'
+                    if mac:
+                        preview = (assets / 'mac-logic-preview.html').read_bytes()
+                        template = preview.split(b'<main ', 1)[1].split(b'</main>', 1)[0]
+                        live = (b'<template id="logic-live-template"><main ' + template + b'</main></template>'
+                                b'<link rel="stylesheet" href="/mac-logic-preview.css">'
+                                b'<link rel="stylesheet" href="/mac-logic-live.css">'
+                                b'<script src="/mac.js"></script><script src="/mac-stems.js"></script>'
+                                b'<script src="/mac-studio.js"></script><script src="/mac-harmony.js"></script>'
+                                b'<script src="/mac-logic-live.js"></script><script src="/mac-logic-preview.js"></script>')
+                    else:
+                        live = b''
+                    data = data.replace(b'%%MAC_SCRIPT%%', live)
+                kind = ('text/html; charset=utf-8' if path == '/' or path.endswith('.html') else 'text/css; charset=utf-8'
                         if path.endswith('.css') else 'image/png' if path.endswith('.png')
                         else 'text/javascript; charset=utf-8')
                 self.send(data, content_type=kind)

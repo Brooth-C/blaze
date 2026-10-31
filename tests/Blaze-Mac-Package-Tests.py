@@ -93,7 +93,7 @@ def main():
         shutil.copy2(source_artwork / ('discovery_' + name + '.png'), artwork / (name + '.png'))
     process = subprocess.Popen([str(binary), str(audio), '--ui-smoke', str(receipt_path)])
     try:
-        process.wait(timeout=660)
+        process.wait(timeout=960)
     except subprocess.TimeoutExpired:
         process.kill()
         raise
@@ -120,7 +120,7 @@ def main():
     assert receipt['mac_design']['chord_drawer']['dark_controls'], receipt
     assert receipt['mac_design']['compact_layout']['studio_workspace'] and receipt['mac_design']['compact_layout']['chord_drawer'], receipt
     assert receipt['mac_design']['studio_waveform']['active'] and receipt['mac_design']['studio_waveform']['waveformReady'], receipt
-    assert all(receipt['mac_design']['harmony_workspace'][key] for key in ('four_bar_mode', 'regions', 'visible', 'transport_valid')), receipt
+    assert all(receipt['mac_design']['harmony_workspace'][key] for key in ('project_timeline', 'regions', 'visible', 'transport_valid')), receipt
     assert receipt['stems']['real_model'] and receipt['stems']['native_playback'], receipt
     assert receipt['stems']['count'] == 9, receipt
     assert all(receipt['background_tasks'][key] for key in ('navigation', 'fixture_search', 'chord_analysis', 'separation_active_at_analysis_start')), receipt
@@ -129,6 +129,10 @@ def main():
     assert session['active'] and session['waveformReady'] and session['selectedTrack'] == 'vocals', receipt
     assert len(session['tracks']) == 9, receipt
     assert receipt['piano']['real_model'] and receipt['piano']['native_playback'], receipt
+    from music_studio.native_piano_assets import HEAD, CHECKPOINT_SHA
+    assert receipt['piano']['model'] == 'Mega53 native acoustic piano', receipt
+    assert receipt['piano']['head_sha256'] == HEAD['sha256'], receipt
+    assert receipt['piano']['checkpoint_sha256'] == CHECKPOINT_SHA, receipt
     print(json.dumps({'architecture': args.arch, 'checks': 'native launch, ensemble, edits/exports, 6 audio formats, 4K decode, download, Cocoa playback/seek/layout', 'ui': receipt}, indent=2))
     # Let the remote desktop screenshot finish writing before artifact upload.
     assert receipt_path.with_suffix('.png').stat().st_size > 100

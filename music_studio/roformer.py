@@ -16,6 +16,7 @@ import onnxruntime as ort
 
 from .stems import Separator, check_cancel, _write_header, MAX_BYTES, DISK_RESERVE
 from .roformer_transform import stft_bands_last, istft_bands_last
+from .stem_runtime import StemRuntime
 
 RATE, SEGMENT, FFT, HOP = 44100, 485100, 2048, 441
 STEMS = ('drums', 'bass', 'other', 'vocals')
@@ -33,6 +34,7 @@ class RoformerSeparator(Separator):
         super().__init__(model_directory, ffmpeg)
         self.directory = self.directory / 'roformer'
         self.block_progress = lambda fraction: None
+        self.runtime = StemRuntime()
 
     def _load(self, event):
         from .roformer_assets import MODELS
@@ -65,37 +67,38 @@ class RoformerSeparator(Separator):
         options.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_BASIC
         options.add_session_config_entry('session.disable_prepacking', '1')
         ort.disable_telemetry_events()
-        self.session = ort.InferenceSession(data, sess_options=options, providers=['CPUExecutionProvider'])
-        inputs, outputs = self.session.get_inputs(), self.session.get_outputs()
-        if (len(inputs) != 1 or inputs[0].name != 'x' or inputs[0].shape != meta['input_shape']
-                or inputs[0].type != 'tensor(float)' or len(outputs) != 1
-                or outputs[0].name != 'y' or outputs[0].shape != meta['output_shape']
-                or outputs[0].type != 'tensor(float)'):
-            self.session = None
-            raise ValueError('The stem model interface is incompatible.')
-        check_cancel(event)
-
-        options, finished = ort.RunOptions(), threading.Event()
-        def interrupt():
-            while not finished.wait(.02):
-                if event.is_set():
-                    options.terminate = True
-                    return
-        watcher = threading.Thread(target=interrupt, daemon=True)
-        watcher.start()
+        self.session = self.runtime.session(data, options, meta['sha256'])
         try:
+            inputs, outputs = self.session.get_inputs(), self.session.get_outputs()
+            if (len(inputs) != 1 or inputs[0].name != 'x' or inputs[0].shape != meta['input_shape']
+                    or inputs[0].type != 'tensor(float)' or len(outputs) != 1
+                    or outputs[0].name != 'y' or outputs[0].shape != meta['output_shape']
+                    or outputs[0].type != 'tensor(float)'):
+                raise ValueError('The stem model interface is incompatible.')
             check_cancel(event)
-            result = self.session.run(['y'], {'x': features}, options)[0]
-            check_cancel(event)
-            if list(result.shape) != meta['output_shape'] or not np.isfinite(result).all():
-                raise ValueError('The stem model returned invalid estimates.')
-            return result
-        except Exception:
-            check_cancel(event)
-            raise
+            options, finished = ort.RunOptions(), threading.Event()
+            def interrupt():
+                while not finished.wait(.02):
+                    if event.is_set():
+                        options.terminate = True
+                        return
+            watcher = threading.Thread(target=interrupt, daemon=True)
+            watcher.start()
+            try:
+                check_cancel(event)
+                result = self.session.run(['y'], {'x': features}, options)[0]
+                check_cancel(event)
+                if list(result.shape) != meta['output_shape'] or not np.isfinite(result).all():
+                    raise ValueError('The stem model returned invalid estimates.')
+                return result
+            except Exception:
+                check_cancel(event)
+                raise
+            finally:
+                finished.set()
+                watcher.join(timeout=1)
         finally:
-            finished.set()
-            watcher.join(timeout=1)
+            self.runtime.finish(self.session)
             self.session = None
 
     def _predict(self, features, event):

@@ -17,6 +17,62 @@
         '<div id="harmony-bars" tabindex="0" aria-label="Chord regions; scroll horizontally to inspect the group"></div>' +
         '<div id="harmony-empty"><p id="harmony-status">Open a recording to analyse its chords.</p><button id="harmony-analyze">Analyse Chords</button></div><p id="harmony-announcement" class="sr-only" role="status" aria-live="polite"></p>';
     main.prepend(harmony);
+    // The image reference places project chords below the arrangement ruler.
+    // Both lanes use the same complete project duration, not the focus scale.
+    harmony.hidden = true;
+    root.classList.add('daw-focus-hidden');
+    const projectHeader = document.createElement('div');
+    projectHeader.id = 'daw-project-chord-header';
+    projectHeader.innerHTML = '<button id="daw-chord-focus" aria-controls="daw-harmony" aria-expanded="false" aria-label="Show four-bar chord focus" title="Show four-bar chord focus">Chords <span aria-hidden="true">⌄</span></button>';
+    const projectLane = document.createElement('section');
+    projectLane.id = 'daw-project-chords'; projectLane.setAttribute('aria-label','Project chord track');
+    projectLane.innerHTML = '<span class="project-chord-empty">Analyse a recording to show its chords</span><i id="project-chord-playhead" aria-hidden="true"></i>';
+    el('daw-ruler').after(projectHeader, projectLane);
+    const openFocus = show => {
+        const hadFocus = harmony.contains(document.activeElement);
+        harmony.hidden = !show; root.classList.toggle('daw-focus-hidden', !show);
+        el('daw-chord-focus').setAttribute('aria-expanded', String(show));
+        el('daw-chord-focus').setAttribute('aria-label', (show ? 'Hide' : 'Show') + ' four-bar chord focus');
+        if (!show && hadFocus) el('daw-chord-focus').focus();
+    };
+    el('daw-chord-focus').onclick = () => openFocus(harmony.hidden);
+    let projectMap = null, projectLength = -1, projectRegions = [], projectCurrent = null;
+    function paintProject(state) {
+        const length = window.BlazeMacStudio.projectDuration();
+        if (projectMap !== flowMap || length !== projectLength) {
+            projectMap = flowMap; projectLength = length; projectCurrent = null;
+            projectRegions = []; const fragment = document.createDocumentFragment();
+            if (result && length > 0) for (const region of flowMap.chords) {
+                const start = Math.max(0, region.start), end = Math.min(length, region.end);
+                if (end <= start) continue;
+                const button = document.createElement('button'); button.className = 'project-chord';
+                button.textContent = label(region.chord);
+                button.style.left = (start / length * 100) + '%';
+                button.style.width = ((end - start) / length * 100) + '%';
+                button.title = spoken(region.chord) + ' · ' + stamp(start) + '–' + stamp(end) + ' · Double-click for four-bar focus';
+                button.setAttribute('aria-label','Seek to ' + spoken(region.chord) + ' at ' + stamp(start));
+                button.onclick = () => seek(start);
+                button.ondblclick = () => openFocus(true);
+                button.oncontextmenu = event => { event.preventDefault(); seek(start); el('edit').click(); };
+                fragment.append(button); projectRegions.push({button, region});
+            }
+            if (!projectRegions.length) {
+                const empty = document.createElement('span'); empty.className = 'project-chord-empty';
+                empty.textContent = 'Analyse a recording to show its chords'; fragment.append(empty);
+            }
+            const marker = el('project-chord-playhead');
+            fragment.append(marker); projectLane.replaceChildren(fragment);
+        }
+        const next = state && !state.ended ? projectRegions[state.chord]?.button : null;
+        if (next !== projectCurrent) {
+            projectCurrent?.removeAttribute('aria-current');
+            next?.setAttribute('aria-current','true'); projectCurrent = next;
+        }
+        const marker = el('project-chord-playhead');
+        marker.hidden = !projectRegions.length || !length;
+        marker.style.transform = 'translateX(' + Math.max(0,Math.min(1,player.currentTime/(length || 1))) * 100 + '%)';
+    }
+
 
     const editorToggle = document.createElement('button');
     editorToggle.id = 'daw-editor-toggle'; editorToggle.textContent = 'Editor';
@@ -105,6 +161,7 @@
         if (paintKey === lastPaint && paintedMap === flowMap) return;
         lastPaint = paintKey; paintedMap = flowMap;
         const available = !!result && flowMap.measures.length > 0;
+        paintProject(available ? BlazeFlow.state(flowMap,player.currentTime) : null);
         el('harmony-empty').hidden = available; el('harmony-bars').hidden = !available;
         harmony.setAttribute('aria-busy', String(busy));
         el('harmony-analyze').disabled = !sourceName || busy;
@@ -201,6 +258,6 @@
     const events = ['timeupdate', 'seeked', 'loadedmetadata', 'play', 'pause'];
     for (const event of events) player.addEventListener(event, update);
     window.addEventListener('pagehide', () => { stopped = true; clearInterval(timer); cancelAnimationFrame(animationFrame); for (const event of events) player.removeEventListener(event, update); }, {once: true});
-    window.BlazeMacHarmony = {snapshot: () => ({first, count, follow, available: !!result, editorOpen: !el('daw-editor').hidden}), refresh: paint};
+    window.BlazeMacHarmony = {snapshot: () => ({first, count, follow, available: !!result, editorOpen: !el('daw-editor').hidden, focusOpen: !harmony.hidden}), refresh: paint};
     paint();
 })();

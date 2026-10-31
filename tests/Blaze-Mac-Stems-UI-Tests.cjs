@@ -91,6 +91,9 @@ async function layout(page){
             const response=await page.request.post(base+'/api/import',{headers:{'X-Blaze-Token':token,'X-File-Name':selected.stem==='piano'?'Piano.wav':'Vocals.wav'},data:wav});
             assert(response.ok());actions.push('select');await route.fulfill({json:{ok:true}});
         });
+        // Isolate retained engine controls; default production layout has its own live suite.
+        await page.route('**/mac-logic-live.js', route => route.fulfill({contentType:'text/javascript',body:''}));
+        await page.route('**/mac-logic-preview.js', route => route.fulfill({contentType:'text/javascript',body:''}));
         await page.goto(base);
         await page.waitForFunction(()=>window.BlazeMacStems&&sourceName==='A local recording.wav');
         token=await page.locator('meta[name=blaze-token]').getAttribute('content');
@@ -119,7 +122,7 @@ async function layout(page){
         await page.locator('#split-stems').click();
         await page.locator('.stem-result').first().waitFor();
         assert.equal(await page.locator('.stem-result').count(),9);
-        await page.locator('#stems-folder').click();assert(folderOpened);
+        await Promise.all([page.waitForResponse(response=>response.url().endsWith('/api/stems-folder')&&response.status()===200),page.locator('#stems-folder').click()]);assert(folderOpened);
         await layout(page);await shot(page,'complete');
         for(const [width,height] of [[570,540],[813,632]]){
             await page.setViewportSize({width,height});await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
@@ -196,7 +199,7 @@ async function layout(page){
         await page.waitForFunction(()=>window.BlazeMacStems.snapshot().status==='done'&&document.getElementById('split-stems').textContent==='Split Stems');
         assert.equal(await page.locator('#split-stems').innerText(),'Split Stems','Retry retained a stale failure label');
         assert.deepEqual(errors,[]);
-        console.log('Mac stems UI PASS: start/progress, close and reopen without cancellation, explicit cancel/retry, nine instrument outputs, five-stem alternative, scrolling all tracks with persistent actions, token-bound WAV export, folder action, same-player Studio handoff and real WAV playback, compact sheet geometry. Controlled separation worker; no model quality or native AppKit claim.');
+        console.log('Mac stem sheet and retained renderer PASS: start/progress, close and reopen without cancellation, explicit cancel/retry, nine instrument outputs, five-stem alternative, scrolling all tracks with persistent actions, token-bound WAV export, folder action, same-player Studio handoff and real WAV playback, compact sheet geometry. Controlled separation worker; no model quality or native AppKit claim.');
     }catch(error){if(stderr.trim())console.error(stderr);if(page)await shot(page,'failure').catch(()=>{});throw error;}
     finally{if(browser)await browser.close();server.kill('SIGTERM');}
 })().catch(error=>{console.error(error);process.exitCode=1;});

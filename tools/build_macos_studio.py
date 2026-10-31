@@ -144,6 +144,16 @@ def stage_stem_models(source, target):
     for name in (*[meta['file'] for meta in INSTRUMENT_MODELS.values()], 'manifest.json', 'LICENSE-MSST.txt', 'LICENSE-Architecture.txt', 'LICENSE-Port.txt', 'NOTICE.txt'):
         shutil.copy2(instrument_source / name, instrument_target / name)
     metadata['instruments'] = instrument_metadata
+    from music_studio.native_piano_assets import HEAD, manifest as native_piano_manifest
+    native_source, native_target = source / 'native-piano', target / 'native-piano'
+    native_metadata = json.loads((native_source / 'manifest.json').read_text())
+    if native_metadata != native_piano_manifest():
+        raise ValueError('The reviewed native piano model manifest is missing or incompatible.')
+    checked_file(native_source / HEAD['file'], HEAD)
+    native_target.mkdir()
+    for name in (HEAD['file'], 'manifest.json', 'LICENSE-MSST.txt', 'LICENSE-Architecture.txt', 'LICENSE-Port.txt', 'NOTICE.txt'):
+        shutil.copy2(native_source / name, native_target / name)
+    metadata['native_piano'] = native_metadata
     return metadata
 
 

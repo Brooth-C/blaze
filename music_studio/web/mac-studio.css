@@ -2,7 +2,7 @@
    user-guide anatomy; the dark editing canvas is independent of chrome theme. */
 html[data-presentation=mac] body.studio-active { background:#20272c; color:#e0e6eb; }
 html[data-presentation=mac] body.studio-active .studio { height:100dvh; min-height:0; max-width:none; padding:0; overflow:hidden; }
-html[data-presentation=mac] body.studio-active header,
+html[data-presentation=mac] body.studio-active .studio>header,
 html[data-presentation=mac] body.studio-active .app-tabs,
 html[data-presentation=mac] body.studio-active .app-utilities,
 html[data-presentation=mac] body.studio-active:not(.mac-player-expanded) #mini-player { display:none; }

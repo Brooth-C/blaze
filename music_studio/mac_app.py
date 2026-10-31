@@ -166,7 +166,14 @@ def capture_screenshot(destination):
         ImageGrab.grab().save(destination)
 
 
-def ui_smoke(window, studio, destination, receipt, probe, timeout=600):
+def native_piano_identity():
+    # PyInstaller executes this file as an entrypoint, without a package parent.
+    from music_studio.native_piano_assets import HEAD, CHECKPOINT_SHA
+    return {'model': 'Mega53 native acoustic piano', 'checkpoint_sha256': CHECKPOINT_SHA,
+            'head_sha256': HEAD['sha256']}
+
+
+def ui_smoke(window, studio, destination, receipt, probe, timeout=900):
     """Exercise the packaged Cocoa UI and engine; the report preserves failures."""
     target = Path(destination).resolve()
     deadline = time.monotonic() + timeout
@@ -254,7 +261,7 @@ def ui_smoke(window, studio, destination, receipt, probe, timeout=600):
             'play','previous','next','loop','speed','instrument','volume','down','up',
             'edit','export-json','export-csv','studio-settings','download-start','download-folder'];
           if (document.documentElement.dataset.presentation === 'mac')
-            ids.push('daw-play','daw-chords','daw-arrangement','daw-editor','daw-waveform','daw-practice-close');
+            ids.push('logic-play','logic-chords','logic-arrangement','logic-editor','editor-wave','daw-practice-close');
           return ids.filter(id => !document.getElementById(id));
         })()""")
         if receipt['controls']:
@@ -307,17 +314,17 @@ def ui_smoke(window, studio, destination, receipt, probe, timeout=600):
             probe.run(window, "window.BlazeMac.navigate('studio')")
             wait_for("window.BlazeMacStudio?.snapshot().active === true && window.BlazeMacStudio.snapshot().waveformReady === true")
             receipt['mac_design']['studio_waveform'] = probe.probe(window, 'window.BlazeMacStudio.snapshot()')
-            wait_for("window.BlazeMacHarmony?.snapshot().available && document.querySelectorAll('.harmony-region').length > 0")
+            wait_for("window.BlazeLogicVisual?.scope==='live-session' && document.querySelectorAll('#chord-lane button').length > 0")
             harmony = probe.probe(window, """(() => {
-              const view=window.BlazeMacHarmony.snapshot(), box=document.getElementById('daw-harmony').getBoundingClientRect();
-              return {four_bar_mode:view.count===4, regions:document.querySelectorAll('.harmony-region').length,
+              const view=window.BlazeLogicVisual.snapshot(), box=document.getElementById('chord-lane').getBoundingClientRect();
+              return {project_timeline:view.duration>0, regions:document.querySelectorAll('#chord-lane button').length,
                 visible:box.width>0&&box.height>0&&box.top>=0&&box.bottom<=innerHeight,
-                transport_valid:!/(null|NaN|Infinity)/.test(document.getElementById('daw-transport').textContent)};
+                transport_valid:!/(null|NaN|Infinity)/.test(document.getElementById('transport').textContent)};
             })()""")
-            if not all(harmony[key] for key in ('four_bar_mode', 'regions', 'visible', 'transport_valid')):
+            if not all(harmony[key] for key in ('project_timeline', 'regions', 'visible', 'transport_valid')):
                 raise RuntimeError('The native chord workspace was not usable: ' + json.dumps(harmony))
             receipt['mac_design']['harmony_workspace'] = harmony
-            probe.run(window, "document.getElementById('daw-chords').click()")
+            probe.run(window, "window.BlazeMacStudio.commands.practice()")
             wait_for("document.getElementById('daw-chords').getAttribute('aria-expanded')==='true' && !document.getElementById('daw-practice').hidden")
             probe.run(window, "document.getElementById('diagram-strip').scrollIntoView({block:'center'})")
             wait_for("Array.from(document.querySelectorAll('.diagram-card canvas')).every(canvas=>{const r=canvas.getBoundingClientRect();return r.width>0&&r.height>=65&&r.top>=0&&r.bottom<=innerHeight+1;})")
@@ -330,14 +337,13 @@ def ui_smoke(window, studio, destination, receipt, probe, timeout=600):
         receipt['layout'] = probe.probe(window, """(() => {
           const viewport = document.documentElement;
           const mac = document.documentElement.dataset.presentation === 'mac';
-          const ids = mac ? ['daw-play','daw-chords','daw-arrangement','daw-editor','daw-waveform'] : ['bar-flow','diagram-strip','analyze','studio-settings'];
-          if (mac && innerWidth >= 1000 && innerHeight >= 649 && window.BlazeMacStudio?.snapshot().inspectorOpen)
-            ids.push('daw-channel-mute','daw-channel-solo','daw-master-volume');
+          const ids = mac ? ['logic-play','logic-chords','logic-arrangement','logic-editor','editor-wave'] : ['bar-flow','diagram-strip','analyze','studio-settings'];
+          if (mac && innerWidth >= 1000) ids.push('duplicate-track','add-track');
           return {width: innerWidth, height: innerHeight,
             scroll_height: viewport.scrollHeight,
             studio_workspace: mac && window.BlazeMacStudio?.snapshot().active === true,
-            names_fit: !mac || document.querySelector('.daw-instrument-art strong').scrollHeight <= document.querySelector('.daw-instrument-art strong').clientHeight + 1,
-            editor_toolbar_fits: !mac || document.querySelector('.daw-editor-toolbar').scrollWidth <= document.querySelector('.daw-editor-toolbar').clientWidth + 1,
+            names_fit: !mac || Array.from(document.querySelectorAll('#logic-preview .track-name')).every(name=>name.clientHeight>0),
+            editor_toolbar_fits: !mac || document.querySelector('#logic-preview .editor-toolbar').scrollWidth <= document.querySelector('#logic-preview .editor-toolbar').clientWidth + 1,
             branding_fits: mac ? document.querySelector('header').getBoundingClientRect().height===0 : document.querySelector('header .brand h1').getBoundingClientRect().right <= document.querySelector('header').getBoundingClientRect().right,
             controls_visible: ids.every(id => {
               const r = document.getElementById(id).getBoundingClientRect();
@@ -350,11 +356,11 @@ def ui_smoke(window, studio, destination, receipt, probe, timeout=600):
             raise RuntimeError('The native app layout hides controls or requires vertical scrolling.')
         # Invoke the same handler as the play button. The native media clock,
         # rather than a mocked player response, confirms decoding and movement.
-        probe.run(window, "document.getElementById('media').currentTime = 0; document.getElementById(window.BlazeMacStudio ? 'daw-play' : 'play').click()")
+        probe.run(window, "document.getElementById('media').currentTime = 0; document.getElementById(window.BlazeLogicVisual ? 'logic-play' : 'play').click()")
         started = wait_for("(() => {const m = document.getElementById('media'); return !m.paused && m.currentTime > .2 ? m.currentTime : null;})()")
         advanced = wait_for("document.getElementById('media').currentTime", lambda value: value > started + .25)
         receipt['playback'] = {'started': started, 'advanced': advanced}
-        probe.run(window, "document.getElementById(window.BlazeMacStudio ? 'daw-play' : 'play').click(); document.getElementById('media').currentTime = 1")
+        probe.run(window, "document.getElementById(window.BlazeLogicVisual ? 'logic-play' : 'play').click(); document.getElementById('media').currentTime = 1")
         wait_for("(() => {const m = document.getElementById('media'); return m.paused && !m.seeking && Math.abs(m.currentTime - 1) < .05;})()")
         receipt['seek'] = True
         probe.run(window, "window.BlazeMac ? window.BlazeMac.action('settings') : document.getElementById('studio-settings').click()")
@@ -385,14 +391,14 @@ def ui_smoke(window, studio, destination, receipt, probe, timeout=600):
                   &&r.left>=0&&r.right<=innerWidth+1;
               };
               return {width:innerWidth,height:innerHeight,
-                controls:['daw-play','daw-chords','daw-arrangement','daw-editor','daw-waveform'].every(fits),
+                controls:['logic-play','logic-chords','logic-arrangement','logic-editor','editor-wave'].every(fits),
                 studio_workspace:window.BlazeMacStudio?.snapshot().active === true,
                 no_page_scroll:document.documentElement.scrollHeight<=innerHeight+1,
                 no_overflow:document.documentElement.scrollWidth<=innerWidth};
             })()""")
             if not all(compact[key] for key in ('controls', 'studio_workspace', 'no_page_scroll', 'no_overflow')):
                 raise RuntimeError('The compact Studio window hides arrangement, waveform or transport controls: ' + json.dumps(compact))
-            probe.run(window, "document.getElementById('daw-chords').click()")
+            probe.run(window, "window.BlazeMacStudio.commands.practice()")
             wait_for("!document.getElementById('daw-practice').hidden")
             probe.run(window, "document.getElementById('diagram-strip').scrollIntoView({block:'center'})")
             compact['chord_drawer'] = wait_for("Array.from(document.querySelectorAll('.diagram-card canvas')).every(canvas=>{const r=canvas.getBoundingClientRect();return r.width>0&&r.height>=65&&r.top>=0&&r.bottom<=innerHeight+1;})")
@@ -507,7 +513,8 @@ def ui_smoke(window, studio, destination, receipt, probe, timeout=600):
             wait_for("!document.getElementById('stems-dialog').open && sourceName==='Piano.wav' && document.getElementById('media').readyState>=1")
             probe.run(window, "document.getElementById('mini-play').click()")
             wait_for("(() => {const m=document.getElementById('media');return m===window.blazeSmokeVideo && !m.paused && m.currentTime>.1;})()")
-            receipt['piano'] = {'model': 'Spleeter 5stems', 'real_model': True, 'native_playback': True, 'outputs': 2}
+            receipt['piano'] = {**native_piano_identity(), 'real_model': True,
+                                'native_playback': True, 'outputs': 2}
         receipt['ok'] = True
     except Exception as error:
         receipt.update(ok=False, error=str(error))

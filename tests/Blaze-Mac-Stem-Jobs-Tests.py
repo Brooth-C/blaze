@@ -143,6 +143,20 @@ class StemJobTests(unittest.TestCase):
         self.assertEqual(self.studio.name, 'Piano.wav')
         self.assertTrue(self.source.is_file())
 
+    def test_piano_request_dispatches_native_model_in_background(self):
+        self.jobs.separator_factory = None
+        self.jobs.models = self.root / 'model-dispatch'
+        self.jobs.models.mkdir()
+        (self.jobs.models / 'manifest.json').write_text('{}')
+        self.separator.stems = ('piano', 'accompaniment')
+        with patch('music_studio.native_piano.NativePianoSeparator', return_value=self.separator) as native, patch('music_studio.piano.PianoSeparator', side_effect=AssertionError('Legacy piano path selected')):
+            status, _, body = self.request('/api/stems-start', {'mode': 'piano'})
+            self.assertEqual(status, 200, body)
+            state = self.finish()
+            self.assertEqual(state['status'], 'done')
+            native.assert_called_once_with(self.jobs.models, self.studio.ffmpeg)
+        self.assertEqual({row['id'] for row in state['stems']}, {'piano', 'accompaniment'})
+
     def test_nine_mode_exports_only_its_owned_instrument_tracks(self):
         self.separator.stems = ('vocals', 'drums', 'bass', 'piano', 'guitar', 'strings', 'brass', 'synths', 'other')
         status, _, body = self.request('/api/stems-start', {'mode': 'nine'})
