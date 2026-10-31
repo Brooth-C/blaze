@@ -40,6 +40,32 @@ def command(*args):
     return subprocess.check_output(args, text=True, timeout=10).strip()
 
 
+def compare_wavs(reference, actual):
+    """Compare our float WAVs in bounded blocks, including near-silent stems."""
+    import numpy as np
+    count, power, error, maximum = 0, 0., 0., 0.
+    with Path(reference).open('rb') as left, Path(actual).open('rb') as right:
+        header = left.read(58)
+        if len(header) != 58 or header[:4] != b'RIFF' or right.read(58) != header:
+            raise ValueError('CPU and candidate WAV formats or durations differ.')
+        while True:
+            a, b = left.read(65536 * 8), right.read(65536 * 8)
+            if len(a) != len(b) or len(a) % 8:
+                raise ValueError('CPU and candidate WAV lengths differ.')
+            if not a:
+                break
+            a, b = np.frombuffer(a, dtype='<f4').astype('float64'), np.frombuffer(b, dtype='<f4').astype('float64')
+            if not np.isfinite(a).all() or not np.isfinite(b).all():
+                raise ValueError('A comparison WAV contains invalid samples.')
+            delta = a-b
+            count += len(a);power += float(np.dot(a, a));error += float(np.dot(delta, delta))
+            maximum = max(maximum, float(np.abs(delta).max()))
+    if not count:
+        raise ValueError('Cannot compare empty WAVs.')
+    return {'rms_error': math.sqrt(error/count), 'normalized_rms_error': math.sqrt(error/max(power, count*1e-12)),
+            'max_abs_error': maximum, 'compared_samples': count}
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--source', type=Path, required=True)
@@ -48,6 +74,7 @@ def main():
     parser.add_argument('--backend', choices=['cpu', 'coreml'], default='cpu')
     parser.add_argument('--mode', choices=['piano', 'piano-legacy'], default='piano')
     parser.add_argument('--runs', type=int, choices=range(1, 6), default=2)
+    parser.add_argument('--reference', type=Path, help='CPU benchmark.json for numeric output comparison')
     args = parser.parse_args()
     if (sys.platform != 'darwin' or platform.machine().lower() != 'arm64'
             or platform.mac_ver()[0].split('.')[0] != '26'):
@@ -73,6 +100,11 @@ def main():
         parser.error('The recording duration must be positive.')
     with source.open('rb') as stream:
         checksum = hashlib.file_digest(stream, 'sha256').hexdigest()
+    if args.reference:
+        baseline = json.loads(args.reference.read_text())
+        if (baseline.get('input_sha256') != checksum or baseline.get('mode') != args.mode
+                or baseline.get('backend_requested') != 'cpu' or not baseline.get('runs') or baseline.get('error')):
+            parser.error('Reference must be a successful CPU run of the same mode and recording.')
     report = {'mode': args.mode, 'backend_requested': args.backend, 'ort': ort.__version__,
               'macos': platform.mac_ver()[0], 'chip': command('sysctl', '-n', 'machdep.cpu.brand_string'),
               'physical_memory_bytes': int(command('sysctl', '-n', 'hw.memsize')),
@@ -101,6 +133,13 @@ def main():
                    'provider_events': coverage, 'graphs': records,
                    'outputs': {name: path.stat().st_size for name, path in paths.items()}}
             report['runs'].append(run)
+            if args.reference:
+                comparison = {name: compare_wavs(args.reference.parent/'run-0'/(name+'.wav'), path)
+                              for name, path in paths.items()}
+                run['cpu_output_comparison'] = comparison
+                if any((m['normalized_rms_error'] > .01 and m['rms_error'] > 1e-5)
+                       or m['max_abs_error'] > .01 for m in comparison.values()):
+                    raise ValueError('Candidate output exceeded the CPU comparison tolerance; inspect the retained report.')
             if args.backend == 'coreml' and not coverage.get('CoreMLExecutionProvider', {}).get('node_events'):
                 raise ValueError('No CoreML node execution was recorded; GPU acceleration is not established.')
     except Exception as error:

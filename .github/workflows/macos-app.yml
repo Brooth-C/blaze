@@ -145,7 +145,7 @@ jobs:
         run: |
           export PATH="$PWD/build/profile-app/Blaze.app/Contents/Resources/bin:$PATH"
           python tools/benchmark_macos_stems.py --source build/profile-source.wav --models build/profile-app/Blaze.app/Contents/Resources/music_studio/stem_models --output build/stem-profile/cpu --backend cpu --runs 1
-          python tools/benchmark_macos_stems.py --source build/profile-source.wav --models build/profile-app/Blaze.app/Contents/Resources/music_studio/stem_models --output build/stem-profile/coreml --backend coreml --runs 2
+          python tools/benchmark_macos_stems.py --source build/profile-source.wav --models build/profile-app/Blaze.app/Contents/Resources/music_studio/stem_models --output build/stem-profile/coreml --backend coreml --runs 2 --reference build/stem-profile/cpu/benchmark.json
       - uses: actions/upload-artifact@v7.0.2
         if: always()
         with:

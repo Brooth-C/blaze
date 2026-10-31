@@ -11,12 +11,29 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from music_studio.stem_runtime import StemRuntime
 from music_studio.roformer import RoformerSeparator
 from music_studio.stems import SeparationCancelled
+from music_studio.stems import _write_header
+from tools.benchmark_macos_stems import compare_wavs
 import numpy as np
 
 SHA = 'a' * 64
 
 
 class RuntimeTests(unittest.TestCase):
+    def test_gpu_comparison_detects_drift_and_incompatible_duration(self):
+        with tempfile.TemporaryDirectory() as d:
+            a, b = Path(d)/'cpu.wav', Path(d)/'candidate.wav'
+            values = np.full((140000, 2), .1, dtype='<f4')
+            def write(path, samples):
+                with path.open('wb') as stream:
+                    _write_header(stream, len(samples));stream.write(samples.tobytes())
+            write(a, values);write(b, values)
+            self.assertEqual(compare_wavs(a, b)['rms_error'], 0)
+            write(b, values*.5)
+            self.assertAlmostEqual(compare_wavs(a, b)['normalized_rms_error'], .5)
+            write(b, values[:1])
+            with self.assertRaisesRegex(ValueError, 'durations'):
+                compare_wavs(a, b)
+
     def test_cancel_during_session_creation_releases_the_session(self):
         payload = b'controlled graph'
         meta = {'file': 'graph.onnx', 'bytes': len(payload),

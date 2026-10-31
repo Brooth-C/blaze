@@ -113,7 +113,8 @@ python tools/benchmark_macos_stems.py --source <recording> --models <stem_models
 python tools/benchmark_macos_stems.py --source <recording> --models <stem_models> \
   --output build/piano-native-cpu --mode piano --backend cpu
 python tools/benchmark_macos_stems.py --source <recording> --models <stem_models> \
-  --output build/piano-native-coreml --mode piano --backend coreml
+  --output build/piano-native-coreml --mode piano --backend coreml \
+  --reference build/piano-native-cpu/benchmark.json
 ```
 
 Reports include chip/OS/RAM, source hash, audio duration, complete decode-to-WAV
@@ -134,6 +135,12 @@ the actual packaged model assets on macOS26. Its deterministic tone checks
 runtime execution, not piano separation quality. It reports the runner's chip
 and RAM; those timings must not be attributed to the user's M3/8 GB. Profile
 artifacts are retained even if acceleration initialization or delegation fails.
+Candidate WAVs are compared with the matching CPU run in bounded blocks. The
+diagnostic gate allows at most 1% normalized RMS error (or absolute RMS below
+1e-5 for near-silent estimates) and 0.01 maximum absolute sample error. These
+are explicit evaluation tolerances, not an audibility guarantee. A format,
+duration, finite-sample or tolerance failure retains the report and fails the
+profile check rather than reporting successful acceleration.
 
 Listen to volume-matched original/piano/accompaniment for attacks, sustain,
 reverb, pad bleed and false piano on recordings without piano. Include acoustic
