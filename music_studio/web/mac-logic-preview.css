@@ -1,14 +1,17 @@
+/* Shared approved layout, scoped so Explore and dialogs retain their styles. */
+body:has(> #logic-preview) { margin:0;background:#2d2d2d; }
+@scope (#logic-preview) {
 /* Visual-only reconstruction from the screenshots on Apple's current Logic Pro
    12.4 listing. Own icons, illustrative regions, no Apple assets or engine calls. */
-:root { color-scheme:light dark;--chrome:#a5a5a5;--chrome-ink:#363636;--chrome-button:#969696;--toolbar:#474747;--toolbar-button:#5b5b5b;--panel:#414141;--track:#575757;--track-alt:#505050;--selected:#747474;--canvas:#2d2d2d;--line:#292929;--text:#eeeeee;--muted:#bfbfbf;--header-width:260px;--row-height:44px;--green:#168e30;--blue:#2073b8;--focus:#83bafd; }
-@media(prefers-color-scheme:dark) { :root { --chrome:#3b3b3b;--chrome-ink:#d4d4d4;--chrome-button:#505050; } }
+:scope { color-scheme:light dark;--chrome:#a5a5a5;--chrome-ink:#363636;--chrome-button:#969696;--toolbar:#474747;--toolbar-button:#5b5b5b;--panel:#414141;--track:#575757;--track-alt:#505050;--selected:#747474;--canvas:#2d2d2d;--line:#292929;--text:#eeeeee;--muted:#bfbfbf;--header-width:260px;--row-height:44px;--green:#168e30;--blue:#2073b8;--focus:#83bafd; }
+@media(prefers-color-scheme:dark) { :scope { --chrome:#3b3b3b;--chrome-ink:#d4d4d4;--chrome-button:#505050; } }
 * { box-sizing:border-box; }
-body { margin:0;background:var(--canvas);font:12px/1.3 -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:var(--text);-webkit-font-smoothing:antialiased; }
+:scope { margin:0;background:var(--canvas);font:12px/1.3 -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:var(--text);-webkit-font-smoothing:antialiased; }
 button,input,select { font:inherit; }
 button { cursor:default;user-select:none;color:inherit; }
 button:focus-visible,select:focus-visible,input:focus-visible { outline:2px solid var(--focus);outline-offset:-2px; }
 button:active { filter:brightness(.9); }
-#logic-preview { height:100dvh;min-height:600px;min-width:980px;display:grid;grid-template-rows:56px 30px minmax(260px,1.45fr) minmax(200px,1fr);overflow:hidden; }
+:scope { height:100dvh;min-height:600px;min-width:980px;display:grid;grid-template-rows:56px 30px minmax(260px,1.45fr) minmax(200px,1fr);overflow:hidden; }
 .control-bar { display:grid;grid-template-columns:minmax(220px,1.4fr) 174px 220px 150px minmax(150px,1fr) 126px;align-items:center;gap:12px;padding:6px 12px;background:var(--chrome);color:var(--chrome-ink);border-bottom:1px solid #777; }
 .window-tools { display:flex;gap:18px;min-width:0; }
 .tool-group { display:flex;align-items:center;gap:1px; }
@@ -48,11 +51,13 @@ svg { width:19px;height:19px;display:block;fill:none;stroke:currentColor;stroke-
 .editor-body { display:grid;grid-template-columns:45px minmax(0,1fr);min-height:0;overflow:hidden; }.amplitude { padding-top:40px;border-right:1px solid #303030;background:#454545;display:grid;grid-template-rows:1fr 1fr; }.amplitude>div { position:relative;border-bottom:1px solid #555; }.amplitude b { position:absolute;left:5px;top:50%;font-size:10px;font-weight:400; }.amplitude span { position:absolute;right:5px;font-size:9px;color:#bfbfbf; }.amplitude span:nth-of-type(1) { top:0; }.amplitude span:nth-of-type(2) { top:46%; }.amplitude span:nth-of-type(3) { bottom:0; }.editor-wave-area { min-height:0;display:grid;grid-template-rows:22px 18px minmax(0,1fr); }.editor-region-caption { display:flex;align-items:center;gap:6px;background:#c4e1f8;color:#203e57;font-size:11px;padding:1px 6px; }.wave-surface { position:relative;overflow:hidden;background:#33516f; }.wave-surface canvas { width:100%;height:100%;display:block; }#wave-selection { position:absolute;left:25%;width:50%;top:0;bottom:0;border:1px solid #e0effc;background:#d3eaff0c;pointer-events:none; }#wave-selection i { position:absolute;top:0;width:4px;height:8px;border:1px solid #eff7ff; }#wave-selection i:last-child { right:0; }
 footer { display:flex;align-items:center;justify-content:space-between;gap:12px;padding:2px 10px;background:#393939;font-size:10px;color:#bdbdbd;font-variant-numeric:tabular-nums; }
 .appearance-menu { position:fixed;z-index:10;min-width:180px;padding:5px;background:#424242f5;border:1px solid #777;border-radius:6px;box-shadow:0 8px 24px #0008; }.appearance-menu button { display:block;width:100%;padding:5px 12px;border:0;border-radius:3px;text-align:left;background:none; }.appearance-menu button:hover { background:#286eb8; }
-#logic-preview.editor-hidden { grid-template-rows:56px 30px minmax(260px,1fr) 0; }#logic-preview.editor-hidden .audio-editor { display:none; }
-@media(max-width:1199px) { .control-bar { grid-template-columns:minmax(150px,1fr) 180px 220px 68px 110px 78px;gap:8px; }.window-tools { gap:6px; }.window-tools #workspace-tools { display:none; }.browser-tools button:nth-child(n+3) { display:none; }.timing-tools button:nth-child(-n+2) { display:none; }.snap-controls label:last-child { display:none; }.view-tools button:nth-child(n+4) { display:none; }:root { --header-width:230px; } }
+:scope.editor-hidden { grid-template-rows:56px 30px minmax(260px,1fr) 0; }:scope.editor-hidden .audio-editor { display:none; }
+@media(max-width:1199px) { .control-bar { grid-template-columns:minmax(150px,1fr) 180px 220px 68px 110px 78px;gap:8px; }.window-tools { gap:6px; }.window-tools #workspace-tools { display:none; }.browser-tools button:nth-child(n+3) { display:none; }.timing-tools button:nth-child(-n+2) { display:none; }.snap-controls label:last-child { display:none; }.view-tools button:nth-child(n+4) { display:none; }:scope { --header-width:230px; } }
 @media(prefers-reduced-motion:reduce) { *,*::before,*::after { scroll-behavior:auto!important; } }
 
 .transport .record svg,.transport button[aria-label=Stop] svg { fill:currentColor;stroke-width:0; }
 .editor-heading-tools button { background:transparent;border:0;color:var(--text); }
 
 @media(min-width:1200px) { .timing-tools { justify-content:flex-start; }.timing-tools button:nth-child(3) { margin-left:30px; } }
+
+}

@@ -26,6 +26,9 @@ const settle = page => page.evaluate(() => new Promise(resolve => requestAnimati
         browser = await chromium.launch({headless:true,args:['--no-sandbox','--autoplay-policy=no-user-gesture-required']});
         page = await browser.newPage({viewport:{width:1440,height:900}});
         const errors = []; page.on('pageerror', error => errors.push(error.message));
+        // Isolate retained engine controls; default production layout has its own live suite.
+        await page.route('**/mac-logic-live.js', route => route.fulfill({contentType:'text/javascript',body:''}));
+        await page.route('**/mac-logic-preview.js', route => route.fulfill({contentType:'text/javascript',body:''}));
         await page.goto(base);
         await page.waitForFunction(() => window.BlazeMacHarmony && window.BlazeMacStudio);
         await page.evaluate(() => window.BlazeDesktop.selectSection('studio'));
@@ -151,7 +154,7 @@ const settle = page => page.evaluate(() => new Promise(resolve => requestAnimati
         assert(await page.locator('.harmony-bar').first().locator('.harmony-beat').count()>0,'Uncertain meter hid the detected beat spacing');
         assert(await page.locator('#media').evaluate(element => element===window.harmonyTestPlayer),'Chord navigation replaced the player');
         assert.deepEqual(errors,[]);
-        console.log('Mac harmony UI PASS: real player seek, four measured bars, unequal chord subdivisions, current/next, group navigation/follow, zoom/scroll, uncertain meter, keyboard panel resizing/collapse, four viewports in light/dark. Controlled analysis; no native/perceptual performance claim.');
+        console.log('Retained Mac harmony renderer PASS: real player seek, four measured bars, unequal chord subdivisions, current/next, group navigation/follow, zoom/scroll, uncertain meter, keyboard panel resizing/collapse, four viewports in light/dark. Controlled analysis; no native/perceptual performance claim.');
     } catch (error) {if(page)await shot(page,'failure').catch(()=>{});throw error;}
     finally {if(browser)await browser.close();server.kill('SIGTERM');}
 })().catch(error => {console.error(error);process.exitCode=1;});

@@ -222,7 +222,7 @@
     const showPractice = show => {
         practice.hidden = !show; el('daw-chords').setAttribute('aria-expanded', String(show));
         if (show) { requestAnimationFrame(() => { wave(); diagram(); paintFlow(); }); el('daw-practice-close').focus(); }
-        else el('daw-chords').focus();
+        else (el('logic-chords')||el('daw-chords')).focus();
     };
     el('daw-chords').onclick = () => showPractice(practice.hidden);
     el('daw-notation').onclick = () => {editorMode='midi';el('daw-audio-tab').setAttribute('aria-pressed','false');el('daw-notation').setAttribute('aria-pressed','true');scheduleDraw();};
@@ -267,6 +267,7 @@
             window.BlazeDesktop.cancelPreparation();
             await api('/api/stems-select', {jobId:track.jobId, stem:track.id});
             selected = track.id;
+            currentPeaks = null; waveformReady = false;
             await window.BlazeMac.importCompleted();
             player.muted=mutedTracks.has(track.id);el('daw-pan').value=String(trackPans.get(track.id)||0);
             if(audioGraph)audioGraph.pan.pan.value=Number(el('daw-pan').value);
@@ -480,6 +481,9 @@
     }
     function draw() {
         if (!active()) return;
+        // The approved renderer consumes the same session and player. The old
+        // controls remain private command adapters during this migration.
+        if (root.hidden) return;
         const length=duration();
         el('daw-editor-content').style.width=(zoom*100)+'%';
         el('daw-scroll').disabled=zoom<=1;
@@ -595,6 +599,47 @@
     const timer=setInterval(()=>{if(active()){syncSession();paintTransport();}},750);
     window.addEventListener('blaze-mac-media-changed',()=>{signature='';void syncSession();});
     window.addEventListener('pagehide',()=>{stopped=true;clearInterval(timer);controller?.abort();cancelAnimationFrame(frame);resize.disconnect();},{once:true});
-    window.BlazeMacStudio={projectDuration:duration,snapshot:()=>({active:active(),selectedTrack:selected,tracks:tracks.map(t=>({id:t.id,label:t.label})),zoom,libraryOpen,inspectorOpen,waveformReady,waveformsReady:tracks.filter(t=>t.waveform).length,sourceRevision:sessionRevision,sessionTitle,editorMode,guideReady:!!guide?.chords?.length,projectTempo,projectNumerator,projectDenominator,audio:audioGraph?{pan:audioGraph.pan.pan.value,equalizerGain:audioGraph.eq.gain.value,compressionRatio:audioGraph.compressor.ratio.value}:null})};
+    const viewState = () => ({
+        active:active(), revision:sessionRevision, title:sessionTitle,
+        tracks:tracks.map(track=>({...track,color:colors[track.id]||colors.source,
+            region:(regionColors[track.id]||regionColors.source)[1],
+            muted:mutedTracks.has(track.id), pan:trackPans.get(track.id)||0})),
+        selected, peaks:currentPeaks, duration:duration(), loading,
+        pending:pendingSelection, pendingTrack, enabled:!!sourceName&&!pendingSelection,
+        position:Number(player.currentTime)||0, paused:player.paused,
+        loop:player.loop||loopEnd!==null, volume:player.volume, rate:player.playbackRate,
+        tempo:projectTempo, numerator:projectNumerator, denominator:projectDenominator,
+        key:projectKey, chords:result?flowMap.chords:null,
+        format:el('daw-format').textContent,
+        message:!el('error').hidden?el('error').textContent:busy?el('status').textContent:el('daw-message').textContent,
+        messageState:!el('error').hidden?'error':el('daw-message').dataset.state||'status',
+        analysisBusy:busy, metronome, solo, selection,
+        levels:[el('daw-master-left').style.width||'0%',el('daw-master-right').style.width||'0%'],
+        save:chosen()?.jobId?{href:el('daw-save').getAttribute('href'),name:el('daw-save').download}:null,
+    });
+    const commands = {
+        select:id=>selectTrack(tracks.find(track=>track.id===id)||{}),
+        mute:id=>{if(tracks.some(track=>track.id===id))setTrackMuted(id,!mutedTracks.has(id));},
+        solo:async id=>{const track=tracks.find(track=>track.id===id);if(!track)return;
+            const wasSolo=solo&&selected===id;await selectTrack(track);
+            if(selected!==id||pendingSelection)return;solo=!wasSolo;
+            if(solo){ensureAudio();player.play().catch(failure);}renderTracks();paintTransport();},
+        pan:(id,value)=>setTrackPan(id,value),
+        seek:seconds=>{if(sourceName&&!pendingSelection)seek(Math.max(0,Math.min(duration(),Number(seconds)||0)));},
+        range:(start,end)=>{const length=duration();selection=length?[Math.max(0,Math.min(length,start,end)),Math.max(0,Math.min(length,Math.max(start,end)))]:null;paintRange();},
+        play:()=>el('daw-play').click(),stop:()=>el('daw-stop').click(),
+        loop:()=>el('daw-loop').click(),import:doImport,
+        browse:()=>window.BlazeMac.navigate('explore'),
+        stems:()=>window.BlazeMacStems.open(),
+        analyze:()=>el('analyze').click(),cancelAnalysis:()=>el('cancel').click(),
+        practice:()=>el('daw-chords').click(),
+        project:()=>el('daw-tempo-control').click(),
+        metronome:()=>el('daw-metronome').click(),
+        volume:value=>{player.volume=Math.max(0,Math.min(1,Number(value)||0));el('volume').value=String(player.volume);paintTransport();},
+        rate:value=>{player.playbackRate=Math.max(.5,Math.min(1.5,Number(value)||1));el('speed').value=String(player.playbackRate);},
+        eq:()=>el('daw-eq').click(),compressor:()=>el('daw-compressor').click(),
+        undo:()=>el('daw-undo').click(),redo:()=>el('daw-redo').click(),
+    };
+    window.BlazeMacStudio={viewState,commands,projectDuration:duration,snapshot:()=>({active:active(),selectedTrack:selected,tracks:tracks.map(t=>({id:t.id,label:t.label})),zoom,libraryOpen,inspectorOpen,waveformReady,waveformsReady:tracks.filter(t=>t.waveform).length,sourceRevision:sessionRevision,sessionTitle,editorMode,guideReady:!!guide?.chords?.length,projectTempo,projectNumerator,projectDenominator,audio:audioGraph?{pan:audioGraph.pan.pan.value,equalizerGain:audioGraph.eq.gain.value,compressionRatio:audioGraph.compressor.ratio.value}:null})};
     setPanels();renderTracks();syncSession();
 })();

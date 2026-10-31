@@ -44,7 +44,7 @@ html[data-presentation=mac] .studio {
   max-width:none; min-height:100dvh; padding:24px 26px calc(var(--mac-player-height) + 24px) calc(var(--rail) + 26px);
 }
 /* This fallback remains usable if the native shell cannot be installed. */
-html[data-presentation=mac] header {
+html[data-presentation=mac] .studio>header {
   inset:0 auto 0 0; height:auto; width:var(--rail); padding:22px 18px;
   border-right:1px solid var(--border); border-bottom:0; background:var(--sidebar);
 }
@@ -66,7 +66,7 @@ html[data-presentation=mac] .app-utilities {
 html[data-presentation=mac] #device-note { display:none; }
 html[data-presentation=mac] #app-settings { min-height:28px; font-size:.75rem; }
 html[data-presentation=mac] body[data-native-sidebar=true] { --rail:0px; }
-html[data-presentation=mac] body[data-native-sidebar=true] header,
+html[data-presentation=mac] body[data-native-sidebar=true] .studio>header,
 html[data-presentation=mac] body[data-native-sidebar=true] .app-tabs,
 html[data-presentation=mac] body[data-native-sidebar=true] .app-utilities { display:none; }
 html[data-presentation=mac] body[data-native-search=true] #explore-form { display:none; }

@@ -1,5 +1,9 @@
 # Current Logic visual replica — appearance-only stage
 
+This records the approved visual stage. The subsequent
+[live integration](MAC-LOGIC-LIVE-INTEGRATION.md) connects the same layout to
+the Mac engine; the standalone preview remains appearance-only.
+
 ## Approved scope
 
 The user requested the current Logic Pro appearance, explicitly deferred workflow

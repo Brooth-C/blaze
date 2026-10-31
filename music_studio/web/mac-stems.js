@@ -135,7 +135,11 @@
     byId('stems-five').onclick = () => start('five');
     byId('stems-piano').onclick = () => start('piano');
     byId('stems-close').onclick = () => dialog.close();
-    dialog.addEventListener('close', () => button.focus());
+    dialog.addEventListener('close', () => {
+        const visible = window.BlazeLogicVisual?.scope === 'live-session'
+            ? (!byId('studio-panel').hidden ? byId('duplicate-track') : taskButton) : button;
+        (visible || button).focus();
+    });
     byId('stems-cancel').onclick = async () => {
         if (submitting) return;
         submitting = true; ++mutationEpoch; error(''); render();

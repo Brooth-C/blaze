@@ -14,6 +14,8 @@
  group('browser-tools',[['list','List editors'],['note','Notes'],['loops','Loops'],['browser','Browsers']]);
  group('view-tools',[['grid','Live Loops appearance'],['tracks','Tracks appearance'],['automation','Automation appearance'],['wave','Flex appearance'],['flex','Track alternatives appearance']]);$('view-tools').children[1].setAttribute('aria-pressed','true');
  group('pointer-tools',[['pointer','Pointer tool'],['scissors','Secondary tool']]);group('editor-tools',[['automation','Editor automation appearance'],['wave','Flex editor appearance'],['flex','Editor view appearance']]);group('editor-heading-tools',[['pointer','Editor pointer tool'],['pencil','Editor pencil tool']]);
+ // The production host supplies real session data before sample data exists.
+ if(window.BlazeLogicHost){window.BlazeLogicLiveMount({root,svg,button});return;}
  const tracks=[
  {name:'Lead Vocal',icon:'vocal',color:'#2daec0',region:'#218b9c',seed:1,clips:[[0,8],[8,8],[16,8],[24,8]]},
  {name:'Drum Kit',icon:'drums',color:'#4b9dd8',region:'#287ea9',seed:2,clips:[[0,8],[8,8],[16,8],[24,8]]},

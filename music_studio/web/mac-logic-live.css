@@ -1,0 +1,78 @@
+/* Mac-only integration. Scope shared appearance rules to the Studio root. */
+html[data-presentation=mac] #studio-panel #mac-studio-workspace[hidden] { display:none!important; }
+html[data-presentation=mac] #studio-panel #logic-preview.logic-live { height:100%;min-height:0;min-width:0;flex:1; }
+#logic-preview header { position:static;inset:auto;width:auto;z-index:auto;border-right:0;margin:0; }
+#logic-preview .control-bar { display:grid;padding:6px 12px; }
+#logic-preview .editor-heading { display:flex;padding:0 10px; }
+#logic-preview button,#logic-preview select { min-height:0; }
+#logic-preview .tool-group button { padding:4px;border-radius:4px; }
+#logic-preview .track-controls button { padding:0;font-size:10px;border-radius:3px; }
+#logic-preview .menu-group button { padding:2px 10px;border-radius:3px; }
+#logic-preview .snap-controls select { padding:1px 5px;border-radius:3px;font-size:11px; }
+#logic-preview .clip { padding:0;border-radius:4px; }
+#logic-preview .track-list-tools button { padding:0 5px;border-radius:3px; }
+#logic-preview .transport .play { width:auto;height:25px;min-height:0; }
+#logic-preview .browser-tools button:last-child { display:flex; }
+#logic-preview #editor-wave { width:100%;height:100%; }
+#logic-preview .clip canvas { width:100%;height:calc(100% - 12px); }
+html[data-presentation=mac] body.studio-active #logic-session-tools header { display:flex;position:static;width:auto; }
+@scope (#logic-preview.logic-live) {
+ button:disabled { opacity:.4;cursor:default; }
+ .clip { padding:0;text-align:left;color:inherit;cursor:default; }
+ .clip-name { display:block; }
+ #track-headers,#regions { overflow-y:auto;scrollbar-width:none; }
+ #regions { overflow-x:hidden; }
+ #live-empty { position:absolute;inset:0;display:grid;place-content:center;justify-items:center;color:var(--muted); }
+ #live-empty[hidden] { display:none; }
+ #live-empty button { padding:5px 12px;border:1px solid #777;border-radius:4px;background:#555; }
+ .track-level i { width:var(--level,0%); }
+ .track-level::after { display:none; }
+ .live-pan { appearance:none;width:18px;height:18px;border-radius:50%;background:#8d8d8d;border:1px solid #393939;margin:0; }
+ .live-pan::-webkit-slider-thumb { appearance:none;width:2px;height:9px;background:#333; }
+ .track-list-tools { gap:4px; }.track-list-tools button { font-size:10px;line-height:18px; }
+ .track-list-tools #add-track { font-size:17px; }
+ .live-save { font-size:10px;color:var(--text);white-space:nowrap; }
+ .output-section { gap:6px;align-items:center; }.output-meter { flex:1;min-width:42px;max-width:118px; }.output-meter i { width:0; }
+ .live-master { width:52px;min-width:25px; }
+ .live-editor-scroll { min-width:0;min-height:0;overflow:auto;scrollbar-width:thin; }
+ .editor-wave-area { width:100%;height:100%; }
+ .live-editor-empty { position:absolute;inset:0;display:grid;place-content:center;color:#c0def5;font-size:12px;pointer-events:none; }
+ #chord-lane { display:block;position:relative; }
+ #chord-lane button { position:absolute;top:0;bottom:0;border:0;border-right:1px solid #666;padding:2px 4px;background:#ffffff09;color:var(--text);text-align:left;font-size:10px;overflow:hidden;white-space:nowrap; }
+ .lcd { cursor:default; }
+ footer { min-width:0; }#live-status { overflow:hidden;text-overflow:ellipsis;white-space:nowrap; }#live-status[data-state=error] { color:#ffaaa0; }
+ .editor-heading-tools { width:50px; }
+}
+html[data-presentation=mac] #logic-session-tools { width:300px;max-height:80vh;padding:0;border:1px solid #777;border-radius:8px;background:#414141;color:#eee; }
+#logic-session-tools header { display:flex;justify-content:space-between;align-items:center;padding:10px 12px;border-bottom:1px solid #292929; }
+#logic-session-tools header button { border:0;background:none;color:inherit;font-size:20px; }
+#logic-session-tools .logic-tools-body { display:grid;gap:8px;padding:12px; }
+#logic-session-tools .logic-tools-body label { display:flex;justify-content:space-between;align-items:center; }
+#logic-session-tools .logic-tools-body button { text-align:left;background:#555;color:#eee;border:1px solid #666;border-radius:4px;padding:6px 10px; }
+#logic-session-tools button[aria-pressed=true] { background:#2674aa; }
+@media(max-width:980px) {
+ #logic-preview.logic-live { grid-template-rows:48px 28px minmax(150px,1.3fr) minmax(160px,1fr);--header-width:200px; }
+ #logic-preview .control-bar { grid-template-columns:60px 160px minmax(160px,220px) minmax(60px,1fr) 30px;gap:6px;padding:2px 8px; }
+ #logic-preview .window-tools { gap:0; }#logic-preview .window-tools button:nth-child(n+3),#logic-preview .window-tools #workspace-tools,#logic-preview .timing-tools { display:none; }
+ #logic-preview .browser-tools button:not(:last-child),#logic-preview .view-tools,#logic-preview .snap-controls { display:none; }
+ #logic-preview .browser-tools button:last-child { display:flex; }
+ #logic-preview .workspace-bar { gap:4px;padding:2px 5px; }#logic-preview .zoom-controls input { width:35px; }
+ #logic-preview.logic-live.editor-hidden { grid-template-rows:48px 28px minmax(150px,1fr) 0; }
+ #logic-preview .track-list-tools { padding-inline:4px;gap:3px; }
+ #logic-preview .track-list-tools button { padding-inline:3px; }
+ #logic-preview .live-save { font-size:9px; }
+ #logic-preview .live-master { display:none; }
+}
+@media(max-width:640px) {
+ #logic-preview .control-bar { grid-template-columns:58px 140px minmax(160px,1fr) 28px;gap:4px; }
+ #logic-preview .output-section { display:none; }#logic-preview .transport button { min-width:22px; }
+ #logic-preview .lcd { height:40px; }.logic-live .position { font-size:20px;gap:4px; }
+ #logic-preview .zoom-controls input { width:28px; }#logic-preview .pointer-tools button:last-child { display:none; }
+ #logic-preview.logic-live { --header-width:180px; }
+ #logic-preview .track-header { grid-template-columns:18px 27px minmax(0,1fr);gap:4px; }
+ #logic-preview .live-pan { display:none; }
+ #logic-preview .track-list-tools #duplicate-track { max-width:45px;overflow:hidden; }
+ #logic-preview footer { gap:6px;font-size:9px; }#live-status { display:none; }
+}
+html[data-appearance=light] #logic-preview { --chrome:#a5a5a5;--chrome-ink:#363636;--chrome-button:#969696; }
+html[data-appearance=dark] #logic-preview { --chrome:#3b3b3b;--chrome-ink:#d4d4d4;--chrome-button:#505050; }
