@@ -209,6 +209,22 @@ def stage_instruments(cache, target):
     return manifest
 
 
+def stage_native_piano(cache, target):
+    from music_studio.native_piano_assets import HEAD, manifest
+    target.mkdir(parents=True, exist_ok=True)
+    staged = cache / HEAD['file']
+    if not staged.is_file():
+        raise ValueError('Build and verify the native piano head first; stage its artifact in ' + str(cache))
+    if staged.stat().st_size != HEAD['bytes'] or digest(staged) != HEAD['sha256']:
+        raise ValueError('The native piano model size or checksum is invalid.')
+    shutil.copy2(staged, target / HEAD['file'])
+    for name in ('LICENSE-MSST.txt', 'LICENSE-Architecture.txt', 'LICENSE-Port.txt'):
+        shutil.copy2(ROOT / 'tools/roformer' / name, target / name)
+    shutil.copy2(ROOT / 'tools/instruments/NOTICE.txt', target / 'NOTICE.txt')
+    (target / 'manifest.json').write_text(json.dumps(manifest(), indent=2) + '\n')
+    return manifest()
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--work', type=Path, required=True)
@@ -219,6 +235,7 @@ def main():
     stage_piano(work / 'stem-models/piano', ROOT / 'music_studio/stem_models/piano')
     stage_roformer(work / 'stem-models/roformer', ROOT / 'music_studio/stem_models/roformer')
     stage_instruments(work / 'stem-models/instruments', ROOT / 'music_studio/stem_models/instruments')
+    stage_native_piano(work / 'stem-models/native-piano', ROOT / 'music_studio/stem_models/native-piano')
     models_zip = fetch(MODEL_URL, work / 'models.zip', MODEL_SHA)
     model_root = ROOT / 'music_studio/models'
     model_root.mkdir(parents=True, exist_ok=True)

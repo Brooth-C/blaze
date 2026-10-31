@@ -1,10 +1,10 @@
 name: Blaze macOS app
 on:
   pull_request:
-    paths: ['music_studio/**', 'tests/media/**', 'tools/*macos*', 'tools/macos_decoder/**', 'tools/roformer/**', 'tools/instruments/**', 'tests/Blaze-Mac-*-Tests.py', 'tests/Blaze-Mac-Glass-Native.py', 'tests/Blaze-Mac-Search-Live.py', '.github/workflows/macos-app.yml']
+    paths: ['music_studio/**', 'tests/media/**', 'tools/*macos*', 'tools/macos_decoder/**', 'tools/roformer/**', 'tools/instruments/**', 'tools/benchmark_macos_stems.py', 'tests/Blaze-Mac-*-Tests.py', 'tests/Blaze-Mac-Glass-Native.py', 'tests/Blaze-Mac-Search-Live.py', '.github/workflows/macos-app.yml']
   push:
     branches: [main]
-    paths: ['music_studio/**', 'tests/media/**', 'tools/*macos*', 'tools/macos_decoder/**', 'tools/roformer/**', 'tools/instruments/**', 'tests/Blaze-Mac-*-Tests.py', 'tests/Blaze-Mac-Glass-Native.py', 'tests/Blaze-Mac-Search-Live.py', '.github/workflows/macos-app.yml']
+    paths: ['music_studio/**', 'tests/media/**', 'tools/*macos*', 'tools/macos_decoder/**', 'tools/roformer/**', 'tools/instruments/**', 'tools/benchmark_macos_stems.py', 'tests/Blaze-Mac-*-Tests.py', 'tests/Blaze-Mac-Glass-Native.py', 'tests/Blaze-Mac-Search-Live.py', '.github/workflows/macos-app.yml']
   workflow_dispatch:
 permissions:
   contents: read
@@ -12,6 +12,42 @@ concurrency:
   group: blaze-mac-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 jobs:
+  native-piano-model:
+    name: Native piano conversion / original checkpoint parity
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-python@v7.0.0
+        with:
+          python-version: '3.12.10'
+      - name: Install pinned build-only conversion dependencies
+        run: |
+          python -m pip install torch==2.5.1 --index-url https://download.pytorch.org/whl/cpu
+          python -m pip install numpy==1.26.4 onnx==1.17.0 onnxruntime==1.20.1 einops==0.8.2 rotary-embedding-torch==0.8.9 beartype==0.18.5 PyYAML==6.0.2 librosa==0.11.0 scipy==1.14.1 numba==0.61.2 scikit-learn==1.5.2
+      - uses: actions/cache@v6.1.0
+        with:
+          path: build/native-piano-source/mega53.ckpt
+          key: blaze-native-piano-source-c62820893bbf86d4
+      - name: Fetch the pinned original architecture and checkpoint
+        run: |
+          git clone --filter=blob:none --no-checkout https://github.com/ZFTurbo/Music-Source-Separation-Training.git build/msst
+          git -C build/msst checkout 6fdad13686bb7e84d029ec66f9dbe76e65c93ebf
+          if [ ! -f build/native-piano-source/mega53.ckpt ]; then
+            python tools/instruments/fetch_checkpoint.py build/native-piano-source/mega53.ckpt
+          fi
+      - name: Export and validate the original complex piano head
+        run: |
+          python tools/instruments/export_piano.py --msst build/msst --checkpoint build/native-piano-source/mega53.ckpt --output build/native-piano
+          python tools/instruments/verify_piano.py --assets build/native-piano
+      - uses: actions/upload-artifact@v7.0.2
+        with:
+          name: Blaze-Native-Piano-fp32
+          path: |
+            build/native-piano/head-piano.onnx
+            build/native-piano/models.json
+            build/native-piano/export.json
+            build/native-piano/validation.json
   search:
     name: Mac YouTube search / macOS 26
     runs-on: macos-26
@@ -41,7 +77,7 @@ jobs:
         with:
           python-version: '3.12.10'
       - name: Install pinned native bridge
-        run: python -m pip install pyobjc-core==12.2.2 pyobjc-framework-Cocoa==12.2.2 pyobjc-framework-WebKit==12.2.2 numpy==1.26.4 onnxruntime==1.20.1 rich==14.2.0 Pillow==11.3.0
+        run: python -m pip install pyobjc-core==12.2.2 pyobjc-framework-Cocoa==12.2.2 pyobjc-framework-WebKit==12.2.2 numpy==1.26.4 onnxruntime==1.31.0 rich==14.2.0 Pillow==11.3.0
       - uses: actions/download-artifact@v8.0.2
         with:
           name: Blaze-Mac-arm64
@@ -78,7 +114,7 @@ jobs:
           path: build/glass/
   app:
     name: Mac app / ${{ matrix.arch }}
-    needs: search
+    needs: [search, native-piano-model]
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 45
     strategy:
@@ -93,7 +129,7 @@ jobs:
         with:
           python-version: '3.12.10'
       - name: Install pinned desktop dependencies
-        run: python -m pip install numpy==1.26.4 onnxruntime==1.20.1 pywebview==6.1 pyobjc-core==12.2.2 pyobjc-framework-Cocoa==12.2.2 pyobjc-framework-WebKit==12.2.2 pyinstaller==6.16.0 Pillow==11.3.0 rich==14.2.0 ruff==0.14.0 yt-dlp==2026.10.26 yt-dlp-ejs==0.8.0
+        run: python -m pip install numpy==1.26.4 onnxruntime==1.31.0 pywebview==6.1 pyobjc-core==12.2.2 pyobjc-framework-Cocoa==12.2.2 pyobjc-framework-WebKit==12.2.2 pyinstaller==6.16.0 Pillow==11.3.0 rich==14.2.0 ruff==0.14.0 yt-dlp==2026.10.26 yt-dlp-ejs==0.8.0
       - name: Source and platform checks
         run: |
           python -m ruff check --select F,E9 music_studio tools/build_macos_studio.py tools/build_macos_downloader.py tools/stage_macos_studio.py tools/macos_decoder/*.py tests/Blaze-Mac-*-Tests.py
@@ -103,6 +139,8 @@ jobs:
           python tests/Blaze-Mac-Waveform-Tests.py
           python tests/Blaze-Mac-Stem-Tests.py
           python tests/Blaze-Mac-Stem-Jobs-Tests.py
+          python tests/Blaze-Mac-Stem-Runtime-Tests.py
+          python tests/Blaze-Mac-Native-Piano-Tests.py
           python tests/Blaze-Mac-Piano-Tests.py
           python tests/Blaze-Mac-Roformer-Tests.py
           python tests/Blaze-Mac-Instruments-Tests.py
@@ -119,7 +157,11 @@ jobs:
       - uses: actions/cache@v6.1.0
         with:
           path: build/mac-assets/stem-models
-          key: blaze-mac-stems-instruments-v1-full-fp32
+          key: blaze-mac-stems-native-piano-v1-full-fp32
+      - uses: actions/download-artifact@v8.0.2
+        with:
+          name: Blaze-Native-Piano-fp32
+          path: build/mac-assets/stem-models/native-piano
       - name: Stage pinned model and downloader assets
         run: python tools/stage_macos_studio.py --work build/mac-assets --arch ${{ matrix.arch }}
       - uses: actions/cache/restore@v6.1.0
@@ -157,6 +199,7 @@ jobs:
           python tests/Blaze-Mac-Piano-Tests.py
           BLAZE_REAL_ROFORMER=1 python tests/Blaze-Mac-Roformer-Tests.py
           BLAZE_REAL_INSTRUMENTS=1 python tests/Blaze-Mac-Instruments-Tests.py
+          BLAZE_REAL_NATIVE_PIANO=1 python tests/Blaze-Mac-Native-Piano-Tests.py
       - name: Build minimal separate downloader
         run: python tools/build_macos_downloader.py --arch ${{ matrix.arch }} --output build/mac-assets/bin --work build/mac-downloader --notices build/mac-assets/notices
       - name: Build Blaze.app

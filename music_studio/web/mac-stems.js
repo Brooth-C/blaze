@@ -11,7 +11,7 @@
     dialog.id = 'stems-dialog';
     dialog.setAttribute('aria-labelledby', 'stems-heading');
     dialog.innerHTML = '<div class="stems-heading"><h3 id="stems-heading">Split stems</h3><button id="stems-close" aria-label="Close stem separation">×</button></div>' +
-        '<p id="stems-source"></p><p class="stems-description">Nine stems separates guitar, strings, brass and synths too. Five stems keeps them in Other. Processing stays on this Mac; nine stems takes longer.</p>' +
+        '<p id="stems-source"></p><p class="stems-description">Piano isolation targets acoustic piano. Nine stems separates guitar, strings, brass and synths too. Five stems keeps them in Other. Processing stays on this Mac; nine stems takes longer.</p>' +
         '<div id="stems-progress-panel" hidden><progress id="stems-progress" max="1" value="0" aria-label="Stem separation progress"></progress></div>' +
         '<p id="stems-message" role="status"></p><p id="stems-error" role="alert" hidden></p><p id="stems-results-heading" hidden></p><div id="stems-results"></div>' +
         '<div class="stems-footer"><button id="stems-folder" hidden>Open folder</button><button id="stems-background" hidden>Run in Background</button><button id="stems-cancel" hidden>Cancel separation</button><button id="stems-piano">Isolate piano</button><button id="stems-five">Five stems</button><button id="stems-start" class="primary">Nine stems</button></div>';

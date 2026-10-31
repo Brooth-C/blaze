@@ -110,10 +110,10 @@ class StemJobs:
                         separator = self.separator_factory(self.models, self.studio.ffmpeg)
                     else:
                         from .stems import Separator
-                        from .piano import PianoSeparator
+                        from .native_piano import NativePianoSeparator
                         from .roformer import QualityFiveStemSeparator
                         from .instruments import NineStemSeparator
-                        implementation = {'piano': PianoSeparator, 'five': QualityFiveStemSeparator,
+                        implementation = {'piano': NativePianoSeparator, 'five': QualityFiveStemSeparator,
                                           'nine': NineStemSeparator, 'stems': Separator}[mode]
                         separator = implementation(self.models, self.studio.ffmpeg)
                     outputs = separator.separate(input_path, pending, progress=progress, cancel_event=cancel)
