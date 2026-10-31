@@ -16,3 +16,10 @@ session content, authored icons and native font/chrome evidence differ.
 interactive recessed track/master faders. Real per-job track audition gain,
 shared inspector controls, fine/reset/keyboard behavior and fixed meter scale;
 gesture updates avoid canvas redraws. Native macOS 26 validation still pending.
+
+2026-10-31 — Top control-bar pass: measured transport/LCD/browser anchors,
+independent monitoring and count-in/metronome groups, shared button centerline,
+LCD typography/captions and authored utility symbols. Five-width light/dark
+browser alignment and real command checks; standalone preview remains API-free.
+Approved arrangement, waveform editor and audio controls retained. Native
+macOS 26 validation and release publication remain pending.

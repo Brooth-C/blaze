@@ -87,7 +87,7 @@
   bind($('workspace-tools').lastChild,toggleEditor);$('workspace-tools').lastChild.disabled=false;
   for(const node of $('browser-tools').children)unsupported(node);
   const browse=button('browser','Back to Explore');bind(browse,cmd.browse);$('browser-tools').lastChild.replaceWith(browse);
-  const timing=[...$('timing-tools').children];for(const node of timing)unsupported(node);
+  const timing=[...$('timing-tools').querySelectorAll('button')];for(const node of timing)unsupported(node);
   timing.at(-1).disabled=false;timing.at(-1).title='Metronome';timing.at(-1).setAttribute('aria-label','Metronome');bind(timing.at(-1),cmd.metronome);
   for(const node of $('view-tools').children)unsupported(node);$('view-tools').children[1].disabled=false;
   for(const node of $('editor-tools').children)unsupported(node);

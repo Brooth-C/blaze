@@ -75,6 +75,15 @@ const start=()=>new Promise((resolve,reject)=>{let s='';const timeout=setTimeout
   });
   assert.equal(geometry.chrome,colorScheme==='light'?'rgb(166, 166, 166)':'rgb(59, 59, 59)','Native navigation removed the Studio chrome fill');
   assert(geometry.controlOverlap<=1&&geometry.editorOverlap<=1,'A header overlaps the next toolbar');
+  const topbar=await page.evaluate(()=>{
+   const bar=document.querySelector('#logic-preview .control-bar').getBoundingClientRect();
+   const groups=[...document.querySelector('#logic-preview .control-bar').children].map(n=>n.getBoundingClientRect()).filter(r=>r.width&&r.height);
+   const controls=[...document.querySelectorAll('#logic-preview .control-bar button,#logic-preview .mix-master')].map(n=>n.getBoundingClientRect()).filter(r=>r.width&&r.height);
+   return {overlap:groups.some((r,i)=>i>0&&groups[i-1].right>r.left+.5),
+    overflow:controls.some(r=>r.left<bar.left||r.right>bar.right+.5||r.top<bar.top||r.bottom>bar.bottom),
+    misaligned:groups.some(r=>Math.abs((r.top+r.bottom-bar.top-bar.bottom)/2)>.5)};
+  });
+  assert.deepEqual(topbar,{overlap:false,overflow:false,misaligned:false},'Top-bar groups collide, clip or lose their common center at '+width+' '+colorScheme);
   assert(geometry.captionOverlap<=1&&geometry.lcdOverflow<=1,'LCD captions collide with digits or escape the display');
   assert(geometry.pointerOffset<=1,'Pointer tools are displaced from the workspace center');
   assert(geometry.leftToolOverlap<=1&&geometry.rightToolOverlap<=1,'Context controls overlap the centered tools');
@@ -86,6 +95,18 @@ const start=()=>new Promise((resolve,reject)=>{let s='';const timeout=setTimeout
   if(out)await page.screenshot({path:path.join(out,'logic-live-'+width+'-'+colorScheme+'.png')});
  }
  await page.setViewportSize({width:1440,height:900});
+ // Regrouping the timing controls must retain their real command bindings.
+ for(const [label,key]of [['Metronome','metronome'],['Cycle','loop']]){
+  const initial=await page.evaluate(k=>window.BlazeMacStudio.viewState()[k],key);
+  await page.getByRole('button',{name:label,exact:true}).click();
+  assert.equal(await page.evaluate(k=>window.BlazeMacStudio.viewState()[k],key),!initial,label+' lost its command binding');
+  await page.getByRole('button',{name:label,exact:true}).click();
+  assert.equal(await page.evaluate(k=>window.BlazeMacStudio.viewState()[k],key),initial);
+ }
+ assert(await page.getByRole('button',{name:'Count-in appearance',exact:true}).isDisabled());
+ await page.getByRole('button',{name:'Project tempo, time signature and key',exact:true}).focus();await page.keyboard.press('Enter');
+ assert(await page.locator('#daw-project-dialog').isVisible(),'LCD lost keyboard access to project settings');
+ await page.keyboard.press('Escape');assert(await page.locator('#daw-project-dialog').isHidden());
  const piano=page.locator('#logic-preview .track-header[data-track-id=piano]');
  await piano.locator('.track-name').click();
  await page.waitForFunction(()=>window.BlazeMacStudio.snapshot().selectedTrack==='piano'&&window.BlazeMacStudio.snapshot().waveformReady);

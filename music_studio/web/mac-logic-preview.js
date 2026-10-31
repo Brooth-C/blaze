@@ -8,9 +8,16 @@
  const button=(icon,label,cls='')=>{const b=document.createElement('button');b.type='button';b.title=label;b.setAttribute('aria-label',label);b.className=cls;b.innerHTML=svg(icon);return b;};
  function group(id,items){for(const [icon,label,cls]of items)$(id).append(button(icon,label,cls||''));}
  group('navigation-tools',[['library','Library'],['inspector','Inspector'],['help','Quick help'],['download','Sound library']]);
- group('workspace-tools',[['knob','Smart controls'],['sliders','Mixer'],['pencil','Editors']]);
+ // Independent utility groups match the measured control-bar spacing. These
+ // are authored symbols, not artwork extracted from the reference application.
+ paths.tuner='M8 3v6a4 4 0 0 0 8 0V3M12 13v8m-3 0h6';
+ paths.dial='M5 17a8 8 0 1 1 14 0M12 12l3-4M12 1v2M3 5l2 2m16-2-2 2M1 13h2m18 0h2';
+ group('workspace-tools',[['dial','Smart controls'],['sliders','Mixer'],['pencil','Editors']]);
  group('transport',[['stop','Stop'],['play','Play','play'],['record','Record appearance','record'],['punch','Punch recording appearance','record-outline'],['flashback','Capture appearance','capture'],['cycle','Cycle']]);
- group('timing-tools',[['knob','Tuner'],['metronome','Metronome appearance','purple']]);const count=document.createElement('button');count.textContent='1234';count.title='Count-in appearance';$('timing-tools').insertBefore(count,$('timing-tools').lastChild);const solo=document.createElement('button');solo.textContent='S';solo.title='Solo appearance';$('timing-tools').insertBefore(solo,count);
+ group('monitoring-tools',[['tuner','Tuner']]);
+ const solo=document.createElement('button');solo.type='button';solo.innerHTML='<span class="solo-symbol" aria-hidden="true">S</span>';solo.title='Solo appearance';solo.setAttribute('aria-label',solo.title);$('monitoring-tools').append(solo);
+ const count=document.createElement('button');count.type='button';count.className='count-in';count.textContent='1234';count.title='Count-in appearance';count.setAttribute('aria-label',count.title);$('tempo-tools').append(count);
+ group('tempo-tools',[['metronome','Metronome appearance','purple']]);
  group('browser-tools',[['list','List editors'],['note','Notes'],['loops','Loops'],['browser','Browsers']]);
  group('view-tools',[['grid','Live Loops appearance'],['tracks','Tracks appearance'],['automation','Automation appearance'],['wave','Flex appearance'],['flex','Track alternatives appearance']]);$('view-tools').children[1].setAttribute('aria-pressed','true');
  group('display-tools',[['wave','Waveform display appearance'],['flex','Vertical auto zoom appearance'],['grid','Horizontal auto zoom appearance']]);
@@ -55,7 +62,7 @@
  const play=$('transport').querySelector('.play');play.onclick=()=>{playing=!playing;play.innerHTML=svg(playing?'pause':'play');play.setAttribute('aria-label',playing?'Pause':'Play');last=0;cancelAnimationFrame(frame);if(playing)frame=requestAnimationFrame(tick);};
  $('transport').children[0].onclick=()=>{playing=false;cancelAnimationFrame(frame);playhead=0;play.innerHTML=svg('play');paint();};
  for(const i of [2,3,4])$('transport').children[i].disabled=true;
- for(const b of [$('transport').lastChild,...$('timing-tools').children])b.onclick=()=>b.setAttribute('aria-pressed',String(b.getAttribute('aria-pressed')!=='true'));
+ for(const b of [$('transport').lastChild,...$('timing-tools').querySelectorAll('button')])b.onclick=()=>b.setAttribute('aria-pressed',String(b.getAttribute('aria-pressed')!=='true'));
  $('show-editor').onclick=()=>{const hide=root.classList.toggle('editor-hidden');$('show-editor').setAttribute('aria-pressed',String(!hide));requestAnimationFrame(drawAll);};
  $('project-ruler').onclick=e=>{const r=e.currentTarget.getBoundingClientRect();playhead=Math.max(0,Math.min(1,(e.clientX-r.left)/r.width));paint();};
  document.querySelector('[aria-label="Track visual height"]').oninput=e=>{root.style.setProperty('--row-height',e.target.value+'px');drawAll();};

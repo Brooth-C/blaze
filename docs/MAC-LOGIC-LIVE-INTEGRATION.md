@@ -146,3 +146,24 @@ Component measurements and scoped contrast pairs are recorded in
 outside the app at `/workspace/logic-controls/`. Replica, BAMA measurement,
 Apple interaction, accessibility and verification guidance were applied;
 native macOS-only measurement utilities were not run on this Linux host.
+
+## Control-bar alignment
+
+The top bar now uses measured group anchors from the same published Logic
+listing image. At 1440px, the transport begins at 420px, the 220×40px LCD at
+610px, monitoring at 840px, count-in/metronome at 915px and browser controls
+at 1320px (rounded). Monitoring and timing have independent semantic groups
+and backgrounds, replacing a single stretched pill with an internal margin.
+Buttons share a 25px height and centerline; utility icons use an 18px box.
+Tempo/signature type, separate LCD captions and the CSS chevron align without
+changing actual project values. Authored dial/tuning symbols replace the old
+power-button placeholders. Track controls, faders and the audio engine are
+unchanged by this pass.
+
+`replica/design/logic-control-bar.json` records source and DOM measurements.
+The live browser suite checks group collision, clipping and vertical alignment
+at five widths in both appearances, as well as metronome/cycle command bindings,
+keyboard access to project settings, playback and independent gain behavior.
+The standalone preview remains API-free. Comparison captures are outside the
+app in `/workspace/logic-topbar/`. Native macOS 26 validation and publication
+are not established by these browser checks.
