@@ -2,6 +2,7 @@
 import json
 import hashlib
 import os
+import runpy
 from pathlib import Path
 import shutil
 import sys
@@ -46,6 +47,12 @@ def read_output(path):
 
 
 class NativePianoTests(unittest.TestCase):
+    def test_model_receipt_imports_when_mac_app_is_a_standalone_entrypoint(self):
+        namespace = runpy.run_path(str(Path(__file__).resolve().parents[1]/'music_studio/mac_app.py'))
+        self.assertFalse(namespace['__package__'])
+        from music_studio.native_piano_assets import HEAD
+        self.assertEqual(namespace['native_piano_identity']()['head_sha256'], HEAD['sha256'])
+
     def test_staging_requires_the_exact_local_artifact_and_never_downloads_it(self):
         from tools.stage_macos_studio import stage_native_piano
         payload = b'controlled artifact bytes'
