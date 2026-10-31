@@ -129,6 +129,12 @@ Kernel-event durations are sums and must not be presented as wall time.
 CoreML events prove delegation, not actual Metal GPU utilization; native
 Instruments and compute-plan evidence are still needed for that assertion.
 
+PR/manual Mac CI additionally profiles CPU and cold/warm CoreML runs against
+the actual packaged model assets on macOS26. Its deterministic tone checks
+runtime execution, not piano separation quality. It reports the runner's chip
+and RAM; those timings must not be attributed to the user's M3/8 GB. Profile
+artifacts are retained even if acceleration initialization or delegation fails.
+
 Listen to volume-matched original/piano/accompaniment for attacks, sustain,
 reverb, pad bleed and false piano on recordings without piano. Include acoustic
 and electric piano as distinct cases. Do not enable the candidate by default
