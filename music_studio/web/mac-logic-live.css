@@ -1,15 +1,17 @@
 /* Mac-only integration. Scope shared appearance rules to the Studio root. */
 html[data-presentation=mac] #studio-panel #mac-studio-workspace[hidden] { display:none!important; }
 html[data-presentation=mac] #studio-panel #logic-preview.logic-live { height:100%;min-height:0;min-width:0;flex:1; }
-#logic-preview header { position:static;inset:auto;width:auto;z-index:auto;border-right:0;margin:0; }
-#logic-preview .control-bar { display:grid;padding:6px 12px; }
-#logic-preview .editor-heading { display:flex;padding:0 10px; }
+#logic-preview header { position:static;inset:auto;width:auto;height:auto;min-height:0;z-index:auto;border-right:0;margin:0; }
+/* Native navigation's generic header reset previously stripped these fills. */
+#logic-preview .control-bar { display:grid;padding:6px 12px;background:var(--chrome);color:var(--chrome-ink);border-bottom:1px solid #777; }
+#logic-preview .editor-heading { display:flex;padding:0 10px;background:#454545;border-bottom:1px solid #303030; }
 #logic-preview button,#logic-preview select { min-height:0; }
 #logic-preview .tool-group button { padding:4px;border-radius:4px; }
 #logic-preview .track-controls button { padding:0;font-size:10px;border-radius:3px; }
-#logic-preview .menu-group button { padding:2px 10px;border-radius:3px; }
+#logic-preview .menu-group button { padding:2px 7px;border-radius:3px;font-size:11px; }
 #logic-preview .snap-controls select { padding:1px 5px;border-radius:3px;font-size:11px; }
-#logic-preview .clip { padding:0;border-radius:4px; }
+#logic-preview .lcd small { font-size:6.5px;line-height:7px; }
+#logic-preview .clip { padding:0;border-radius:4px;background:var(--region-color); }
 #logic-preview .track-list-tools button { padding:0 5px;border-radius:3px; }
 #logic-preview .transport .play { width:auto;height:25px;min-height:0; }
 #logic-preview .browser-tools button:last-child { display:flex; }
@@ -17,6 +19,7 @@ html[data-presentation=mac] #studio-panel #logic-preview.logic-live { height:100
 #logic-preview .clip canvas { width:100%;height:calc(100% - 12px); }
 html[data-presentation=mac] body.studio-active #logic-session-tools header { display:flex;position:static;width:auto; }
 @scope (#logic-preview.logic-live) {
+ :scope { --region-source:#278f9c;--region-vocals:#2099a8;--region-drums:#2789b5;--region-bass:#3476bb;--region-guitar:#4260c3;--region-piano:#6747c3;--region-strings:#7750be;--region-brass:#8753bc;--region-synths:#6d48b9;--region-other:#563ca3;--wave-ink:#c2e4f5;--wave-grid:#ffffff0e; }
  button:disabled { opacity:.4;cursor:default; }
  .clip { padding:0;text-align:left;color:inherit;cursor:default; }
  .clip-name { display:block; }
@@ -32,8 +35,10 @@ html[data-presentation=mac] body.studio-active #logic-session-tools header { dis
  .track-list-tools { gap:4px; }.track-list-tools button { font-size:10px;line-height:18px; }
  .track-list-tools #add-track { font-size:17px; }
  .live-save { font-size:10px;color:var(--text);white-space:nowrap; }
- .output-section { gap:6px;align-items:center; }.output-meter { flex:1;min-width:42px;max-width:118px; }.output-meter i { width:0; }
- .live-master { width:52px;min-width:25px; }
+ .output-section { position:relative;align-items:center;justify-content:center; }.output-meter { width:118px;min-width:42px;max-width:118px; }.output-meter i { width:0; }.output-meter>span { display:none; }
+ .live-master { position:absolute;width:118px;min-width:25px;max-width:100%;height:17px;margin:0;padding:0 8px; }
+ .live-master::-webkit-slider-runnable-track { background:transparent; }
+ .live-master::-webkit-slider-thumb { background:#b0b0b0aa; }
  .live-editor-scroll { min-width:0;min-height:0;overflow:auto;scrollbar-width:thin; }
  .editor-wave-area { width:100%;height:100%; }
  .live-editor-empty { position:absolute;inset:0;display:grid;place-content:center;color:#c0def5;font-size:12px;pointer-events:none; }
@@ -42,6 +47,10 @@ html[data-presentation=mac] body.studio-active #logic-session-tools header { dis
  .lcd { cursor:default; }
  footer { min-width:0; }#live-status { overflow:hidden;text-overflow:ellipsis;white-space:nowrap; }#live-status[data-state=error] { color:#ffaaa0; }
  .editor-heading-tools { width:50px; }
+ .control-bar button:disabled { opacity:.65; }
+ #regions { background-image:repeating-linear-gradient(90deg,transparent 0,transparent calc(var(--bar-grid-px,100px) - 1px),#ffffff10 calc(var(--bar-grid-px,100px) - 1px),#ffffff10 var(--bar-grid-px,100px));background-color:var(--canvas); }
+ .region-row:nth-child(even) { background:#ffffff02; }
+ .ruler::after { background:repeating-linear-gradient(90deg,transparent 0,transparent calc(var(--beat-grid-px,25px) - 1px),#92929266 calc(var(--beat-grid-px,25px) - 1px),#92929266 var(--beat-grid-px,25px)); }
 }
 html[data-presentation=mac] #logic-session-tools { width:300px;max-height:80vh;padding:0;border:1px solid #777;border-radius:8px;background:#414141;color:#eee; }
 #logic-session-tools header { display:flex;justify-content:space-between;align-items:center;padding:10px 12px;border-bottom:1px solid #292929; }
@@ -57,6 +66,7 @@ html[data-presentation=mac] #logic-session-tools { width:300px;max-height:80vh;p
  #logic-preview .browser-tools button:not(:last-child),#logic-preview .view-tools,#logic-preview .snap-controls { display:none; }
  #logic-preview .browser-tools button:last-child { display:flex; }
  #logic-preview .workspace-bar { gap:4px;padding:2px 5px; }#logic-preview .zoom-controls input { width:35px; }
+ #logic-preview .zoom-controls { margin-left:auto; }
  #logic-preview.logic-live.editor-hidden { grid-template-rows:48px 28px minmax(150px,1fr) 0; }
  #logic-preview .track-list-tools { padding-inline:4px;gap:3px; }
  #logic-preview .track-list-tools button { padding-inline:3px; }
@@ -74,5 +84,5 @@ html[data-presentation=mac] #logic-session-tools { width:300px;max-height:80vh;p
  #logic-preview .track-list-tools #duplicate-track { max-width:45px;overflow:hidden; }
  #logic-preview footer { gap:6px;font-size:9px; }#live-status { display:none; }
 }
-html[data-appearance=light] #logic-preview { --chrome:#a5a5a5;--chrome-ink:#363636;--chrome-button:#969696; }
+html[data-appearance=light] #logic-preview { --chrome:#a6a6a6;--chrome-ink:#363636;--chrome-button:#969696; }
 html[data-appearance=dark] #logic-preview { --chrome:#3b3b3b;--chrome-ink:#d4d4d4;--chrome-button:#505050; }

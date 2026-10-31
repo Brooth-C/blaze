@@ -29,11 +29,10 @@
   master.oninput=()=>{cmd.volume(master.value);update();};root.querySelector('.output-section').append(master);
   const toolbar=$('track-headers');toolbar.setAttribute('role','listbox');toolbar.setAttribute('aria-label','Session tracks');
   const transport=[...$('transport').children];
-  transport[3].id='logic-play';transport[2].id='logic-stop';
+  transport[1].id='logic-play';transport[0].id='logic-stop';
   root.querySelector('.arrangement').id='logic-arrangement';root.querySelector('.audio-editor').id='logic-editor';
-  bind(transport[0],()=>cmd.seek(state.position-10));bind(transport[1],()=>cmd.seek(state.position+10));
-  bind(transport[2],cmd.stop);bind(transport[3],cmd.play);bind(transport[5],cmd.loop);
-  transport[4].disabled=true;transport[4].setAttribute('aria-label','Recording is not available');transport[4].title='Recording is not available';
+  bind(transport[0],cmd.stop);bind(transport[1],cmd.play);bind(transport[5],cmd.loop);
+  for(const i of [2,3,4])unsupported(transport[i]);
   const navigation=$('navigation-tools');bind(navigation.children[0],()=>showPanel('library'));bind(navigation.children[1],()=>showPanel('inspector'));
   for(const node of [...navigation.children].slice(2))unsupported(node);
   for(const node of $('workspace-tools').children)unsupported(node);
@@ -44,6 +43,7 @@
   timing.at(-1).disabled=false;timing.at(-1).title='Metronome';timing.at(-1).setAttribute('aria-label','Metronome');bind(timing.at(-1),cmd.metronome);
   for(const node of $('view-tools').children)unsupported(node);$('view-tools').children[1].disabled=false;
   for(const node of $('editor-tools').children)unsupported(node);
+  for(const node of $('display-tools').children)unsupported(node);
   $('pointer-tools').children[0].onclick=()=>setTool(false);$('pointer-tools').children[1].onclick=()=>setTool(true);
   $('pointer-tools').children[1].title='Select a time range';$('pointer-tools').children[1].setAttribute('aria-label','Time range tool');
   for(const node of $('editor-heading-tools').children)unsupported(node);
@@ -86,7 +86,7 @@
   editorZoom.oninput=()=>{zoom=Number(editorZoom.value);editorArea.style.width=(zoom*100)+'%';redraw();};
   toolbar.onscroll=()=>{$('regions').scrollTop=toolbar.scrollTop;};$('regions').onscroll=()=>{toolbar.scrollTop=$('regions').scrollTop;};
   const menu=$('appearance-menu');
-  const menus={edit:[['Undo Studio setting',cmd.undo],['Redo Studio setting',cmd.redo]],
+  const menus={edit:[['Undo Studio setting',cmd.undo],['Redo Studio setting',cmd.redo],['Back 10 seconds',()=>cmd.seek(state.position-10)],['Forward 10 seconds',()=>cmd.seek(state.position+10)]],
    functions:[['Import recording',cmd.import],['Split stems',cmd.stems],['Analyse chords',cmd.analyze],['Chord practice',cmd.practice]],
    view:[['Library',()=>showPanel('library')],['Inspector',()=>showPanel('inspector')],['Audio Editor',toggleEditor],['Back to Explore',cmd.browse]]};
   for(const b of root.querySelectorAll('[data-menu]'))b.onclick=()=>{menu.replaceChildren();for(const [label,action]of menus[b.dataset.menu.replace('editor-','')]){
@@ -145,7 +145,8 @@
     if(toolbar.children[index]!==row.header)toolbar.insertBefore(row.header,toolbar.children[index]||null);
     const before=$('regions').querySelectorAll('.region-row')[index];
     if(before!==row.lane)$('regions').insertBefore(row.lane,before||null);
-    row.header.style.setProperty('--track-color',track.color);row.lane.style.setProperty('--region-color',track.region);
+    const tone='var(--region-'+track.id+', '+track.region+')';
+    row.header.style.setProperty('--track-color',tone);row.lane.style.setProperty('--region-color',tone);
     row.header.classList.toggle('selected',track.id===state.selected);row.header.setAttribute('aria-selected',String(track.id===state.selected));row.header.setAttribute('aria-busy',String(state.pending&&track.id===state.pendingTrack));
     row.header.setAttribute('aria-label',track.label);text(row.header.querySelector('.track-number'),index+1);text(row.header.querySelector('.track-name'),track.label);
     row.header.querySelector('button').setAttribute('aria-pressed',String(track.muted));row.header.querySelectorAll('button')[1].setAttribute('aria-pressed',String(state.solo&&track.id===state.selected));
@@ -156,25 +157,38 @@
   }
   function waveform(target,data,stereo=false){
    const r=target.getBoundingClientRect();if(!r.width||!r.height)return;const d=Math.min(devicePixelRatio||1,2);target.width=Math.round(r.width*d);target.height=Math.round(r.height*d);
-   const g=target.getContext('2d');g.scale(d,d);const channels=stereo?2:1;g.fillStyle='#c0def5';
-   for(let ch=0;ch<channels;ch++){const center=r.height/channels*(ch+.5),amplitude=r.height/channels*.46;
+   const g=target.getContext('2d');g.scale(d,d);const channels=stereo?2:1,style=getComputedStyle(root);
+   const bar=60/state.tempo*4/state.denominator*state.numerator;
+   const barPixels=state.duration?bar/state.duration*r.width:0;
+   if(barPixels>0){let spacing=barPixels/state.numerator;while(spacing<18)spacing*=2;
+    g.strokeStyle=style.getPropertyValue('--wave-grid');g.lineWidth=1;
+    for(let x=spacing;x<r.width;x+=spacing){g.beginPath();g.moveTo(Math.round(x)+.5,0);g.lineTo(Math.round(x)+.5,r.height);g.stroke();}}
+   g.fillStyle=style.getPropertyValue('--wave-ink');
+   // Keep the stereo relationship: one display gain for both channels.
+   let maximum=0;for(const bins of data?.peaks||[])for(const pair of bins)maximum=Math.max(maximum,Math.abs(pair[0]),Math.abs(pair[1]));
+   const gain=maximum?Math.min(8,.88/maximum):1;
+   target.dataset.channels=String(channels);
+   for(let ch=0;ch<channels;ch++){const center=r.height/channels*(ch+.5),amplitude=r.height/channels*.42;
     g.strokeStyle='#bddcf044';g.beginPath();g.moveTo(0,center);g.lineTo(r.width,center);g.stroke();
     const bins=data?.peaks?.[ch]||data?.peaks?.[0];if(!bins?.length)continue;
-    let max=0;for(const pair of bins)max=Math.max(max,Math.abs(pair[0]),Math.abs(pair[1]));const gain=max?Math.min(20,.95/max):1;
     for(let x=0;x<r.width;x++){const first=Math.floor(x/r.width*bins.length),last=Math.min(bins.length,Math.max(first+1,Math.ceil((x+1)/r.width*bins.length)));let low=0,high=0;
      for(let n=first;n<last;n++){low=Math.min(low,bins[n][0]);high=Math.max(high,bins[n][1]);}g.fillRect(x,center-high*amplitude*gain,1,Math.max(.5,(high-low)*amplitude*gain));}
    }
   }
   function ruler(id){const target=$(id);target.replaceChildren();const bar=60/state.tempo*4/state.denominator*state.numerator;
    const count=Math.max(1,state.duration/bar),width=target.clientWidth;const step=2**Math.ceil(Math.log2(Math.max(1,count/Math.max(2,width/85))));
+   target.style.setProperty('--beat-grid-px',(width/count/state.numerator)+'px');
    for(let n=0;n<count;n+=step){const span=document.createElement('span');span.textContent=String(n+1);span.style.left=(n/count*100)+'%';target.append(span);}}
-  function redraw(){if(!state.active)return;for(const row of rows.values())waveform(row.canvas,row.waveform);waveform(canvas,state.peaks,true);
+  function redraw(){if(!state.active)return;for(const row of rows.values())waveform(row.canvas,row.waveform,true);waveform(canvas,state.peaks,true);
+   const bar=60/state.tempo*4/state.denominator*state.numerator;
+   $('regions').style.setProperty('--bar-grid-px',(state.duration?bar/state.duration*$('regions').clientWidth:100)+'px');
    ruler('project-ruler');ruler('editor-ruler');paintPosition();}
   function paintPosition(){
    const ratio=state.duration?Math.max(0,Math.min(1,state.position/state.duration)):0;
    for(const id of ['project-playhead','editor-playhead'])$(id).style.left=(ratio*100)+'%';
-   const beats=state.position*state.tempo/60/(4/state.denominator);text($('position-bar'),Math.floor(beats/state.numerator)+1);
-   text(root.querySelector('.position span:nth-child(3)'),Math.floor(beats)%state.numerator+1);
+   const beats=state.position*state.tempo/60/(4/state.denominator),bar=Math.floor(beats/state.numerator)+1;
+   text($('position-bar'),bar);text($('position-padding'),bar<10?'00':bar<100?'0':'');
+   text($('position-beat'),Math.floor(beats)%state.numerator+1);
    text(time,stamp(state.position));canvas.setAttribute('aria-valuenow',String(Math.round(ratio*100)));canvas.setAttribute('aria-valuetext',stamp(state.position)+' of '+stamp(state.duration));
    for(const [i,meter]of meters.entries())meter.style.width=state.levels[i];
    for(const [id,row]of rows)row.header.style.setProperty('--level',id===state.selected?state.levels[0]:'0%');
@@ -185,13 +199,13 @@
   function update(){
    if(disposed)return;state=engine.viewState();if(!state.active){cancelAnimationFrame(frame);frame=0;return;}
    renderRows();const selected=state.tracks.find(t=>t.id===state.selected);text($('editor-track'),selected?.label||'Recording');text($('editor-caption'),selected?.label||'Recording');
-   text(root.querySelector('.tempo b'),Number(state.tempo).toFixed(state.tempo%1?1:0));text(root.querySelector('.signature b'),state.numerator+'/'+state.denominator);text(root.querySelector('.signature span'),state.key);
+   text(root.querySelector('.tempo b'),Number(state.tempo).toFixed(state.tempo%1?1:0));text(root.querySelector('.signature b'),state.numerator+'/'+state.denominator);text(root.querySelector('.signature span'),state.key.replace(' major','maj').replace(' minor','min'));
    text(root.querySelector('footer').firstElementChild,state.format);text(status,actionError||state.message);status.dataset.state=actionError?'error':state.messageState;
    text(editorEmpty,!state.peaks?(state.loading||state.pending?'Reading waveform…':state.tracks.length?'Waveform unavailable. Playback remains available.':'Import a recording to begin.'):'');
    const stemsState=window.BlazeMacStems?.snapshot();text(stems,stemsState?.status==='running'?'Split '+Math.round((stemsState.progress||0)*100)+'%':stemsState?.status==='failed'?'Retry split':'Split');stems.disabled=stemsState?.available!==true;
    analyze.disabled=!state.enabled&&!state.analysisBusy;text(analyze,state.analysisBusy?'Cancel':'Chords');analyze.setAttribute('aria-label',state.analysisBusy?'Cancel chord analysis':'Analyse chords');
-   for(const i of [0,1,2,3,5])transport[i].disabled=!state.enabled;
-   const playState=state.paused?'play':'pause';if(transport[3].dataset.state!==playState){transport[3].innerHTML=svg(playState);transport[3].dataset.state=playState;transport[3].setAttribute('aria-label',state.paused?'Play':'Pause');}
+   for(const i of [0,1,5])transport[i].disabled=!state.enabled;
+   const playState=state.paused?'play':'pause';if(transport[1].dataset.state!==playState){transport[1].innerHTML=svg(playState);transport[1].dataset.state=playState;transport[1].setAttribute('aria-label',state.paused?'Play':'Pause');}
    transport[5].setAttribute('aria-pressed',String(state.loop));timing.at(-1).setAttribute('aria-pressed',String(state.metronome));master.value=String(state.volume);
    save.hidden=!state.save;if(state.save){save.href=state.save.href;save.download=state.save.name;save.setAttribute('aria-label','Save '+(selected?.label||'track')+' WAV');}else save.removeAttribute('href');
    if(state.chords!==lastChords||state.duration!==lastChordDuration){lastChords=state.chords;lastChordDuration=state.duration;$('chord-lane').replaceChildren();for(const chord of state.chords||[]){const node=document.createElement('button');node.textContent=chord.chord;

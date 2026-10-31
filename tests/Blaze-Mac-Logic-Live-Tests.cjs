@@ -59,6 +59,27 @@ const start=()=>new Promise((resolve,reject)=>{let s='';const timeout=setTimeout
   const clipped=await page.evaluate(()=>['#logic-preview .control-bar','#logic-preview .workspace-bar','#logic-preview .arrangement','#logic-preview .audio-editor','#editor-wave'].flatMap(s=>{
    const r=document.querySelector(s).getBoundingClientRect();return r.left>=0&&r.top>=0&&r.right<=innerWidth+1&&r.bottom<=innerHeight+1&&r.width>0&&r.height>0?[]:[{s,rect:r.toJSON()}];}));
   assert.deepEqual(clipped,[],'Production layout clipped at '+width+' '+colorScheme);
+  const geometry=await page.evaluate(()=>{
+   const box=s=>document.querySelector(s).getBoundingClientRect(),bar=box('#logic-preview .control-bar'),context=box('#logic-preview .workspace-bar'),heading=box('#logic-preview .editor-heading'),editorMenu=box('#logic-preview .editor-toolbar');
+   const number=box('.position-measure>div'),caption=box('.position-measure>small'),lcd=box('.lcd'),pointer=box('#pointer-tools');
+   const left=box('.workspace-bar .menu-group'),view=box('#view-tools'),snap=box('.snap-controls'),zoom=box('.zoom-controls');
+   const regionColor=getComputedStyle(document.querySelector('#logic-preview .clip.selected')).backgroundColor.match(/[\d.]+/g).slice(0,3).map(Number);
+   return {chrome:getComputedStyle(document.querySelector('#logic-preview .control-bar')).backgroundColor,
+    controlOverlap:bar.bottom-context.top,editorOverlap:heading.bottom-editorMenu.top,
+    captionOverlap:number.bottom-caption.top,lcdOverflow:caption.bottom-lcd.bottom,
+    pointerOffset:Math.abs((box('#pointer-tools').left+box('#pointer-tools').width/2)-innerWidth/2),
+    leftToolOverlap:Math.max(left.right,view.width?view.right:0)-pointer.left,
+    rightToolOverlap:pointer.right-(snap.width?snap.left:zoom.left),
+    selectedKeepsColor:Math.max(...regionColor)-Math.min(...regionColor)>15,
+    stereo:[...document.querySelectorAll('#logic-preview .clip canvas')].every(c=>c.dataset.channels==='2')};
+  });
+  assert.equal(geometry.chrome,colorScheme==='light'?'rgb(166, 166, 166)':'rgb(59, 59, 59)','Native navigation removed the Studio chrome fill');
+  assert(geometry.controlOverlap<=1&&geometry.editorOverlap<=1,'A header overlaps the next toolbar');
+  assert(geometry.captionOverlap<=1&&geometry.lcdOverflow<=1,'LCD captions collide with digits or escape the display');
+  assert(geometry.pointerOffset<=1,'Pointer tools are displaced from the workspace center');
+  assert(geometry.leftToolOverlap<=1&&geometry.rightToolOverlap<=1,'Context controls overlap the centered tools');
+  assert(geometry.stereo,'Arrangement lost stereo waveform display');
+  assert(geometry.selectedKeepsColor,'Generic selected-button styling erased the audio region color');
   for(const id of ['logic-play','logic-stop','add-track','duplicate-track','logic-chords'])assert(await page.locator('#'+id).isVisible(),'Primary action hidden: '+id+' at '+width);
   assert(await page.getByRole('button',{name:'Back to Explore',exact:true}).isVisible(),'No return to browsing at '+width);
   assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1&&document.documentElement.scrollHeight<=innerHeight+1),'Page overflow');

@@ -77,3 +77,35 @@ suite continues to assert zero engine/API calls.
 Native AppKit/WKWebView, signing, packaging and macOS 26 validation require the
 Mac runner. This Linux session is not evidence that a new Mac binary was built
 or released. No release version is changed or published by this integration.
+
+## Second visual comparison
+
+The follow-up used the current listing's Session Players, Stem Splitter and
+library images and Apple's Audio Track Editor guide. Normalized measurements,
+surface samples and uncertainties are in
+`replica/design/logic-current-measurements.json`.
+
+Two inherited CSS rules materially changed the native navigation path: a
+generic header reset erased the control-bar fill, and a narrow-screen header
+height overflowed its grid row. The live stylesheet now supplies its own fill,
+foreground and intrinsic header sizing. Regression checks cover background
+appearance, sibling-panel overlap, LCD captions, centered tools and stereo
+arrangement rendering under the actual native bridge capability flags.
+The generic selected-button background also overrode the chosen audio region's
+track color; the clip surface is now explicitly retained through selection and
+hover. Compact contextual controls keep clear of the centered tool selector.
+
+The compact musical LCD has separate numeric/caption cells. Context controls,
+ruler and chord strip follow the measured screenshot geometry. Track colors
+use cool blue/violet roles; real stereo peaks share a common bounded display
+gain. Fine musical grid lines derive from actual duration and project timing.
+The transport uses the reference's stop/play/record/cycle grouping, with skip
+actions retained in Edit. Unsupported capture/record controls stay disabled.
+
+Playwright live and standalone visual suites pass. Substituting the prior live
+stylesheet into the new geometry check reproduces the transparent-header
+failure; the corrected source passes. Visual evidence is outside the app at
+`/workspace/logic-ui-fidelity/`, including original/source crops, before/after
+screens and `transport-comparison.png`. The coarse Replica edge-map score for
+the narrow control strip improves from 20.1 to 69.6, still classified as partial;
+it is not a whole-application fidelity percentage or a native comparison.
