@@ -23,3 +23,10 @@ LCD typography/captions and authored utility symbols. Five-width light/dark
 browser alignment and real command checks; standalone preview remains API-free.
 Approved arrangement, waveform editor and audio controls retained. Native
 macOS 26 validation and release publication remain pending.
+
+2026-10-31 — Top-bar icon follow-up: separate authored glyph catalogue replaces
+books/panel/headphones/folder placeholders with music-library/inspector/loop/media
+symbols; refined dial, mixer caps, pencil, tuner, recording and cycle shapes.
+Approved bar/button proportions retained. Editors selected state follows the
+actual lower editor in live and preview renderers. Native Mac validation and
+publication remain pending.

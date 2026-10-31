@@ -20,6 +20,13 @@ button:active { filter:brightness(.9); }
 .control-bar .tool-group { flex:none;gap:.5px;background:#0000000e;border-radius:6px;padding:0;height:var(--control-height); }
 .control-bar .tool-group button { flex:0 0 27px;min-width:0;width:27px;height:var(--control-height);padding:3px 4px; }
 .control-bar svg { width:var(--control-icon);height:var(--control-icon);flex:none; }
+.control-bar .control-symbol { stroke-width:1.65; }
+.control-bar .control-symbol .icon-fill { fill:currentColor;stroke:none; }
+.control-bar .control-symbol .icon-cutout { stroke:var(--chrome); }
+.control-bar .control-symbol .icon-cutout.icon-fill { fill:var(--chrome);stroke:none; }
+.control-bar .symbol-library { width:22px;height:22px; }
+.control-bar :is(.symbol-download,.symbol-dial,.symbol-loops) { width:20px;height:20px; }
+.control-bar .symbol-media { width:24px;height:24px; }
 .control-bar .tool-group button[aria-pressed=true] { background:#737373;color:white; }
 svg { width:19px;height:19px;display:block;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round; }
 .transport { justify-content:center; }

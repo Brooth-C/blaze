@@ -37,7 +37,14 @@
     },
     "appearance": "Existing system-following light/dark roles",
     "compact": "Hide secondary utilities; preserve transport, LCD and Back to Explore. Master remains visible above 640px.",
-    "symbols": "Authored SVG utility symbols and CSS chevron; no extracted Apple artwork"
+    "symbols": "Separate authored top-bar SVG catalogue and CSS chevron; no extracted Apple artwork",
+    "iconRefinement": {
+      "concepts": "Layered music library, paired inspector toggles, dial with ticks, capped mixer faders, filled pencil, segmented recording ring, repeat arrows, angled tuner, loop symbol and media browser",
+      "opticalSvgBoxes": {"default": 18, "library": 22, "downloadDialLoops": 20, "media": 24, "capture": 16},
+      "selectedState": "Editors aria-pressed follows actual lower-editor visibility from either toggle",
+      "geometry": "Approved bar grid, button boxes and group positions retained",
+      "evidenceDirectory": "/workspace/logic-topbar-icons"
+    }
   },
   "evidence": {
     "directory": "/workspace/logic-topbar",

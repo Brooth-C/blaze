@@ -84,9 +84,9 @@
   const navigation=$('navigation-tools');bind(navigation.children[0],()=>showPanel('library'));bind(navigation.children[1],()=>showPanel('inspector'));
   for(const node of [...navigation.children].slice(2))unsupported(node);
   for(const node of $('workspace-tools').children)unsupported(node);
-  bind($('workspace-tools').lastChild,toggleEditor);$('workspace-tools').lastChild.disabled=false;
+  bind($('workspace-tools').lastChild,toggleEditor);$('workspace-tools').lastChild.disabled=false;$('workspace-tools').lastChild.title='Show or hide Audio Editor';
   for(const node of $('browser-tools').children)unsupported(node);
-  const browse=button('browser','Back to Explore');bind(browse,cmd.browse);$('browser-tools').lastChild.replaceWith(browse);
+  const browse=button('control-media','Back to Explore');bind(browse,cmd.browse);$('browser-tools').lastChild.replaceWith(browse);
   const timing=[...$('timing-tools').querySelectorAll('button')];for(const node of timing)unsupported(node);
   timing.at(-1).disabled=false;timing.at(-1).title='Metronome';timing.at(-1).setAttribute('aria-label','Metronome');bind(timing.at(-1),cmd.metronome);
   for(const node of $('view-tools').children)unsupported(node);$('view-tools').children[1].disabled=false;
@@ -171,7 +171,7 @@
    }
   }
   function unsupported(node){node.disabled=true;node.title=(node.getAttribute('aria-label')||node.title||'Control')+' — not available';}
-  function toggleEditor(){const hidden=root.classList.toggle('editor-hidden');$('show-editor').setAttribute('aria-pressed',String(!hidden));redraw();}
+  function toggleEditor(){const hidden=root.classList.toggle('editor-hidden');for(const node of [$('show-editor'),$('workspace-tools').lastChild])node.setAttribute('aria-pressed',String(!hidden));redraw();}
   function setTool(range){rangeTool=range;for(const [i,node]of [...$('pointer-tools').children].entries())node.setAttribute('aria-pressed',String(range?i===1:i===0));}
   function stamp(seconds){const n=Math.max(0,Number(seconds)||0);return String(Math.floor(n/60)).padStart(2,'0')+':'+String(Math.floor(n%60)).padStart(2,'0')+'.'+String(Math.floor(n*1000)%1000).padStart(3,'0');}
   function renderRows(){

@@ -22,7 +22,10 @@ for(const [width,height]of[[1440,900],[1280,800],[1024,700]])for(const colorSche
 await page.getByRole('option',{name:'Strings',exact:true}).locator('.track-name').click();assert.equal(await page.locator('#editor-track').innerText(),'Strings');
 await page.getByRole('button',{name:'Mute Strings',exact:true}).click();assert.equal(await page.getByRole('button',{name:'Mute Strings',exact:true}).getAttribute('aria-pressed'),'true');
 await page.locator('[data-menu=view]').click();assert(await page.locator('#appearance-menu').isVisible());await page.keyboard.press('Escape');assert(await page.locator('#appearance-menu').isHidden());
-await page.getByRole('button',{name:'Show or hide lower editor'}).click();assert(await page.locator('.audio-editor').isHidden());await page.getByRole('button',{name:'Show or hide lower editor'}).click();assert(await page.locator('.audio-editor').isVisible());
+await page.setViewportSize({width:1440,height:900});
+const editorToggle=page.getByRole('button',{name:'Editors',exact:true});
+await editorToggle.click();assert(await page.locator('.audio-editor').isHidden());assert.equal(await editorToggle.getAttribute('aria-pressed'),'false');
+await page.getByRole('button',{name:'Show or hide lower editor'}).click();assert(await page.locator('.audio-editor').isVisible());assert.equal(await editorToggle.getAttribute('aria-pressed'),'true');
 assert.deepEqual(errors,[]);assert.deepEqual(api,[],'Visual preview called a production API');
 console.log('Logic visual preview PASS: nine illustrative tracks; light/dark at1440,1280,1024; waveform pixels; fit; visual selection/mute/menu/editor toggles; no engine/API calls. Not a functional DAW or native Mac validation.');
 }finally{if(browser)await browser.close();server.kill('SIGTERM');}})().catch(e=>{console.error(e);process.exitCode=1;});

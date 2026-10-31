@@ -95,6 +95,12 @@ const start=()=>new Promise((resolve,reject)=>{let s='';const timeout=setTimeout
   if(out)await page.screenshot({path:path.join(out,'logic-live-'+width+'-'+colorScheme+'.png')});
  }
  await page.setViewportSize({width:1440,height:900});
+ const editorToggle=page.getByRole('button',{name:'Editors',exact:true});
+ assert.equal(await editorToggle.getAttribute('aria-pressed'),'true');
+ await editorToggle.click();assert(await page.locator('#logic-editor').isHidden());
+ assert.equal(await editorToggle.getAttribute('aria-pressed'),'false');
+ await page.getByRole('button',{name:'Show or hide lower editor',exact:true}).click();
+ assert(await page.locator('#logic-editor').isVisible());assert.equal(await editorToggle.getAttribute('aria-pressed'),'true');
  // Regrouping the timing controls must retain their real command bindings.
  for(const [label,key]of [['Metronome','metronome'],['Cycle','loop']]){
   const initial=await page.evaluate(k=>window.BlazeMacStudio.viewState()[k],key);

@@ -167,3 +167,21 @@ keyboard access to project settings, playback and independent gain behavior.
 The standalone preview remains API-free. Comparison captures are outside the
 app in `/workspace/logic-topbar/`. Native macOS 26 validation and publication
 are not established by these browser checks.
+
+### Top-bar symbols
+
+The icon follow-up replaces the mismatched book, panel, headphones and folder
+metaphors with a layered music library, paired inspector toggles, loop symbol
+and media browser. Mixer controls have slider caps; the smart-control dial has
+ticks and a vertical indicator; the recording utility has a segmented ring;
+cycle arrows and the angled tuner use the corresponding visual conventions.
+These are independently authored SVG primitives in a top-bar-only catalogue.
+No Apple artwork is extracted or bundled, and instrument/editor glyphs keep
+their existing drawings. Optical SVG sizes vary inside the approved fixed
+button boxes; the control-bar grid and proportions are unchanged.
+
+The Editors button now reflects actual lower-editor visibility in both the
+live renderer and standalone preview, including changes from the track-list
+toggle. Both suites verify this state synchronization. Comparison captures
+are outside the app in `/workspace/logic-topbar-icons/`; browser evidence does
+not establish native macOS 26 rendering or release publication.
