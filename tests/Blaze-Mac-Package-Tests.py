@@ -132,6 +132,7 @@ def main():
     from music_studio.native_piano_assets import HEAD, CHECKPOINT_SHA
     assert receipt['piano']['model'] == 'Mega53 native acoustic piano', receipt
     assert receipt['piano']['head_sha256'] == HEAD['sha256'], receipt
+    assert receipt['piano']['backend'] == 'onnx', receipt
     assert receipt['piano']['checkpoint_sha256'] == CHECKPOINT_SHA, receipt
     print(json.dumps({'architecture': args.arch, 'checks': 'native launch, ensemble, edits/exports, 6 audio formats, 4K decode, download, Cocoa playback/seek/layout', 'ui': receipt}, indent=2))
     # Let the remote desktop screenshot finish writing before artifact upload.

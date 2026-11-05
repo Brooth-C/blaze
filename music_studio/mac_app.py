@@ -4,6 +4,7 @@ from http.server import BaseHTTPRequestHandler
 import argparse
 import json
 import mimetypes
+import os
 import subprocess
 import sys
 import threading
@@ -169,8 +170,13 @@ def capture_screenshot(destination):
 def native_piano_identity():
     # PyInstaller executes this file as an entrypoint, without a package parent.
     from music_studio.native_piano_assets import HEAD, CHECKPOINT_SHA
-    return {'model': 'Mega53 native acoustic piano', 'checkpoint_sha256': CHECKPOINT_SHA,
-            'head_sha256': HEAD['sha256']}
+    backend = os.environ.get('BLAZE_PIANO_BACKEND', 'onnx')
+    result = {'model': 'Mega53 native acoustic piano', 'checkpoint_sha256': CHECKPOINT_SHA,
+              'head_sha256': HEAD['sha256'], 'backend': backend}
+    if backend == 'mlx':
+        from music_studio.mlx_piano_assets import WEIGHTS
+        result['mlx_weights_sha256'] = WEIGHTS['sha256']
+    return result
 
 
 def ui_smoke(window, studio, destination, receipt, probe, timeout=900):

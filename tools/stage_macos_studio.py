@@ -225,6 +225,20 @@ def stage_native_piano(cache, target):
     return manifest()
 
 
+def stage_mlx_piano(cache, target):
+    from music_studio.mlx_piano_assets import WEIGHTS, manifest
+    source = cache/WEIGHTS['file']
+    if not source.is_file() or source.stat().st_size != WEIGHTS['bytes'] or digest(source) != WEIGHTS['sha256']:
+        raise ValueError('Build and verify the strict MLX piano subset before staging it.')
+    target.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(source, target/WEIGHTS['file'])
+    for name in ('LICENSE-MSST.txt', 'LICENSE-Architecture.txt', 'LICENSE-Port.txt'):
+        shutil.copy2(ROOT/'tools/roformer'/name,target/name)
+    shutil.copy2(ROOT/'tools/instruments/NOTICE.txt',target/'NOTICE.txt')
+    (target/'manifest.json').write_text(json.dumps(manifest(),indent=2)+'\n')
+    return manifest()
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--work', type=Path, required=True)
@@ -236,6 +250,7 @@ def main():
     stage_roformer(work / 'stem-models/roformer', ROOT / 'music_studio/stem_models/roformer')
     stage_instruments(work / 'stem-models/instruments', ROOT / 'music_studio/stem_models/instruments')
     stage_native_piano(work / 'stem-models/native-piano', ROOT / 'music_studio/stem_models/native-piano')
+    stage_mlx_piano(work / 'stem-models/mlx-piano', ROOT / 'music_studio/stem_models/mlx-piano')
     models_zip = fetch(MODEL_URL, work / 'models.zip', MODEL_SHA)
     model_root = ROOT / 'music_studio/models'
     model_root.mkdir(parents=True, exist_ok=True)

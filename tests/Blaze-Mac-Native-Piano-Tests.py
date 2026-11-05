@@ -51,7 +51,14 @@ class NativePianoTests(unittest.TestCase):
         namespace = runpy.run_path(str(Path(__file__).resolve().parents[1]/'music_studio/mac_app.py'))
         self.assertFalse(namespace['__package__'])
         from music_studio.native_piano_assets import HEAD
-        self.assertEqual(namespace['native_piano_identity']()['head_sha256'], HEAD['sha256'])
+        identity = namespace['native_piano_identity']()
+        self.assertEqual(identity['backend'], 'onnx')
+        self.assertEqual(identity['head_sha256'], HEAD['sha256'])
+        from music_studio.mlx_piano_assets import WEIGHTS
+        with patch.dict('os.environ', {'BLAZE_PIANO_BACKEND':'mlx'}):
+            identity = namespace['native_piano_identity']()
+        self.assertEqual(identity['backend'], 'mlx')
+        self.assertEqual(identity['mlx_weights_sha256'], WEIGHTS['sha256'])
 
     def test_staging_requires_the_exact_local_artifact_and_never_downloads_it(self):
         from tools.stage_macos_studio import stage_native_piano

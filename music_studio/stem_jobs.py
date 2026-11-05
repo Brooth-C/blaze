@@ -2,6 +2,7 @@
 from pathlib import Path
 from contextlib import suppress
 import shutil
+import os
 import subprocess
 import sys
 import threading
@@ -115,6 +116,13 @@ class StemJobs:
                         from .instruments import NineStemSeparator
                         implementation = {'piano': NativePianoSeparator, 'five': QualityFiveStemSeparator,
                                           'nine': NineStemSeparator, 'stems': Separator}[mode]
+                        if mode == 'piano':
+                            backend = os.environ.get('BLAZE_PIANO_BACKEND', 'onnx')
+                            if backend == 'mlx':
+                                from .mlx_piano import MlxPianoSeparator
+                                implementation = MlxPianoSeparator
+                            elif backend != 'onnx':
+                                raise ValueError('Choose onnx or mlx for the piano backend.')
                         separator = implementation(self.models, self.studio.ffmpeg)
                     outputs = separator.separate(input_path, pending, progress=progress, cancel_event=cancel)
                     if cancel.is_set():

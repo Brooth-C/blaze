@@ -31,6 +31,17 @@ than retaining all runtime arenas. The normal 20-second context and 50% overlap
 are preserved. The existing bounded streaming/cancellation/output cleanup and
 background-job ownership contracts remain in use.
 
+An optional MLX/Metal execution path uses the same full FP32 Mega53 piano
+head and shared trunk. Its strict safetensors export contains **154,847,584
+bytes** and is pinned to SHA256
+`ab79a7c00899949975e7090abb16b6702c32f0bcc22df6fd459004e125bf4160`.
+It requires fused Metal attention and fails if a Metal device or fused kernel
+is unavailable. It does not change the model's piano-versus-pad behavior; it
+only evaluates the same model through a different runtime. Set
+`BLAZE_PIANO_BACKEND=mlx` before starting the Mac app to try this experimental
+path. The default remains the ONNX CPU path until the M3/8 GB timing, memory,
+concurrency and audio quality are checked.
+
 `tools/instruments/export_piano.py` verifies the original source revision,
 checkpoint, config and head order, strictly loads the selected parameters, and
 exports the native head. Its reference is evaluated before export surgery.
@@ -104,6 +115,24 @@ an initial compilation may delay cancellation. Inference uses the existing
 interruptible runner. This is another reason the experimental backend is not
 the default until native responsiveness and cancellation are measured.
 
+The completed macOS26 hosted-runner comparison used a one-second synthetic
+tone, which the pipeline pads to its fixed 20-second context. The virtual M1
+runner had 7 GiB RAM. CPU execution took **144.8 seconds**, with a 3.16 GB
+process high-water mark. CoreML took **550.5 seconds** on a fresh cache and
+**879.9 seconds** on the second run; its process high-water mark was 5.92 GB
+and it used swap. The compute-plan records assigned the inspected operations
+to CPU. This is evidence that CoreML was a poor fit on that runner, not a
+measurement of a physical M3. The separate MLX profile records its Metal
+availability first and skips GPU claims if the hosted runner cannot provide
+Metal.
+
+The strict MLX evaluator was also compared with the original Torch graph on
+CPU for normal, near-silent and silent spectra. Across the three cases, RMS
+mask error ranged from **4.28e-9 to 1.38e-8**, and maximum absolute error was
+below **3.28e-7**. That validates the FP32 parameter conversion and math; it
+does not establish GPU speed or the quality of a musical separation. An M3
+recording is still needed for actual speed and memory evidence.
+
 ## Measure on the user's Mac
 
 Use the same authorized recording and staged model directory for all runs on
@@ -118,6 +147,9 @@ python tools/benchmark_macos_stems.py --source <recording> --models <stem_models
 python tools/benchmark_macos_stems.py --source <recording> --models <stem_models> \
   --output build/piano-native-coreml --mode piano --backend coreml \
   --reference build/piano-native-cpu/benchmark.json
+python tools/benchmark_macos_stems.py --source <recording> --models <stem_models> \
+  --output build/piano-native-mlx --mode piano --backend mlx \
+  --reference build/piano-native-cpu/benchmark.json
 ```
 
 Reports include chip/OS/RAM, source hash, audio duration, complete decode-to-WAV
@@ -126,6 +158,11 @@ per-graph session creation records. Initial Core ML compilation uses a new
 private cache; the next run reuses it. RSS is process-lifetime high-water, not
 an isolated peak for each run. Compare whole-app memory pressure and playback/
 chord-analysis behavior separately before enabling a default backend.
+
+The MLX report also includes the fused-backend allocation high-water mark,
+spectral parity against the original CPU output and the exact weight hash.
+The user-facing piano quality must be evaluated with the same song and passage
+on both backends; numeric parity alone cannot diagnose pad bleed.
 
 ORT profiles aggregate CPU and CoreML node events, including eligible loop-body
 events. No CoreML events makes the requested GPU evaluation fail explicitly.
