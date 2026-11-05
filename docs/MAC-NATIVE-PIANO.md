@@ -153,11 +153,12 @@ python tools/benchmark_macos_stems.py --source <recording> --models <stem_models
 ```
 
 Reports include chip/OS/RAM, source hash, audio duration, complete decode-to-WAV
-time, time/audio ratio, cumulative process high-water RSS, swap snapshots and
-per-graph session creation records. Initial Core ML compilation uses a new
-private cache; the next run reuses it. RSS is process-lifetime high-water, not
-an isolated peak for each run. Compare whole-app memory pressure and playback/
-chord-analysis behavior separately before enabling a default backend.
+time, time/audio ratio, cumulative process high-water RSS and swap snapshots.
+Core ML reports also include per-graph session creation records. Initial Core
+ML compilation uses a new private cache; the next run reuses it. RSS is
+process-lifetime high-water, not an isolated peak for each run. Compare
+whole-app memory pressure and playback/chord-analysis behavior separately
+before enabling a default backend.
 
 The MLX report also includes the fused-backend allocation high-water mark,
 spectral parity against the original CPU output and the exact weight hash.
@@ -170,19 +171,24 @@ Kernel-event durations are sums and must not be presented as wall time.
 CoreML events prove delegation, not actual Metal GPU utilization; native
 Instruments and compute-plan evidence are still needed for that assertion.
 
-PR/manual Mac CI additionally profiles CPU and cold/warm CoreML runs against
-the same checksum-pinned assets and decoder used by packaging on macOS26. This
-independent model check runs alongside the full app build, which separately
-verifies those assets inside the real package. Its deterministic tone checks
-runtime execution, not piano separation quality. It reports the runner's chip
-and RAM; those timings must not be attributed to the user's M3/8 GB. Profile
-artifacts are retained even if acceleration initialization or delegation fails.
-Candidate WAVs are compared with the matching CPU run in bounded blocks. The
-diagnostic gate allows at most 1% normalized RMS error (or absolute RMS below
-1e-5 for near-silent estimates) and 0.01 maximum absolute sample error. These
-are explicit evaluation tolerances, not an audibility guarantee. A format,
-duration, finite-sample or tolerance failure retains the report and fails the
-profile check rather than reporting successful acceleration.
+PR/manual Mac CI profiles the CPU and MLX paths against the same
+checksum-pinned assets and decoder used by packaging on macOS26. It verifies
+Metal spectral parity, then compares the full-segment WAVs with the CPU run in
+bounded blocks. The hosted runner reported an Apple M1 (Virtual), 7 GiB RAM and
+an **Apple Paravirtual device**. On its one-second synthetic input, the CPU
+run took **85.72 seconds** and MLX took **28.63 seconds**; the fixed 20-second
+segment is why the one-second input still takes substantial time. MLX reported
+a **3.33 GB Metal allocation high-water mark**, no swap and WAV RMS difference
+of **8.30e-7**. This is a virtual-runner measurement, not an M3/8 GB result or a
+musical-quality result. The profile records Metal availability and skips GPU
+timing when the runner has no Metal device. Artifacts remain available if
+parity, initialization or execution fails.
+
+The diagnostic gate allows at most 1% normalized RMS error (or absolute RMS
+below 1e-5 for near-silent estimates) and 0.01 maximum absolute sample error.
+These are explicit evaluation tolerances, not an audibility guarantee. A
+format, duration, finite-sample or tolerance failure retains the report and
+fails the profile check rather than reporting successful acceleration.
 
 Listen to volume-matched original/piano/accompaniment for attacks, sustain,
 reverb, pad bleed and false piano on recordings without piano. Include acoustic
