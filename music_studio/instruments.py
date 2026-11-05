@@ -38,8 +38,8 @@ class InstrumentSeparator(RoformerSeparator):
     processing_message = 'Separating guitar, strings, brass and synths…'
     completed_message = 'The instrument tracks are ready.'
 
-    def __init__(self, model_directory=None, ffmpeg='ffmpeg'):
-        super().__init__(model_directory, ffmpeg)
+    def __init__(self, model_directory=None, ffmpeg='ffmpeg', runtime_backend=None):
+        super().__init__(model_directory, ffmpeg, runtime_backend=runtime_backend)
         self.directory = self.directory.parent / 'instruments'
 
     def _load(self, event):

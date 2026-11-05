@@ -10,7 +10,9 @@ from .stems import check_cancel
 
 class MlxPianoSeparator(NativePianoSeparator):
     def __init__(self, model_directory=None, ffmpeg='ffmpeg'):
-        super().__init__(model_directory, ffmpeg)
+        # MLX owns every neural layer here; do not initialize a redundant
+        # Core ML runtime inherited from the ONNX implementation.
+        super().__init__(model_directory, ffmpeg, runtime_backend='cpu')
         self.mlx_directory = self.directory.parent/'mlx-piano'
         self.model = None
         self.mlx_records = []

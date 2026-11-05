@@ -1,7 +1,8 @@
-"""Bounded ONNX execution for stems; Core ML is an explicit Mac evaluation path.
+"""Bounded ONNX inference with Core ML GPU delegation on Apple Silicon.
 
-Keep CPU as the default until packaged macOS26 measurements justify a change.
-Registering CoreML is not evidence that every operation executes on the GPU.
+Core ML uses CPUAndGPU for supported graph partitions. Unsupported operations
+may remain on CPU; this runtime does not claim that every app task or every
+operator executes on the GPU.
 """
 import logging
 import hashlib
@@ -20,7 +21,8 @@ LOG = logging.getLogger(__name__)
 
 class StemRuntime:
     def __init__(self, backend=None, cache=None, profile=None):
-        self.backend = backend or os.environ.get('BLAZE_STEM_BACKEND', 'cpu')
+        requested = backend if backend is not None else os.environ.get('BLAZE_STEM_BACKEND')
+        self.backend = requested or self.default_backend()
         if self.backend not in ('cpu', 'coreml'):
             raise ValueError('Choose cpu or coreml for the stem backend.')
         self.cache = Path(cache) if cache else Path.home() / 'Library/Caches/Blaze/StemCoreML'
@@ -37,6 +39,16 @@ class StemRuntime:
             if 'CoreMLExecutionProvider' not in ort.get_available_providers():
                 raise ValueError('This ONNX Runtime build does not include Core ML.')
 
+    @staticmethod
+    def default_backend():
+        if sys.platform == 'darwin' and platform.machine().lower() in ('arm64', 'aarch64'):
+            if tuple(int(value) for value in ort.__version__.split('.')[:2]) < (1, 31):
+                raise ValueError('Apple Silicon model inference requires the reviewed Core ML runtime 1.31 or newer.')
+            if 'CoreMLExecutionProvider' not in ort.get_available_providers():
+                raise ValueError('Apple Silicon model inference requires the Core ML GPU execution provider.')
+            return 'coreml'
+        return 'cpu'
+
     def session(self, data, options, model_sha):
         if not re.fullmatch(r'[a-f0-9]{64}', model_sha):
             raise ValueError('A verified model hash is required for stem execution.')
@@ -44,14 +56,14 @@ class StemRuntime:
         if self.backend == 'coreml':
             # Separate content-addressed directories prevent stale compiled
             # graphs, even when ONNX node names remain unchanged between models.
-            settings = {'ort': ort.__version__, 'contract': 1, 'format': 'MLProgram',
-                        'units': 'CPUAndGPU', 'static': True, 'subgraphs': True}
+            settings = {'ort': ort.__version__, 'contract': 2, 'format': 'MLProgram',
+                        'units': 'CPUAndGPU', 'static': False, 'subgraphs': True}
             identity = hashlib.sha256(json.dumps(settings, sort_keys=True).encode()).hexdigest()[:16]
             cache = self.cache / ('v1-' + identity) / model_sha
             cache.mkdir(parents=True, exist_ok=True)
             providers = [('CoreMLExecutionProvider', {
                 'ModelFormat': 'MLProgram', 'MLComputeUnits': 'CPUAndGPU',
-                'RequireStaticInputShapes': '1', 'ModelCacheDirectory': str(cache),
+                'RequireStaticInputShapes': '0', 'ModelCacheDirectory': str(cache),
                 'EnableOnSubgraphs': '1',
             }), 'CPUExecutionProvider']
             if self.profile:
@@ -60,6 +72,9 @@ class StemRuntime:
             self.profile.mkdir(parents=True, exist_ok=True)
             options.enable_profiling = True
             options.profile_file_prefix = str(self.profile / (model_sha[:12] + '-' + str(time.monotonic_ns())))
+        if self.backend == 'coreml':
+            options.intra_op_num_threads = 1
+            options.inter_op_num_threads = 1
         start = time.monotonic()
         session = ort.InferenceSession(data, sess_options=options, providers=providers)
         registered = session.get_providers()

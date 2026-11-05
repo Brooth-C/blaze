@@ -156,7 +156,7 @@ class StemJobTests(unittest.TestCase):
             self.assertEqual(status, 200, body)
             state = self.finish()
             self.assertEqual(state['status'], 'done')
-            native.assert_called_once_with(self.jobs.models, self.studio.ffmpeg)
+            native.assert_called_once_with(self.jobs.models, self.studio.ffmpeg, runtime_backend='cpu')
         self.assertEqual({row['id'] for row in state['stems']}, {'piano', 'accompaniment'})
 
     def test_nine_mode_exports_only_its_owned_instrument_tracks(self):

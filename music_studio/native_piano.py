@@ -19,8 +19,8 @@ class NativePianoSeparator(InstrumentSeparator):
     processing_message = 'Separating the piano and preserving its detail…'
     completed_message = 'Your piano and accompaniment are ready.'
 
-    def __init__(self, model_directory=None, ffmpeg='ffmpeg'):
-        super().__init__(model_directory, ffmpeg)
+    def __init__(self, model_directory=None, ffmpeg='ffmpeg', runtime_backend=None):
+        super().__init__(model_directory, ffmpeg, runtime_backend=runtime_backend)
         self.piano_directory = self.directory.parent / 'native-piano'
 
     def _load(self, event):

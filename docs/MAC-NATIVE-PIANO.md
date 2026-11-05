@@ -42,8 +42,8 @@ backend instead. This changes execution hardware, not the model's
 piano-versus-pad behavior or separation quality. The packaged macOS 26 smoke
 test exercises this default on its Apple Silicon runner; an M3/8 GB user-device
 check is still needed for local speed, memory pressure, and playback/chord
-analysis concurrency. This default applies to the native piano-isolation mode;
-the other stem modes retain their separate model/runtime choices.
+analysis concurrency. Other Mac ONNX model sessions use the GPU-capable Core ML
+provider by default, as described below.
 
 `tools/instruments/export_piano.py` verifies the original source revision,
 checkpoint, config and head order, strictly loads the selected parameters, and
@@ -90,33 +90,36 @@ python tools/stage_macos_studio.py --work build/mac-assets --arch arm64
 The complete Mac stager still supplies the existing chord, stem, decoder and
 downloader dependencies. This does not replace the existing packaging workflow.
 
-## Core ML evaluation
+## GPU routing for the other models
 
-CPU remains the default. `BLAZE_STEM_BACKEND=coreml` is an explicit experimental
-path for RoFormer-based separation on Apple Silicon. It requires ORT1.31+, an
-included CoreML provider and successful provider registration. The Mac workflow
-now pins ORT1.31.0; other-platform requirements and the conversion environment
-are unchanged. ORT1.20.1 silently ignored the modern cache/options keys, which
-is why simply adding provider strings to the old dependency was insufficient.
+On Apple Silicon, every ONNX inference session now defaults to ONNX Runtime's
+Core ML provider with `CPUAndGPU`, covering chord recognition, structured chord
+models, rhythm analysis, SCNet, Spleeter, RoFormer and instrument models. The
+native piano-isolation mode uses MLX/Metal instead. `BLAZE_STEM_BACKEND=cpu`
+explicitly opts all ONNX paths back into CPU inference. On other platforms, CPU
+remains the default. The Mac workflow pins ORT 1.31.0 and fails on Apple Silicon
+if the Core ML provider is missing instead of silently selecting CPU.
 
-The candidate uses MLProgram, CPUAndGPU, static shapes and eligible subgraph
-delegation. On these exports, Loop control remains on CPU; static-shape or
-unsupported operations can prevent further delegation. Python's automatic
-whole-session failure retry is disabled for this explicit evaluation, while
-normal graph partitioning to CPU is permitted. Provider registration alone is
-not reported as GPU execution.
+Core ML exposes `CPUAndGPU`, not a GPU-only compute unit. Supported graph
+partitions can use GPU, while unsupported operators and audio decoding,
+spectral transforms, and other surrounding DSP may run on CPU. The runtime sets
+one CPU inference thread and disables whole-session retry, but Core ML still
+chooses placement inside its compiled model. A registered provider is not proof
+that a particular operator ran on the GPU. See the [ONNX Runtime Core ML
+provider documentation](https://onnxruntime.ai/docs/execution-providers/CoreML-ExecutionProvider.html)
+and [Apple's compute-unit reference](https://developer.apple.com/documentation/coreml/mlcomputeunits).
 
-Compiled disk caches are isolated by model bytes, ORT version and effective
-runtime settings. Verified ONNX bytes are passed in memory; no model paths can
-redirect external ONNX data. Sessions are released after each graph. The cache
-does not retain fourteen resident sessions or unbounded GPU tensor arenas.
-Cache directories live under `~/Library/Caches/Blaze/StemCoreML`; they are
-rebuildable disk caches and can be removed while the app is closed.
-
-Core ML compilation itself cannot be interrupted by ORT's inference RunOptions;
-an initial compilation may delay cancellation. Inference uses the existing
-interruptible runner. This is another reason the experimental backend is not
-the default until native responsiveness and cancellation are measured.
+The ONNX Runtime Core ML path uses MLProgram, dynamic-shape support, CPUAndGPU
+and eligible subgraph delegation. Loop control and unsupported operations may
+remain on CPU. Compiled disk caches are isolated by model bytes, ORT version and
+runtime settings. Verified ONNX bytes are passed in memory; model paths cannot
+redirect external ONNX data. Sessions are released after each graph. Cache
+directories live under `~/Library/Caches/Blaze/StemCoreML`; they are
+rebuildable. The cache does not retain fourteen resident sessions or unbounded
+GPU tensor arenas. Core ML
+compilation cannot be interrupted by ORT's inference RunOptions, so a cold
+cache may delay cancellation; inference itself uses the existing interruptible
+runner.
 
 The completed macOS26 hosted-runner comparison used a one-second synthetic
 tone, which the pipeline pads to its fixed 20-second context. The virtual M1
@@ -124,10 +127,13 @@ runner had 7 GiB RAM. CPU execution took **144.8 seconds**, with a 3.16 GB
 process high-water mark. CoreML took **550.5 seconds** on a fresh cache and
 **879.9 seconds** on the second run; its process high-water mark was 5.92 GB
 and it used swap. The compute-plan records assigned the inspected operations
-to CPU. This is evidence that CoreML was a poor fit on that runner, not a
-measurement of a physical M3. The separate MLX profile records its Metal
-availability first and skips GPU claims if the hosted runner cannot provide
-Metal.
+to CPU. Core ML is now the ONNX default on Apple Silicon at the user's request,
+but this virtual-runner result is a serious limitation: it was slower than CPU
+and did not demonstrate GPU delegation. It is not a measurement of a physical
+M3. Validate placement, speed and memory pressure on the M3 before claiming
+the broader default improves performance. The separate MLX profile records its
+Metal availability first and skips GPU claims if the hosted runner cannot
+provide Metal.
 
 The strict MLX evaluator was also compared with the original Torch graph on
 CPU for normal, near-silent and silent spectra. Across the three cases, RMS
@@ -160,8 +166,7 @@ time, time/audio ratio, cumulative process high-water RSS and swap snapshots.
 Core ML reports also include per-graph session creation records. Initial Core
 ML compilation uses a new private cache; the next run reuses it. RSS is
 process-lifetime high-water, not an isolated peak for each run. Compare
-whole-app memory pressure and playback/chord-analysis behavior separately
-before enabling a default backend.
+whole-app memory pressure and playback/chord-analysis behavior on the M3.
 
 The MLX report also includes the fused-backend allocation high-water mark,
 spectral parity against the original CPU output and the exact weight hash.

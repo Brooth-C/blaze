@@ -10,6 +10,7 @@ import json
 import numpy as np
 import onnxruntime as ort
 from .meter import estimate_meter
+from .stem_runtime import StemRuntime
 
 
 class MelAccumulator:
@@ -74,11 +75,16 @@ class RhythmDetector:
         options=ort.SessionOptions();options.intra_op_num_threads=2;options.inter_op_num_threads=1
         options.execution_mode=ort.ExecutionMode.ORT_SEQUENTIAL
         ort.disable_telemetry_events()
-        self.network=ort.InferenceSession(self._asset('network'),sess_options=options,providers=['CPUExecutionProvider'])
+        self.runtime=StemRuntime()
+        self.network=self.runtime.session(self._asset('network'),options,self.manifest['network']['sha256'])
         with np.load(io.BytesIO(self._asset('frontend')),allow_pickle=False) as frontend:
             self.window,self.filters=frontend['window'].copy(),frontend['filter'].copy()
         if self.window.shape!=(1024,) or self.filters.shape!=(513,128):raise ValueError('Invalid rhythm frontend.')
         self.audio=MelAccumulator(self.window,self.filters)
+
+    def close(self):
+        self.runtime.finish(self.network)
+        self.network=None
 
     def _asset(self,key):
         metadata=self.manifest[key];name=metadata['file']

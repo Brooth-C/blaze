@@ -84,7 +84,7 @@ class PianoSeparator(Separator):
         options.inter_op_num_threads = 1
         options.execution_mode = ort.ExecutionMode.ORT_SEQUENTIAL
         ort.disable_telemetry_events()
-        self.session = ort.InferenceSession(data, sess_options=options, providers=['CPUExecutionProvider'])
+        self.session = self.runtime.session(data, options, meta['sha256'])
         try:
             check_cancel(event)
             if self.session.get_inputs()[0].shape != [1, 2, FRAMES, BINS]:
@@ -111,6 +111,8 @@ class PianoSeparator(Separator):
                 raise ValueError('The instrument model returned invalid estimates.')
             return result[0]
         finally:
+            if self.session is not None:
+                self.runtime.finish(self.session)
             self.session = None
 
     def separate(self, source, output_dir, progress=None, cancel_event=None):

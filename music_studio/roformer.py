@@ -16,7 +16,6 @@ import onnxruntime as ort
 
 from .stems import Separator, check_cancel, _write_header, MAX_BYTES, DISK_RESERVE
 from .roformer_transform import stft_bands_last, istft_bands_last
-from .stem_runtime import StemRuntime
 
 RATE, SEGMENT, FFT, HOP = 44100, 485100, 2048, 441
 STEMS = ('drums', 'bass', 'other', 'vocals')
@@ -30,11 +29,10 @@ class RoformerSeparator(Separator):
     processing_message = 'Separating vocals, drums, bass and other…'
     completed_message = 'The main stems are ready.'
 
-    def __init__(self, model_directory=None, ffmpeg='ffmpeg'):
-        super().__init__(model_directory, ffmpeg)
+    def __init__(self, model_directory=None, ffmpeg='ffmpeg', runtime_backend=None):
+        super().__init__(model_directory, ffmpeg, runtime_backend=runtime_backend)
         self.directory = self.directory / 'roformer'
         self.block_progress = lambda fraction: None
-        self.runtime = StemRuntime()
 
     def _load(self, event):
         from .roformer_assets import MODELS

@@ -2,7 +2,6 @@
 from pathlib import Path
 from contextlib import suppress
 import shutil
-import os
 import subprocess
 import sys
 import threading
@@ -122,7 +121,10 @@ class StemJobs:
                             if backend == 'mlx':
                                 from .mlx_piano import MlxPianoSeparator
                                 implementation = MlxPianoSeparator
-                        separator = implementation(self.models, self.studio.ffmpeg)
+                        if mode == 'piano' and backend == 'onnx':
+                            separator = implementation(self.models, self.studio.ffmpeg, runtime_backend='cpu')
+                        else:
+                            separator = implementation(self.models, self.studio.ffmpeg)
                     outputs = separator.separate(input_path, pending, progress=progress, cancel_event=cancel)
                     if cancel.is_set():
                         return

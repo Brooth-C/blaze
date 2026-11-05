@@ -53,8 +53,8 @@ class RuntimeTests(unittest.TestCase):
             self.assertIsNone(engine.session)
             session.run.assert_not_called()
 
-    def test_cpu_default_does_not_create_gpu_cache(self):
-        with tempfile.TemporaryDirectory() as d, patch.dict('os.environ', {}, clear=True):
+    def test_cpu_override_does_not_create_gpu_cache(self):
+        with tempfile.TemporaryDirectory() as d, patch.dict('os.environ', {'BLAZE_STEM_BACKEND':'cpu'}):
             runtime = StemRuntime(cache=Path(d)/'cache')
             session = Mock(); session.get_providers.return_value = ['CPUExecutionProvider']
             with patch('music_studio.stem_runtime.ort.InferenceSession', return_value=session) as create:
@@ -82,6 +82,7 @@ class RuntimeTests(unittest.TestCase):
             provider, options = create.call_args.kwargs['providers'][0]
             self.assertEqual(provider, 'CoreMLExecutionProvider')
             self.assertEqual(options['MLComputeUnits'], 'CPUAndGPU')
+            self.assertEqual(options['RequireStaticInputShapes'], '0')
             self.assertEqual(options['EnableOnSubgraphs'], '1')
             self.assertEqual(Path(options['ModelCacheDirectory']).name, SHA)
             self.assertEqual(options['ProfileComputePlan'], '1')
@@ -91,6 +92,23 @@ class RuntimeTests(unittest.TestCase):
             with patch('music_studio.stem_runtime.ort.InferenceSession', return_value=session):
                 with self.assertRaisesRegex(ValueError, 'could not initialize'):
                     runtime.session(b'verified bytes', Mock(), SHA)
+
+    def test_apple_silicon_defaults_to_coreml_when_provider_is_available(self):
+        with patch.dict('os.environ', {}, clear=True), \
+             patch('music_studio.stem_runtime.sys.platform', 'darwin'), \
+             patch('music_studio.stem_runtime.platform.machine', return_value='arm64'), \
+             patch('music_studio.stem_runtime.ort.__version__', '1.31.0'), \
+             patch('music_studio.stem_runtime.ort.get_available_providers', return_value=['CoreMLExecutionProvider','CPUExecutionProvider']):
+            self.assertEqual(StemRuntime().backend, 'coreml')
+
+    def test_apple_silicon_does_not_silently_choose_cpu_without_coreml(self):
+        with patch.dict('os.environ', {}, clear=True), \
+             patch('music_studio.stem_runtime.sys.platform', 'darwin'), \
+             patch('music_studio.stem_runtime.platform.machine', return_value='arm64'), \
+             patch('music_studio.stem_runtime.ort.__version__', '1.31.0'), \
+             patch('music_studio.stem_runtime.ort.get_available_providers', return_value=['CPUExecutionProvider']):
+            with self.assertRaisesRegex(ValueError, 'Core ML GPU execution provider'):
+                StemRuntime()
 
     def test_invalid_hash_and_unknown_backend_fail_before_execution(self):
         with self.assertRaises(ValueError):StemRuntime(backend='gpu-magic')
