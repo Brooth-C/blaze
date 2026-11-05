@@ -31,16 +31,19 @@ than retaining all runtime arenas. The normal 20-second context and 50% overlap
 are preserved. The existing bounded streaming/cancellation/output cleanup and
 background-job ownership contracts remain in use.
 
-An optional MLX/Metal execution path uses the same full FP32 Mega53 piano
-head and shared trunk. Its strict safetensors export contains **154,847,584
-bytes** and is pinned to SHA256
+The MLX/Metal execution path is the default for piano isolation on Apple
+Silicon. It uses the same full FP32 Mega53 piano head and shared trunk. Its
+strict safetensors export contains **154,847,584 bytes** and is pinned to SHA256
 `ab79a7c00899949975e7090abb16b6702c32f0bcc22df6fd459004e125bf4160`.
-It requires fused Metal attention and fails if a Metal device or fused kernel
-is unavailable. It does not change the model's piano-versus-pad behavior; it
-only evaluates the same model through a different runtime. Set
-`BLAZE_PIANO_BACKEND=mlx` before starting the Mac app to try this experimental
-path. The default remains the ONNX CPU path until the M3/8 GB timing, memory,
-concurrency and audio quality are checked.
+It requires fused Metal attention and fails explicitly if a Metal device or
+fused kernel is unavailable; it never silently falls back to CPU. Set
+`BLAZE_PIANO_BACKEND=onnx` before starting the Mac app to use the ONNX CPU
+backend instead. This changes execution hardware, not the model's
+piano-versus-pad behavior or separation quality. The packaged macOS 26 smoke
+test exercises this default on its Apple Silicon runner; an M3/8 GB user-device
+check is still needed for local speed, memory pressure, and playback/chord
+analysis concurrency. This default applies to the native piano-isolation mode;
+the other stem modes retain their separate model/runtime choices.
 
 `tools/instruments/export_piano.py` verifies the original source revision,
 checkpoint, config and head order, strictly loads the selected parameters, and
@@ -192,7 +195,6 @@ fails the profile check rather than reporting successful acceleration.
 
 Listen to volume-matched original/piano/accompaniment for attacks, sustain,
 reverb, pad bleed and false piano on recordings without piano. Include acoustic
-and electric piano as distinct cases. Do not enable the candidate by default
-in a stable release solely from numeric conversion tests, generic benchmarks,
-or another machine's timings. Preserve the known release until native package
-and user-recording comparisons support replacing it.
+and electric piano as distinct cases. Numeric conversion tests and hosted
+runner timings do not establish musical quality or M3 performance; keep the
+CPU override available while collecting that evidence.

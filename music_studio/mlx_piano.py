@@ -1,4 +1,4 @@
-"""Optional fused-Metal backend; the native piano/audio contract is unchanged."""
+"""Fused-Metal backend used by default for piano isolation on Apple Silicon."""
 import hashlib
 import json
 import time

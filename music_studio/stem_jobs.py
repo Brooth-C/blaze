@@ -117,12 +117,11 @@ class StemJobs:
                         implementation = {'piano': NativePianoSeparator, 'five': QualityFiveStemSeparator,
                                           'nine': NineStemSeparator, 'stems': Separator}[mode]
                         if mode == 'piano':
-                            backend = os.environ.get('BLAZE_PIANO_BACKEND', 'onnx')
+                            from .piano_backend import selected_piano_backend
+                            backend = selected_piano_backend()
                             if backend == 'mlx':
                                 from .mlx_piano import MlxPianoSeparator
                                 implementation = MlxPianoSeparator
-                            elif backend != 'onnx':
-                                raise ValueError('Choose onnx or mlx for the piano backend.')
                         separator = implementation(self.models, self.studio.ffmpeg)
                     outputs = separator.separate(input_path, pending, progress=progress, cancel_event=cancel)
                     if cancel.is_set():

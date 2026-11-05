@@ -149,7 +149,9 @@ class StemJobTests(unittest.TestCase):
         self.jobs.models.mkdir()
         (self.jobs.models / 'manifest.json').write_text('{}')
         self.separator.stems = ('piano', 'accompaniment')
-        with patch('music_studio.native_piano.NativePianoSeparator', return_value=self.separator) as native, patch('music_studio.piano.PianoSeparator', side_effect=AssertionError('Legacy piano path selected')):
+        with patch.dict('os.environ', {'BLAZE_PIANO_BACKEND':'onnx'}), \
+             patch('music_studio.native_piano.NativePianoSeparator', return_value=self.separator) as native, \
+             patch('music_studio.piano.PianoSeparator', side_effect=AssertionError('Legacy piano path selected')):
             status, _, body = self.request('/api/stems-start', {'mode': 'piano'})
             self.assertEqual(status, 200, body)
             state = self.finish()

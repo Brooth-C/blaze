@@ -170,7 +170,8 @@ def capture_screenshot(destination):
 def native_piano_identity():
     # PyInstaller executes this file as an entrypoint, without a package parent.
     from music_studio.native_piano_assets import HEAD, CHECKPOINT_SHA
-    backend = os.environ.get('BLAZE_PIANO_BACKEND', 'onnx')
+    from music_studio.piano_backend import selected_piano_backend
+    backend = selected_piano_backend()
     result = {'model': 'Mega53 native acoustic piano', 'checkpoint_sha256': CHECKPOINT_SHA,
               'head_sha256': HEAD['sha256'], 'backend': backend}
     if backend == 'mlx':

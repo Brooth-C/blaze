@@ -51,14 +51,34 @@ class NativePianoTests(unittest.TestCase):
         namespace = runpy.run_path(str(Path(__file__).resolve().parents[1]/'music_studio/mac_app.py'))
         self.assertFalse(namespace['__package__'])
         from music_studio.native_piano_assets import HEAD
+        from music_studio.piano_backend import selected_piano_backend
         identity = namespace['native_piano_identity']()
-        self.assertEqual(identity['backend'], 'onnx')
+        self.assertEqual(identity['backend'], selected_piano_backend())
         self.assertEqual(identity['head_sha256'], HEAD['sha256'])
         from music_studio.mlx_piano_assets import WEIGHTS
-        with patch.dict('os.environ', {'BLAZE_PIANO_BACKEND':'mlx'}):
+        with patch('music_studio.piano_backend.sys.platform', 'darwin'), \
+             patch('music_studio.piano_backend.platform.machine', return_value='arm64'), \
+             patch.dict('os.environ', {}, clear=True):
             identity = namespace['native_piano_identity']()
         self.assertEqual(identity['backend'], 'mlx')
         self.assertEqual(identity['mlx_weights_sha256'], WEIGHTS['sha256'])
+        with patch.dict('os.environ', {'BLAZE_PIANO_BACKEND':'onnx'}):
+            identity = namespace['native_piano_identity']()
+        self.assertEqual(identity['backend'], 'onnx')
+
+    def test_piano_backend_defaults_to_metal_only_on_apple_silicon(self):
+        from music_studio.piano_backend import selected_piano_backend
+        with patch.dict('os.environ', {}, clear=True), \
+             patch('music_studio.piano_backend.sys.platform', 'darwin'), \
+             patch('music_studio.piano_backend.platform.machine', return_value='arm64'):
+            self.assertEqual(selected_piano_backend(), 'mlx')
+        with patch.dict('os.environ', {}, clear=True), \
+             patch('music_studio.piano_backend.sys.platform', 'darwin'), \
+             patch('music_studio.piano_backend.platform.machine', return_value='x86_64'):
+            self.assertEqual(selected_piano_backend(), 'onnx')
+        with patch.dict('os.environ', {'BLAZE_PIANO_BACKEND':'invalid'}):
+            with self.assertRaisesRegex(ValueError, 'Choose mlx or onnx'):
+                selected_piano_backend()
 
     def test_staging_requires_the_exact_local_artifact_and_never_downloads_it(self):
         from tools.stage_macos_studio import stage_native_piano
