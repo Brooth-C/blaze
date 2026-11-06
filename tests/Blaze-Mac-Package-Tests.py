@@ -132,7 +132,8 @@ def main():
     from music_studio.native_piano_assets import HEAD, CHECKPOINT_SHA
     assert receipt['piano']['model'] == 'Mega53 native acoustic piano', receipt
     assert receipt['piano']['head_sha256'] == HEAD['sha256'], receipt
-    expected_backend = 'mlx' if platform.machine().lower() in ('arm64', 'aarch64') else 'onnx'
+    from music_studio.piano_backend import selected_piano_backend
+    expected_backend = selected_piano_backend()
     assert receipt['piano']['backend'] == expected_backend, receipt
     if expected_backend == 'mlx':
         from music_studio.mlx_piano_assets import WEIGHTS

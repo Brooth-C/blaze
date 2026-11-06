@@ -108,6 +108,7 @@ jobs:
         # actual Core ML placement/performance validation.
         env:
           BLAZE_STEM_BACKEND: cpu
+          BLAZE_PIANO_BACKEND: onnx
       - name: Exercise real glass and navigation in light and dark appearances
         run: |
           defaults write com.apple.universalaccess reduceTransparency -bool false
@@ -320,6 +321,7 @@ jobs:
         # validates Metal, while this smoke verifies packaging and UI flows.
         env:
           BLAZE_STEM_BACKEND: cpu
+          BLAZE_PIANO_BACKEND: onnx
       - name: Record native interface proof
         if: always()
         run: |
