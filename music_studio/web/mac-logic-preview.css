@@ -3,8 +3,8 @@ body:has(> #logic-preview) { margin:0;background:#2d2d2d; }
 @scope (#logic-preview) {
 /* Visual-only reconstruction from the screenshots on Apple's current Logic Pro
    13.0 guide. Own icons, illustrative regions, no Apple assets or engine calls. */
-:scope { color-scheme:light dark;--chrome:#dadada;--chrome-ink:#303030;--chrome-button:#c6c6c6;--toolbar:#262626;--toolbar-button:#3b3b3b;--panel:#252525;--track:#2b2b2b;--track-alt:#292929;--selected:#454545;--canvas:#141a20;--line:#171717;--text:#ededed;--muted:#b8b8b8;--header-width:270px;--row-height:48px;--green:#168e30;--blue:#2073b8;--focus:#83bafd; }
-@media(prefers-color-scheme:dark) { :scope { --chrome:#1f1f1f;--chrome-ink:#e6e6e6;--chrome-button:#363636; } }
+:scope { color-scheme:light dark;--chrome:#dadada;--chrome-ink:#303030;--chrome-button:#c6c6c6;--chrome-pressed:#b1b1b1;--chrome-pressed-ink:#252525;--toolbar:#262626;--toolbar-button:#3b3b3b;--panel:#252525;--track:#2b2b2b;--track-alt:#292929;--selected:#454545;--canvas:#141a20;--line:#171717;--text:#ededed;--muted:#b8b8b8;--header-width:270px;--row-height:48px;--green:#168e30;--blue:#2073b8;--focus:#83bafd; }
+@media(prefers-color-scheme:dark) { :scope { --chrome:#1f1f1f;--chrome-ink:#e6e6e6;--chrome-button:#363636;--chrome-pressed:#575757;--chrome-pressed-ink:#f1f1f1; } }
 * { box-sizing:border-box; }
 :scope { margin:0;background:var(--canvas);font:12px/1.3 -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:var(--text);-webkit-font-smoothing:antialiased; }
 button,input,select { font:inherit; }
@@ -27,7 +27,7 @@ button:active { filter:brightness(.9); }
 .control-bar .symbol-library { width:22px;height:22px; }
 .control-bar :is(.symbol-download,.symbol-dial,.symbol-loops) { width:20px;height:20px; }
 .control-bar .symbol-media { width:24px;height:24px; }
-.control-bar .tool-group button[aria-pressed=true] { background:#ffffff26;color:white; }
+.control-bar .tool-group button[aria-pressed=true] { background:var(--chrome-pressed);color:var(--chrome-pressed-ink); }
 svg { width:19px;height:19px;display:block;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round; }
 .transport { justify-content:center; }
 .control-bar .transport { gap:1px; }.control-bar .transport button { flex-basis:32px;width:32px; }
@@ -43,7 +43,7 @@ svg { width:19px;height:19px;display:block;fill:none;stroke:currentColor;stroke-
 .position .dim { color:#ffffff18; }.position small { height:8px;line-height:8px;font-size:6px;letter-spacing:.04em; }
 .tempo,.signature { border-left:1px solid #ffffff0b;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px; }
 .lcd b { font-size:12px;line-height:16px;font-weight:600; }.lcd small { font-size:6.5px;line-height:7px;letter-spacing:.01em;color:#aab3c2;text-align:center; }.signature span { font-size:10px;line-height:14px; }.tempo { gap:1px; }.tempo small { display:flex;flex-direction:column;gap:3px; }.lcd-chevron { justify-self:center;align-self:center;width:6px;height:6px;border-right:1.5px solid currentColor;border-bottom:1.5px solid currentColor;transform:translateY(-2px) rotate(45deg); }
-.timing-tools { display:flex;align-items:center;gap:10px; }.timing-tools button { font-size:11px; }.timing-tools .purple { color:#8c3cab; }
+.timing-tools { display:flex;align-items:center;gap:10px; }.timing-tools button { font-size:11px; }.timing-tools .purple { color:var(--chrome-ink); }.control-bar #tempo-tools .purple[aria-pressed=true] { color:#fff;background:#7545ac; }
 .control-bar #tempo-tools .count-in { flex-basis:31px;width:31px; }.control-bar #tempo-tools .purple { flex-basis:26px;width:26px; }
 .solo-symbol { display:grid;place-items:center;width:12px;height:12px;border:1px solid currentColor;border-radius:2px;font-size:9px;line-height:1; }
 .output-section { display:flex;justify-content:center; }.output-meter { width:118px;height:17px;background:#292929;border-radius:5px;padding:4px 10px;position:relative; }.output-meter i { display:block;height:3px;margin-bottom:2px;width:88%;background:linear-gradient(90deg,#20c852 0%,#5ed044 70%,#e6d447 88%,#d79437 100%); }.output-meter i:nth-child(2) { width:82%; }.output-meter span { position:absolute;right:8px;top:5px;height:7px;width:1px;background:#d74b3a; }

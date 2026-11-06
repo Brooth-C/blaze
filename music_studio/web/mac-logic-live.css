@@ -153,5 +153,5 @@ html[data-presentation=mac] #logic-session-tools { width:300px;max-height:80vh;p
  #logic-preview .track-list-tools #duplicate-track { max-width:45px;overflow:hidden; }
  #logic-preview footer { gap:6px;font-size:9px; }#live-status { display:none; }
 }
-html[data-appearance=light] #logic-preview { --chrome:#dadada;--chrome-ink:#303030;--chrome-button:#c6c6c6; }
-html[data-appearance=dark] #logic-preview { --chrome:#1f1f1f;--chrome-ink:#e6e6e6;--chrome-button:#363636; }
+html[data-appearance=light] #logic-preview { --chrome:#dadada;--chrome-ink:#303030;--chrome-button:#c6c6c6;--chrome-pressed:#b1b1b1;--chrome-pressed-ink:#252525; }
+html[data-appearance=dark] #logic-preview { --chrome:#1f1f1f;--chrome-ink:#e6e6e6;--chrome-button:#363636;--chrome-pressed:#575757;--chrome-pressed-ink:#f1f1f1; }
