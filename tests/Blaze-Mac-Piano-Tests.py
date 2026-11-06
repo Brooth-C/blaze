@@ -101,7 +101,10 @@ class PianoTests(unittest.TestCase):
         separator=PianoSeparator(os.environ['BLAZE_STEM_MODEL_DIR'])
         logits=[separator._graph(name,x,threading.Event()) for name in ('drums','bass','piano','other','vocals')]
         actual=piano_mask(logits,x).ravel()[reference['indices']]
-        np.testing.assert_allclose(actual,reference['piano_mask'],atol=.002,rtol=.01)
+        # Mixed Core ML CPU/GPU kernels can shift a few float32 values slightly
+        # more than the CPU reference; keep the CPU contract tighter.
+        tolerance=.003 if separator.runtime.backend == 'coreml' else .002
+        np.testing.assert_allclose(actual,reference['piano_mask'],atol=tolerance,rtol=.01)
 
     @unittest.skipUnless(os.environ.get('BLAZE_STEM_MODEL_DIR'), 'Real model requested after staging')
     def test_real_piano(self):
