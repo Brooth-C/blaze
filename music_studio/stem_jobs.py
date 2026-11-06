@@ -110,12 +110,21 @@ class StemJobs:
                         separator = self.separator_factory(self.models, self.studio.ffmpeg)
                     else:
                         from .stems import Separator
-                        from .piano import PianoSeparator
+                        from .native_piano import NativePianoSeparator
                         from .roformer import QualityFiveStemSeparator
                         from .instruments import NineStemSeparator
-                        implementation = {'piano': PianoSeparator, 'five': QualityFiveStemSeparator,
+                        implementation = {'piano': NativePianoSeparator, 'five': QualityFiveStemSeparator,
                                           'nine': NineStemSeparator, 'stems': Separator}[mode]
-                        separator = implementation(self.models, self.studio.ffmpeg)
+                        if mode == 'piano':
+                            from .piano_backend import selected_piano_backend
+                            backend = selected_piano_backend()
+                            if backend == 'mlx':
+                                from .mlx_piano import MlxPianoSeparator
+                                implementation = MlxPianoSeparator
+                        if mode == 'piano' and backend == 'onnx':
+                            separator = implementation(self.models, self.studio.ffmpeg, runtime_backend='cpu')
+                        else:
+                            separator = implementation(self.models, self.studio.ffmpeg)
                     outputs = separator.separate(input_path, pending, progress=progress, cancel_event=cancel)
                     if cancel.is_set():
                         return

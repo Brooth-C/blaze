@@ -11,6 +11,7 @@ import numpy as np
 import onnxruntime as ort
 from .chords import estimate_key
 from .rhythm import RhythmDetector
+from .stem_runtime import StemRuntime
 
 RATE = 22050
 CHUNK = 108 * 2048
@@ -42,6 +43,7 @@ class ModelBundle:
         options.intra_op_num_threads = 2
         options.inter_op_num_threads = 1
         options.execution_mode = ort.ExecutionMode.ORT_SEQUENTIAL
+        self.runtime = StemRuntime()
         self.frontend = self._session(self.manifest['frontend'], options)
         self.network = self._session(self.metadata, options)
         self.selected = selected
@@ -66,7 +68,13 @@ class ModelBundle:
         if hashlib.sha256(data).hexdigest() != metadata['sha256']:
             raise ValueError('Recognition model verification failed. Reinstall or import a verified model bundle.')
         # Bytes prevent ONNX external-data paths from reading arbitrary files.
-        return ort.InferenceSession(data, sess_options=options, providers=['CPUExecutionProvider'])
+        return self.runtime.session(data, options, metadata['sha256'])
+
+    def close(self):
+        self.runtime.finish(self.frontend)
+        self.runtime.finish(self.network)
+        if self.structured:
+            self.structured.finish()
 
     def predict(self, pcm):
         if pcm.size < 128:
@@ -200,6 +208,7 @@ class Analyzer:
         self.ffmpeg = str(ffmpeg)
         self.cancelled = threading.Event()
         self.process = None
+        self.rhythm = None
 
     def cancel(self):
         self.cancelled.set()
@@ -223,6 +232,9 @@ class Analyzer:
         finally:
             if structured:
                 structured.close()
+            if self.rhythm:
+                self.rhythm.close()
+            self.bundle.close()
 
     def _analyze(self, source, progress=lambda message: None):
         path = Path(source).resolve()
@@ -237,6 +249,7 @@ class Analyzer:
                 digest.update(block)
         progress('Finding chords locally…')
         rhythm = RhythmDetector(self.bundle.directory) if (self.bundle.directory / 'rhythm_manifest.json').is_file() else None
+        self.rhythm = rhythm
         command = [self.ffmpeg, '-nostdin', '-hide_banner', '-loglevel', 'error', '-protocol_whitelist', 'file,pipe',
                    '-threads', '2', '-i', str(path), '-map', '0:a:0', '-vn', '-sn', '-dn',
                    '-af', 'aresample=async=1:first_pts=0', '-ac', '1', '-ar', str(RATE), '-c:a', 'pcm_s16le', '-f', 'wav', 'pipe:1']

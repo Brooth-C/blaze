@@ -10,7 +10,8 @@ Keyboard and compact layout,Studio,must,yes,yes,Rendered regression coverage
 Simultaneous multitrack mixing,Studio,could,yes,skip,Existing single audition engine
 Recording and MIDI sequencing,Studio,could,yes,skip,Outside the existing engine
 Third-party instrument plug-ins,Studio,could,yes,skip,Not implemented or advertised
-Proportional four-bar chord regions,Chords,must,no,yes,Existing measured map and real player
+Proportional four-bar chord regions,Chords,must,no,partial,Retained renderer has focus view; approved default uses full-project chord lane
 Current and upcoming chords,Chords,must,no,yes,Boundary announcements and follow
 Honest unknown-meter beat display,Chords,must,no,yes,Time windows retain actual beats
-Resizable inspector and lower editor,Studio,must,yes,yes,Pointer and keyboard separators
+Resizable inspector and lower editor,Studio,must,yes,partial,Retained renderer has separators; approved default uses fixed layout and inspector disclosure
+Approved Logic-reference default screen,Studio,must,yes,yes,Real session data and single-player engine behind approved shell

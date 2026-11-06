@@ -99,6 +99,9 @@ async function fit(page,ids){
             if(!injectedBusy){injectedBusy=true;await route.fulfill({status:503,json:{error:'Waveforms are still loading. Try again shortly.'}});}
             else await route.continue();
         });
+        // Isolate retained engine controls; default production layout has its own live suite.
+        await page.route('**/mac-logic-live.js', route => route.fulfill({contentType:'text/javascript',body:''}));
+        await page.route('**/mac-logic-preview.js', route => route.fulfill({contentType:'text/javascript',body:''}));
         await page.goto(base);
         assert.equal(await page.title(),'Blaze');
         assert.equal(new URL(page.url()).origin,base);
@@ -390,7 +393,7 @@ async function fit(page,ids){
         assert(await page.locator('#media').evaluate(el=>el===window.testMedia));
         assert(ignoredBusyConsole<=8,'Waveform requests did not settle after bounded retry');
         assert.deepEqual(errors,[]);
-        console.log('Mac Studio UI PASS: navigation opens DAW layout, real authorized nine-stem selection/waveforms/export, shared player playback/seek/stop, waveform zoom, library/inspector toggles, compact primary controls, chord-tools drawer, unrelated import invalidation. Browser plugin absent; controlled separator, no model-quality/native AppKit claim.');
+        console.log('Retained Mac Studio engine/renderer PASS: navigation opens DAW layout, real authorized nine-stem selection/waveforms/export, shared player playback/seek/stop, waveform zoom, library/inspector toggles, compact primary controls, chord-tools drawer, unrelated import invalidation. Browser plugin absent; controlled separator, no model-quality/native AppKit claim.');
     }catch(error){if(stderr.trim())console.error(stderr);if(page)await shot(page,'failure').catch(()=>{});throw error;}
     finally{if(browser)await browser.close();server.kill('SIGTERM');}
 })().catch(error=>{console.error(error);process.exitCode=1;});

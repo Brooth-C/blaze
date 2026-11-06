@@ -79,6 +79,9 @@ async function fit(page,ids,message){
             if(message.type()==='error'&&!url.endsWith('/favicon.ico')&&!staleWaveform)errors.push(message.text());
         });
         page.on('request',request=>{if(request.method()==='POST'&&request.url()===base+'/api/discovery-select')selections.push(request.postDataJSON());});
+        // Isolate retained engine controls; default production layout has its own live suite.
+        await page.route('**/mac-logic-live.js', route => route.fulfill({contentType:'text/javascript',body:''}));
+        await page.route('**/mac-logic-preview.js', route => route.fulfill({contentType:'text/javascript',body:''}));
         await page.goto(base);
         assert.equal(await page.title(),'Blaze');
         assert.equal(new URL(page.url()).origin,base);
@@ -263,7 +266,7 @@ async function fit(page,ids,message){
         await page.locator('#settings-dialog').waitFor({state:'visible'});
         await page.locator('#close-settings').click();
         assert.deepEqual(errors,[]);
-        console.log('Mac content UI PASS: controlled artwork, native bridge search/navigation, real WAV and VP8/Opus decode, selection keeps browsing, one persistent player, seek, Studio notation,570x540 detail fit, modal navigation guard, late preparation cannot replace native import, nonmodal expanded video, keyboard focus/shortcuts, light/dark/reduced motion, no console errors. AppKit/native glass and live YouTube require separate checks.');
+        console.log('Mac content and retained Studio renderer PASS: controlled artwork, native bridge search/navigation, real WAV and VP8/Opus decode, selection keeps browsing, one persistent player, seek, Studio notation,570x540 detail fit, modal navigation guard, late preparation cannot replace native import, nonmodal expanded video, keyboard focus/shortcuts, light/dark/reduced motion, no console errors. AppKit/native glass and live YouTube require separate checks.');
     }catch(error){
         if(stderr.trim())console.error(stderr);
         if(page&&screenshots)await shot(page,'failure').catch(()=>{});

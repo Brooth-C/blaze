@@ -68,13 +68,15 @@ class StructuredRecognizer:
         # Android shares the exact NumPy decoder while Java owns ORT sessions.
         # Importing this module therefore does not require Python ORT.
         import onnxruntime as ort
+        from .stem_runtime import StemRuntime
         self.directory=Path(directory)
         self.manifest=json.loads((self.directory/'structured_manifest.json').read_text(encoding='utf-8'))
         if self.manifest.get('schema_version')!=1 or self.manifest.get('feature_size')!=252 or len(self.manifest['models'])!=5:
             raise ValueError('Invalid structured chord model bundle.')
         options=ort.SessionOptions();options.intra_op_num_threads=2;options.inter_op_num_threads=1
         options.execution_mode=ort.ExecutionMode.ORT_SEQUENTIAL;ort.disable_telemetry_events()
-        self.networks=[ort.InferenceSession(self._asset(a),sess_options=options,providers=['CPUExecutionProvider']) for a in self.manifest['models']]
+        self.runtime=StemRuntime()
+        self.networks=[self.runtime.session(self._asset(a),options,a['sha256']) for a in self.manifest['models']]
         self._asset(self.manifest['frontend'])
         self.frontend=PortableLVFrontend(self.directory/self.manifest['frontend']['file'])
         self.labels=[a['label'] for a in self.manifest['labels']]
@@ -95,7 +97,13 @@ class StructuredRecognizer:
     def feed(self,pcm):
         self.audio.write(np.asarray(pcm,dtype=np.float32).tobytes());self.samples+=len(pcm)
 
-    def close(self):self.audio.close()
+    def close(self):
+        if not self.audio.closed:
+            self.audio.close()
+
+    def finish(self):
+        for network in self.networks:
+            self.runtime.finish(network)
 
     def begin(self):
         self.close();self.audio=tempfile.TemporaryFile();self.samples=0

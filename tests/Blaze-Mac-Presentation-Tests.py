@@ -51,6 +51,12 @@ class PresentationTests(unittest.TestCase):
         self.assertIn('src="/mac.js"', html)
         self.assertEqual(self.request('/mac.css')[0], 200)
         self.assertEqual(self.request('/mac.js')[0], 200)
+        self.assertIn('id="logic-live-template"', html)
+        self.assertIn('src="/mac-logic-live.js"', html)
+        self.assertLess(html.index('src="/mac-studio.js"'), html.index('src="/mac-logic-live.js"'))
+        self.assertLess(html.index('src="/mac-logic-live.js"'), html.index('src="/mac-logic-preview.js"'))
+        self.assertEqual(self.request('/mac-logic-live.js')[0], 200)
+        self.assertEqual(self.request('/mac-logic-live.css')[0], 200)
 
     def test_native_selection_is_not_exposed_as_a_path_http_api(self):
         self.serve()

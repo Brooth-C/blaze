@@ -26,10 +26,15 @@ const settle = page => page.evaluate(() => new Promise(resolve => requestAnimati
         browser = await chromium.launch({headless:true,args:['--no-sandbox','--autoplay-policy=no-user-gesture-required']});
         page = await browser.newPage({viewport:{width:1440,height:900}});
         const errors = []; page.on('pageerror', error => errors.push(error.message));
+        // Isolate retained engine controls; default production layout has its own live suite.
+        await page.route('**/mac-logic-live.js', route => route.fulfill({contentType:'text/javascript',body:''}));
+        await page.route('**/mac-logic-preview.js', route => route.fulfill({contentType:'text/javascript',body:''}));
         await page.goto(base);
         await page.waitForFunction(() => window.BlazeMacHarmony && window.BlazeMacStudio);
         await page.evaluate(() => window.BlazeDesktop.selectSection('studio'));
         await page.waitForFunction(() => window.BlazeMacStudio.snapshot().waveformReady);
+        assert(await page.locator('#daw-harmony').isHidden());
+        await page.locator('#daw-chord-focus').click();
         assert(await page.locator('#harmony-empty').isVisible());
         assert.match(await page.locator('#harmony-status').innerText(), /Analyse this recording/);
         await shot(page, 'empty');
@@ -55,6 +60,21 @@ const settle = page => page.evaluate(() => new Promise(resolve => requestAnimati
         });
         assert.equal(proportions.length,2,'Chord changes became separate bars');
         assert(Math.abs(proportions[0]-.25)<.01 && Math.abs(proportions[1]-.75)<.01,'Regions ignore musical duration');
+        const projectGeometry=await page.evaluate(()=>{
+            const lane=document.getElementById('daw-project-chords').getBoundingClientRect();
+            const audio=document.getElementById('daw-regions').getBoundingClientRect();
+            const first=document.querySelector('.project-chord').getBoundingClientRect();
+            return {laneLeft:lane.left,audioLeft:audio.left,laneWidth:lane.width,audioWidth:audio.width,fraction:first.width/lane.width};
+        });
+        assert.equal(projectGeometry.laneLeft,projectGeometry.audioLeft);
+        assert.equal(projectGeometry.laneWidth,projectGeometry.audioWidth);
+        assert(Math.abs(projectGeometry.fraction-.5/64)<.001,'Project chords use the focus scale instead of the audio scale');
+        await page.locator('.project-chord').nth(2).click();
+        await page.waitForFunction(()=>Math.abs(document.getElementById('media').currentTime-2)<.05);
+        await page.locator('#daw-chord-focus').click();
+        assert(await page.locator('#daw-harmony').isHidden());
+        await shot(page,'project-track');
+        await page.locator('#daw-chord-focus').click();
         await shot(page,'subdivisions');
         await page.locator('.harmony-bar').first().getByRole('button',{name:/Seek to Am/}).click();
         await page.waitForFunction(() => Math.abs(document.getElementById('media').currentTime-.5)<.05 && document.getElementById('harmony-now').textContent==='Am');
@@ -134,7 +154,7 @@ const settle = page => page.evaluate(() => new Promise(resolve => requestAnimati
         assert(await page.locator('.harmony-bar').first().locator('.harmony-beat').count()>0,'Uncertain meter hid the detected beat spacing');
         assert(await page.locator('#media').evaluate(element => element===window.harmonyTestPlayer),'Chord navigation replaced the player');
         assert.deepEqual(errors,[]);
-        console.log('Mac harmony UI PASS: real player seek, four measured bars, unequal chord subdivisions, current/next, group navigation/follow, zoom/scroll, uncertain meter, keyboard panel resizing/collapse, four viewports in light/dark. Controlled analysis; no native/perceptual performance claim.');
+        console.log('Retained Mac harmony renderer PASS: real player seek, four measured bars, unequal chord subdivisions, current/next, group navigation/follow, zoom/scroll, uncertain meter, keyboard panel resizing/collapse, four viewports in light/dark. Controlled analysis; no native/perceptual performance claim.');
     } catch (error) {if(page)await shot(page,'failure').catch(()=>{});throw error;}
     finally {if(browser)await browser.close();server.kill('SIGTERM');}
 })().catch(error => {console.error(error);process.exitCode=1;});

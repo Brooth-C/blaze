@@ -1,0 +1,57 @@
+{
+  "scope": "Mac Studio top control bar only, 2026-10-31",
+  "reference": {
+    "source": "https://apps.apple.com/us/app/logic-pro/id634148309",
+    "imageManifest": "/workspace/mac-studio-replica/latest-logic/sources.json",
+    "crop": "/workspace/logic-ui-fidelity/reference/control-bar.png",
+    "normalizedPixels": [1440, 56],
+    "note": "Published listing image normalized from 2880 pixels. Approximate screenshot measurements, not native point measurements or proof of a new capture for each release.",
+    "horizontalAnchors": {
+      "navigation": 10,
+      "workspace": 140,
+      "transport": 420,
+      "lcd": 610,
+      "monitoring": 840,
+      "countIn": 915,
+      "browsers": 1320
+    }
+  },
+  "implementation": {
+    "barHeight": 56,
+    "buttonHeight": 25,
+    "buttonIcon": 18,
+    "sideInset": 10,
+    "gridGap": 10,
+    "gridColumns": "minmax(228px,1.22fr) 180px 220px 132px minmax(118px,1fr) 110px",
+    "lcdSize": [220, 40],
+    "utilityGroupGap": 20,
+    "utilityGroupWidths": [54.5, 57.5],
+    "actualHorizontalAnchors1440": {
+      "navigation": 10,
+      "workspace": 139.5,
+      "transport": 420.0625,
+      "lcd": 610.0625,
+      "monitoring": 840.0625,
+      "countIn": 914.5625,
+      "browsers": 1320
+    },
+    "appearance": "Existing system-following light/dark roles",
+    "compact": "Hide secondary utilities; preserve transport, LCD and Back to Explore. Master remains visible above 640px.",
+    "symbols": "Separate authored top-bar SVG catalogue and CSS chevron; no extracted Apple artwork",
+    "iconRefinement": {
+      "concepts": "Layered music library, paired inspector toggles, dial with ticks, capped mixer faders, filled pencil, segmented recording ring, repeat arrows, angled tuner, loop symbol and media browser",
+      "opticalSvgBoxes": {"default": 18, "library": 22, "downloadDialLoops": 20, "media": 24, "capture": 16},
+      "selectedState": "Editors aria-pressed follows actual lower-editor visibility from either toggle",
+      "geometry": "Approved bar grid, button boxes and group positions retained",
+      "evidenceDirectory": "/workspace/logic-topbar-icons"
+    }
+  },
+  "evidence": {
+    "directory": "/workspace/logic-topbar",
+    "comparison": "topbar-comparison.png",
+    "geometry": "geometry-1440.json",
+    "liveChecks": "Five window sizes, light/dark, common centerline, no group collision or clipped controls; playback, metronome, cycle, keyboard project settings and master gain",
+    "previewChecks": "Three sizes, light/dark, no engine/API calls",
+    "limitations": "Chromium renderer evidence on Linux. Native AppKit/WKWebView and macOS 26 validation remain pending. Different session, playback state, authored icons and font rendering; no exact pixel-parity claim."
+  }
+}

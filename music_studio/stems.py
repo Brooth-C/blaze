@@ -17,6 +17,7 @@ import shutil
 
 import numpy as np
 import onnxruntime as ort
+from .stem_runtime import StemRuntime
 
 RATE = 44100
 SEGMENT = 343980
@@ -83,10 +84,11 @@ def _write_header(stream, frames):
 
 
 class Separator:
-    def __init__(self, model_directory=None, ffmpeg='ffmpeg'):
+    def __init__(self, model_directory=None, ffmpeg='ffmpeg', runtime_backend=None):
         self.directory = Path(model_directory or Path(__file__).parent / 'stem_models')
         self.ffmpeg = str(ffmpeg)
         self.session = None
+        self.runtime = StemRuntime(backend=runtime_backend) if runtime_backend is not None else StemRuntime()
 
     def _load(self, cancel_event):
         if self.session is not None:
@@ -116,11 +118,12 @@ class Separator:
         options.inter_op_num_threads = 1
         options.execution_mode = ort.ExecutionMode.ORT_SEQUENTIAL
         # Loading verified bytes disallows ONNX external-data filesystem paths.
-        self.session = ort.InferenceSession(data, sess_options=options, providers=['CPUExecutionProvider'])
+        self.session = self.runtime.session(data, options, MODEL_SHA)
         inputs, outputs = self.session.get_inputs(), self.session.get_outputs()
         if (len(inputs) != 1 or inputs[0].name != 'mix_spec' or inputs[0].shape != [1, 4, 2049, 338]
                 or inputs[0].type != 'tensor(float)' or len(outputs) != 1
                 or outputs[0].name != 'stems_spec' or outputs[0].shape != [1, 4, 4, 2049, 338]):
+            self.runtime.finish(self.session)
             self.session = None
             raise ValueError('The bundled stem model has an incompatible interface.')
 
@@ -286,3 +289,7 @@ class Separator:
             for path in paths.values():
                 path.unlink(missing_ok=True)
             raise
+        finally:
+            if self.session is not None:
+                self.runtime.finish(self.session)
+                self.session = None

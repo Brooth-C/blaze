@@ -1,0 +1,47 @@
+{
+  "scope": "Blaze Mac live Studio audio controls; public Logic Pro 12.4 listing verified 2026-10-31",
+  "sources": [
+    "https://apps.apple.com/us/app/logic-pro/id634148309",
+    "https://support.apple.com/guide/logicpro/set-track-pan-positions-lgcpeea2e44c/mac",
+    "https://support.apple.com/guide/logicpro/set-track-volume-levels-lgcp86b5c092/mac"
+  ],
+  "reference": {
+    "screenshot": "Current listing Session Players image, original 2880x1800; screenshot filenames predate the current release",
+    "closeupOriginalPixels": [112, 320, 533, 375],
+    "scaleNote": "Dimensions below are CSS choices based on the published image normalized by 0.5; native points are not independently measured",
+    "panDiameter": 20,
+    "panFaceInset": 3,
+    "faderHeight": 15,
+    "faderHandleDiameter": 13,
+    "meterLineHeight": 2,
+    "meterGap": 2
+  },
+  "interaction": {
+    "pan": "Relative horizontal/vertical pointer drag, captured outside the control; actual existing StereoPanner remains authoritative",
+    "range": "Native labeled range inputs provide keyboard and accessibility semantics; decorative layers provide the measured control shape",
+    "fineAdjustment": "Shift scales pointer increments by 0.1",
+    "reset": "Option-click or double-click resets pan to center and track volume to unity",
+    "trackGain": "Blaze audition gain 0..2; unity at slider unit0.75, display taper -60..+6dB with exact zero at the left stop",
+    "master": "Existing media volume 0..1 remains separate and unchanged",
+    "disclosure": "Gesture sensitivity and gain taper are Blaze choices, not a claim to Apple's proprietary transfer function or pan-law implementation"
+  },
+  "color": {
+    "recess": "#363636",
+    "ring": "#303030",
+    "face": "#a1a1a1",
+    "indicator": "#242424",
+    "capComposite": "#939393",
+    "focus": "#b7d6ff",
+    "selectedHeader": "#737373",
+    "readout": "#f2f2f2",
+    "readoutBackground": "#262626"
+  },
+  "pairs": [
+    ["face", "ring", "ui"],
+    ["indicator", "face", "ui"],
+    ["capComposite", "recess", "ui"],
+    ["focus", "selectedHeader", "ui"],
+    ["readout", "readoutBackground"]
+  ],
+  "contrastNote": "Scoped component pairs only; capComposite is the rendered alpha-cap color over the recess, not the literal alpha CSS token. No whole-app accessibility certification."
+}

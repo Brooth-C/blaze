@@ -1,0 +1,46 @@
+{
+  "scope": "Current published Logic screenshots, compared against the live Mac renderer on 2026-10-31",
+  "sources": [
+    "https://apps.apple.com/us/app/logic-pro/id634148309",
+    "https://support.apple.com/guide/logicpro/audio-track-editor-interface-lgcpe9cc446b/mac"
+  ],
+  "reference": {
+    "asset": "Current listing Session Players image; exact URL and SHA retained in the visual-preview source manifest",
+    "originalPixels": [2880, 1800],
+    "comparisonPixels": [1440, 900],
+    "scaleNote": "Image normalized by 0.5 for comparison; this is not proof of native point sizes or a fresh capture for every Logic release",
+    "controlBarHeight": 56,
+    "contextBarHeight": 32,
+    "trackHeaderWidth": 270,
+    "rulerHeight": 16,
+    "chordStripHeight": 16,
+    "firstTrackTop": 120,
+    "pointerSelectorCenterFraction": 0.5,
+    "flatSurfaceSamples": {
+      "controlBar": [166, 166, 166],
+      "contextBar": [71, 71, 71],
+      "trackHeader": [87, 87, 87],
+      "selectedTrackHeader": [115, 115, 115],
+      "canvas": [46, 46, 46]
+    },
+    "sampleNote": "Dominant RGB samples from flat image patches; JPEG values rounded to stable neutral roles"
+  },
+  "implementationChoices": {
+    "trackHeight": 48,
+    "trackHeightNote": "Logic track height is configurable. 48 CSS pixels accommodates actual stereo peaks and controls; this is not a claim that all reference rows have this height",
+    "lcdHeight": 40,
+    "lcdCaptions": 6.5,
+    "menuTypeSize": 11,
+    "headerWidthCompact": 230,
+    "waveformGain": "One bounded display gain across both channels; no playback or export processing",
+    "icons": "Independently authored SVGs and neutral controls; no Apple artwork or proprietary font bundled",
+    "appearance": "System following, with existing explicit light/dark choices preserved"
+  },
+  "remainingDifferences": [
+    "Different musical session, files and playback state; no whole-screen pixel similarity claim",
+    "Apple screenshots show plug-ins and editors outside this arrangement plus waveform view",
+    "Authored replacement icons differ from Apple assets",
+    "Native SF text rendering and AppKit window chrome require macOS 26 validation",
+    "Unsupported controls remain disabled; this remains Blaze's single-source audition engine"
+  ]
+}
