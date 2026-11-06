@@ -72,11 +72,10 @@ class RhythmDetector:
         self.manifest=json.loads((self.directory/'rhythm_manifest.json').read_text(encoding='utf-8'))
         if any(self.manifest.get(k)!=v for k,v in {'schema_version':1,'sample_rate':22050,'hop_length':441,'n_fft':1024,'fps':50,'chunk_frames':1500,'border_frames':6}.items()):
             raise ValueError('Incompatible offline rhythm model.')
-        options=ort.SessionOptions();options.intra_op_num_threads=2;options.inter_op_num_threads=1
-        options.execution_mode=ort.ExecutionMode.ORT_SEQUENTIAL
         ort.disable_telemetry_events()
         self.runtime=StemRuntime()
-        self.network=self.runtime.session(self._asset('network'),options,self.manifest['network']['sha256'])
+        self.network=None
+        self.network_frames=None
         with np.load(io.BytesIO(self._asset('frontend')),allow_pickle=False) as frontend:
             self.window,self.filters=frontend['window'].copy(),frontend['filter'].copy()
         if self.window.shape!=(1024,) or self.filters.shape!=(513,128):raise ValueError('Invalid rhythm frontend.')
@@ -85,6 +84,24 @@ class RhythmDetector:
     def close(self):
         self.runtime.finish(self.network)
         self.network=None
+        self.network_frames=None
+
+    def _predict(self,chunk):
+        frames=len(chunk)
+        specialize=self.runtime.backend=='coreml'
+        if self.network is None or (specialize and self.network_frames!=frames):
+            self.close()
+            options=ort.SessionOptions();options.intra_op_num_threads=2;options.inter_op_num_threads=1
+            options.execution_mode=ort.ExecutionMode.ORT_SEQUENTIAL
+            # ORT 1.31 MLProgram partitions can lose scalar ranks in dynamic
+            # shape bounds. Resolve Beat This's frames before optimization so
+            # those Slice bounds become constants. Preserve the exact original
+            # chunk; padding it to a fixed context would change attention.
+            dimensions={'frames':frames} if specialize else None
+            self.network=self.runtime.session(self._asset('network'),options,self.manifest['network']['sha256'],
+                                              free_dimensions=dimensions)
+            self.network_frames=frames
+        return self.network.run(None,{'spect':chunk[None].astype(np.float32)})
 
     def _asset(self,key):
         metadata=self.manifest[key];name=metadata['file']
@@ -107,7 +124,7 @@ class RhythmDetector:
             check();progress(f'Finding beats and meter locally · {number+1} / {len(starts)}')
             chunk=spect[max(start,0):min(start+1500,size)]
             chunk=np.pad(chunk,((max(0,-start),max(0,min(6,start+1500-size))),(0,0)))
-            outputs=self.network.run(None,{'spect':chunk[None].astype(np.float32)})
+            outputs=self._predict(chunk)
             a,b=start+6,start+len(chunk)-6
             unused=~filled[a:b]
             for channel,output in zip(predictions,outputs):channel[a:b][unused]=output[0,6:-6][unused]

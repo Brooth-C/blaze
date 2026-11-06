@@ -101,6 +101,28 @@ class RuntimeTests(unittest.TestCase):
              patch('music_studio.stem_runtime.ort.get_available_providers', return_value=['CoreMLExecutionProvider','CPUExecutionProvider']):
             self.assertEqual(StemRuntime().backend, 'coreml')
 
+    def test_coreml_cache_separates_exact_frame_shapes(self):
+        with tempfile.TemporaryDirectory() as d, \
+             patch('music_studio.stem_runtime.sys.platform', 'darwin'), \
+             patch('music_studio.stem_runtime.platform.machine', return_value='arm64'), \
+             patch('music_studio.stem_runtime.ort.__version__', '1.31.0'), \
+             patch('music_studio.stem_runtime.ort.get_available_providers', return_value=['CoreMLExecutionProvider','CPUExecutionProvider']):
+            runtime = StemRuntime(backend='coreml', cache=d)
+            session = Mock();session.get_providers.return_value = ['CoreMLExecutionProvider','CPUExecutionProvider']
+            directories = []
+            with patch('music_studio.stem_runtime.ort.InferenceSession', return_value=session) as create:
+                for frames in (220, 1500, 220):
+                    options = Mock()
+                    runtime.session(b'verified bytes', options, SHA, free_dimensions={'frames':frames})
+                    options.add_free_dimension_override_by_name.assert_called_once_with('frames', frames)
+                    settings = create.call_args.kwargs['providers'][0][1]
+                    self.assertEqual(settings['RequireStaticInputShapes'], '1')
+                    self.assertEqual(settings['MLComputeUnits'], 'CPUAndGPU')
+                    directories.append(settings['ModelCacheDirectory'])
+                    runtime.finish(session)
+            self.assertNotEqual(directories[0], directories[1])
+            self.assertEqual(directories[0], directories[2])
+
     def test_apple_silicon_does_not_silently_choose_cpu_without_coreml(self):
         with patch.dict('os.environ', {}, clear=True), \
              patch('music_studio.stem_runtime.sys.platform', 'darwin'), \

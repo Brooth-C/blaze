@@ -49,21 +49,27 @@ class StemRuntime:
             return 'coreml'
         return 'cpu'
 
-    def session(self, data, options, model_sha):
+    def session(self, data, options, model_sha, *, free_dimensions=None):
         if not re.fullmatch(r'[a-f0-9]{64}', model_sha):
             raise ValueError('A verified model hash is required for stem execution.')
+        dimensions = dict(free_dimensions or {})
+        for name, value in dimensions.items():
+            if not isinstance(name, str) or not name or type(value) is not int or value <= 0:
+                raise ValueError('Model dimension overrides require names and positive integer sizes.')
+            options.add_free_dimension_override_by_name(name, value)
         providers = ['CPUExecutionProvider']
         if self.backend == 'coreml':
             # Separate content-addressed directories prevent stale compiled
             # graphs, even when ONNX node names remain unchanged between models.
-            settings = {'ort': ort.__version__, 'contract': 2, 'format': 'MLProgram',
-                        'units': 'CPUAndGPU', 'static': False, 'subgraphs': True}
+            settings = {'ort': ort.__version__, 'contract': 3, 'format': 'MLProgram',
+                        'units': 'CPUAndGPU', 'static': bool(dimensions), 'subgraphs': True,
+                        'free_dimensions': dimensions}
             identity = hashlib.sha256(json.dumps(settings, sort_keys=True).encode()).hexdigest()[:16]
             cache = self.cache / ('v1-' + identity) / model_sha
             cache.mkdir(parents=True, exist_ok=True)
             providers = [('CoreMLExecutionProvider', {
                 'ModelFormat': 'MLProgram', 'MLComputeUnits': 'CPUAndGPU',
-                'RequireStaticInputShapes': '0', 'ModelCacheDirectory': str(cache),
+                'RequireStaticInputShapes': '1' if dimensions else '0', 'ModelCacheDirectory': str(cache),
                 'EnableOnSubgraphs': '1',
             }), 'CPUExecutionProvider']
             if self.profile:
@@ -89,6 +95,7 @@ class StemRuntime:
         self._pending[id(session)] = {
             'model_sha256': model_sha, 'requested_backend': self.backend,
             'registered_providers': registered,
+            'free_dimensions': dimensions,
             'session_creation_seconds': time.monotonic() - start,
         }
         return session
