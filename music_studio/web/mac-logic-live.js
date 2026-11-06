@@ -76,17 +76,17 @@
   master.element.classList.add('mix-master');root.querySelector('.output-section').replaceChildren(master.element);
   const meters=master.meters;
   const toolbar=$('track-headers');toolbar.setAttribute('role','group');toolbar.setAttribute('aria-label','Session tracks');
-  const transport=[...$('transport').children];
-  transport[1].id='logic-play';transport[0].id='logic-stop';
+  const transport=Object.fromEntries([...$('transport').querySelectorAll('[data-control]')].map(node=>[node.dataset.control,node]));
+  transport.play.id='logic-play';transport.stop.id='logic-stop';
   root.querySelector('.arrangement').id='logic-arrangement';root.querySelector('.audio-editor').id='logic-editor';
-  bind(transport[0],cmd.stop);bind(transport[1],cmd.play);bind(transport[5],cmd.loop);
-  for(const i of [2,3,4])unsupported(transport[i]);
+  bind(transport.rewind,()=>cmd.seek(state.position-10));bind(transport.forward,()=>cmd.seek(state.position+10));
+  bind(transport.stop,cmd.stop);bind(transport.play,cmd.play);bind(transport.cycle,cmd.loop);unsupported(transport.record);
   const navigation=$('navigation-tools');bind(navigation.children[0],()=>showPanel('library'));bind(navigation.children[1],()=>showPanel('inspector'));
   for(const node of [...navigation.children].slice(2))unsupported(node);
   for(const node of $('workspace-tools').children)unsupported(node);
-  bind($('workspace-tools').lastChild,toggleEditor);$('workspace-tools').lastChild.disabled=false;$('workspace-tools').lastChild.title='Show or hide Audio Editor';
+  const editors=$('workspace-tools').querySelector('[data-control="editors"]');bind(editors,toggleEditor);editors.disabled=false;editors.title='Show or hide Audio Editor';
   for(const node of $('browser-tools').children)unsupported(node);
-  const browse=button('control-media','Back to Explore');bind(browse,cmd.browse);$('browser-tools').lastChild.replaceWith(browse);
+  const browse=$('browser-tools').querySelector('[data-control="project-files"]');browse.disabled=false;browse.title='Back to Explore';browse.setAttribute('aria-label',browse.title);bind(browse,cmd.browse);
   const timing=[...$('timing-tools').querySelectorAll('button')];for(const node of timing)unsupported(node);
   timing.at(-1).disabled=false;timing.at(-1).title='Metronome';timing.at(-1).setAttribute('aria-label','Metronome');bind(timing.at(-1),cmd.metronome);
   for(const node of $('view-tools').children)unsupported(node);$('view-tools').children[1].disabled=false;
@@ -171,7 +171,7 @@
    }
   }
   function unsupported(node){node.disabled=true;node.title=(node.getAttribute('aria-label')||node.title||'Control')+' — not available';}
-  function toggleEditor(){const hidden=root.classList.toggle('editor-hidden');for(const node of [$('show-editor'),$('workspace-tools').lastChild])node.setAttribute('aria-pressed',String(!hidden));redraw();}
+  function toggleEditor(){const hidden=root.classList.toggle('editor-hidden');for(const node of [$('show-editor'),editors])node.setAttribute('aria-pressed',String(!hidden));redraw();}
   function setTool(range){rangeTool=range;for(const [i,node]of [...$('pointer-tools').children].entries())node.setAttribute('aria-pressed',String(range?i===1:i===0));}
   function stamp(seconds){const n=Math.max(0,Number(seconds)||0);return String(Math.floor(n/60)).padStart(2,'0')+':'+String(Math.floor(n%60)).padStart(2,'0')+'.'+String(Math.floor(n*1000)%1000).padStart(3,'0');}
   function renderRows(){
@@ -258,14 +258,15 @@
   function update(){
    if(disposed)return;state=engine.viewState();if(!state.active){cancelAnimationFrame(frame);frame=0;return;}
    renderRows();const selected=state.tracks.find(t=>t.id===state.selected);text($('editor-track'),selected?.label||'Recording');text($('editor-caption'),selected?.label||'Recording');
+   if(selected)root.style.setProperty('--selected-region-color','var(--region-'+selected.id+', '+selected.region+')');else root.style.removeProperty('--selected-region-color');
    text(root.querySelector('.tempo b'),Number(state.tempo).toFixed(state.tempo%1?1:0));text(root.querySelector('.signature b'),state.numerator+'/'+state.denominator);text(root.querySelector('.signature span'),state.key.replace(' major','maj').replace(' minor','min'));
    text(root.querySelector('footer').firstElementChild,state.format);text(status,actionError||state.message);status.dataset.state=actionError?'error':state.messageState;
    text(editorEmpty,!state.peaks?(state.loading||state.pending?'Reading waveform…':state.tracks.length?'Waveform unavailable. Playback remains available.':'Import a recording to begin.'):'');
    const stemsState=window.BlazeMacStems?.snapshot();text(stems,stemsState?.status==='running'?'Split '+Math.round((stemsState.progress||0)*100)+'%':stemsState?.status==='failed'?'Retry split':'Split');stems.disabled=stemsState?.available!==true;
    analyze.disabled=!state.enabled&&!state.analysisBusy;text(analyze,state.analysisBusy?'Cancel':'Chords');analyze.setAttribute('aria-label',state.analysisBusy?'Cancel chord analysis':'Analyse chords');
-   for(const i of [0,1,5])transport[i].disabled=!state.enabled;
-   const playState=state.paused?'play':'pause';if(transport[1].dataset.state!==playState){transport[1].innerHTML=svg(playState);transport[1].dataset.state=playState;transport[1].setAttribute('aria-label',state.paused?'Play':'Pause');}
-   transport[5].setAttribute('aria-pressed',String(state.loop));timing.at(-1).setAttribute('aria-pressed',String(state.metronome));master.set(state.volume);
+   for(const name of ['rewind','forward','stop','play','cycle'])transport[name].disabled=!state.enabled;
+   const playState=state.paused?'play':'pause';if(transport.play.dataset.state!==playState){transport.play.innerHTML=svg(playState);transport.play.dataset.state=playState;transport.play.setAttribute('aria-label',state.paused?'Play':'Pause');}
+   transport.cycle.setAttribute('aria-pressed',String(state.loop));timing.at(-1).setAttribute('aria-pressed',String(state.metronome));master.set(state.volume);
    if(tools.open)for(const sync of panelControls)sync();
    save.hidden=!state.save;if(state.save){save.href=state.save.href;save.download=state.save.name;save.setAttribute('aria-label','Save '+(selected?.label||'track')+' WAV');}else save.removeAttribute('href');
    if(state.chords!==lastChords||state.duration!==lastChordDuration){lastChords=state.chords;lastChordDuration=state.duration;$('chord-lane').replaceChildren();for(const chord of state.chords||[]){const node=document.createElement('button');node.textContent=chord.chord;
