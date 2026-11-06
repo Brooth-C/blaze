@@ -73,7 +73,7 @@ const start=()=>new Promise((resolve,reject)=>{let s='';const timeout=setTimeout
     selectedKeepsColor:Math.max(...regionColor)-Math.min(...regionColor)>15,
     stereo:[...document.querySelectorAll('#logic-preview .clip canvas')].every(c=>c.dataset.channels==='2')};
   });
-  assert.equal(geometry.chrome,colorScheme==='light'?'rgb(166, 166, 166)':'rgb(59, 59, 59)','Native navigation removed the Studio chrome fill');
+  assert.equal(geometry.chrome,colorScheme==='light'?'rgb(218, 218, 218)':'rgb(31, 31, 31)','Native navigation removed the Studio chrome fill');
   assert(geometry.controlOverlap<=1&&geometry.editorOverlap<=1,'A header overlaps the next toolbar');
   const topbar=await page.evaluate(()=>{
    const bar=document.querySelector('#logic-preview .control-bar').getBoundingClientRect();

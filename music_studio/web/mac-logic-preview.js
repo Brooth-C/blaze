@@ -29,21 +29,23 @@
   return '<svg viewBox="0 0 24 24" aria-hidden="true"'+(control?' class="control-symbol symbol-'+name.slice(8)+'"':'')+'>'+(control||'<path d="'+(paths[name]||paths.wave)+'"/>')+'</svg>';
  };
  const button=(icon,label,cls='')=>{const b=document.createElement('button');b.type='button';b.title=label;b.setAttribute('aria-label',label);b.className=cls;b.innerHTML=svg(icon);return b;};
- function group(id,items){for(const [icon,label,cls]of items)$(id).append(button(icon,label,cls||''));}
+ function group(id,items){for(const [icon,label,cls,control]of items){const node=button(icon,label,cls||'');if(control)node.dataset.control=control;$(id).append(node);}}
  group('navigation-tools',[['control-library','Library'],['control-inspector','Inspector'],['control-help','Quick help'],['control-download','Sound library']]);
- group('workspace-tools',[['control-dial','Smart controls'],['control-mixer','Mixer'],['control-pencil','Editors']]);
- $('workspace-tools').lastChild.setAttribute('aria-pressed','true');
- group('transport',[['stop','Stop'],['play','Play','play'],['record','Record appearance','record'],['control-punch','Punch recording appearance','record-outline'],['control-capture','Capture appearance','capture'],['control-cycle','Cycle']]);
+ // Logic Pro 13 toolbar ordering; the symbols remain independently authored.
+ group('workspace-tools',[['control-pencil','Editors','','editors'],['control-dial','Smart Controls','','smart-controls'],['control-mixer','Mixer','','mixer']]);
+ const editors=$('workspace-tools').querySelector('[data-control="editors"]');editors.setAttribute('aria-pressed','true');
+ group('transport',[['rewind','Back 10 seconds','rewind','rewind'],['forward','Forward 10 seconds','forward','forward'],['stop','Stop','','stop'],['play','Play','play','play'],['record','Record','record','record'],['control-cycle','Cycle','','cycle']]);
  group('monitoring-tools',[['control-tuner','Tuner']]);
  const solo=document.createElement('button');solo.type='button';solo.innerHTML='<span class="solo-symbol" aria-hidden="true">S</span>';solo.title='Solo appearance';solo.setAttribute('aria-label',solo.title);$('monitoring-tools').append(solo);
  const count=document.createElement('button');count.type='button';count.className='count-in';count.textContent='1234';count.title='Count-in appearance';count.setAttribute('aria-label',count.title);$('tempo-tools').append(count);
  group('tempo-tools',[['control-metronome','Metronome appearance','purple']]);
- group('browser-tools',[['control-list','List editors'],['control-notes','Notes'],['control-loops','Loops'],['control-media','Browsers']]);
+ group('browser-tools',[['control-list','List Editors','','list-editors'],['control-notes','Notes','','notes'],['control-media','Project Files','','project-files']]);
  group('view-tools',[['grid','Live Loops appearance'],['tracks','Tracks appearance'],['automation','Automation appearance'],['wave','Flex appearance'],['flex','Track alternatives appearance']]);$('view-tools').children[1].setAttribute('aria-pressed','true');
  group('display-tools',[['wave','Waveform display appearance'],['flex','Vertical auto zoom appearance'],['grid','Horizontal auto zoom appearance']]);
  group('pointer-tools',[['pointer','Pointer tool'],['marquee','Secondary tool']]);group('editor-tools',[['automation','Editor automation appearance'],['wave','Flex editor appearance'],['flex','Editor view appearance']]);group('editor-heading-tools',[['pointer','Editor pointer tool'],['pencil','Editor pencil tool']]);
  // The production host supplies real session data before sample data exists.
  if(window.BlazeLogicHost){window.BlazeLogicLiveMount({root,svg,button});return;}
+ const projectFiles=$('browser-tools').querySelector('[data-control="project-files"]');projectFiles.disabled=true;projectFiles.title='Project Files appearance';projectFiles.setAttribute('aria-label',projectFiles.title);
  const tracks=[
  {name:'Lead Vocal',icon:'vocal',color:'#2daec0',region:'#218b9c',seed:1,clips:[[0,8],[8,8],[16,8],[24,8]]},
  {name:'Drum Kit',icon:'drums',color:'#4b9dd8',region:'#287ea9',seed:2,clips:[[0,8],[8,8],[16,8],[24,8]]},
@@ -59,7 +61,7 @@
  function ruler(id,start,count,step=1){const r=$(id);for(let n=0;n<count;n+=step){const s=document.createElement('span');s.style.left=(n/count*100)+'%';s.textContent=String(start+n);r.append(s);}}
  ruler('project-ruler',1,32,2);ruler('editor-ruler',5,16,2);
  for(const name of ['C','Am7(11)','Fsus2','Gadd11','C','Am7(11)','Fsus2','Gadd11']){const s=document.createElement('span');s.textContent=name;$('chord-lane').append(s);}
- function select(index){selected=index;for(const [n,h]of [...$('track-headers').children].entries()){h.classList.toggle('selected',n===index);h.setAttribute('aria-selected',String(n===index));}for(const clip of $('regions').querySelectorAll('.clip'))clip.classList.toggle('selected',Number(clip.dataset.track)===index);$('editor-track').textContent=tracks[index].name;$('editor-caption').textContent=tracks[index].name;drawAll();}
+ function select(index){selected=index;root.style.setProperty('--selected-region-color',tracks[index].region);for(const [n,h]of [...$('track-headers').children].entries()){h.classList.toggle('selected',n===index);h.setAttribute('aria-selected',String(n===index));}for(const clip of $('regions').querySelectorAll('.clip'))clip.classList.toggle('selected',Number(clip.dataset.track)===index);$('editor-track').textContent=tracks[index].name;$('editor-caption').textContent=tracks[index].name;drawAll();}
  tracks.forEach((track,index)=>{
   const header=document.createElement('div');header.className='track-header';header.tabIndex=0;header.setAttribute('role','option');header.setAttribute('aria-label',track.name);header.style.setProperty('--track-color',track.color);
   header.innerHTML='<span class="track-number">'+(index+1)+'</span><span class="instrument">'+svg(track.icon)+'</span><div class="track-info"><span class="track-name">'+track.name+'</span><div class="track-controls"><button aria-label="Mute '+track.name+'" aria-pressed="false">M</button><button aria-label="Solo '+track.name+'" aria-pressed="false">S</button><button class="arm" aria-label="Record-enable appearance for '+track.name+'">R</button><button class="monitor" aria-label="Input-monitoring appearance for '+track.name+'">I</button><span class="track-level" style="--level:'+(index%3?42:63)+'%"><i></i></span><span class="pan"></span></div></div>';
@@ -79,17 +81,18 @@
  function drawAll(){for(const c of $('regions').querySelectorAll('canvas'))draw(c,Number(c.dataset.seed));draw($('editor-wave'),tracks[selected].seed,true);}
  function paint(){ $('project-playhead').style.left=(playhead*100)+'%';$('editor-playhead').style.left=(playhead*100)+'%';const bar=Math.floor(playhead*32)+1;$('position-bar').textContent=String(bar);$('position-padding').textContent=bar<10?'00':'0';const time=playhead*64;$('visual-time').textContent=String(Math.floor(time/60)).padStart(2,'0')+':'+String(Math.floor(time%60)).padStart(2,'0')+'.'+String(Math.floor(time%1*1000)).padStart(3,'0'); }
  function tick(now){if(!playing)return;if(last)playhead=(playhead+(now-last)/64000)%1;last=now;paint();frame=requestAnimationFrame(tick);}
- const play=$('transport').querySelector('.play');play.onclick=()=>{playing=!playing;play.innerHTML=svg(playing?'pause':'play');play.setAttribute('aria-label',playing?'Pause':'Play');last=0;cancelAnimationFrame(frame);if(playing)frame=requestAnimationFrame(tick);};
- $('transport').children[0].onclick=()=>{playing=false;cancelAnimationFrame(frame);playhead=0;play.innerHTML=svg('play');paint();};
- for(const i of [2,3,4])$('transport').children[i].disabled=true;
- for(const b of [$('transport').lastChild,...$('timing-tools').querySelectorAll('button')])b.onclick=()=>b.setAttribute('aria-pressed',String(b.getAttribute('aria-pressed')!=='true'));
- $('show-editor').onclick=()=>{const hide=root.classList.toggle('editor-hidden');for(const node of [$('show-editor'),$('workspace-tools').lastChild])node.setAttribute('aria-pressed',String(!hide));requestAnimationFrame(drawAll);};
- $('workspace-tools').lastChild.onclick=()=>$('show-editor').click();
+ const transport=Object.fromEntries([...$('transport').querySelectorAll('[data-control]')].map(node=>[node.dataset.control,node])),play=transport.play;
+ play.onclick=()=>{playing=!playing;play.innerHTML=svg(playing?'pause':'play');play.setAttribute('aria-label',playing?'Pause':'Play');last=0;cancelAnimationFrame(frame);if(playing)frame=requestAnimationFrame(tick);};
+ transport.stop.onclick=()=>{playing=false;cancelAnimationFrame(frame);playhead=0;play.innerHTML=svg('play');play.setAttribute('aria-label','Play');paint();};
+ for(const name of ['rewind','forward','record'])transport[name].disabled=true;
+ for(const b of [transport.cycle,...$('timing-tools').querySelectorAll('button')])b.onclick=()=>b.setAttribute('aria-pressed',String(b.getAttribute('aria-pressed')!=='true'));
+ $('show-editor').onclick=()=>{const hide=root.classList.toggle('editor-hidden');for(const node of [$('show-editor'),editors])node.setAttribute('aria-pressed',String(!hide));requestAnimationFrame(drawAll);};
+ editors.onclick=()=>$('show-editor').click();
  $('project-ruler').onclick=e=>{const r=e.currentTarget.getBoundingClientRect();playhead=Math.max(0,Math.min(1,(e.clientX-r.left)/r.width));paint();};
  document.querySelector('[aria-label="Track visual height"]').oninput=e=>{root.style.setProperty('--row-height',e.target.value+'px');drawAll();};
  const menus={edit:['Undo','Redo','Cut','Copy','Paste','Delete'],functions:['Region settings','Track settings','Project settings'],view:['Show Library','Show Inspector','Show Editors','Show Mixer']};
  for(const b of document.querySelectorAll('[data-menu]'))b.onclick=()=>{const menu=$('appearance-menu'),r=b.getBoundingClientRect();menu.replaceChildren();for(const label of menus[b.dataset.menu.replace('editor-','')]){const item=document.createElement('button');item.textContent=label;item.onclick=()=>{menu.hidden=true;};menu.append(item);}menu.style.left=r.left+'px';menu.style.top=r.bottom+4+'px';menu.hidden=false;};
  document.addEventListener('keydown',e=>{if(e.key==='Escape')$('appearance-menu').hidden=true;});document.addEventListener('pointerdown',e=>{if(!e.target.closest('[data-menu],#appearance-menu'))$('appearance-menu').hidden=true;});
  const observer=new ResizeObserver(drawAll);observer.observe(root);window.addEventListener('pagehide',()=>{observer.disconnect();cancelAnimationFrame(frame);},{once:true});select(3);paint();
- window.BlazeLogicVisual={scope:'visual-only',versionReference:'Logic Pro 12.4 current App Store screenshots',redraw:drawAll};
+ window.BlazeLogicVisual={scope:'visual-only',versionReference:'Logic Pro 13 current main window reference',redraw:drawAll};
 })();

@@ -293,14 +293,17 @@ jobs:
         with:
           path: build/mac-assets
           key: ${{ steps.tools-cache.outputs.cache-primary-key }}
+      - name: Verify actual rhythm checkpoint through Core ML with exact frame shapes
+        env:
+          BLAZE_RHYTHM_MODEL_DIR: music_studio/models
+          BLAZE_STEM_BACKEND: coreml
+          BLAZE_STEM_PROFILE_DIR: build/rhythm-coreml/profiles
+        run: python tests/Blaze-Mac-Rhythm-Tests.py
       - name: Verify real bundled stem inference with the packaged decoder
         env:
           BLAZE_STEM_MODEL_DIR: music_studio/stem_models
         run: |
           export PATH="$PWD/tools/macos_decoder/output/bin:$PATH"
-          # Exercise the real rank-sensitive Beat This graph through Core ML,
-          # including partial and full contexts. CPU-only UI smoke misses this.
-          BLAZE_RHYTHM_MODEL_DIR=music_studio/models BLAZE_STEM_BACKEND=coreml BLAZE_STEM_PROFILE_DIR=build/rhythm-coreml/profiles python tests/Blaze-Mac-Rhythm-Tests.py
           # Exercise actual Core ML sessions on small reference cases. The
           # hosted Mac runner does not represent M3 GPU placement or speed, so
           # keep the longer all-model regression battery off its CPU fallback.
