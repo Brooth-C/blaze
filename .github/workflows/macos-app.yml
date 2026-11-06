@@ -296,11 +296,16 @@ jobs:
           BLAZE_STEM_MODEL_DIR: music_studio/stem_models
         run: |
           export PATH="$PWD/tools/macos_decoder/output/bin:$PATH"
-          python tests/Blaze-Mac-Stem-Tests.py
-          python tests/Blaze-Mac-Piano-Tests.py
-          BLAZE_REAL_ROFORMER=1 python tests/Blaze-Mac-Roformer-Tests.py
-          BLAZE_REAL_INSTRUMENTS=1 python tests/Blaze-Mac-Instruments-Tests.py
-          BLAZE_REAL_NATIVE_PIANO=1 python tests/Blaze-Mac-Native-Piano-Tests.py
+          # Exercise actual Core ML sessions on small reference cases. The
+          # hosted Mac runner does not represent M3 GPU placement or speed, so
+          # keep the longer all-model regression battery off its CPU fallback.
+          BLAZE_STEM_BACKEND=coreml python tests/Blaze-Mac-Stem-Tests.py RealStemModel.test_numpy_pipeline_matches_original_author_waveform_reference
+          BLAZE_STEM_BACKEND=coreml python tests/Blaze-Mac-Piano-Tests.py PianoTests.test_original_checkpoint_reference
+          BLAZE_STEM_BACKEND=cpu python tests/Blaze-Mac-Stem-Tests.py
+          BLAZE_STEM_BACKEND=cpu python tests/Blaze-Mac-Piano-Tests.py
+          BLAZE_STEM_BACKEND=cpu BLAZE_REAL_ROFORMER=1 python tests/Blaze-Mac-Roformer-Tests.py
+          BLAZE_STEM_BACKEND=cpu BLAZE_REAL_INSTRUMENTS=1 python tests/Blaze-Mac-Instruments-Tests.py
+          BLAZE_STEM_BACKEND=cpu BLAZE_REAL_NATIVE_PIANO=1 python tests/Blaze-Mac-Native-Piano-Tests.py
       - name: Build minimal separate downloader
         run: python tools/build_macos_downloader.py --arch ${{ matrix.arch }} --output build/mac-assets/bin --work build/mac-downloader --notices build/mac-assets/notices
       - name: Build Blaze.app
