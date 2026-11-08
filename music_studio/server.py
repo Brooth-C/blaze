@@ -22,6 +22,14 @@ def media_kind(source):
     return 'video' if source and Path(source).suffix.lower() in ('.mp4', '.mkv', '.webm', '.mov', '.avi', '.m4v') else 'audio'
 
 
+def media_type(source):
+    """Keep common recording types consistent across system MIME databases."""
+    return {'.m4a': 'audio/mp4', '.mp4': 'video/mp4', '.m4v': 'video/mp4',
+            '.wav': 'audio/wav', '.mp3': 'audio/mpeg', '.flac': 'audio/flac',
+            '.aac': 'audio/aac', '.ogg': 'audio/ogg', '.opus': 'audio/ogg',
+            '.webm': 'video/webm', '.mov': 'video/quicktime'}.get(Path(source).suffix.lower()) or mimetypes.guess_type(str(source))[0] or 'application/octet-stream'
+
+
 class LoopbackHTTPServer(ThreadingHTTPServer):
     """Keep numeric loopback serving independent of local DNS discovery."""
     def server_bind(self):
@@ -425,7 +433,7 @@ def create_server(studio, port=0):
                             size = stream.tell()
                             stream.seek(0)
                             self.send_response(200)
-                            self.send_header('Content-Type', (mimetypes.guess_type(filename)[0] or 'application/octet-stream') if stem == 'source' else 'audio/wav')
+                            self.send_header('Content-Type', media_type(source) if stem == 'source' else 'audio/wav')
                             self.send_header('Content-Length', str(size))
                             self.send_header('Content-Disposition', "attachment; filename*=UTF-8''" + quote(filename, safe=''))
                             self.send_header('Cache-Control', 'no-store')
