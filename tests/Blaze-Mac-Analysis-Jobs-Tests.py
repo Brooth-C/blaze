@@ -30,7 +30,7 @@ class AnalysisJobsTests(unittest.TestCase):
     def setUp(self):
         self.temporary = tempfile.TemporaryDirectory()
         self.addCleanup(self.temporary.cleanup)
-        self.root = Path(self.temporary.name)
+        self.root = Path(self.temporary.name).resolve()
         self.source = self.root / 'Original song.wav'
         self.source.write_bytes(b'original bytes')
         self.other = self.root / 'Other song.wav'
