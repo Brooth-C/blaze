@@ -96,6 +96,17 @@ class AnalysisJobsTests(unittest.TestCase):
         self.studio.open_local_file(self.source)
         self.assertEqual(self.studio.state['result']['source_sha256'], hashlib.sha256(b'original bytes').hexdigest())
 
+    def test_replacing_file_after_completed_analysis_does_not_relabel_old_chords(self):
+        with patch('music_studio.server.ModelBundle', return_value=BUNDLE), \
+                patch('music_studio.server.Analyzer', self.controlled()):
+            self.start()
+            self.finish()
+        self.assertIsNotNone(self.studio.state['result'])
+        self.source.write_bytes(b'revised mix written by another application')
+        self.studio.open_local_file(self.other)
+        self.studio.open_local_file(self.source)
+        self.assertIsNone(self.studio.state['result'], 'Old chords were restored for revised audio')
+
     def test_imported_input_can_be_unlinked_during_analysis_without_losing_bytes(self):
         imported = self.studio.incoming / 'upload.wav'
         imported.write_bytes(b'imported original')

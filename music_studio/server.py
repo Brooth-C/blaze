@@ -56,6 +56,7 @@ class Studio:
         self.worker = None
         self.analysis_cancel = threading.Event()
         self.analysis_results = OrderedDict()
+        self.result_identity = None
         self.analysis_aliases = {}
         self.closed = False
         self.downloader = None
@@ -109,9 +110,8 @@ class Studio:
         with self.lock:
             if self.state['busy'] and self.presentation != 'mac':
                 raise ValueError('Finish or cancel chord analysis first.')
-            if self.source and self.state['result'] is not None:
-                with suppress(OSError):
-                    self.remember_analysis(self.source_identity(self.source), self.state['result'])
+            if self.result_identity is not None and self.state['result'] is not None:
+                self.remember_analysis(self.result_identity, self.state['result'])
             source = Path(source).resolve()
             identity = self.source_identity(source)
             if self.imported and self.source and self.source != source:
@@ -119,6 +119,7 @@ class Studio:
             self.source, self.name, self.imported = source, name, imported
             self.source_revision += 1
             value = self.analysis_results.get(identity)
+            self.result_identity = identity if value is not None else None
             self.state.update(name=name, result=value, error=None, discoveryItem=discovery_item,
                               sourceRevision=self.source_revision, mediaKind=media_kind(source))
             if not self.state['busy']:
@@ -239,6 +240,7 @@ class Studio:
                             self.remember_analysis(source_key, result)
                             self.state['progress'] = 'Analysis ready: ' + name
                             if current_key == source_key:
+                                self.result_identity = source_key
                                 self.state.update(result=result, error=None)
             self.worker = threading.Thread(target=run, name='BlazeMusicStudio', daemon=True)
             try:
