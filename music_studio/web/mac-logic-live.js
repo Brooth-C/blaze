@@ -26,13 +26,15 @@
   const unitGain=u=>u<=0?0:Math.pow(10,(u<=.75?-60+u*80:(u-.75)*24)/20);
   const gainUnit=g=>g<=0?0:clamp(20*Math.log10(g)<=0?(20*Math.log10(g)+60)/80:.75+20*Math.log10(g)/24);
   function precisionInput(input,element,{rotary=false,reset=0,onChange}){
-   let dragging=false,lastX=0,lastY=0,pointerId=null;
+   let dragging=false,lastX=0,lastY=0,pointerId=null,adjusting=false;
+   const begin=()=>{if(!adjusting){adjusting=true;cmd.beginAdjustment();}};
+   const end=()=>{if(adjusting){adjusting=false;cmd.endAdjustment();}};
    const emit=value=>{input.value=String(clamp(value,Number(input.min),Number(input.max)));input.dispatchEvent(new Event('input',{bubbles:true}));};
    input.oninput=()=>{paint();onChange(Number(input.value));};
    input.onclick=e=>{e.stopPropagation();e.preventDefault();};
    input.onpointerdown=e=>{
     if(e.button!==0||input.disabled)return;e.preventDefault();e.stopPropagation();input.focus({preventScroll:true});
-    if(e.altKey){emit(reset);return;}
+    begin();if(e.altKey){emit(reset);end();return;}
     dragging=true;pointerId=e.pointerId;lastX=e.clientX;lastY=e.clientY;input.setPointerCapture(e.pointerId);element.dataset.dragging='true';
     if(!rotary&&!e.shiftKey){const r=element.getBoundingClientRect(),handle=r.left+6.5+Number(input.value)*(r.width-13);
      if(Math.abs(e.clientX-handle)>8)emit((e.clientX-r.left-6.5)/Math.max(1,r.width-13));}
@@ -40,7 +42,7 @@
    input.onpointermove=e=>{if(!dragging||!input.hasPointerCapture(e.pointerId))return;
     const fine=e.shiftKey ? .1 : 1,dx=e.clientX-lastX,dy=e.clientY-lastY;lastX=e.clientX;lastY=e.clientY;
     emit(Number(input.value)+(rotary?(dx-dy)/150:dx/Math.max(1,element.clientWidth-13))*fine);};
-   const finish=()=>{dragging=false;delete element.dataset.dragging;const id=pointerId;pointerId=null;if(id!==null&&input.hasPointerCapture(id))input.releasePointerCapture(id);};
+   const finish=()=>{dragging=false;delete element.dataset.dragging;const id=pointerId;pointerId=null;if(id!==null&&input.hasPointerCapture(id))input.releasePointerCapture(id);end();};
    input.onpointerup=input.onpointercancel=input.onlostpointercapture=finish;
    input.ondblclick=e=>{e.preventDefault();e.stopPropagation();emit(reset);};
    input.onkeydown=e=>{
@@ -50,8 +52,10 @@
     else if(e.key==='PageUp')value+=.1;else if(e.key==='PageDown')value-=.1;
     else if(e.key==='Home')value=Number(input.min);else if(e.key==='End')value=Number(input.max);
     else if(e.key==='Escape'){if(dragging){e.preventDefault();e.stopPropagation();finish();}return;}
-    else return;e.preventDefault();e.stopPropagation();emit(value);
+    else return;e.preventDefault();e.stopPropagation();begin();emit(value);
    };
+   input.onkeyup=e=>{if(['ArrowUp','ArrowRight','ArrowDown','ArrowLeft','PageUp','PageDown','Home','End'].includes(e.key))end();};
+   input.onblur=finish;
    function paint(){const value=Number(input.value);if(rotary){element.style.setProperty('--pan-angle',(value*135)+'deg');element.style.setProperty('--pan-start',(Math.min(0,value)*135)+'deg');element.style.setProperty('--pan-sweep',(Math.abs(value)*135)+'deg');element.dataset.center=String(Math.abs(value)<.0005);}
     else element.style.setProperty('--fader-unit',String(value));
    }
@@ -138,21 +142,36 @@
    functions:[['Import recording',cmd.import],['Split stems',cmd.stems],['Analyse chords',cmd.analyze],['Chord practice',cmd.practice]],
    view:[['Library',()=>showPanel('library')],['Inspector',()=>showPanel('inspector')],['Audio Editor',toggleEditor],['Back to Explore',cmd.browse]]};
   for(const b of root.querySelectorAll('[data-menu]'))b.onclick=()=>{menu.replaceChildren();for(const [label,action]of menus[b.dataset.menu.replace('editor-','')]){
-   const item=document.createElement('button');item.textContent=label;bind(item,()=>{menu.hidden=true;return action();});menu.append(item);}
+   const item=document.createElement('button');item.textContent=label;if(action===cmd.undo)item.disabled=!state.canUndo;if(action===cmd.redo)item.disabled=!state.canRedo;
+   bind(item,()=>{menu.hidden=true;return action();});menu.append(item);}
    const rect=b.getBoundingClientRect();menu.style.left=rect.left+'px';menu.style.top=(rect.bottom+4)+'px';menu.hidden=false;};
   const dismiss=e=>{if(e.type==='keydown'?e.key==='Escape':!e.target.closest?.('[data-menu],#appearance-menu'))menu.hidden=true;};
   document.addEventListener('keydown',dismiss);document.addEventListener('pointerdown',dismiss);
+  const historyShortcut=e=>{
+   if(!state.active||e.defaultPrevented||e.isComposing||!e.metaKey||e.altKey||e.key.toLowerCase()!=='z')return;
+   if(e.target.closest?.('textarea,select,input:not([type=range]),[contenteditable=true]'))return;
+   const modal=document.querySelector('dialog:modal');if(modal&&modal.id!=='logic-session-tools')return;
+   e.preventDefault();cmd.endAdjustment();(e.shiftKey?cmd.redo:cmd.undo)();update();
+  };
+  document.addEventListener('keydown',historyShortcut);
   const tools=document.createElement('dialog');tools.id='logic-session-tools';tools.setAttribute('aria-labelledby','logic-tools-heading');
   tools.innerHTML='<header><strong id="logic-tools-heading"></strong><button aria-label="Close session panel">×</button></header><div class="logic-tools-body"></div>';
   const close=tools.querySelector('button');close.onclick=()=>tools.close();document.body.append(tools);
   let toolsMode='',toolsIdentity='',panelControls=[];
   function showPanel(mode){toolsMode=mode;toolsIdentity='';renderPanel();if(!tools.open)tools.showModal();}
   function renderPanel(){
-   if(!toolsMode)return;const key=JSON.stringify([toolsMode,state.selected,state.tracks.map(t=>[t.id,t.label])]);if(key===toolsIdentity)return;toolsIdentity=key;
+   if(!toolsMode)return;const sessions=window.BlazeMacStems?.snapshot().sessions||[];
+   const key=JSON.stringify([toolsMode,state.selected,state.tracks.map(t=>[t.id,t.jobId,t.label]),sessions.map(s=>s.jobId)]);if(key===toolsIdentity)return;toolsIdentity=key;
    text(tools.querySelector('strong'),toolsMode==='library'?'Session tracks':'Track inspector');const body=tools.querySelector('.logic-tools-body');body.replaceChildren();panelControls=[];
    if(toolsMode==='library'){
     if(!state.tracks.length){const p=document.createElement('p');p.textContent='No recording open.';body.append(p);}
-    for(const track of state.tracks){const b=document.createElement('button');b.textContent=track.label;b.setAttribute('aria-pressed',String(track.id===state.selected));bind(b,()=>cmd.select(track.id));body.append(b);}return;
+    for(const track of state.tracks){const b=document.createElement('button');b.textContent=track.label;b.setAttribute('aria-pressed',String(track.id===state.selected));bind(b,()=>{tools.close();return cmd.select(track.id);});body.append(b);}
+    const current=state.tracks.find(t=>t.id===state.selected)?.jobId;
+    const previous=sessions.filter(s=>s.jobId!==current);
+    if(previous.length){const heading=document.createElement('strong');heading.textContent='Previous separations';body.append(heading);
+     for(const session of previous){const b=document.createElement('button');b.textContent=session.sourceName+' · '+session.stems.length+' stems';b.dataset.sessionId=session.jobId;
+      b.setAttribute('aria-label','Open previous separation: '+session.sourceName+' · '+session.stems.length+' stems');bind(b,()=>{tools.close();return cmd.openSession(session.jobId);});body.append(b);}}
+    return;
    }
    const name=document.createElement('p');name.textContent=state.tracks.find(t=>t.id===state.selected)?.label||'Recording';body.append(name);
    const chosen=()=>state.tracks.find(t=>t.id===state.selected);
@@ -260,15 +279,19 @@
    renderRows();const selected=state.tracks.find(t=>t.id===state.selected);text($('editor-track'),selected?.label||'Recording');text($('editor-caption'),selected?.label||'Recording');
    if(selected)root.style.setProperty('--selected-region-color','var(--region-'+selected.id+', '+selected.region+')');else root.style.removeProperty('--selected-region-color');
    text(root.querySelector('.tempo b'),Number(state.tempo).toFixed(state.tempo%1?1:0));text(root.querySelector('.signature b'),state.numerator+'/'+state.denominator);text(root.querySelector('.signature span'),state.key.replace(' major','maj').replace(' minor','min'));
-   text(root.querySelector('footer').firstElementChild,state.format);text(status,actionError||state.message);status.dataset.state=actionError?'error':state.messageState;
+   text(root.querySelector('footer').firstElementChild,state.format);
+   const task=state.analysisTask,prefix={done:'Chords ready: ',failed:'Chord analysis failed: ',cancelled:'Chord analysis cancelled: '}[task?.status];
+   const notice=!state.analysisBusy&&!state.chords&&prefix?prefix+(task.sourceName||''):'';
+   const statusText=actionError||(state.messageState==='error'?state.message:notice||state.message);text(status,statusText);status.title=statusText;
+   status.dataset.state=actionError||(notice&&task.status==='failed')?'error':state.messageState;
    text(editorEmpty,!state.peaks?(state.loading||state.pending?'Reading waveform…':state.tracks.length?'Waveform unavailable. Playback remains available.':'Import a recording to begin.'):'');
    const stemsState=window.BlazeMacStems?.snapshot();text(stems,stemsState?.status==='running'?'Split '+Math.round((stemsState.progress||0)*100)+'%':stemsState?.status==='failed'?'Retry split':'Split');stems.disabled=stemsState?.available!==true;
    analyze.disabled=!state.enabled&&!state.analysisBusy;text(analyze,state.analysisBusy?'Cancel':'Chords');analyze.setAttribute('aria-label',state.analysisBusy?'Cancel chord analysis':'Analyse chords');
    for(const name of ['rewind','forward','stop','play','cycle'])transport[name].disabled=!state.enabled;
    const playState=state.paused?'play':'pause';if(transport.play.dataset.state!==playState){transport.play.innerHTML=svg(playState);transport.play.dataset.state=playState;transport.play.setAttribute('aria-label',state.paused?'Play':'Pause');}
    transport.cycle.setAttribute('aria-pressed',String(state.loop));timing.at(-1).setAttribute('aria-pressed',String(state.metronome));master.set(state.volume);
-   if(tools.open)for(const sync of panelControls)sync();
-   save.hidden=!state.save;if(state.save){save.href=state.save.href;save.download=state.save.name;save.setAttribute('aria-label','Save '+(selected?.label||'track')+' WAV');}else save.removeAttribute('href');
+   if(tools.open){renderPanel();for(const sync of panelControls)sync();}
+   save.hidden=!state.save;if(state.save){save.href=state.save.href;save.download=state.save.name;text(save,state.save.label||'Save WAV');save.title='Save the complete original file without playback effects';save.setAttribute('aria-label',state.save.label==='Save original'?'Save original recording':'Save '+(selected?.label||'track')+' WAV');}else save.removeAttribute('href');
    if(state.chords!==lastChords||state.duration!==lastChordDuration){lastChords=state.chords;lastChordDuration=state.duration;$('chord-lane').replaceChildren();for(const chord of state.chords||[]){const node=document.createElement('button');node.textContent=chord.chord;
     node.style.left=(chord.start/(state.duration||1)*100)+'%';node.style.width=((chord.end-chord.start)/(state.duration||1)*100)+'%';node.title=chord.chord+' · '+stamp(chord.start);bind(node,()=>cmd.seek(chord.start));$('chord-lane').append(node);}}
    const rulerKey=[state.duration,state.tempo,state.numerator,state.denominator].join(':');if(rulerKey!==lastRuler){lastRuler=rulerKey;redraw();}
@@ -280,7 +303,7 @@
   const activeObserver=new MutationObserver(update);activeObserver.observe(panel,{attributes:true,attributeFilter:['hidden']});
   timer=setInterval(update,200);update();
   window.addEventListener('pagehide',()=>{disposed=true;clearInterval(timer);cancelAnimationFrame(frame);observer.disconnect();activeObserver.disconnect();tools.remove();
-   for(const event of events)player.removeEventListener(event,update);document.removeEventListener('keydown',dismiss);document.removeEventListener('pointerdown',dismiss);},{once:true});
+   for(const event of events)player.removeEventListener(event,update);document.removeEventListener('keydown',dismiss);document.removeEventListener('pointerdown',dismiss);document.removeEventListener('keydown',historyShortcut);},{once:true});
   window.BlazeLogicVisual={scope:'live-session',snapshot:()=>({tracks:state.tracks.map(t=>t.id),selected:state.selected,position:state.position,duration:state.duration,zoom}),redraw};
  };
 })();

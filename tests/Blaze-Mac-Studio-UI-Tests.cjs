@@ -118,7 +118,8 @@ async function fit(page,ids){
         await page.waitForFunction(()=>['vocals','drums','bass','piano','guitar','strings','brass','synths','other'].every(id=>window.BlazeMacStudio.snapshot().tracks.some(track=>track.id===id)));
         await page.waitForFunction(()=>window.BlazeMacStudio.snapshot().waveformReady);
         assert.equal(await page.evaluate(()=>window.BlazeMacStudio.snapshot().selectedTrack),'source','A filename collision relabeled the original mix as a saved stem');
-        assert.equal(await page.locator('#daw-save').isVisible(),false,'The original mix advertised a different saved stem');
+        assert.equal(await page.locator('#daw-save').isVisible(),true,'The original recording could not be saved');
+        assert.equal(new URL(await page.locator('#daw-save').getAttribute('href'),base).searchParams.get('stem'),'source');
         await page.waitForFunction(()=>document.getElementById('media').readyState>=1);
         const mixRevision=await page.evaluate(()=>sourceRevision);
         const mixResponse=await page.request.get(await page.locator('#media').evaluate(element=>element.currentSrc));
@@ -233,16 +234,16 @@ async function fit(page,ids){
         if(!(await page.evaluate(()=>window.BlazeMacStudio.snapshot().libraryOpen)))await page.locator('#daw-library-toggle').click();
         await page.locator('#daw-families [data-family="piano"]').click();
         assert.equal(await page.locator('#daw-families [data-family="piano"]').getAttribute('aria-pressed'),'true');
-        assert.equal(await page.locator('#daw-track-list .daw-track').count(),9,'The sound library must not hide arrangement tracks');
+        assert.equal(await page.locator('#daw-track-list .daw-track').count(),10,'The sound library must not hide arrangement tracks');
         assert.equal(await page.locator('#daw-recordings button:visible').count(),1);
         assert.equal(await page.locator('#daw-recordings button:visible').textContent(),'Piano');
         await page.locator('#daw-search').fill('guitar');
         await page.locator('#daw-families [data-family="all"]').click();
         assert.equal(await page.locator('#daw-recordings button:visible').textContent(),'Guitar');
         await page.locator('#daw-search').fill('');
-        assert.equal(await page.locator('#daw-recordings button:visible').count(),9);
+        assert.equal(await page.locator('#daw-recordings button:visible').count(),10);
         await shot(page,'library');
-        assert.equal(await page.locator('#daw-track-list .daw-track').count(),9);
+        assert.equal(await page.locator('#daw-track-list .daw-track').count(),10);
         const download=page.waitForEvent('download');
         await page.locator('#daw-analysis-toggle').click();
         await page.locator('#daw-save').click();
@@ -381,7 +382,7 @@ async function fit(page,ids){
             if(!(await page.evaluate(()=>window.BlazeMacStudio.snapshot().inspectorOpen)))await page.locator('#daw-inspector-toggle').click();
             await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(resolve)));
             assert.equal(await page.locator('.daw-instrument-art strong').textContent(),'Recording');
-            assert.equal(await page.locator('#daw-editor-title').getAttribute('title'),longName.replace(/\.wav$/,''));
+            assert.equal(await page.locator('#daw-editor-title').getAttribute('title'),'Original · '+longName.replace(/\.wav$/,''));
             assert(await page.evaluate(()=>{
                 const art=document.querySelector('.daw-instrument-art strong'),toolbar=document.querySelector('.daw-editor-toolbar');
                 return art.scrollHeight<=art.clientHeight+1&&toolbar.scrollWidth<=toolbar.clientWidth+1;

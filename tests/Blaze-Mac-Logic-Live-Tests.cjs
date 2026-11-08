@@ -24,7 +24,7 @@ fixture=fixture.replace('    server=create_server(studio)',String.raw`
             if self.cancelled.is_set():raise server_module.AnalysisCancelled()
         def analyze(self,source,progress):
             progress('Controlled chord worker')
-            for _ in range(15):
+            for _ in range(40):
                 self.check();time.sleep(.1)
             return {'schema_version':1,'duration':64,'source_sha256':hashlib.sha256(source.read_bytes()).hexdigest(),
                     'key':'C major','tempo_bpm':120,'analysis_seconds':1.5,
@@ -49,7 +49,7 @@ const start=()=>new Promise((resolve,reject)=>{let s='';const timeout=setTimeout
  await page.waitForFunction(()=>document.querySelectorAll('#logic-preview .track-header').length===10);
  assert(await page.locator('#mac-studio-workspace').isHidden());
  assert.equal(await page.locator('audio,video').count(),1,'Second media player introduced');
- assert.equal(await page.locator('#logic-preview .track-name').first().innerText(),'Piano','Original name colliding with stem was changed');
+ assert.equal(await page.locator('#logic-preview .track-name').first().innerText(),'Original · Piano','Original name colliding with stem was changed');
  assert(await page.locator('#logic-preview .track-header').last().innerText().then(s=>s.includes('Other')));
  // Apply the real native bridge's capability flags, without claiming AppKit
  // rendering. Native navigation must not hide the nested Studio headers.
@@ -113,14 +113,25 @@ const start=()=>new Promise((resolve,reject)=>{let s='';const timeout=setTimeout
  await page.getByRole('button',{name:'Project tempo, time signature and key',exact:true}).focus();await page.keyboard.press('Enter');
  assert(await page.locator('#daw-project-dialog').isVisible(),'LCD lost keyboard access to project settings');
  await page.keyboard.press('Escape');assert(await page.locator('#daw-project-dialog').isHidden());
+ const firstJob=await page.evaluate(()=>window.BlazeMacStems.snapshot().jobId);
+ const originalMedia=await page.locator('#media').evaluate(m=>m.currentSrc);
+ const originalBytes=await (await page.request.get(originalMedia)).body();
  const piano=page.locator('#logic-preview .track-header[data-track-id=piano]');
- await piano.locator('.track-name').click();
+ await page.getByRole('button',{name:'Library',exact:true}).click();
+ await page.locator('#logic-session-tools').getByRole('button',{name:'Piano',exact:true}).click();
+ assert(await page.locator('#logic-session-tools').isHidden(),'Library blocked its own track selection');
  await page.waitForFunction(()=>window.BlazeMacStudio.snapshot().selectedTrack==='piano'&&window.BlazeMacStudio.snapshot().waveformReady);
- await page.waitForFunction(()=>document.getElementById('editor-track').textContent==='Piano'&&document.getElementById('editor-wave').dataset.trackId==='piano'&&document.querySelectorAll('#logic-preview .track-header').length===9);
+ await page.waitForFunction(()=>document.getElementById('editor-track').textContent==='Piano'&&document.getElementById('editor-wave').dataset.trackId==='piano'&&document.querySelectorAll('#logic-preview .track-header').length===10);
  assert.equal(selections.at(-1).stem,'piano');
  assert(await page.locator('#media').evaluate(m=>m===window.testPlayer),'Player identity changed');
  const waveHash=()=>page.locator('#editor-wave').evaluate(c=>{const pixels=c.getContext('2d').getImageData(0,0,c.width,c.height).data;let hash=0;for(let n=0;n<pixels.length;n+=37)hash=(hash*31+pixels[n])|0;return hash;});
  const pianoHash=await waveHash();assert.notEqual(pianoHash,0,'No waveform pixels');
+ await page.locator('#logic-preview .track-header[data-track-id=source] .track-name').click();
+ await page.waitForFunction(()=>window.BlazeMacStudio.snapshot().selectedTrack==='source'&&window.BlazeMacStudio.snapshot().waveformReady);
+ const restoredBytes=await (await page.request.get(await page.locator('#media').evaluate(m=>m.currentSrc))).body();
+ assert(restoredBytes.equals(originalBytes),'Returning to Original did not restore the original recording');
+ await page.getByRole('link',{name:'Save original recording',exact:true}).waitFor({state:'visible'});
+ await page.evaluate(()=>{window.BlazeMacStudio.commands.trackGain('source',.35);window.BlazeMacStudio.commands.pan('source',.3);});
  await page.locator('#logic-preview .track-header[data-track-id=strings] .track-name').click();
  await page.waitForFunction(()=>window.BlazeMacStudio.snapshot().selectedTrack==='strings'&&window.BlazeMacStudio.snapshot().waveformReady);
  await page.waitForFunction(()=>document.getElementById('editor-track').textContent==='Strings'&&document.getElementById('editor-wave').dataset.trackId==='strings');
@@ -174,12 +185,30 @@ const start=()=>new Promise((resolve,reject)=>{let s='';const timeout=setTimeout
  const inspectorVolume=page.getByRole('slider',{name:'Track volume in inspector',exact:true});await inspectorVolume.click({modifiers:['Alt']});
  await page.waitForFunction(()=>Math.abs(window.BlazeMacStudio.snapshot().audio.channelGain-1)<.002);
  if(out)await page.screenshot({path:path.join(out,'logic-controls-inspector.png')});await page.keyboard.press('Escape');
+ // Inactive controls are undoable without changing the selected track.
+ const beforePiano=await page.evaluate(()=>window.BlazeMacStudio.viewState().tracks.find(t=>t.id==='piano').gain);
+ await pianoFader.fill('0.4');await pianoFader.dispatchEvent('input');
+ await page.locator('#logic-preview .track-header[data-track-id=bass] .track-name').click();
+ await page.waitForFunction(()=>window.BlazeMacStudio.snapshot().selectedTrack==='bass'&&window.BlazeMacStudio.snapshot().waveformReady);
+ await page.locator('#logic-play').focus();await page.keyboard.press('Meta+z');
+ await page.waitForFunction(v=>Math.abs(window.BlazeMacStudio.viewState().tracks.find(t=>t.id==='piano').gain-v)<.001,beforePiano);
+ assert.equal(await page.evaluate(()=>window.BlazeMacStudio.snapshot().selectedTrack),'bass','Undo changed the selected track');
+ await page.keyboard.press('Meta+Shift+z');
+ await page.waitForFunction(()=>Math.abs(window.BlazeMacStudio.viewState().tracks.find(t=>t.id==='piano').gain-Math.pow(10,-28/20))<.001);
+ await page.keyboard.press('Meta+z');
+ await stringsRow.locator('.track-name').click();
+ await page.waitForFunction(()=>window.BlazeMacStudio.snapshot().selectedTrack==='strings'&&window.BlazeMacStudio.snapshot().waveformReady);
+
  await pan.click({modifiers:['Alt']});
  // Fine fader drag retains the grabbed value and captures outside the control.
  const cap=await stringsRow.locator('.mix-fader-cap').boundingBox();await page.mouse.move(cap.x+cap.width/2,cap.y+cap.height/2);await page.mouse.down();
  assert(Math.abs(Number(await fader.inputValue())-.75)<.001,'Grabbing the fader handle jumped its value');
  await page.keyboard.down('Shift');await page.mouse.move(cap.x+cap.width/2-15,cap.y+cap.height/2,{steps:5});await page.mouse.up();await page.keyboard.up('Shift');
  const fineValue=Number(await fader.inputValue());assert(fineValue<.75&&fineValue>.70,'Fine fader adjustment ignored Shift');
+ await page.locator('#logic-play').focus();await page.keyboard.press('Meta+z');
+ await page.waitForFunction(()=>Math.abs(window.BlazeMacStudio.snapshot().audio.channelGain-1)<.002);
+ await page.keyboard.press('Meta+Shift+z');
+ await page.waitForFunction(v=>Math.abs(Number(document.querySelector('[aria-label="Volume Strings"]').value)-v)<.001,fineValue);
  await fader.click({modifiers:['Alt']});await page.waitForFunction(()=>Math.abs(window.BlazeMacStudio.snapshot().audio.channelGain-1)<.002);
  if(out){await pan.fill('0.35');await pan.dispatchEvent('input');await page.getByRole('button',{name:'Play',exact:true}).click();await page.waitForFunction(()=>parseFloat(window.BlazeMacStudio.viewState().levels[0])>0);
   await page.screenshot({path:path.join(out,'logic-controls-playing.png')});await stringsRow.screenshot({path:path.join(out,'controls-row-playing.png')});await page.getByRole('button',{name:'Pause',exact:true}).click();await pan.click({modifiers:['Alt']});}
@@ -204,15 +233,38 @@ const start=()=>new Promise((resolve,reject)=>{let s='';const timeout=setTimeout
  await page.waitForFunction(()=>window.BlazeMacStems.snapshot().status==='running'&&!document.getElementById('stems-dialog').open);
  await page.getByRole('button',{name:'Analyse chords',exact:true}).click();
  await page.waitForFunction(()=>busy&&window.BlazeMacStems.snapshot().status==='running');
+ await piano.locator('.track-name').click();
+ await page.waitForFunction(()=>busy&&window.BlazeMacStudio.snapshot().selectedTrack==='piano'&&window.BlazeMacStudio.snapshot().waveformReady);
+ assert.equal(await page.evaluate(()=>result),null,'Background analysis was attached to another stem');
  await page.getByRole('button',{name:'Play',exact:true}).click();await page.waitForFunction(()=>!document.getElementById('media').paused);
  await page.getByRole('button',{name:'Back to Explore',exact:true}).click();assert(await page.locator('#explore-panel').isVisible());
- await page.waitForFunction(()=>!busy&&result?.model?.name==='Controlled recognition');
+ await page.waitForFunction(()=>!busy);
+ assert.equal(await page.evaluate(()=>result),null,'Completed background analysis replaced another stem’s chords');
  await page.waitForFunction(()=>window.BlazeMacStems.snapshot().status==='done',{timeout:20000});
- await page.evaluate(()=>window.BlazeMac.navigate('studio'));await page.waitForFunction(()=>document.querySelectorAll('#logic-preview .track-header').length>=9);
+ await page.evaluate(()=>window.BlazeMac.navigate('studio'));
+ await page.waitForFunction(()=>document.getElementById('live-status').textContent.startsWith('Chords ready:'));
+ await stringsRow.locator('.track-name').click();
+ await page.waitForFunction(()=>result?.model?.name==='Controlled recognition');
+ const secondJob=await page.evaluate(()=>window.BlazeMacStems.snapshot().jobId);
+ await page.getByRole('button',{name:'Library',exact:true}).click();
+ if(out)await page.screenshot({path:path.join(out,'logic-workflow-session-history.png')});
+ await page.setViewportSize({width:570,height:540});
+ await page.locator('#logic-session-tools [data-session-id="'+secondJob+'"]').scrollIntoViewIfNeeded();
+ const closeBounds=await page.locator('#logic-session-tools button[aria-label="Close session panel"]').boundingBox();
+ assert(closeBounds.y>=0&&closeBounds.y+closeBounds.height<=540,'Scrolling session history hid the close control');
+ if(out)await page.screenshot({path:path.join(out,'logic-workflow-history-compact.png')});
+ await page.locator('#logic-session-tools [data-session-id="'+secondJob+'"]').click();
+ await page.waitForFunction(()=>document.querySelectorAll('#logic-preview .track-header').length===10);
+ await page.setViewportSize({width:1440,height:900});
  await page.waitForFunction(()=>{const job=window.BlazeMacStems.snapshot().jobId;return window.BlazeMacStudio.viewState().tracks.some(t=>t.jobId===job);});
- await page.waitForFunction(()=>{const s=window.BlazeMacStudio.snapshot();return s.waveformsReady===s.tracks.length;});
+ await page.waitForFunction(()=>{const s=window.BlazeMacStudio.snapshot();return s.waveformsReady===s.tracks.length;}).catch(async error=>{console.error({state:await page.evaluate(()=>window.BlazeMacStudio.snapshot()),errors});throw error;});
  assert.equal(await page.evaluate(()=>window.BlazeMacStudio.viewState().tracks.find(t=>t.id==='piano')?.gain),1,'A new separation job inherited an unrelated track level');
  await page.waitForFunction(()=>Array.from(document.querySelectorAll('#logic-preview .track-header')).map(n=>n.dataset.trackId).join(',')===window.BlazeMacStudio.snapshot().tracks.map(t=>t.id).join(','));
+ await page.getByRole('button',{name:'Library',exact:true}).click();
+ await page.locator('#logic-session-tools [data-session-id="'+firstJob+'"]').click();
+ await page.waitForFunction(job=>window.BlazeMacStudio.viewState().tracks.every(t=>t.jobId===job),firstJob);
+ assert.equal(await page.evaluate(()=>window.BlazeMacStems.snapshot().sessions.length),2,'Earlier separation disappeared');
+ await page.waitForFunction(()=>Math.abs(window.BlazeMacStudio.snapshot().audio.channelGain-.35)<.001&&Math.abs(window.BlazeMacStudio.snapshot().audio.pan-.3)<.001);
  await page.evaluate(()=>window.BlazeMacStudio.commands.stop());
  if(out)await page.screenshot({path:path.join(out,'logic-live-connected.png')});
  // A controlled empty backend state must never fall back to the concept song.
@@ -226,5 +278,5 @@ const start=()=>new Promise((resolve,reject)=>{let s='';const timeout=setTimeout
  assert(await blank.locator('#logic-play').isDisabled());
  if(out)await blank.screenshot({path:path.join(out,'logic-live-empty.png')});await blank.close();
  assert.deepEqual(errors,[],'Page errors');
- console.log('Logic live PASS: production Studio, one player, real WAVs/export, rotary pan drag/fine/reset/keyboard, independent track gains/restore, inspector sync, fader grab/fine/reset, no canvas redraw during pan drag, five widths/light/dark, concurrent chord/stem workers and browsing. Controlled inference; native macOS 26/model quality not tested.');
+ console.log('Logic live PASS: production Studio, one player, real WAVs/export, rotary pan drag/fine/reset/keyboard, independent track gains/restore, inspector sync, fader grab/fine/reset, no canvas redraw during pan drag, five widths/light/dark, Library selection, retained originals and earlier sessions, grouped/cross-track undo/redo, source switches during concurrent chord/stem workers. Controlled inference; native macOS 26/model quality not tested.');
 }finally{if(browser)await browser.close();server.kill('SIGTERM');}})().catch(e=>{console.error(e);process.exitCode=1;});

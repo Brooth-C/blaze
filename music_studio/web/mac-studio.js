@@ -112,11 +112,14 @@
     const history=[],future=[];
     const mutedTracks=new Set(),trackPans=new Map();
     const trackGains=new Map();
-    const gainKey=track=>(track?.jobId||'source:'+sessionRevision)+':'+(track?.id||'source');
+    const gainKey=track=>((track?.id==='source'&&Number.isSafeInteger(track.sourceRevision))?'source:'+track.sourceRevision:(track?.jobId||'source:'+sessionRevision))+':'+(track?.id||'source');
     const gainFor=track=>trackGains.get(gainKey(track))??1;
     const selectedGain=()=>gainFor(tracks.find(track=>track.id===selected));
+    const mutedFor=track=>mutedTracks.has(gainKey(track));
+    const panFor=track=>trackPans.get(gainKey(track))||0;
+    const analysisBlocksSelection=()=>busy&&!window.BlazeMac?.backgroundAnalysis;
     let sessionTitle='Untitled',libraryFamily='all',lastGuide=null;
-    const cache = new Map();
+    const cache = new Map(),sessionPositions=new Map();
     const active = () => !panel.hidden;
     const isModal = () => !!document.querySelector('dialog[open]:not(#stems-dialog[data-background=true])');
     const elapsed = value => {
@@ -134,11 +137,40 @@
         status.setAttribute('aria-busy',String(state==='loading'));
     };
     const chosen = () => tracks.find(t => t.id === selected) || tracks[0];
-    const remember = () => { history.push({volume:player.volume,pan:Number(el('daw-pan').value),zoom,muted:player.muted});if(history.length>50)history.shift();future.length=0; };
-    const restoreSetting = value => { player.volume=value.volume;setTrackMuted(selected,value.muted);zoom=value.zoom;el('daw-zoom').value=String(zoom);setTrackPan(selected,value.pan);paintTransport();scheduleDraw(); };
-    const setting = () => ({volume:player.volume,pan:Number(el('daw-pan').value),zoom,muted:player.muted});
-    el('daw-undo').onclick=()=>{if(history.length){future.push(setting());restoreSetting(history.pop());}};
-    el('daw-redo').onclick=()=>{if(future.length){history.push(setting());restoreSetting(future.pop());}};
+    let adjustment=null,restoring=false;
+    const setting = () => ({volume:player.volume,gains:[...trackGains],pans:[...trackPans],muted:[...mutedTracks]});
+    const sameSetting=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
+    const pushHistory=value=>{history.push(value);if(history.length>50)history.shift();future.length=0;};
+    const remember = () => {if(!restoring&&!adjustment)pushHistory(setting());};
+    const beginAdjustment=()=>{if(!adjustment)adjustment=setting();};
+    const endAdjustment=()=>{if(!adjustment)return;const previous=adjustment;adjustment=null;if(!sameSetting(previous,setting()))pushHistory(previous);paintTransport();};
+    const applySelectedMix=()=>{
+        const track=chosen(),pan=panFor(track);
+        player.muted=mutedFor(track);el('daw-pan').value=String(pan);
+        if(audioGraph){audioGraph.pan.pan.value=pan;audioGraph.channelGain.gain.cancelScheduledValues(audioGraph.context.currentTime);audioGraph.channelGain.gain.value=gainFor(track);}
+    };
+    const restoreSetting=value=>{
+        restoring=true;
+        try{
+            player.volume=value.volume;
+            trackGains.clear();for(const [key,gain]of value.gains)trackGains.set(key,gain);
+            trackPans.clear();for(const [key,pan]of value.pans)trackPans.set(key,pan);
+            mutedTracks.clear();for(const key of value.muted)mutedTracks.add(key);
+            applySelectedMix();renderTracks();paintTransport();scheduleDraw();
+        }finally{restoring=false;}
+    };
+    el('daw-undo').onclick=()=>{endAdjustment();if(history.length){future.push(setting());restoreSetting(history.pop());}};
+    el('daw-redo').onclick=()=>{endAdjustment();if(future.length){history.push(setting());restoreSetting(future.pop());}};
+    function adjustmentInput(input){
+        input.addEventListener('pointerdown',beginAdjustment);
+        for(const event of ['pointerup','pointercancel','lostpointercapture','blur','change'])input.addEventListener(event,endAdjustment);
+        input.addEventListener('keydown',event=>{if(['ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Home','End','PageUp','PageDown'].includes(event.key))beginAdjustment();});
+        input.addEventListener('keyup',endAdjustment);
+    }
+    function setMasterVolume(value){
+        const volume=Math.max(0,Math.min(1,Number(value)||0));if(volume===player.volume)return;
+        remember();player.volume=volume;el('volume').value=String(volume);paintTransport();
+    }
     function ensureAudio() {
         if(!audioGraph){
             const Context=window.AudioContext||window.webkitAudioContext;
@@ -169,7 +201,8 @@
         scheduleDraw();
     };
     function setTrackMuted(id, muted) {
-        if(muted)mutedTracks.add(id);else mutedTracks.delete(id);
+        const track=tracks.find(track=>track.id===id);if(!track||mutedFor(track)===muted)return;
+        remember();const key=gainKey(track);if(muted)mutedTracks.add(key);else mutedTracks.delete(key);
         if(id===selected)player.muted=muted;
         const row=[...el('daw-track-list').children].find(item=>item.dataset.trackId===id);
         row?.querySelector('.daw-row-mute').setAttribute('aria-pressed',String(muted));
@@ -177,7 +210,8 @@
     }
     function setTrackPan(id, value) {
         const pan=Math.max(-1,Math.min(1,Number(value)||0));
-        trackPans.set(id,pan);
+        const track=tracks.find(track=>track.id===id);if(!track||panFor(track)===pan)return;
+        remember();trackPans.set(gainKey(track),pan);
         const row=[...el('daw-track-list').children].find(item=>item.dataset.trackId===id);
         const input=row?.querySelector('.daw-row-pan input');
         if(input){input.value=String(pan);input.nextElementSibling.style.transform='rotate('+(pan*120)+'deg)';}
@@ -188,7 +222,7 @@
         const track=tracks.find(track=>track.id===id),gain=Number(value);
         if(!track||!Number.isFinite(gain))return;
         const bounded=Math.max(0,Math.min(2,gain));
-        trackGains.set(gainKey(track),bounded);
+        if(gainFor(track)===bounded)return;remember();trackGains.set(gainKey(track),bounded);
         if(trackGains.size>128)trackGains.delete(trackGains.keys().next().value);
         if(id===selected){
             const graph=ensureAudio();
@@ -215,12 +249,12 @@
         else player.loop=true;
         el('repeat').checked=player.loop;updateLoop();scheduleDraw();paintTransport();
     };
-    el('daw-mute').onclick = () => {remember();setTrackMuted(selected,!player.muted);};
+    el('daw-mute').onclick = () => setTrackMuted(selected,!player.muted);
     el('daw-channel-mute').onclick=()=>el('daw-mute').click();
     el('daw-audition').onclick = () => {solo=!solo;if(sourceName&&!pendingSelection){ensureAudio();player.play().catch(failure);}paintTransport();};
     el('daw-channel-solo').onclick=()=>el('daw-audition').click();
-    for(const id of ['daw-volume','daw-master-volume']){el(id).addEventListener('pointerdown',remember);el(id).oninput=event=>{player.volume=Number(event.target.value);el('volume').value=String(player.volume);paintTransport();};}
-    el('daw-pan').addEventListener('pointerdown',remember);
+    for(const id of ['daw-volume','daw-master-volume']){adjustmentInput(el(id));el(id).oninput=event=>setMasterVolume(event.target.value);}
+    adjustmentInput(el('daw-pan'));
     el('daw-pan').oninput=event=>setTrackPan(selected,event.target.value);
     el('daw-eq').onclick=()=>{const graph=ensureAudio();if(!graph)return;const enabled=el('daw-eq').getAttribute('aria-pressed')!=='true';graph.eq.gain.value=enabled?3:0;el('daw-eq').setAttribute('aria-pressed',String(enabled));};
     el('daw-compressor').onclick=()=>{const graph=ensureAudio();if(!graph)return;const enabled=el('daw-compressor').getAttribute('aria-pressed')!=='true';graph.compressor.ratio.value=enabled?6:1;graph.compressor.threshold.value=-20;el('daw-compressor').setAttribute('aria-pressed',String(enabled));};
@@ -280,9 +314,12 @@
         }
     }
     async function selectTrack(track) {
-        if (pendingSelection || busy || importing || selected === track.id || !track.jobId || isModal()) return;
+        if (pendingSelection || analysisBlocksSelection() || importing || (selected === track.id&&sessionJob===track.jobId) || !track.jobId || isModal()) return;
+        endAdjustment();
         pendingSelection = true;pendingTrack=track.id;paintTrackPending();paintTransport();message('Opening '+track.label+'…','loading');
-        const previousPosition = Number.isFinite(player.currentTime) ? player.currentTime : 0;
+        const position=Number.isFinite(player.currentTime)?player.currentTime:0;
+        if(sessionJob)sessionPositions.set(sessionJob,position);
+        const previousPosition=sessionJob===track.jobId?position:sessionPositions.get(track.jobId)||0;
         const wasPlaying = !player.paused;
         try {
             window.BlazeDesktop.cancelPreparation();
@@ -290,7 +327,7 @@
             selected = track.id;
             currentPeaks = null; waveformReady = false;
             await window.BlazeMac.importCompleted();
-            player.muted=mutedTracks.has(track.id);el('daw-pan').value=String(trackPans.get(track.id)||0);
+            player.muted=mutedFor(track);el('daw-pan').value=String(panFor(track));
             if(audioGraph)audioGraph.pan.pan.value=Number(el('daw-pan').value);
             if(audioGraph){audioGraph.channelGain.gain.cancelScheduledValues(audioGraph.context.currentTime);audioGraph.channelGain.gain.value=gainFor(track);}
             const revision = sourceRevision;
@@ -350,7 +387,7 @@
             const row = document.createElement('div');row.setAttribute('role','group');row.className = 'daw-track'; row.dataset.trackId = track.id;
             row.classList.toggle('selected', track.id === selected);
             row.style.setProperty('--track-color', colors[track.id] || colors.source);
-            row.innerHTML = '<button type="button" class="daw-track-select" aria-pressed="'+(track.id===selected)+'"><span class="daw-track-number"></span>'+instrumentIcon(track.id)+'<span class="daw-track-label"></span></button><div class="daw-row-controls"><button class="daw-row-mute" aria-label="Mute track" aria-pressed="'+mutedTracks.has(track.id)+'">M</button><button class="daw-row-solo" aria-label="Solo track" aria-pressed="'+(solo&&selected===track.id)+'">S</button><button class="daw-arm" aria-label="Recording unavailable" disabled>●</button><span class="daw-track-meter" title="Source level at playhead"><i></i></span><label class="daw-row-pan"><input type="range" min="-1" max="1" step=".01" value="'+(trackPans.get(track.id)||0)+'" aria-label="Pan track"><i></i></label></div>';
+            row.innerHTML = '<button type="button" class="daw-track-select" aria-pressed="'+(track.id===selected)+'"><span class="daw-track-number"></span>'+instrumentIcon(track.id)+'<span class="daw-track-label"></span></button><div class="daw-row-controls"><button class="daw-row-mute" aria-label="Mute track" aria-pressed="'+mutedFor(track)+'">M</button><button class="daw-row-solo" aria-label="Solo track" aria-pressed="'+(solo&&selected===track.id)+'">S</button><button class="daw-arm" aria-label="Recording unavailable" disabled>●</button><span class="daw-track-meter" title="Source level at playhead"><i></i></span><label class="daw-row-pan"><input type="range" min="-1" max="1" step=".01" value="'+(panFor(track))+'" aria-label="Pan track"><i></i></label></div>';
             row.querySelector('.daw-row-mute').setAttribute('aria-label','Mute '+track.label);
             row.querySelector('.daw-row-solo').setAttribute('aria-label','Solo '+track.label);
             row.querySelector('input').setAttribute('aria-label','Pan '+track.label);
@@ -361,10 +398,10 @@
             selectButton.setAttribute('aria-label','Select '+track.label+' track');selectButton.title=track.label;
             selectButton.onclick=()=>selectTrack(track);
             row.onclick=event=>{if(!event.target.closest('button,input,label'))selectTrack(track);};
-            row.querySelector('.daw-row-mute').onclick=event=>{event.stopPropagation();setTrackMuted(track.id,!mutedTracks.has(track.id));};
-            row.querySelector('.daw-row-solo').onclick=async event=>{event.stopPropagation();if(pendingSelection||busy||importing||isModal())return;const alreadySolo=solo&&selected===track.id;await selectTrack(track);if(selected!==track.id||pendingSelection)return;solo=!alreadySolo;if(solo){ensureAudio();player.play().catch(failure);}renderTracks();paintTransport();};
-            const panInput=row.querySelector('input');panInput.onclick=event=>event.stopPropagation();panInput.oninput=event=>setTrackPan(track.id,event.target.value);
-            panInput.nextElementSibling.style.transform='rotate('+((trackPans.get(track.id)||0)*120)+'deg)';
+            row.querySelector('.daw-row-mute').onclick=event=>{event.stopPropagation();setTrackMuted(track.id,!mutedFor(track));};
+            row.querySelector('.daw-row-solo').onclick=async event=>{event.stopPropagation();if(pendingSelection||analysisBlocksSelection()||importing||isModal())return;const alreadySolo=solo&&selected===track.id;await selectTrack(track);if(selected!==track.id||pendingSelection)return;solo=!alreadySolo;if(solo){ensureAudio();player.play().catch(failure);}renderTracks();paintTransport();};
+            const panInput=row.querySelector('input');adjustmentInput(panInput);panInput.onclick=event=>event.stopPropagation();panInput.oninput=event=>setTrackPan(track.id,event.target.value);
+            panInput.nextElementSibling.style.transform='rotate('+((panFor(track))*120)+'deg)';
             el('daw-track-list').append(row);
             const lane = document.createElement('div'); lane.className = 'daw-lane'; lane.dataset.trackId = track.id;
             lane.style.setProperty('--track-color', colors[track.id] || colors.source);
@@ -398,12 +435,12 @@
         el('daw-track-color').style.background = colors[track?.id] || colors.source;
         text('daw-region-length', duration() ? elapsed(duration()) : '—');
         text('daw-region-channels', currentPeaks ? 'Stereo' : '—');
-        text('daw-region-source', track?.jobId ? 'Separated stem' : 'Local recording');
+        text('daw-region-source', track?.jobId&&track.id!=='source' ? 'Separated stem' : 'Original recording');
         el('daw-save').hidden = !track?.jobId;
         if (track?.jobId) {
             el('daw-save').href = '/api/stem-file?jobId='+encodeURIComponent(track.jobId)+'&stem='+encodeURIComponent(track.id)+'&token='+encodeURIComponent(token);
-            el('daw-save').download = label+'.wav';
-            el('daw-save').setAttribute('aria-label','Save '+label+' WAV');
+            el('daw-save').download = track.filename||label+'.wav';
+            el('daw-save').setAttribute('aria-label',track.id==='source'?'Save original recording':'Save '+label+' WAV');
         } else el('daw-save').removeAttribute('href');
         const rate=currentPeaks?.sourceSampleRate,bits=currentPeaks?.sourceBits;
         text('daw-format',rate&&bits?(rate/1000)+' kHz · '+bits+'-bit'+(currentPeaks.sourceEncoding==='float'?' float':'')+' · '+(currentPeaks.sourceChannels===1?'Mono':'Stereo'):currentPeaks?'Stereo · Local audio':'Local audio');
@@ -567,7 +604,7 @@
         if(result&&result!==lastGuide){lastGuide=result;guide=result;guideJob=sessionJob;scheduleDraw();}
         paintTransport();
         const stems=window.BlazeMacStems?.snapshot();
-        const next=JSON.stringify([sourceRevision,sourceName,stems?.status,stems?.jobId]);
+        const next=JSON.stringify([sourceRevision,sourceName,stems?.status,stems?.jobId,stems?.sessions?.map(session=>session.jobId)]);
         if(next===signature)return;
         signature=next;const mine=++generation;controller?.abort();controller=new AbortController();
         const revision=sourceRevision;selection=null;waveformReady=false;
@@ -590,19 +627,23 @@
                 guide=result||(nextJob&&previousGuide?.jobId===nextJob?previousGuide.data:null);
                 lastGuide=result||null;guideJob=nextJob;
             }
-            if(nextJob!==sessionJob||!sessionTitle||sessionTitle==='Untitled'){if(result){guide=result;guideJob=nextJob;}else if(guideJob!==nextJob){guide=null;lastGuide=null;}if(!nextJob||!sessionJob)sessionTitle=title(stems?.sourceName||sourceName);}
+            const session=stems?.sessions?.find(item=>item.jobId===nextJob)||
+                (stems?.status==='done'&&stems.jobId===nextJob?stems:null);
+            if(nextJob!==sessionJob||(sourceChanged&&!nextJob)){manualProject=false;solo=false;projectTempo=120;projectNumerator=4;projectDenominator=4;projectKey='—';}
+            if(nextJob!==sessionJob||!sessionTitle||sessionTitle==='Untitled'){
+                if(result){guide=result;guideJob=nextJob;}else if(guideJob!==nextJob){guide=null;lastGuide=null;}
+            }
             sessionJob=nextJob;
-            if(!sessionJob)sessionTitle=title(sourceName);
+            sessionTitle=title(session?.sourceName||sourceName);
             text('daw-window-title',sessionTitle+' — Blaze');text('daw-workflow-title',sessionTitle);
-            const rows=sessionJob&&stems?.status==='done'&&stems.jobId===sessionJob&&Array.isArray(stems.stems)?stems.stems.filter(r=>labels[r.id]):[];
-            // Display names can collide (an original mix may be Piano.wav).
-            // The server identifies the selected saved file from its source path.
-            const selectedStem=rows.find(row=>row.id===data.selectedStem);
-            selected=selectedStem?.id||'source';
-            tracks=rows.map(row=>({id:row.id,label:labels[row.id],jobId:sessionJob,waveform:cache.get(sessionJob+':'+row.id)||null}));
-            if(selected==='source')tracks.unshift({id:'source',label:title(sourceName),waveform:data});
-            else tracks.find(t=>t.id===selected).waveform=data;
-            if(audioGraph){audioGraph.channelGain.gain.cancelScheduledValues(audioGraph.context.currentTime);audioGraph.channelGain.gain.value=selectedGain();}
+            const rows=Array.isArray(session?.stems)?session.stems.filter(row=>labels[row.id]&&row.id!=='source'):[];
+            selected=rows.some(row=>row.id===data.selectedStem)?data.selectedStem:'source';
+            tracks=rows.map(row=>({id:row.id,label:labels[row.id],filename:row.filename,jobId:sessionJob,waveform:cache.get(sessionJob+':'+row.id)||null}));
+            const originalName=session?.original?.filename||session?.sourceName||sourceName;
+            tracks.unshift({id:'source',label:'Original · '+title(originalName),filename:originalName,sourceRevision:session?.sourceRevision??revision,
+                jobId:sessionJob||undefined,waveform:selected==='source'?data:cache.get(sessionJob+':source')||null});
+            tracks.find(track=>track.id===selected).waveform=data;
+            applySelectedMix();
             for(const key of cache.keys())if(!key.startsWith(sessionJob+':'))cache.delete(key);
             loading=false;renderTracks();message('Ready · '+(selected==='source'?'Recording':labels[selected]));
             text('daw-session-caption',tracks.length>1?'Separated audio tracks':'Audio recording');
@@ -628,7 +669,7 @@
         active:active(), revision:sessionRevision, title:sessionTitle,
         tracks:tracks.map(track=>({...track,color:colors[track.id]||colors.source,
             region:(regionColors[track.id]||regionColors.source)[1],
-            muted:mutedTracks.has(track.id), pan:trackPans.get(track.id)||0, gain:gainFor(track)})),
+            muted:mutedFor(track), pan:panFor(track), gain:gainFor(track)})),
         selected, peaks:currentPeaks, duration:duration(), loading,
         pending:pendingSelection, pendingTrack, enabled:!!sourceName&&!pendingSelection,
         position:Number(player.currentTime)||0, paused:player.paused,
@@ -638,13 +679,15 @@
         format:el('daw-format').textContent,
         message:!el('error').hidden?el('error').textContent:busy?el('status').textContent:el('daw-message').textContent,
         messageState:!el('error').hidden?'error':el('daw-message').dataset.state||'status',
-        analysisBusy:busy, metronome, solo, selection,
+        analysisBusy:busy, analysisTask, metronome, solo, selection,canUndo:!!history.length,canRedo:!!future.length,
         levels:[el('daw-master-left').style.width||'0%',el('daw-master-right').style.width||'0%'],
-        save:chosen()?.jobId?{href:el('daw-save').getAttribute('href'),name:el('daw-save').download}:null,
+        save:chosen()?.jobId?{href:el('daw-save').getAttribute('href'),name:el('daw-save').download,label:selected==='source'?'Save original':'Save WAV'}:null,
     });
     const commands = {
         select:id=>selectTrack(tracks.find(track=>track.id===id)||{}),
-        mute:id=>{if(tracks.some(track=>track.id===id))setTrackMuted(id,!mutedTracks.has(id));},
+        openSession:jobId=>{const session=window.BlazeMacStems?.snapshot().sessions?.find(item=>item.jobId===jobId);return session?selectTrack({id:'source',label:'Original · '+title(session.sourceName),jobId,sourceRevision:session.sourceRevision}):Promise.resolve();},
+        beginAdjustment,endAdjustment,
+        mute:id=>{const track=tracks.find(track=>track.id===id);if(track)setTrackMuted(id,!mutedFor(track));},
         solo:async id=>{const track=tracks.find(track=>track.id===id);if(!track)return;
             const wasSolo=solo&&selected===id;await selectTrack(track);
             if(selected!==id||pendingSelection)return;solo=!wasSolo;
@@ -661,7 +704,7 @@
         practice:()=>el('daw-chords').click(),
         project:()=>el('daw-tempo-control').click(),
         metronome:()=>el('daw-metronome').click(),
-        volume:value=>{player.volume=Math.max(0,Math.min(1,Number(value)||0));el('volume').value=String(player.volume);paintTransport();},
+        volume:setMasterVolume,
         rate:value=>{player.playbackRate=Math.max(.5,Math.min(1.5,Number(value)||1));el('speed').value=String(player.playbackRate);},
         eq:()=>el('daw-eq').click(),compressor:()=>el('daw-compressor').click(),
         undo:()=>el('daw-undo').click(),redo:()=>el('daw-redo').click(),

@@ -73,7 +73,7 @@
                 const open = document.createElement('button'); open.textContent = 'Open in Studio';
                 open.setAttribute('aria-label', 'Open ' + labels[row.id] + ' in Studio');
                 open.onclick = async () => {
-                    if (submitting || busy) return;
+                    if (submitting || analysisBlocksSelection()) return;
                     submitting = true; render(); error('');
                     try {
                         window.BlazeDesktop.cancelPreparation();
@@ -90,7 +90,7 @@
                 container.append(label, open, save); byId('stems-results').append(container);
             }
         }
-        for (const open of byId('stems-results').querySelectorAll('button')) open.disabled = submitting || busy;
+        for (const open of byId('stems-results').querySelectorAll('button')) open.disabled = submitting || analysisBlocksSelection();
     };
     const refreshState = async () => {
         if (stopped || requestInFlight) return;

@@ -486,7 +486,7 @@ def ui_smoke(window, studio, destination, receipt, probe, timeout=900):
                 metadata[name] = value
             probe.run(window, "document.querySelector('#stems-results button[aria-label=\"Open Vocals in Studio\"]').click()")
             wait_for("!document.getElementById('stems-dialog').open && sourceName==='Vocals.wav' && document.getElementById('media').readyState>=1")
-            wait_for("(() => {const s=window.BlazeMacStudio?.snapshot();return s?.active&&s.waveformReady&&s.selectedTrack==='vocals'&&s.tracks.length===9;})()")
+            wait_for("(() => {const s=window.BlazeMacStudio?.snapshot();return s?.active&&s.waveformReady&&s.selectedTrack==='vocals'&&s.tracks.length===10;})()")
             probe.run(window, "document.getElementById('mini-play').click()")
             wait_for("(() => {const m=document.getElementById('media');return m===window.blazeSmokeVideo && !m.paused && m.currentTime>.1;})()")
             receipt['stems'] = {'model': 'BS-RoFormer + Spleeter piano + Mega instrument families', 'count': 9, 'files': metadata,
@@ -502,7 +502,7 @@ def ui_smoke(window, studio, destination, receipt, probe, timeout=900):
             })()""")
             probe.run(window, "document.querySelector('button[aria-label=\"Open Guitar in Studio\"]').click()")
             wait_for("!document.getElementById('stems-dialog').open && sourceName==='Guitar.wav' && document.getElementById('media').readyState>=1")
-            wait_for("(() => {const s=window.BlazeMacStudio?.snapshot();return s?.active&&s.waveformReady&&s.selectedTrack==='guitar'&&s.tracks.length===9;})()")
+            wait_for("(() => {const s=window.BlazeMacStudio?.snapshot();return s?.active&&s.waveformReady&&s.selectedTrack==='guitar'&&s.tracks.length===10;})()")
             probe.run(window, "document.getElementById('mini-play').click()")
             wait_for("(() => {const m=document.getElementById('media');return m===window.blazeSmokeVideo && !m.paused && m.currentTime>.1;})()")
             receipt['stems']['instrument_playback'] = True

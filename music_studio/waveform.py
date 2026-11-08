@@ -61,11 +61,7 @@ def selection(studio, revision, job_id='', stem=''):
         if selected is None:
             raise ValueError('Open a recording to view its waveform.')
         manager = studio.stems
-        snapshot = manager.snapshot() if manager else {}
-        owns_job = (snapshot.get('status') == 'done' and
-                    (snapshot.get('sourceRevision') == studio.source_revision or
-                     bool(manager.selected_stem())))
-        owned_job = snapshot.get('jobId', '') if owns_job else ''
+        owned_job = manager.selected_job() if manager else ''
         if job_id or stem:
             if not job_id or not stem or job_id != owned_job:
                 raise ValueError('Choose a stem from the selected recording.')
@@ -79,8 +75,11 @@ def selection(studio, revision, job_id='', stem=''):
             if studio.source_revision != captured_revision or studio.source != selected:
                 return False
             if job_id:
-                return (studio.stems is manager and manager.value.get('status') == 'done' and
-                        manager.value.get('jobId') == job_id and manager.files.get(stem) == source)
+                try:
+                    return (studio.stems is manager and manager.selected_job() == job_id and
+                            manager.file(job_id, stem) == source)
+                except ValueError:
+                    return False
             return True
 
     return source, valid, owned_job

@@ -117,7 +117,7 @@
 
     const closePlayer = () => window.BlazeDesktop.closePlayer();
     const beginImport = () => {
-        if (modalOpen() || busy || importing) return false;
+        if (modalOpen() || importing) return false;
         window.BlazeDesktop.cancelPreparation();
         closePlayer();
         return true;
@@ -146,6 +146,7 @@
 
     window.BlazeMac = {
         keepBrowsing: true,
+        backgroundAnalysis: true,
         displayTitle(value) {
             return value === sourceName ? value.replace(/\.(mp3|m4a|aac|flac|wav|ogg|opus|mp4|m4v|mov|webm|mkv)$/i, '') : value;
         },
@@ -177,7 +178,7 @@
                 title: bounded(byId('mini-title').textContent),
                 creator: bounded(byId('mini-creator').textContent),
                 paused: video.paused, position: position(), duration: duration(),
-                busy: !!(busy || importing), nativeChromeInstalled, focusSearchRequest, importRequest
+                busy: !!importing, nativeChromeInstalled, focusSearchRequest, importRequest
             };
         },
         navigate, search, beginImport,
