@@ -127,7 +127,8 @@ def main():
     assert receipt['stems']['instrument_playback'], receipt
     session = receipt['stems']['studio_workspace']
     assert session['active'] and session['waveformReady'] and session['selectedTrack'] == 'vocals', receipt
-    assert len(session['tracks']) == 9, receipt
+    assert len(session['tracks']) == 10, receipt
+    assert any(track['id'] == 'source' for track in session['tracks']), receipt
     assert receipt['piano']['real_model'] and receipt['piano']['native_playback'], receipt
     from music_studio.native_piano_assets import HEAD, CHECKPOINT_SHA
     assert receipt['piano']['model'] == 'Mega53 native acoustic piano', receipt

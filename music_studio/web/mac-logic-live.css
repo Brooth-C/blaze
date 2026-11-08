@@ -51,6 +51,9 @@ html[data-presentation=mac] #logic-session-tools { width:300px;max-height:80vh;p
 #logic-session-tools header { display:flex;justify-content:space-between;align-items:center;padding:10px 12px;border-bottom:1px solid #292929; }
 #logic-session-tools header button { border:0;background:none;color:inherit;font-size:20px; }
 #logic-session-tools .logic-tools-body { display:grid;gap:8px;padding:12px; }
+#logic-session-tools[open] { display:flex;flex-direction:column;overflow:hidden; }
+#logic-session-tools header { flex-shrink:0; }
+#logic-session-tools .logic-tools-body { min-height:0;overflow:auto;overscroll-behavior:contain; }
 #logic-session-tools .logic-tools-body label { display:flex;justify-content:space-between;align-items:center; }
 #logic-session-tools .logic-tools-body button { text-align:left;background:#383838;color:#ededed;border:1px solid #ffffff1c;border-radius:4px;padding:6px 10px; }
 #logic-session-tools button[aria-pressed=true] { background:#2674aa; }

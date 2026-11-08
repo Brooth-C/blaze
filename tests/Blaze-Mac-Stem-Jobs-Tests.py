@@ -3,6 +3,7 @@
 The separator is controlled here; real SCNet inference is checked separately.
 """
 import http.client
+from email.message import Message
 import io
 import json
 from pathlib import Path
@@ -190,7 +191,9 @@ class StemJobTests(unittest.TestCase):
             self.assertEqual(status, 200)
             self.assertEqual(payload, wav_bytes())
             self.assertEqual(headers['Content-Type'], 'audio/wav')
-            self.assertEqual(headers['Content-Disposition'], 'attachment; filename="' + stem.title() + '.wav"')
+            disposition = Message()
+            disposition['Content-Disposition'] = headers['Content-Disposition']
+            self.assertEqual(disposition.get_filename(), stem.title() + '.wav')
         self.studio.state['result'] = {'previous': 'chords'}
         status, _, payload = self.request('/api/stems-select', {'jobId': identity, 'stem': 'vocals'})
         self.assertEqual(status, 200, payload)
@@ -202,6 +205,91 @@ class StemJobTests(unittest.TestCase):
         status, _, media = self.request('/media?sourceRevision=1')
         self.assertEqual(status, 200)
         self.assertEqual(media, wav_bytes())
+
+    def test_original_can_be_reopened_after_selecting_a_stem_and_importing(self):
+        payload = wav_bytes()
+        self.assertEqual(self.request('/api/import', raw=payload,
+                                      headers={'X-File-Name': 'Original song.wav'})[0], 200)
+        uploaded = self.studio.source
+        identity = self.start()
+        state = self.finish()
+        self.assertEqual(len(state['sessions']), 1)
+        self.assertEqual(state['sessions'][0]['original']['filename'], 'Original song.wav')
+        original = self.jobs.file(identity, 'source')
+        self.assertEqual(original.read_bytes(), payload)
+        self.assertNotEqual(original, uploaded)
+        self.assertEqual(self.jobs.selected_job(), identity)
+        self.assertEqual(self.jobs.selected_stem(), 'source')
+        self.assertEqual(self.request('/api/stems-select', {'jobId': identity, 'stem': 'vocals'})[0], 200)
+        self.assertFalse(uploaded.exists(), 'Only the obsolete incoming upload is removed.')
+        self.assertTrue(original.exists())
+        self.assertEqual(self.request('/api/stems-select', {'jobId': identity, 'stem': 'source'})[0], 200)
+        self.assertEqual(self.studio.source, original)
+        self.assertEqual(self.studio.name, 'Original song.wav')
+        self.assertEqual(self.jobs.selected_stem(), 'source')
+        status, _, data = self.request('/api/stem-file?jobId=' + identity + '&stem=source')
+        self.assertEqual(status, 200)
+        self.assertEqual(data, payload)
+        self.assertNotIn(str(self.root), json.dumps(self.jobs.snapshot()))
+
+    def test_original_video_keeps_filename_and_media_kind(self):
+        video = self.root / 'Live set.mp4'
+        video.write_bytes(wav_bytes())
+        self.studio.open_local_file(video)
+        identity = self.start()
+        self.finish()
+        self.jobs.select(identity, 'vocals')
+        self.jobs.select(identity, 'source')
+        self.assertEqual(self.studio.name, 'Live set.mp4')
+        self.assertEqual(self.studio.state['mediaKind'], 'video')
+        self.assertEqual(self.jobs.file(identity, 'source').suffix, '.mp4')
+        self.assertEqual(self.jobs.descriptor(identity, 'source')['mediaKind'], 'video')
+        status, headers, _ = self.request('/api/stem-file?jobId=' + identity + '&stem=source')
+        self.assertEqual(status, 200)
+        self.assertEqual(headers['Content-Type'], 'video/mp4')
+
+    def test_discovery_title_original_keeps_the_actual_media_extension(self):
+        for suffix, content_type, kind in (('.m4a', 'audio/mp4', 'audio'), ('.mp4', 'video/mp4', 'video')):
+            with self.subTest(suffix=suffix):
+                # Metadata/export contract; the controlled separator does not decode.
+                source = self.root / ('downloaded-media' + suffix)
+                source.write_bytes(wav_bytes())
+                self.studio.select_source(source, 'Acoustic Session')
+                identity = self.start()
+                state = self.finish()
+                filename = 'Acoustic Session' + suffix
+                self.assertEqual(state['sourceName'], 'Acoustic Session')
+                self.assertEqual(state['sessions'][0]['original']['filename'], filename)
+                self.jobs.select(identity, 'source')
+                self.assertEqual(self.studio.name, filename)
+                self.assertEqual(self.studio.state['mediaKind'], kind)
+                status, headers, payload = self.request('/api/stem-file?jobId=' + identity + '&stem=source')
+                self.assertEqual(status, 200)
+                self.assertEqual(payload, wav_bytes())
+                self.assertEqual(headers['Content-Type'], content_type)
+                disposition = Message()
+                disposition['Content-Disposition'] = headers['Content-Disposition']
+                self.assertEqual(disposition.get_filename(), filename)
+
+    def test_previous_completed_session_survives_new_failure_and_cancellation(self):
+        identity = self.start()
+        self.finish()
+        saved = self.jobs.file(identity, 'vocals')
+        for outcome in ('failure', 'cancel'):
+            with self.subTest(outcome=outcome):
+                self.separator = ControlledSeparator()
+                self.jobs.separator_factory = self.separator
+                self.separator.mode = 'failure' if outcome == 'failure' else 'success'
+                self.start()
+                self.assertEqual(self.jobs.file(identity, 'vocals'), saved)
+                self.jobs.select(identity, 'source')
+                if outcome == 'cancel':
+                    self.jobs.cancel()
+                self.assertEqual(self.finish()['status'], 'cancelled' if outcome == 'cancel' else 'failed')
+                self.assertEqual(self.jobs.file(identity, 'vocals').read_bytes(), wav_bytes())
+                self.jobs.select(identity, 'vocals')
+                self.assertEqual(self.jobs.selected_job(), identity)
+                self.assertEqual(len(self.jobs.snapshot()['sessions']), 1)
 
     def test_real_chord_worker_and_separation_can_run_at_the_same_time(self):
         entered, release = threading.Event(), threading.Event()

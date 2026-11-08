@@ -2,12 +2,15 @@
 from pathlib import Path
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from socketserver import TCPServer
-from urllib.parse import urlsplit, parse_qs, unquote
+from urllib.parse import urlsplit, parse_qs, unquote, quote
 import json
 import hashlib
 import mimetypes
 import re
 import secrets
+import shutil
+from contextlib import suppress, nullcontext
+from collections import OrderedDict
 import threading
 import uuid
 import webbrowser
@@ -17,6 +20,14 @@ from .store import Store, export_json, export_csv
 
 def media_kind(source):
     return 'video' if source and Path(source).suffix.lower() in ('.mp4', '.mkv', '.webm', '.mov', '.avi', '.m4v') else 'audio'
+
+
+def media_type(source):
+    """Keep common recording types consistent across system MIME databases."""
+    return {'.m4a': 'audio/mp4', '.mp4': 'video/mp4', '.m4v': 'video/mp4',
+            '.wav': 'audio/wav', '.mp3': 'audio/mpeg', '.flac': 'audio/flac',
+            '.aac': 'audio/aac', '.ogg': 'audio/ogg', '.opus': 'audio/ogg',
+            '.webm': 'video/webm', '.mov': 'video/quicktime'}.get(Path(source).suffix.lower()) or mimetypes.guess_type(str(source))[0] or 'application/octet-stream'
 
 
 class LoopbackHTTPServer(ThreadingHTTPServer):
@@ -43,6 +54,11 @@ class Studio:
         self.state = {'busy': False, 'progress': 'Ready to analyse offline.' if self.source else 'Import an audio or video file to begin.', 'result': None, 'name': self.name}
         self.analyzer = None
         self.worker = None
+        self.analysis_cancel = threading.Event()
+        self.analysis_results = OrderedDict()
+        self.result_identity = None
+        self.analysis_aliases = {}
+        self.closed = False
         self.downloader = None
         self.discovery = None
         self.stems = None
@@ -69,18 +85,46 @@ class Studio:
                 stream.read(1)
         except (OSError, TypeError):
             raise ValueError('The selected file could not be opened.') from None
+        return self.select_source(source, source.name)
+
+    def source_identity(self, source):
+        """Identify unchanged local bytes without reading a large file on the UI thread."""
+        source = Path(source).resolve()
+        stat = source.stat()
+        key = (str(source), stat.st_dev, stat.st_ino, stat.st_size, stat.st_mtime_ns)
+        return self.analysis_aliases.get(key, key)
+
+    def remember_analysis(self, identity, result):
+        self.analysis_results[identity] = result
+        self.analysis_results.move_to_end(identity)
+        while len(self.analysis_results) > 8:
+            self.analysis_results.popitem(last=False)
+
+    def associate_source_identity(self, identity, retained):
+        """A completed separation owns a byte-for-byte retained original copy."""
         with self.lock:
-            if self.state['busy']:
+            self.analysis_aliases[self.source_identity(retained)] = identity
+
+    def select_source(self, source, name, imported=False, discovery_item=None):
+        """Select trusted local media while an independently pinned Mac analysis runs."""
+        with self.lock:
+            if self.state['busy'] and self.presentation != 'mac':
                 raise ValueError('Finish or cancel chord analysis first.')
+            if self.result_identity is not None and self.state['result'] is not None:
+                self.remember_analysis(self.result_identity, self.state['result'])
+            source = Path(source).resolve()
+            identity = self.source_identity(source)
             if self.imported and self.source and self.source != source:
                 self.source.unlink(missing_ok=True)
-            self.source, self.name, self.imported = source, source.name, False
+            self.source, self.name, self.imported = source, name, imported
             self.source_revision += 1
-            self.state.update(name=self.name, result=None, error=None,
-                              progress='Ready to analyse offline.', discoveryItem=None,
+            value = self.analysis_results.get(identity)
+            self.result_identity = identity if value is not None else None
+            self.state.update(name=name, result=value, error=None, discoveryItem=discovery_item,
                               sourceRevision=self.source_revision, mediaKind=media_kind(source))
-            return {'name': self.name, 'sourceRevision': self.source_revision,
-                    'mediaKind': media_kind(source)}
+            if not self.state['busy']:
+                self.state['progress'] = 'Analysis saved on this device.' if value else 'Ready to analyse offline.'
+            return {'name': name, 'sourceRevision': self.source_revision, 'mediaKind': media_kind(source)}
 
     def set_appearance(self, appearance):
         if appearance not in ('system', 'light', 'dark'):
@@ -95,55 +139,129 @@ class Studio:
         if selected not in ('major_minor', 'extended', 'refined', 'powerful'):
             raise ValueError('Choose an installed recognition model.')
         with self.lock:
+            if self.closed:
+                raise ValueError('Studio is closing.')
             if self.state['busy']:
                 raise ValueError('An analysis is already running.')
             if self.source is None or not self.source.is_file():
                 raise ValueError('Import an audio or video file first.')
-            self.state.update(busy=True, progress='Opening the local recognition model…', error=None)
+            # Opening the file pins its bytes even if a browser import is later
+            # unlinked. Copying and hashing happen on the worker, never in a UI handler.
             source, name = self.source, self.name
+            source_key = self.source_identity(source)
+            stream = source.open('rb')
+            pinned = (self.incoming / ('.analysis-' + uuid.uuid4().hex + source.suffix)
+                      if self.presentation == 'mac' else None)
+            cancel = threading.Event()
+            self.analysis_cancel = cancel
+            task = {'sourceName': name, 'sourceRevision': self.source_revision, 'status': 'running', 'error': None}
+            self.state.update(busy=True, progress='Opening the local recognition model…', error=None, analysisTask=task)
 
-        def run():
-            try:
-                bundle = ModelBundle(self.model_directory, selected)
-                analyzer = Analyzer(bundle, self.ffmpeg)
+            def check():
+                if cancel.is_set():
+                    raise AnalysisCancelled()
+
+            def progress(message):
                 with self.lock:
-                    self.analyzer = analyzer
-                def progress(message):
+                    task['message'] = message
+                    self.state['progress'] = 'Analysing ' + name + ': ' + message
+
+            def run():
+                result = None
+                error = None
+                cancelled = False
+                try:
+                    check()
+                    digest = hashlib.sha256()
+                    progress('Preparing recording…')
+                    with stream, (pinned.open('xb') if pinned else nullcontext(None)) as copied:
+                        total = 0
+                        while block := stream.read(1024 * 1024):
+                            check()
+                            total += len(block)
+                            if total > MAX_BYTES:
+                                raise ValueError('Choose a media file smaller than 2 GB.')
+                            if copied is not None:
+                                if shutil.disk_usage(self.incoming).free < 128 * 1024 ** 2:
+                                    raise ValueError('Free more storage before analysing this recording.')
+                                copied.write(block)
+                            digest.update(block)
+                    check()
+                    bundle = ModelBundle(self.model_directory, selected)
+                    check()
+                    analyzer = Analyzer(bundle, self.ffmpeg)
                     with self.lock:
-                        self.state['progress'] = message
-                progress('Checking saved analysis…')
-                digest = hashlib.sha256()
-                if source.stat().st_size > MAX_BYTES:
-                    raise ValueError('Choose a media file smaller than 2 GB.')
-                with source.open('rb') as stream:
-                    while block := stream.read(65536):
-                        analyzer.check()
-                        digest.update(block)
-                identity = self.store.identity({
-                    'source_sha256': digest.hexdigest(),
-                    'engine_version': 'structured1' if bundle.structured else 'overlap1',
-                    'model': {'sha256': bundle.metadata['sha256'],
-                              'frontend_sha256': bundle.manifest['frontend']['sha256']}})
-                result = self.store.load(identity)
-                if result is None:
-                    result = analyzer.analyze(source, progress)
-                    result = self.store.save(result)
-                result['audio_file'] = name
-                with self.lock:
-                    self.state.update(result=result, progress='Analysis saved on this device.', busy=False, error=None)
-            except AnalysisCancelled:
-                with self.lock:
-                    self.state.update(busy=False, progress='Analysis cancelled. Your file is kept.')
-            except Exception as error:
-                with self.lock:
-                    self.state.update(busy=False, error=str(error) or 'Could not analyse this file.', progress='Analysis could not finish.')
-            finally:
-                with self.lock:
-                    self.analyzer = None
-        self.worker = threading.Thread(target=run, name='BlazeMusicStudio', daemon=True)
-        self.worker.start()
+                        self.analyzer = analyzer
+                    if cancel.is_set():
+                        analyzer.cancel()
+                    analyzer.check()
+                    progress('Checking saved analysis…')
+                    identity = self.store.identity({
+                        'source_sha256': digest.hexdigest(),
+                        'engine_version': 'structured1' if bundle.structured else 'overlap1',
+                        'model': {'sha256': bundle.metadata['sha256'],
+                                  'frontend_sha256': bundle.manifest['frontend']['sha256']}})
+                    result = self.store.load(identity)
+                    if result is None:
+                        result = analyzer.analyze(pinned or source, progress)
+                        check()
+                        result = self.store.save(result)
+                    check()
+                    result['audio_file'] = name
+                except AnalysisCancelled:
+                    cancelled = True
+                except Exception as failure:
+                    error = str(failure) or 'Could not analyse this file.'
+                finally:
+                    with suppress(OSError):
+                        stream.close()
+                    if pinned:
+                        with suppress(OSError):
+                            pinned.unlink(missing_ok=True)
+                    # Keep busy until cleanup is complete. A new job can never
+                    # have its analyzer/progress cleared by an older worker.
+                    with self.lock:
+                        self.analyzer = None
+                        self.state['busy'] = False
+                        current_key = None
+                        if self.source:
+                            with suppress(OSError):
+                                current_key = self.source_identity(self.source)
+                        if cancelled:
+                            task['status'] = 'cancelled'
+                            self.state['progress'] = 'Chord analysis cancelled: ' + name
+                        elif error:
+                            task.update(status='failed', error=error)
+                            self.state['progress'] = 'Chord analysis could not finish: ' + name
+                            if current_key == source_key:
+                                self.state['error'] = error
+                        else:
+                            task['status'] = 'done'
+                            self.remember_analysis(source_key, result)
+                            self.state['progress'] = 'Analysis ready: ' + name
+                            if current_key == source_key:
+                                self.result_identity = source_key
+                                self.state.update(result=result, error=None)
+            self.worker = threading.Thread(target=run, name='BlazeMusicStudio', daemon=True)
+            try:
+                self.worker.start()
+            except Exception:
+                stream.close()
+                self.worker = None
+                self.state.update(busy=False, progress='Analysis could not start.')
+                task.update(status='failed', error='The background worker could not start.')
+                raise ValueError('The background worker could not start. Try again.') from None
+
+    def cancel_analysis(self):
+        with self.lock:
+            self.analysis_cancel.set()
+            if self.analyzer:
+                self.analyzer.cancel()
 
     def close(self):
+        with self.lock:
+            self.closed = True
+        self.cancel_analysis()
         if self.waveforms:
             self.waveforms.close()
         if self.stems:
@@ -308,15 +426,18 @@ def create_server(studio, port=0):
                     else:
                         query = parse_qs(urlsplit(self.path).query)
                         stem = query.get('stem', [''])[0]
-                        source = manager.file(query.get('jobId', [''])[0], stem)
+                        job_id = query.get('jobId', [''])[0]
+                        source = manager.file(job_id, stem)
+                        descriptor = manager.descriptor(job_id, stem)
+                        filename = descriptor.get('filename', stem.title() + '.wav')
                         with source.open('rb') as stream:
                             stream.seek(0, 2)
                             size = stream.tell()
                             stream.seek(0)
                             self.send_response(200)
-                            self.send_header('Content-Type', 'audio/wav')
+                            self.send_header('Content-Type', media_type(source) if stem == 'source' else 'audio/wav')
                             self.send_header('Content-Length', str(size))
-                            self.send_header('Content-Disposition', 'attachment; filename="' + stem.title() + '.wav"')
+                            self.send_header('Content-Disposition', "attachment; filename*=UTF-8''" + quote(filename, safe=''))
                             self.send_header('Cache-Control', 'no-store')
                             self.send_header('X-Content-Type-Options', 'nosniff')
                             self.end_headers()
@@ -424,7 +545,7 @@ def create_server(studio, port=0):
             try:
                 length = int(self.headers.get('Content-Length', '0'))
                 if path == '/api/import':
-                    if not 0 < length <= MAX_BYTES or studio.state['busy']:
+                    if not 0 < length <= MAX_BYTES or (studio.state['busy'] and studio.presentation != 'mac'):
                         raise ValueError('Finish or cancel analysis, then choose a file smaller than 2 GB.')
                     name = Path(unquote(self.headers.get('X-File-Name', 'Selected media')).replace('\\', '/')).name[:200]
                     suffix = Path(name).suffix[:16]
@@ -437,16 +558,7 @@ def create_server(studio, port=0):
                                 if not block:
                                     raise ValueError('The selected file was not fully read.')
                                 out.write(block); remaining -= len(block)
-                        with studio.lock:
-                            if studio.state['busy']:
-                                raise ValueError('Finish or cancel the current task first.')
-                            if studio.imported and studio.source:
-                                studio.source.unlink(missing_ok=True)
-                            studio.source, studio.name, studio.imported = temporary, name, True
-                            studio.source_revision += 1
-                            studio.state.update(name=name, result=None, error=None, progress='Ready to analyse offline.',
-                                                discoveryItem=None, sourceRevision=studio.source_revision,
-                                                mediaKind=media_kind(temporary))
+                        studio.select_source(temporary, name, imported=True)
                     except Exception:
                         temporary.unlink(missing_ok=True)
                         raise
@@ -480,16 +592,10 @@ def create_server(studio, port=0):
                         self.json(manager.prepare(body))
                     elif path == '/api/discovery-select':
                         with studio.lock:
-                            if studio.state['busy']:
+                            if studio.state['busy'] and studio.presentation != 'mac':
                                 raise ValueError('Finish or cancel chord analysis first.')
                             source, item = manager.select(body.get('requestId'))
-                            if studio.imported and studio.source:
-                                studio.source.unlink(missing_ok=True)
-                            studio.source, studio.name, studio.imported = source, item['title'], False
-                            studio.source_revision += 1
-                            studio.state.update(name=item['title'], result=None, error=None,
-                                                progress='Ready to analyse offline.', discoveryItem=item,
-                                                sourceRevision=studio.source_revision, mediaKind=media_kind(source))
+                            studio.select_source(source, item['title'], discovery_item=item)
                         self.json({'name': item['title'], 'item': item, 'mediaKind': media_kind(source)})
                     elif path == '/api/discovery-cancel':
                         manager.cancel(body.get('requestId'))
@@ -524,21 +630,16 @@ def create_server(studio, port=0):
                         studio.downloader.open_folder()
                     elif path == '/api/download-select':
                         with studio.lock:
-                            if studio.state['busy']:
+                            if studio.state['busy'] and studio.presentation != 'mac':
                                 raise ValueError('Finish or cancel chord analysis first.')
                             source = studio.downloader.select(body.get('id'))
-                            studio.source, studio.name, studio.imported = source, source.name, False
-                            studio.source_revision += 1
-                            studio.state.update(name=source.name, result=None, error=None, progress='Ready to analyse offline.',
-                                                discoveryItem=None, sourceRevision=studio.source_revision,
-                                                mediaKind=media_kind(source))
+                            studio.select_source(source, source.name)
                     else:
                         raise ValueError('Unknown download action.')
                 elif path == '/api/analyze':
                     studio.analyze(body.get('model', 'powerful'))
                 elif path == '/api/cancel':
-                    if studio.analyzer:
-                        studio.analyzer.cancel()
+                    studio.cancel_analysis()
                 elif path == '/api/edit':
                     if studio.state['result'] is None:
                         raise ValueError('Analyse a recording first.')

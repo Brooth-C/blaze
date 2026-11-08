@@ -1,4 +1,4 @@
-"""One local stem-separation job, owned by the current Studio session."""
+"""One background separation worker with retained completed Studio sessions."""
 from pathlib import Path
 from contextlib import suppress
 import shutil
@@ -23,6 +23,7 @@ class StemJobs:
         self.cancel_event = threading.Event()
         self.closed = False
         self.files = {}
+        self.sessions = {}
         self.value = {'status': 'idle', 'progress': 0, 'message': '', 'error': None,
                       'jobId': '', 'sourceRevision': 0, 'sourceName': '', 'stems': []}
 
@@ -30,19 +31,61 @@ class StemJobs:
         with self.studio.lock:
             return dict(self.value, available=bool(self.separator_factory or
                         (self.models / 'manifest.json').is_file()),
-                        stems=[dict(row) for row in self.value['stems']])
+                        stems=[dict(row) for row in self.value['stems']],
+                        sessions=[self._session_snapshot(row) for row in reversed(list(self.sessions.values()))])
 
-    def selected_stem(self):
-        """Identify the current saved output by its path, never its display name."""
+    @staticmethod
+    def _session_snapshot(session):
+        value = session['value']
+        return dict(value, stems=[dict(row) for row in value['stems']],
+                    original=dict(value['original']))
+
+    def selected_job(self):
+        """Resolve the active recording to a completed session without names."""
         with self.studio.lock:
-            if self.value['status'] != 'done' or self.studio.source is None:
+            if self.studio.source is None:
                 return ''
             try:
                 selected = self.studio.source.resolve()
-                return next((stem for stem, path in self.files.items()
-                             if Path(path).resolve() == selected), '')
+                sessions = list(reversed(list(self.sessions.items())))
+                # A newly separated source can itself be a stem from an older
+                # session. Its exact source revision belongs to the newer job.
+                for identity, session in sessions:
+                    if (session['sourceRevision'] == self.studio.source_revision and
+                            session['source'].resolve() == selected):
+                        return identity
+                for identity, session in sessions:
+                    if any(path.resolve() == selected for path in session['files'].values()):
+                        return identity
+            except (OSError, RuntimeError):
+                pass
+            return ''
+
+    def selected_stem(self):
+        """Identify the saved output by its path, never its display name."""
+        with self.studio.lock:
+            identity = self.selected_job()
+            if not identity:
+                return ''
+            session = self.sessions[identity]
+            try:
+                selected = self.studio.source.resolve()
+                if (session['sourceRevision'] == self.studio.source_revision and
+                        session['source'].resolve() == selected):
+                    return 'source'
+                return next((stem for stem, path in session['files'].items()
+                             if path.resolve() == selected), '')
             except (OSError, RuntimeError):
                 return ''
+
+    def descriptor(self, identity, stem):
+        """Public, path-free metadata for one registered completed file."""
+        with self.studio.lock:
+            self.file(identity, stem)
+            value = self.sessions[identity]['value']
+            if stem == 'source':
+                return dict(value['original'])
+            return dict(next(row for row in value['stems'] if row['id'] == stem))
 
     def start(self, mode="stems"):
         with self.studio.lock:
@@ -63,16 +106,17 @@ class StemJobs:
             pending.mkdir()
             input_path = self.root / ('.' + identity + '.input')
             try:
+                source_key = self.studio.source_identity(source)
                 input_stream = source.open('rb')
             except OSError:
                 pending.rmdir()
                 raise ValueError('The recording could not be opened.') from None
             self.cancel_event = threading.Event()
             cancel = self.cancel_event
-            self.files = {}
+            source_revision, source_name = self.studio.source_revision, self.studio.name
             self.value.update(status='running', progress=0, message='Preparing your recording…',
-                              error=None, jobId=identity, sourceRevision=self.studio.source_revision,
-                              sourceName=self.studio.name, mode=mode, stems=[])
+                              error=None, jobId=identity, sourceRevision=source_revision,
+                              sourceName=source_name, mode=mode, stems=[])
 
             def progress(fraction, message):
                 with self.studio.lock:
@@ -137,12 +181,28 @@ class StemJobs:
                     with self.studio.lock:
                         if cancel.is_set() or self.closed:
                             return
+                        original = pending / 'original'
+                        original.mkdir()
+                        original_name = 'Recording' + source.suffix.lower()
+                        input_path.rename(original / original_name)
                         pending.rename(final)
                         self.files = {name: final / Path(outputs[name]).name for name in expected}
+                        self.files['source'] = final / 'original' / original_name
+                        self.studio.associate_source_identity(source_key, self.files['source'])
                         self.value.update(status='done', progress=1, message={'piano': 'Your piano track is ready.', 'five': 'Your five stems are ready.',
                                                    'nine': 'Your nine stems are ready.', 'stems': 'Your four stems are ready.'}[mode],
                                           stems=[{'id': name, 'label': name.title(),
                                                   'filename': name.title() + '.wav'} for name in expected])
+                        video = source.suffix.lower() in ('.mp4', '.mkv', '.webm', '.mov', '.avi', '.m4v')
+                        metadata = {key: self.value[key] for key in ('jobId', 'sourceName', 'sourceRevision', 'mode')}
+                        download_name = source_name
+                        if source.suffix and Path(download_name).suffix.lower() != source.suffix.lower():
+                            download_name += source.suffix.lower()
+                        metadata.update(stems=[dict(row) for row in self.value['stems']],
+                                        original={'id': 'source', 'label': 'Original', 'filename': download_name,
+                                                  'mediaKind': 'video' if video else 'audio'})
+                        self.sessions[identity] = {'value': metadata, 'files': self.files,
+                                                   'source': source, 'sourceRevision': source_revision}
                 except Exception as error:
                     with self.studio.lock:
                         if not cancel.is_set():
@@ -181,29 +241,25 @@ class StemJobs:
 
     def file(self, identity, stem):
         with self.studio.lock:
-            if (not isinstance(identity, str) or identity != self.value['jobId'] or
-                    self.value['status'] != 'done' or stem not in self.files):
-                raise ValueError('Choose a completed stem from this separation.')
-            source = self.files[stem]
+            if not isinstance(identity, str) or not isinstance(stem, str):
+                raise ValueError('Choose a completed track from a saved separation.')
+            session = self.sessions.get(identity)
+            if session is None or stem not in session['files']:
+                raise ValueError('Choose a completed track from a saved separation.')
+            source = session['files'][stem]
             if not source.is_file():
-                raise ValueError('The saved stem is missing.')
+                raise ValueError('The saved track is missing.')
             return source
 
     def select(self, identity, stem):
         with self.studio.lock:
-            if self.studio.state['busy']:
-                raise ValueError('Finish or cancel the current task first.')
             source = self.file(identity, stem)
-            if self.studio.imported and self.studio.source:
-                self.studio.source.unlink(missing_ok=True)
-            self.studio.source, self.studio.name, self.studio.imported = source, stem.title() + '.wav', False
-            self.studio.source_revision += 1
-            self.studio.state.update(name=self.studio.name, result=None, error=None,
-                                     progress='Ready to analyse offline.', discoveryItem=None,
-                                     sourceRevision=self.studio.source_revision, mediaKind='audio')
+            description = self.descriptor(identity, stem)
+            self.studio.select_source(source, description['filename'])
 
     def open_folder(self, identity):
-        folder = self.file(identity, 'piano' if self.value.get('mode') == 'piano' else 'vocals').parent
+        # The original always lives directly below the completed session.
+        folder = self.file(identity, 'source').parent.parent
         if sys.platform != 'darwin':
             raise ValueError('Open the Mac app to reveal the saved stems.')
         subprocess.Popen(['/usr/bin/open', str(folder)])

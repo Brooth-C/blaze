@@ -27,6 +27,11 @@ with tempfile.TemporaryDirectory(prefix='blaze-stems-ui-') as directory:
         # separation job state is controlled by the browser fixture below.
         files={}
         def snapshot(self):return {'status':'idle','stems':[]}
+        def selected_job(self):return ''
+        def selected_stem(self):return ''
+        def descriptor(self,job_id,stem):
+            self.file(job_id,stem)
+            return {'filename':stem.title()+'.wav'}
         def file(self,job_id,stem):
             if (job_id,stem) not in [('fixture-job-2','vocals'),('fixture-job-2','synths'),('fixture-job-3','piano')]:raise ValueError('Unknown fixture stem')
             return source

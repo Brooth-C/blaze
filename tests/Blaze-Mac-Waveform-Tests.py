@@ -134,10 +134,21 @@ class WaveformHTTPTests(unittest.TestCase):
             recording(target, {'vocals': .5, 'piano': .25, 'synths': .125}[stem])
             self.jobs.files[stem] = target
         self.jobs.value.update(status='done', jobId='completed-local-job', sourceRevision=0,
-                               stems=[{'id': stem} for stem in self.jobs.files])
+                               sourceName=self.source.name, mode='piano',
+                               stems=[{'id': stem, 'label': stem.title(), 'filename': stem.title()+'.wav'}
+                                      for stem in self.jobs.files])
+        self.register_session('completed-local-job', self.source, self.jobs.files)
         self.server = create_server(self.studio)
         self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
         self.thread.start()
+
+    def register_session(self, identity, source, files):
+        files['source'] = source
+        value = dict(self.jobs.value, jobId=identity,
+                     original={'id': 'source', 'label': 'Original', 'filename': source.name,
+                               'mediaKind': 'audio'})
+        self.jobs.sessions[identity] = {'value': value, 'files': files,
+                                        'source': source, 'sourceRevision': self.studio.source_revision}
 
     def tearDown(self):
         self.studio.close()
@@ -168,13 +179,13 @@ class WaveformHTTPTests(unittest.TestCase):
         status, source = self.get('sourceRevision=0')
         self.assertEqual(status, 200)
         self.assertEqual(source['stemJobId'], 'completed-local-job')
-        self.assertEqual(source['selectedStem'], '')
+        self.assertEqual(source['selectedStem'], 'source')
         query = urlencode(dict(sourceRevision=0, jobId='completed-local-job', stem='synths'))
         status, stem = self.get(query)
         self.assertEqual(status, 200)
         self.assertEqual(stem['sourceRevision'], 0)
         self.assertEqual(stem['stem'], 'synths')
-        self.assertEqual(stem['selectedStem'], '', 'Previewing a sibling must not select it.')
+        self.assertEqual(stem['selectedStem'], 'source', 'Previewing a sibling must not select it.')
         self.assertNotEqual(source['peaks'], stem['peaks'])
         self.assertNotIn(str(self.root), json.dumps(stem))
 
@@ -215,6 +226,16 @@ class WaveformHTTPTests(unittest.TestCase):
                 release.set()
                 connection.close()
 
+    def test_envelope_validation_avoids_repeated_path_lookups(self):
+        from music_studio.waveform import selection
+        _, valid, _ = selection(self.studio, str(self.studio.source_revision),
+                                'completed-local-job', 'piano')
+        with patch.object(Path, 'resolve', side_effect=AssertionError('Repeated filesystem lookup')):
+            for _ in range(1024):
+                self.assertTrue(valid())
+        self.register_session('new-completed-job', self.source, dict(self.jobs.files))
+        self.assertFalse(valid(), 'A completed job changed waveform ownership')
+
     def test_selected_stem_retains_siblings_but_new_import_invalidates_job(self):
         self.jobs.select('completed-local-job', 'piano')
         status, selected = self.get('sourceRevision=1')
@@ -242,11 +263,13 @@ class WaveformHTTPTests(unittest.TestCase):
                 recording(original, .35)
                 self.studio.open_local_file(original)
                 # A completed separation belongs to this original source.
-                self.jobs.value['sourceRevision'] = self.studio.source_revision
+                session = self.jobs.sessions['completed-local-job']
+                session['sourceRevision'] = self.studio.source_revision
+                session['source'] = original
                 status, mix = self.get('sourceRevision=' + str(self.studio.source_revision))
                 self.assertEqual(status, 200)
                 self.assertEqual(mix['stemJobId'], 'completed-local-job')
-                self.assertEqual(mix['selectedStem'], '')
+                self.assertEqual(mix['selectedStem'], 'source')
                 self.assertNotIn(str(self.root), json.dumps(mix))
                 self.jobs.select('completed-local-job', stem)
                 self.assertEqual(self.studio.name, name, 'The display names intentionally collide.')
@@ -270,8 +293,8 @@ class WaveformHTTPTests(unittest.TestCase):
         self.jobs.value['status'] = 'running'
         status, pending = self.get('sourceRevision=' + str(self.studio.source_revision))
         self.assertEqual(status, 200)
-        self.assertEqual(pending['stemJobId'], '')
-        self.assertEqual(pending['selectedStem'], '')
+        self.assertEqual(pending['stemJobId'], 'completed-local-job')
+        self.assertEqual(pending['selectedStem'], 'piano')
 
         # Separating the selected output again creates a new job. The old piano
         # file is this job's recording, not its new piano output of the same name.
@@ -281,16 +304,30 @@ class WaveformHTTPTests(unittest.TestCase):
         self.jobs.files = {'piano': fresh / 'piano.wav'}
         self.jobs.value.update(status='done', jobId='fresh-job',
                                sourceRevision=self.studio.source_revision,
-                               stems=[{'id': 'piano'}])
+                               sourceName=self.studio.name, mode='piano',
+                               stems=[{'id': 'piano', 'label': 'Piano', 'filename': 'Piano.wav'}])
+        self.register_session('fresh-job', self.studio.source, self.jobs.files)
         status, original = self.get('sourceRevision=' + str(self.studio.source_revision))
         self.assertEqual(status, 200)
         self.assertEqual(original['stemJobId'], 'fresh-job')
-        self.assertEqual(original['selectedStem'], '')
+        self.assertEqual(original['selectedStem'], 'source')
         self.jobs.select('fresh-job', 'piano')
         status, output = self.get('sourceRevision=' + str(self.studio.source_revision))
         self.assertEqual(status, 200)
         self.assertEqual(output['selectedStem'], 'piano')
         self.assertNotEqual(output['peaks'], original['peaks'])
+        # Reopening a retained session changes ownership back to that session;
+        # an unrelated saved separation cannot be requested by a forged ID.
+        self.jobs.select('completed-local-job', 'source')
+        revision = str(self.studio.source_revision)
+        status, returned = self.get('sourceRevision=' + revision)
+        self.assertEqual(status, 200)
+        self.assertEqual(returned['stemJobId'], 'completed-local-job')
+        self.assertEqual(returned['selectedStem'], 'source')
+        self.assertEqual(self.get(urlencode(dict(sourceRevision=revision,
+                            jobId='completed-local-job', stem='synths')))[0], 200)
+        self.assertEqual(self.get(urlencode(dict(sourceRevision=revision,
+                            jobId='fresh-job', stem='piano')))[0], 400)
 
     def test_rejects_missing_stale_duplicate_and_forged_track_references(self):
         for query in ('', 'sourceRevision=1', 'sourceRevision=-1', 'sourceRevision=not-a-number'):
