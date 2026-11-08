@@ -40,9 +40,10 @@ const start=()=>new Promise((resolve,reject)=>{let s='';const timeout=setTimeout
 (async()=>{try{
  const base=await start();browser=await chromium.launch({args:['--no-sandbox','--autoplay-policy=no-user-gesture-required']});
  const page=await browser.newPage({viewport:{width:1440,height:900},acceptDownloads:true}),errors=[],selections=[];
- let busyPreviews=0;
+ let busyPreviews=0,stalePreviews=0;
  await page.route('**/api/studio-waveform?*',async route=>{
   if(new URL(route.request().url()).searchParams.get('stem')==='brass'&&busyPreviews<5){++busyPreviews;await route.fulfill({status:503,json:{error:'Waveform decoder temporarily busy'}});}
+  else if(new URL(route.request().url()).searchParams.get('stem')==='strings'&&stalePreviews<1){++stalePreviews;await route.fulfill({status:409,json:{error:'A previous preview response became stale'}});}
   else await route.continue();
  });
  page.on('pageerror',e=>errors.push(e.stack));page.on('request',r=>{if(r.method()==='POST'&&new URL(r.url()).pathname==='/api/stems-select')selections.push(r.postDataJSON());});
@@ -262,7 +263,7 @@ const start=()=>new Promise((resolve,reject)=>{let s='';const timeout=setTimeout
  await page.waitForFunction(()=>document.querySelectorAll('#logic-preview .track-header').length===10);
  await page.setViewportSize({width:1440,height:900});
  await page.waitForFunction(()=>{const job=window.BlazeMacStems.snapshot().jobId;return window.BlazeMacStudio.viewState().tracks.some(t=>t.jobId===job);});
- await page.waitForFunction(()=>{const s=window.BlazeMacStudio.snapshot();return s.waveformsReady===s.tracks.length;}).catch(async error=>{console.error({state:await page.evaluate(()=>window.BlazeMacStudio.snapshot()),errors});throw error;});
+ await page.waitForFunction(()=>{const s=window.BlazeMacStudio.snapshot();return s.waveformsReady===s.tracks.length;}).catch(async error=>{console.error(JSON.stringify({state:await page.evaluate(()=>window.BlazeMacStudio.snapshot()),tracks:await page.evaluate(()=>window.BlazeMacStudio.viewState().tracks.map(t=>({id:t.id,ready:!!t.waveform}))),errors},null,2));throw error;});
  assert.equal(await page.evaluate(()=>window.BlazeMacStudio.viewState().tracks.find(t=>t.id==='piano')?.gain),1,'A new separation job inherited an unrelated track level');
  await page.waitForFunction(()=>Array.from(document.querySelectorAll('#logic-preview .track-header')).map(n=>n.dataset.trackId).join(',')===window.BlazeMacStudio.snapshot().tracks.map(t=>t.id).join(','));
  await page.getByRole('button',{name:'Library',exact:true}).click();
@@ -283,6 +284,7 @@ const start=()=>new Promise((resolve,reject)=>{let s='';const timeout=setTimeout
  assert(await blank.locator('#logic-play').isDisabled());
  if(out)await blank.screenshot({path:path.join(out,'logic-live-empty.png')});await blank.close();
  assert.equal(busyPreviews,5,'Repeated decoder contention was not exercised');
+ assert.equal(stalePreviews,1,'Transient stale preview was not exercised');
  assert.deepEqual(errors,[],'Page errors');
  console.log('Logic live PASS: production Studio, one player, real WAVs/export, rotary pan drag/fine/reset/keyboard, independent track gains/restore, inspector sync, fader grab/fine/reset, no canvas redraw during pan drag, five widths/light/dark, Library selection, retained originals and earlier sessions, grouped/cross-track undo/redo, source switches during concurrent chord/stem workers. Controlled inference; native macOS 26/model quality not tested.');
 }finally{if(browser)await browser.close();server.kill('SIGTERM');}})().catch(e=>{console.error(e);process.exitCode=1;});

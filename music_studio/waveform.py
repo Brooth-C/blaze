@@ -69,17 +69,20 @@ def selection(studio, revision, job_id='', stem=''):
         else:
             source = selected
         captured_revision = studio.source_revision
+        # Session entries are immutable after completion. Validate their identity
+        # in memory: this callback also runs for every envelope bin, so resolving
+        # every saved path here would multiply filesystem work by thousands.
+        registered = manager.sessions.get(job_id) if job_id else None
+        session_count = len(manager.sessions) if job_id else 0
 
     def valid():
         with studio.lock:
             if studio.source_revision != captured_revision or studio.source != selected:
                 return False
             if job_id:
-                try:
-                    return (studio.stems is manager and manager.selected_job() == job_id and
-                            manager.file(job_id, stem) == source)
-                except ValueError:
-                    return False
+                return (studio.stems is manager and len(manager.sessions) == session_count and
+                        manager.sessions.get(job_id) is registered and
+                        registered['files'].get(stem) == source)
             return True
 
     return source, valid, owned_job

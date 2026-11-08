@@ -16,6 +16,9 @@ Command-Z and Shift-Command-Z. A drag is one undo action; changing the selected
 track does not redirect an undo to another track. Reopening a separation restores
 its playhead and original-track mixer settings.
 
+Waveform previews recover from temporary decoder contention and stale responses.
+Session validation avoids repeated filesystem lookups during waveform decoding.
+
 The existing graphite appearance and GPU defaults are retained. Studio still
 plays one selected recording or stem at a time; these changes do not add
 simultaneous multitrack mixing or a full project-file system. Session history

@@ -226,6 +226,16 @@ class WaveformHTTPTests(unittest.TestCase):
                 release.set()
                 connection.close()
 
+    def test_envelope_validation_avoids_repeated_path_lookups(self):
+        from music_studio.waveform import selection
+        _, valid, _ = selection(self.studio, str(self.studio.source_revision),
+                                'completed-local-job', 'piano')
+        with patch.object(Path, 'resolve', side_effect=AssertionError('Repeated filesystem lookup')):
+            for _ in range(1024):
+                self.assertTrue(valid())
+        self.register_session('new-completed-job', self.source, dict(self.jobs.files))
+        self.assertFalse(valid(), 'A completed job changed waveform ownership')
+
     def test_selected_stem_retains_siblings_but_new_import_invalidates_job(self):
         self.jobs.select('completed-local-job', 'piano')
         status, selected = self.get('sourceRevision=1')

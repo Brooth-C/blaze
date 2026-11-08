@@ -596,7 +596,7 @@
         const params=new URLSearchParams({sourceRevision:String(revision)});if(jobId){params.set('jobId',jobId);params.set('stem',stem);}
         const response=await fetch('/api/studio-waveform?'+params,{headers:{'X-Blaze-Token':token},signal});
         const data=await response.json();
-        if(response.status===503&&performance.now()<deadline){
+        if((response.status===503||(response.status===409&&revision===sourceRevision))&&performance.now()<deadline){
             await delay(Math.min(100*Math.pow(2,Math.min(attempt,4)),1000),signal);
             return fetchWave(revision,jobId,stem,signal,attempt+1,deadline);
         }
