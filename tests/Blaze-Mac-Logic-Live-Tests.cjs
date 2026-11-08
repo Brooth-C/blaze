@@ -40,6 +40,11 @@ const start=()=>new Promise((resolve,reject)=>{let s='';const timeout=setTimeout
 (async()=>{try{
  const base=await start();browser=await chromium.launch({args:['--no-sandbox','--autoplay-policy=no-user-gesture-required']});
  const page=await browser.newPage({viewport:{width:1440,height:900},acceptDownloads:true}),errors=[],selections=[];
+ let busyPreviews=0;
+ await page.route('**/api/studio-waveform?*',async route=>{
+  if(new URL(route.request().url()).searchParams.get('stem')==='brass'&&busyPreviews<5){++busyPreviews;await route.fulfill({status:503,json:{error:'Waveform decoder temporarily busy'}});}
+  else await route.continue();
+ });
  page.on('pageerror',e=>errors.push(e.stack));page.on('request',r=>{if(r.method()==='POST'&&new URL(r.url()).pathname==='/api/stems-select')selections.push(r.postDataJSON());});
  page.on('console',m=>{const url=m.location().url;if(m.type()==='error'&&!url.endsWith('/favicon.ico')&&!(url.includes('/api/studio-waveform?')&&/409|503/.test(m.text())))errors.push(m.text());});
  await page.goto(base);await page.waitForFunction(()=>window.BlazeLogicVisual?.scope==='live-session');
@@ -277,6 +282,7 @@ const start=()=>new Promise((resolve,reject)=>{let s='';const timeout=setTimeout
  assert.equal(await blank.locator('#logic-preview .track-header').count(),0,'Empty project contains demo tracks');
  assert(await blank.locator('#logic-play').isDisabled());
  if(out)await blank.screenshot({path:path.join(out,'logic-live-empty.png')});await blank.close();
+ assert.equal(busyPreviews,5,'Repeated decoder contention was not exercised');
  assert.deepEqual(errors,[],'Page errors');
  console.log('Logic live PASS: production Studio, one player, real WAVs/export, rotary pan drag/fine/reset/keyboard, independent track gains/restore, inspector sync, fader grab/fine/reset, no canvas redraw during pan drag, five widths/light/dark, Library selection, retained originals and earlier sessions, grouped/cross-track undo/redo, source switches during concurrent chord/stem workers. Controlled inference; native macOS 26/model quality not tested.');
 }finally{if(browser)await browser.close();server.kill('SIGTERM');}})().catch(e=>{console.error(e);process.exitCode=1;});

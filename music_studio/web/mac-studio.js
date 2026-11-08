@@ -592,11 +592,14 @@
         const timer=setTimeout(()=>{signal?.removeEventListener('abort',abort);resolve();},milliseconds);
         if(signal?.aborted)abort();else signal?.addEventListener('abort',abort,{once:true});
     });
-    async function fetchWave(revision, jobId='', stem='', signal, attempt=0) {
+    async function fetchWave(revision, jobId='', stem='', signal, attempt=0, deadline=performance.now()+90000) {
         const params=new URLSearchParams({sourceRevision:String(revision)});if(jobId){params.set('jobId',jobId);params.set('stem',stem);}
         const response=await fetch('/api/studio-waveform?'+params,{headers:{'X-Blaze-Token':token},signal});
         const data=await response.json();
-        if(response.status===503&&attempt<4){await delay(100*Math.pow(2,attempt),signal);return fetchWave(revision,jobId,stem,signal,attempt+1);}
+        if(response.status===503&&performance.now()<deadline){
+            await delay(Math.min(100*Math.pow(2,Math.min(attempt,4)),1000),signal);
+            return fetchWave(revision,jobId,stem,signal,attempt+1,deadline);
+        }
         if(!response.ok){const error=Error(data.error||'The waveform could not be read.');error.status=response.status;throw error;}return data;
     }
     async function syncSession() {
