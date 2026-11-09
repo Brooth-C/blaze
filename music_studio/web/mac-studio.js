@@ -334,7 +334,7 @@
         endAdjustment();
         pendingSelection = true;pendingTrack=track.id;paintTrackPending();paintTransport();message('Opening '+track.label+'…','loading');
         const position=Number.isFinite(player.currentTime)?player.currentTime:0;
-        const practiceSettings={rate:player.playbackRate,range:selection?[...selection]:null,
+        const practiceSettings={rate:player.playbackRate,range:loopStart!==null&&loopEnd!==null?[loopStart,loopEnd]:selection?[...selection]:null,
             loop:player.loop||loopEnd!==null};
         if(sessionJob)sessionPositions.set(sessionJob,position);
         const previousPosition=preservePractice||sessionJob===track.jobId?position:sessionPositions.get(track.jobId)||0;

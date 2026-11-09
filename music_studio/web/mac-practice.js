@@ -149,7 +149,8 @@
  function chordLabel(chord){if(!chord||chord==='X')return 'Uncertain';if(chord==='N')return 'No chord';const [main,bass]=chord.split('/'),[note,quality='maj']=main.split(':'),suffix={maj:'',min:'m',min7:'m7',minmaj7:'m(maj7)',maj6:'6',min6:'m6',hdim7:'m7♭5'};return note+(suffix[quality]??quality)+(bass?'/'+bass:'');}
  function after(values,position){let left=0,right=values.length;while(left<right){const mid=(left+right)>>>1;if(values[mid].start<=position)left=mid+1;else right=mid;}return left;}
  function renderChords(){
-  const guide=state.practiceGuide||meta.guide;const candidate=state.practiceChords?.length?state.practiceChords:meta.guide?.chords||state.chords||[];
+  const recordingGuide=meta.sourceRevision===sourceRevision?meta.guide:null;
+  const guide=recordingGuide||state.practiceGuide;const candidate=recordingGuide?.chords?.length?recordingGuide.chords:state.practiceChords?.length?state.practiceChords:state.chords||[];
   if(candidate!==lastGuide){lastGuide=candidate;events=candidate;knownEvents=events.filter(event=>event.chord!=='N'&&event.chord!=='X');}
   const position=Number(player.currentTime)||0,index=after(events,position)-1;
   currentChord=index>=0&&events[index].end>position?events[index]:null;nextChord=knownEvents[after(knownEvents,position)]||null;

@@ -45,10 +45,11 @@ class Recognition:
         if self.cancelled.is_set():raise module.AnalysisCancelled()
     def analyze(self,source,progress):
         counted('analysis');progress('Reading chords');time.sleep(.5)
+        original=hashlib.sha256(source.read_bytes()).hexdigest()==hashlib.sha256((root/'Practice song.wav').read_bytes()).hexdigest()
         return {'schema_version':1,'duration':12,'source_sha256':hashlib.sha256(source.read_bytes()).hexdigest(),
-        'key':'C major','tempo_bpm':120,'analysis_seconds':.5,
+        'key':'C major' if original else 'F major','tempo_bpm':120,'analysis_seconds':.5,
         'model':{'name':'Controlled','sha256':'controlled','frontend_sha256':'controlled-frontend'},
-        'beats':[i*.5 for i in range(24)],'chords':[{'start':0,'end':6,'chord':'C:maj'},{'start':6,'end':12,'chord':'G:maj'}]}
+        'beats':[i*.5 for i in range(24)],'chords':[{'start':0,'end':6,'chord':'C:maj' if original else 'F:maj'},{'start':6,'end':12,'chord':'G:maj'}]}
 module.Analyzer=Recognition
 server=module.create_server(studio)
 def stop(*_):raise KeyboardInterrupt
@@ -82,13 +83,16 @@ async function mode(page,name){await page.locator('#practice-'+name).click();awa
  browser=await chromium.launch({args:['--no-sandbox','--autoplay-policy=no-user-gesture-required']});
  let page=await pageFor(base);await page.waitForFunction(()=>window.BlazeMacStudio.snapshot().waveformReady);
  assert.equal(await page.locator('audio,video').count(),1);
+ await page.evaluate(()=>window.BlazeMacStudio.commands.seek(2));await page.locator('#practice-set-a').click();
+ await page.evaluate(()=>window.BlazeMacStudio.commands.seek(6));await page.locator('#practice-set-b').click();
+ await page.locator('[data-rate=".75"]').click();await page.evaluate(()=>window.BlazeMacStudio.commands.seek(3));
  await page.locator('#practice-play').click();await page.waitForFunction(()=>!document.getElementById('media').paused&&document.getElementById('media').currentTime>.1);
  await page.locator('#practice-piano').click();await page.waitForFunction(()=>window.BlazeMacPractice.snapshot().preparing);
  assert.equal(await page.locator('#practice-play').isEnabled(),true,'Preparation blocked playback');
  await page.locator('#practice-analyze').click();
- await page.locator('#practice-original').click();
- await page.waitForFunction(()=>!window.BlazeMacPractice.snapshot().preparing&&window.BlazeMacPractice.snapshot().pianoJobId);
- assert.equal((await snapshot(page)).mode,'original','Completion overrode Original selection');
+ await page.waitForFunction(()=>!window.BlazeMacPractice.snapshot().preparing&&window.BlazeMacPractice.snapshot().mode==='piano'&&!window.BlazeMacStudio.viewState().pending);
+ assert.equal(await page.evaluate(()=>window.BlazeMacStudio.viewState().loopStart),2,'Preparation lost the active loop start');
+ assert.equal(await page.evaluate(()=>window.BlazeMacStudio.viewState().loopEnd),6,'Preparation lost the active loop end');
  await page.waitForFunction(()=>document.querySelector('#practice-current-chord strong').textContent==='C');
  await page.evaluate(()=>document.getElementById('media').pause());
  await page.evaluate(()=>window.BlazeMacStudio.commands.seek(2));await page.locator('#practice-set-a').click();
@@ -98,6 +102,9 @@ async function mode(page,name){await page.locator('#practice-'+name).click();awa
  for(const name of ['piano','backing','original','backing']){
   await mode(page,name);const s=await snapshot(page);assert.equal(s.rate,.75);assert(s.pitchPreserved);assert.equal(s.loopStart,2);assert.equal(s.loopEnd,6);assert(s.loopEnabled);assert(Math.abs(s.position-4.5)<.25,JSON.stringify(s));
  }
+ await page.locator('#practice-analyze').click();await page.waitForFunction(()=>!window.BlazeMacStudio.viewState().analysisBusy&&window.BlazeMacStudio.viewState().practiceGuide?.key==='F major');
+ await page.evaluate(()=>document.getElementById('media').dispatchEvent(new Event('timeupdate')));
+ assert.equal(await page.locator('#practice-current-chord strong').innerText(),'C','Stem analysis replaced the original song guide');
  await page.evaluate(()=>window.BlazeMacStudio.commands.seek(5.8));await page.locator('#practice-play').click();
  await page.waitForFunction(()=>document.getElementById('media').currentTime<3);
  await page.evaluate(()=>{document.getElementById('media').pause();window.BlazeMacStudio.commands.seek(4.5);});
@@ -112,7 +119,7 @@ async function mode(page,name){await page.locator('#practice-'+name).click();awa
  await page.locator('#practice-advanced').click();assert(await page.locator('#logic-preview').isVisible());await page.getByRole('button',{name:'Return to Practice',exact:true}).click();assert(await page.locator('#practice-workspace').isVisible());
  const evidence=process.env.BLAZE_UI_SCREENSHOTS;if(evidence){fs.mkdirSync(evidence,{recursive:true});await page.screenshot({path:path.join(evidence,'practice-working.png')});}
  assert.deepEqual(page.errors,[]);await page.close();await stop();
- assert.equal(count('separation'),1);assert.equal(count('analysis'),1);
+ assert.equal(count('separation'),1);assert.equal(count('analysis'),2);
  base=await start('restart');page=await pageFor(base);
  assert(await page.locator('#practice-empty').isVisible());
  await page.locator('[data-practice-id="'+saved+'"]').click();
@@ -120,6 +127,14 @@ async function mode(page,name){await page.locator('#practice-'+name).click();awa
  const resumed=await snapshot(page);assert.equal(resumed.loopStart,2);assert.equal(resumed.loopEnd,6);assert(Math.abs(resumed.position-4.5)<.25,JSON.stringify(resumed));
  await page.waitForFunction(()=>document.querySelector('#practice-current-chord strong').textContent==='C');
  await page.locator('#practice-play').click();await page.waitForFunction(()=>!document.getElementById('media').paused);await page.locator('#practice-play').click();
- assert.equal(count('separation'),1,'Resume reran separation');assert.equal(count('analysis'),1,'Resume reran analysis');assert.deepEqual(page.errors,[]);
+ assert.equal(count('separation'),1,'Resume reran separation');assert.equal(count('analysis'),2,'Resume reran analysis');assert.deepEqual(page.errors,[]);
+ const previousRecording=(await snapshot(page)).recordingId;
+ await page.locator('#import').setInputFiles(path.join(data,'Practice song.wav'));
+ await page.waitForFunction(previous=>{const s=window.BlazeMacPractice.snapshot();return s.recordingId&&s.recordingId!==previous;},previousRecording);
+ await page.locator('#practice-piano').click();await page.waitForFunction(()=>window.BlazeMacPractice.snapshot().preparing);
+ await page.locator('#practice-original').click();
+ await page.waitForFunction(()=>!window.BlazeMacPractice.snapshot().preparing&&window.BlazeMacPractice.snapshot().pianoJobId);
+ assert.equal((await snapshot(page)).mode,'original','Preparation overrode the later Original choice');
+ assert.equal(count('separation'),2);assert.deepEqual(page.errors,[]);
  await page.close();console.log('PASS: background preparation, concurrent chords, modes, real looping, speed, layout and saved practice across process restart.');
 }catch(e){console.error(e.stack);console.error(logs.slice(-2000));process.exitCode=1;}finally{if(browser)await browser.close();await stop();fs.rmSync(data,{recursive:true,force:true});}})();
