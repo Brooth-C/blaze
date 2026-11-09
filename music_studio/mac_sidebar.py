@@ -6,8 +6,8 @@ ROWS = (
     ('group-music', 'Your Music', None),
     ('library', 'Library', 'music.note.list'),
     ('downloads', 'Downloads', 'arrow.down.circle'),
-    ('group-create', 'Create', None),
-    ('studio', 'Music Studio', 'waveform'),
+    ('group-create', 'Learn', None),
+    ('studio', 'Practice', 'pianokeys'),
 )
 
 

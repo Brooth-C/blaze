@@ -197,7 +197,7 @@ class MacChromeTests(unittest.TestCase):
                 self.assertTrue(sidebar_state[0])
                 native.toolbar().removeItemAtIndex_.assert_called_once_with(1)
                 native.toolbar().setVisible_.assert_called_with(False)
-                native.setTitle_.assert_called_with('Blaze · Music Studio')
+                native.setTitle_.assert_called_with('Blaze · Practice')
                 appearance.appearanceNamed_.assert_called_with('Aqua')
                 # A user can reopen the browse sidebar while editing. Polling
                 # the web state must not repeatedly collapse it.

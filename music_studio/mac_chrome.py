@@ -483,7 +483,7 @@ class MacNavigation:
                                               if str(item.itemIdentifier()) == 'blaze.search'), None)
             if self._studio_search_index is not None:
                 toolbar.removeItemAtIndex_(self._studio_search_index)
-            self.native.setTitle_('Blaze · Music Studio')
+            self.native.setTitle_('Blaze · Practice')
             self.native.setTitleVisibility_(AppKit.NSWindowTitleVisible)
             toolbar.setVisible_(False)
         else:

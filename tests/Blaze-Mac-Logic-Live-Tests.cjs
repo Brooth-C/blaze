@@ -50,7 +50,7 @@ const start=()=>new Promise((resolve,reject)=>{let s='';const timeout=setTimeout
  page.on('console',m=>{const url=m.location().url;if(m.type()==='error'&&!url.endsWith('/favicon.ico')&&!(url.includes('/api/studio-waveform?')&&/409|503/.test(m.text())))errors.push(m.text());});
  await page.goto(base);await page.waitForFunction(()=>window.BlazeLogicVisual?.scope==='live-session');
  assert.equal(new URL(page.url()).origin,base);assert.equal(await page.title(),'Blaze');
- await page.evaluate(()=>{window.testPlayer=document.getElementById('media');window.BlazeMac.navigate('studio');});
+ await page.evaluate(()=>{window.testPlayer=document.getElementById('media');window.BlazeMac.navigate('studio');window.BlazeMacPractice?.showStudio();});
  await page.waitForFunction(()=>window.BlazeMacStudio.snapshot().waveformsReady===10);
  await page.waitForFunction(()=>document.querySelectorAll('#logic-preview .track-header').length===10);
  assert(await page.locator('#mac-studio-workspace').isHidden());
@@ -278,7 +278,7 @@ const start=()=>new Promise((resolve,reject)=>{let s='';const timeout=setTimeout
  blank.on('pageerror',e=>errors.push(e.message));
  await blank.route('**/api/state',route=>route.fulfill({json:{sourceRevision:0,name:'',busy:false,result:null,progress:'Import a recording.'}}));
  await blank.goto(base);await blank.waitForFunction(()=>window.BlazeLogicVisual?.scope==='live-session');
- await blank.evaluate(()=>window.BlazeMac.navigate('studio'));
+ await blank.evaluate(()=>{window.BlazeMac.navigate('studio');window.BlazeMacPractice?.showStudio();});
  await blank.waitForFunction(()=>!document.getElementById('live-empty').hidden);
  assert.equal(await blank.locator('#logic-preview .track-header').count(),0,'Empty project contains demo tracks');
  assert(await blank.locator('#logic-play').isDisabled());

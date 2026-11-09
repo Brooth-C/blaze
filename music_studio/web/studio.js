@@ -391,7 +391,7 @@ $('download-urls').addEventListener('input',()=>{$('download-error').hidden=true
         card.append(itemButton(item));
         if(!collection(item)){
             const actions=document.createElement('div');actions.className='discovery-item-actions';
-            const studio=document.createElement('button');studio.innerHTML=icon('studio');studio.setAttribute('aria-label','Open '+item.title+' in Studio');studio.title='Open in Studio';studio.onclick=()=>prepareItem(item,true);
+            const studio=document.createElement('button');studio.innerHTML=icon('studio');studio.setAttribute('aria-label',window.BlazeMacPractice?'Practise '+item.title:'Open '+item.title+' in Studio');studio.title=window.BlazeMacPractice?'Open for practice':'Open in Studio';studio.onclick=()=>prepareItem(item,true);
             const download=document.createElement('button');download.innerHTML=icon('downloads');download.setAttribute('aria-label','Download '+item.title);download.title='Download';download.onclick=()=>downloadItem(item);
             actions.append(studio,download);card.append(actions);
         }
