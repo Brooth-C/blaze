@@ -128,6 +128,18 @@ async function mode(page,name){await page.locator('#practice-'+name).click();awa
  await page.waitForFunction(()=>document.querySelector('#practice-current-chord strong').textContent==='C');
  await page.locator('#practice-play').click();await page.waitForFunction(()=>!document.getElementById('media').paused);await page.locator('#practice-play').click();
  assert.equal(count('separation'),1,'Resume reran separation');assert.equal(count('analysis'),2,'Resume reran analysis');assert.deepEqual(page.errors,[]);
+ const previousRevision=await page.evaluate(()=>sourceRevision);
+ let releaseMetadata,metadataHeld=false,holdMetadata=true;
+ await page.route('**/api/practice',async route=>{
+  if(holdMetadata){holdMetadata=false;metadataHeld=true;await new Promise(resolve=>{releaseMetadata=resolve;});}await route.continue();
+ });
+ await page.locator('#import').setInputFiles(path.join(data,'Practice song.wav'));
+ await page.waitForFunction(previous=>sourceRevision!==previous,previousRevision);
+ for(let attempt=0;!metadataHeld&&attempt<100;attempt++)await new Promise(resolve=>setTimeout(resolve,20));
+ assert(metadataHeld,'The delayed metadata request did not start');
+ await page.locator('#practice-save').click();releaseMetadata();
+ await page.waitForFunction(()=>window.BlazeMacPractice.snapshot().savedSessions===2&&!!window.BlazeMacPractice.snapshot().sessionId,null,{timeout:5000});
+ await page.unroute('**/api/practice');
  const previousRecording=(await snapshot(page)).recordingId;
  await page.locator('#import').setInputFiles(path.join(data,'Practice song.wav'));
  await page.waitForFunction(previous=>{const s=window.BlazeMacPractice.snapshot();return s.recordingId&&s.recordingId!==previous;},previousRecording);

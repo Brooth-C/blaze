@@ -24,7 +24,7 @@
  let studioVisible=null;
  let playFrame=0,pendingRestore=null;
  let active=true,stopped=false,state=engine.viewState(),meta={sessions:[],current:null,pianoJobId:null,recordingId:null,sourceRevision:-1,guide:null};
- let metadataBusy=false,metadataAgain=false,metadataSerial=0,actionEpoch=0,modeBusy=false,queuedMode=null,pendingMode=null,restoring=false;
+ let metadataBusy=false,metadataWait=null,metadataAgain=false,metadataSerial=0,actionEpoch=0,modeBusy=false,queuedMode=null,pendingMode=null,restoring=false;
  let message='',error='',saveMessage='',saving=false,saveTimer=0,saveAgain=false,lastSaveAt=0,lastSavedFingerprint='',lastControlsFingerprint='',lastKey=null,lastMetaTrigger='';
  let a=null,b=null,previewRange=null,pointer=null,peaksIdentity=null,lastCanvasWidth=0,lastGuide=null,events=[],knownEvents=[],currentChord=null,nextChord=null,rowsIdentity='';
  const stamp=value=>{value=Math.max(0,Number(value)||0);return Math.floor(value/60)+':'+String(Math.floor(value%60)).padStart(2,'0');};
@@ -58,7 +58,7 @@
  async function save(explicit){
   if(!hasSong()||restoring)return;
   if(saving){saveAgain=true;return;}
-  const revision=sourceRevision;if(meta.sourceRevision!==revision){await refreshMetadata();if(sourceRevision!==revision||meta.sourceRevision!==revision)return;}const key=meta.recordingId;
+  const revision=sourceRevision;if(meta.sourceRevision!==revision){saveMessage='Reading song…';update();await refreshMetadata();if(sourceRevision!==revision||meta.sourceRevision!==revision)return;if(saving){saveAgain=true;return;}}const key=meta.recordingId;
   saving=true;saveAgain=false;saveMessage='Saving practice…';error='';update();
   try{
    const value=settings(),answer=await api('/api/practice-save',{sourceRevision:revision,...(meta.current?.id?{sessionId:meta.current.id}:{}),...value});
@@ -70,19 +70,19 @@
  $('save').onclick=()=>void save(true);
  async function refreshMetadata(){
   if(stopped)return;
-  if(metadataBusy){metadataAgain=true;return;}
-  metadataBusy=true;const serial=++metadataSerial;
+  if(metadataBusy){metadataAgain=true;const outcome=await metadataWait;if(outcome==='stale'&&!stopped)return refreshMetadata();return;}
+  metadataBusy=true;const serial=++metadataSerial;let notifyMetadata,outcome='error';metadataWait=new Promise(resolve=>{notifyMetadata=resolve;});
   try{
    const answer=await api('/api/practice');if(serial!==metadataSerial||stopped)return;
-   if(Number.isSafeInteger(sourceRevision)&&answer.sourceRevision!==sourceRevision){metadataAgain=true;return;}
+   if(Number.isSafeInteger(sourceRevision)&&answer.sourceRevision!==sourceRevision){outcome='stale';metadataAgain=true;return;}
    const changedSong=lastKey!==null&&answer.recordingId!==lastKey;
-   meta=answer;
+   meta=answer;outcome='fresh';
    if(changedSong&&!restoring){++actionEpoch;pendingMode=null;queuedMode=null;a=b=null;saveMessage='';error='';clearTimeout(saveTimer);lastSavedFingerprint='';lastControlsFingerprint='';}
    if(lastKey!==answer.recordingId){lastKey=answer.recordingId;lastControlsFingerprint=fingerprint(settings());}
    if(pendingMode&&pendingMode.recordingId!==meta.recordingId)pendingMode=null;
    if(active)update();
   }catch(failure){if(active)report(failure);}
-  finally{metadataBusy=false;if(metadataAgain){metadataAgain=false;setTimeout(()=>void refreshMetadata(),120);}}
+  finally{metadataBusy=false;metadataWait=null;notifyMetadata(outcome);if(metadataAgain){metadataAgain=false;setTimeout(()=>void refreshMetadata(),120);}}
  }
  async function chooseMode(mode){
   const intent=++actionEpoch;error='';
