@@ -11,7 +11,7 @@
  window.BlazeLogicHost=engine;
  window.BlazeLogicLiveMount=({svg,button})=>{
   const $=id=>root.querySelector('#'+id),cmd=engine.commands;
-  let state=engine.viewState(),disposed=false,frame=0,timer=0,zoom=1,rangeTool=false,actionError='';
+  let state=engine.viewState(),disposed=false,visible=true,frame=0,timer=0,zoom=1,rangeTool=false,actionError='';
   let lastPeaks=null,lastTracks='',lastChords=null,lastChordDuration=-1,lastRuler='',lastEditorWidth=0;
   const rows=new Map(),pendingActions=new Set();
   const text=(node,value)=>{if(node.textContent!==String(value))node.textContent=String(value);};
@@ -148,7 +148,7 @@
   const dismiss=e=>{if(e.type==='keydown'?e.key==='Escape':!e.target.closest?.('[data-menu],#appearance-menu'))menu.hidden=true;};
   document.addEventListener('keydown',dismiss);document.addEventListener('pointerdown',dismiss);
   const historyShortcut=e=>{
-   if(!state.active||e.defaultPrevented||e.isComposing||!e.metaKey||e.altKey||e.key.toLowerCase()!=='z')return;
+   if(!visible||!state.active||e.defaultPrevented||e.isComposing||!e.metaKey||e.altKey||e.key.toLowerCase()!=='z')return;
    if(e.target.closest?.('textarea,select,input:not([type=range]),[contenteditable=true]'))return;
    const modal=document.querySelector('dialog:modal');if(modal&&modal.id!=='logic-session-tools')return;
    e.preventDefault();cmd.endAdjustment();(e.shiftKey?cmd.redo:cmd.undo)();update();
@@ -275,7 +275,7 @@
    text($('live-selection-readout'),state.selection?'Selection '+state.selection.map(stamp).join(' – '):'No range selected');
   }
   function update(){
-   if(disposed)return;state=engine.viewState();if(!state.active){cancelAnimationFrame(frame);frame=0;return;}
+   if(disposed)return;state=engine.viewState();if(!state.active||!visible){cancelAnimationFrame(frame);frame=0;return;}
    renderRows();const selected=state.tracks.find(t=>t.id===state.selected);text($('editor-track'),selected?.label||'Recording');text($('editor-caption'),selected?.label||'Recording');
    if(selected)root.style.setProperty('--selected-region-color','var(--region-'+selected.id+', '+selected.region+')');else root.style.removeProperty('--selected-region-color');
    text(root.querySelector('.tempo b'),Number(state.tempo).toFixed(state.tempo%1?1:0));text(root.querySelector('.signature b'),state.numerator+'/'+state.denominator);text(root.querySelector('.signature span'),state.key.replace(' major','maj').replace(' minor','min'));
@@ -304,6 +304,7 @@
   timer=setInterval(update,200);update();
   window.addEventListener('pagehide',()=>{disposed=true;clearInterval(timer);cancelAnimationFrame(frame);observer.disconnect();activeObserver.disconnect();tools.remove();
    for(const event of events)player.removeEventListener(event,update);document.removeEventListener('keydown',dismiss);document.removeEventListener('pointerdown',dismiss);document.removeEventListener('keydown',historyShortcut);},{once:true});
-  window.BlazeLogicVisual={scope:'live-session',snapshot:()=>({tracks:state.tracks.map(t=>t.id),selected:state.selected,position:state.position,duration:state.duration,zoom}),redraw};
+  window.BlazeLogicVisual={scope:'live-session',snapshot:()=>({tracks:state.tracks.map(t=>t.id),selected:state.selected,position:state.position,duration:state.duration,zoom}),redraw,
+   setVisible(value){visible=!!value;if(!visible){cancelAnimationFrame(frame);frame=0;menu.hidden=true;if(tools.open)tools.close();}else{update();redraw();}}};
  };
 })();

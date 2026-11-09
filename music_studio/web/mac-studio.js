@@ -108,7 +108,7 @@
     let deferredTrackFocus = null;
     let editorMode='audio', rangeTool=false, solo=false, projectTempo=120, projectNumerator=4, projectDenominator=4, projectKey='—';
     let manualProject=false, guide=null, guideJob='', metronome=false, lastClickBeat=-1;
-    let audioGraph=null;
+    let audioGraph=null,loopFrame=0;
     const history=[],future=[];
     const mutedTracks=new Set(),trackPans=new Map();
     const trackGains=new Map();
@@ -243,6 +243,22 @@
     el('daw-start').onclick=()=>seek(0);
     el('daw-stop').onclick = () => { player.pause(); seek(0); };
     el('daw-rewind').onclick = () => seek(player.currentTime - 10);
+    function setPracticeRate(value){
+        player.preservesPitch=true;
+        if('webkitPreservesPitch' in player)player.webkitPreservesPitch=true;
+        if('mozPreservesPitch' in player)player.mozPreservesPitch=true;
+        player.playbackRate=Math.max(.5,Math.min(1.5,Number(value)||1));
+        el('speed').value=String(player.playbackRate);paintTransport();
+    }
+    function setPracticeLoop(start,end,enabled=true){
+        const length=duration(),a=Number(start),b=Number(end);
+        if(!sourceName||!Number.isFinite(a)||!Number.isFinite(b)||!length)return;
+        const from=Math.max(0,Math.min(length,Math.min(a,b))),to=Math.max(0,Math.min(length,Math.max(a,b)));
+        if(to-from<.05)return;
+        selection=[from,to];player.loop=false;
+        loopStart=enabled?from:null;loopEnd=enabled?to:null;
+        el('repeat').checked=false;updateLoop();paintRange();paintTransport();scheduleDraw();
+    }
     el('daw-loop').onclick = () => {
         if(player.loop||loopEnd!==null){player.loop=false;loopStart=loopEnd=null;}
         else if(selection&&selection[1]>selection[0]){[loopStart,loopEnd]=selection;player.loop=false;}
@@ -313,17 +329,19 @@
             row.setAttribute('aria-busy',String(pending));row.classList.toggle('loading',pending);
         }
     }
-    async function selectTrack(track) {
+    async function selectTrack(track, {preservePractice=false}={}) {
         if (pendingSelection || analysisBlocksSelection() || importing || (selected === track.id&&sessionJob===track.jobId) || !track.jobId || isModal()) return;
         endAdjustment();
         pendingSelection = true;pendingTrack=track.id;paintTrackPending();paintTransport();message('Opening '+track.label+'…','loading');
         const position=Number.isFinite(player.currentTime)?player.currentTime:0;
+        const practiceSettings={rate:player.playbackRate,range:selection?[...selection]:null,
+            loop:player.loop||loopEnd!==null};
         if(sessionJob)sessionPositions.set(sessionJob,position);
-        const previousPosition=sessionJob===track.jobId?position:sessionPositions.get(track.jobId)||0;
+        const previousPosition=preservePractice||sessionJob===track.jobId?position:sessionPositions.get(track.jobId)||0;
         const wasPlaying = !player.paused;
         try {
             window.BlazeDesktop.cancelPreparation();
-            await api('/api/stems-select', {jobId:track.jobId, stem:track.id});
+            await api('/api/stems-select', {jobId:track.jobId, stem:track.id, sourceRevision});
             selected = track.id;
             currentPeaks = null; waveformReady = false;
             await window.BlazeMac.importCompleted();
@@ -334,14 +352,28 @@
             // Preserve audition position only for this completed selection.
             const resume = () => {
                 if (sourceRevision !== revision) return;
+                if(preservePractice){
+                    setPracticeRate(practiceSettings.rate);
+                    if(practiceSettings.range)setPracticeLoop(...practiceSettings.range,practiceSettings.loop);
+                    else if(practiceSettings.loop){player.loop=true;updateLoop();}
+                }
                 seek(previousPosition);
                 if (wasPlaying) player.play().catch(failure);
             };
+            if(preservePractice&&player.readyState<1){
+                await new Promise((resolve,reject)=>{
+                    const cleanup=()=>{clearTimeout(timeout);player.removeEventListener('loadedmetadata',ready);player.removeEventListener('error',failed);};
+                    const ready=()=>{cleanup();resolve();};
+                    const failed=()=>{cleanup();reject(Error('This track could not be loaded. Try Original or open the song again.'));};
+                    const timeout=setTimeout(failed,12000);
+                    player.addEventListener('loadedmetadata',ready,{once:true});player.addEventListener('error',failed,{once:true});
+                });
+            }
             if (player.readyState >= 1) resume(); else player.addEventListener('loadedmetadata', resume, {once:true});
             // The selected recording is ready; sibling previews can load in the
             // background without holding the transport disabled.
             signature = ''; void syncSession();
-        } catch (error) { message(error.message || 'This track could not be opened.','error'); }
+        } catch (error) { message(error.message || 'This track could not be opened.','error');if(preservePractice)throw error; }
         finally { pendingSelection = false;pendingTrack='';paintTrackPending();paintTransport(); }
     }
 
@@ -447,6 +479,8 @@
     }
 
     function paintTransport() {
+        if(!player.paused&&loopEnd!==null&&!loopFrame)loopFrame=requestAnimationFrame(tickPracticeLoop);
+        else if((player.paused||loopEnd===null)&&loopFrame){cancelAnimationFrame(loopFrame);loopFrame=0;}
         const enabled = !!sourceName && !pendingSelection;
         for (const id of ['daw-play','daw-stop','daw-rewind','daw-loop','daw-audition','daw-mute','daw-channel-mute','daw-channel-solo','daw-pan']) el(id).disabled = !enabled;
         const play = el('daw-play'), state = player.paused ? 'play' : 'pause';
@@ -521,7 +555,17 @@
         for(const event of data.chords){const chord=parts(event.chord);if(!chord)continue;const notes=intervals[chord.quality]||intervals.maj;for(const interval of notes){const note=60+chord.root+interval;if(note<low||note>high)continue;const x=event.start/length*r.width,width=Math.max(2,(event.end-event.start)/length*r.width-2),y=(high-note)/(high-low)*Math.max(1,r.height-12)+8;g.fillRect(x,y,width,Math.max(2,Math.min(5,r.height/(high-low)*.72)));}}
     }
     let drawFrame=0;
-    function scheduleDraw() { cancelAnimationFrame(drawFrame);drawFrame=requestAnimationFrame(draw); }
+    function scheduleDraw() {
+        cancelAnimationFrame(drawFrame);
+        if(document.body.classList.contains('practice-workspace-active'))return;
+        drawFrame=requestAnimationFrame(draw);
+    }
+    function tickPracticeLoop(){
+        loopFrame=0;
+        if(stopped||player.paused||loopEnd===null)return;
+        if(player.currentTime>=loopEnd)seek(loopStart);
+        loopFrame=requestAnimationFrame(tickPracticeLoop);
+    }
     function ruler(target, length, detailed=false) {
         target.replaceChildren();
         const width=target.getBoundingClientRect().width;
@@ -643,7 +687,7 @@
             selected=rows.some(row=>row.id===data.selectedStem)?data.selectedStem:'source';
             tracks=rows.map(row=>({id:row.id,label:labels[row.id],filename:row.filename,jobId:sessionJob,waveform:cache.get(sessionJob+':'+row.id)||null}));
             const originalName=session?.original?.filename||session?.sourceName||sourceName;
-            tracks.unshift({id:'source',label:'Original · '+title(originalName),filename:originalName,sourceRevision:session?.sourceRevision??revision,
+            tracks.unshift({id:'source',label:'Original · '+title(originalName),filename:originalName,sourceRevision:session?session.sourceRevision:revision,
                 jobId:sessionJob||undefined,waveform:selected==='source'?data:cache.get(sessionJob+':source')||null});
             tracks.find(track=>track.id===selected).waveform=data;
             applySelectedMix();
@@ -667,7 +711,7 @@
     for(const event of ['timeupdate','play','pause','loadedmetadata','volumechange','ratechange','seeked','ended'])player.addEventListener(event,paintTransport);
     const timer=setInterval(()=>{if(active()){syncSession();paintTransport();}},750);
     window.addEventListener('blaze-mac-media-changed',()=>{signature='';void syncSession();});
-    window.addEventListener('pagehide',()=>{stopped=true;clearInterval(timer);controller?.abort();cancelAnimationFrame(frame);resize.disconnect();},{once:true});
+    window.addEventListener('pagehide',()=>{stopped=true;clearInterval(timer);controller?.abort();cancelAnimationFrame(frame);cancelAnimationFrame(loopFrame);cancelAnimationFrame(drawFrame);resize.disconnect();},{once:true});
     const viewState = () => ({
         active:active(), revision:sessionRevision, title:sessionTitle,
         tracks:tracks.map(track=>({...track,color:colors[track.id]||colors.source,
@@ -676,9 +720,11 @@
         selected, peaks:currentPeaks, duration:duration(), loading,
         pending:pendingSelection, pendingTrack, enabled:!!sourceName&&!pendingSelection,
         position:Number(player.currentTime)||0, paused:player.paused,
-        loop:player.loop||loopEnd!==null, volume:player.volume, rate:player.playbackRate,
+        loop:player.loop||loopEnd!==null, loopStart, loopEnd, volume:player.volume, rate:player.playbackRate,
         tempo:projectTempo, numerator:projectNumerator, denominator:projectDenominator,
         key:projectKey, chords:result?flowMap.chords:null,
+        practiceChords:guide?.chords||result?.chords||null,
+        practiceGuide:guide||result?{key:(guide||result).key,tempo_bpm:(guide||result).tempo_bpm,duration:(guide||result).duration}:null,
         format:el('daw-format').textContent,
         message:!el('error').hidden?el('error').textContent:busy?el('status').textContent:el('daw-message').textContent,
         messageState:!el('error').hidden?'error':el('daw-message').dataset.state||'status',
@@ -689,6 +735,12 @@
     const commands = {
         select:id=>selectTrack(tracks.find(track=>track.id===id)||{}),
         openSession:jobId=>{const session=window.BlazeMacStems?.snapshot().sessions?.find(item=>item.jobId===jobId);return session?selectTrack({id:'source',label:'Original · '+title(session.sourceName),jobId,sourceRevision:session.sourceRevision}):Promise.resolve();},
+        practiceTrack:(jobId,stem)=>{
+            const session=window.BlazeMacStems?.snapshot().sessions?.find(item=>item.jobId===jobId);
+            if(!session||(stem!=='source'&&!session.stems.some(item=>item.id===stem)))return Promise.reject(Error('Prepare the piano and backing tracks first.'));
+            return selectTrack({id:stem,label:stem==='source'?'Original · '+title(session.sourceName):labels[stem],jobId,sourceRevision:session.sourceRevision},{preservePractice:true});
+        },
+        setLoop:setPracticeLoop,clearLoop:()=>{selection=null;player.loop=false;loopStart=loopEnd=null;updateLoop();paintRange();paintTransport();scheduleDraw();},
         beginAdjustment,endAdjustment,
         mute:id=>{const track=tracks.find(track=>track.id===id);if(track)setTrackMuted(id,!mutedFor(track));},
         solo:async id=>{const track=tracks.find(track=>track.id===id);if(!track)return;
@@ -708,7 +760,7 @@
         project:()=>el('daw-tempo-control').click(),
         metronome:()=>el('daw-metronome').click(),
         volume:setMasterVolume,
-        rate:value=>{player.playbackRate=Math.max(.5,Math.min(1.5,Number(value)||1));el('speed').value=String(player.playbackRate);},
+        rate:setPracticeRate,
         eq:()=>el('daw-eq').click(),compressor:()=>el('daw-compressor').click(),
         undo:()=>el('daw-undo').click(),redo:()=>el('daw-redo').click(),
     };

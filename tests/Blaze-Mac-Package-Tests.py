@@ -130,6 +130,10 @@ def main():
     assert len(session['tracks']) == 10, receipt
     assert any(track['id'] == 'source' for track in session['tracks']), receipt
     assert receipt['piano']['real_model'] and receipt['piano']['native_playback'], receipt
+    practice = receipt['practice']
+    assert practice['default'] and practice['singlePlayer'] and practice['pitchPreserved'], receipt
+    assert practice['loopEnabled'] and practice['rate'] == .75 and practice['sessionId'], receipt
+    assert practice['modes'] == ['original', 'piano', 'backing'], receipt
     from music_studio.native_piano_assets import HEAD, CHECKPOINT_SHA
     assert receipt['piano']['model'] == 'Mega53 native acoustic piano', receipt
     assert receipt['piano']['head_sha256'] == HEAD['sha256'], receipt

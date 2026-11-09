@@ -77,7 +77,7 @@
                     submitting = true; render(); error('');
                     try {
                         window.BlazeDesktop.cancelPreparation();
-                        await api('/api/stems-select', {jobId: state.jobId, stem: row.id});
+                        await api('/api/stems-select', {jobId: state.jobId, stem: row.id, sourceRevision});
                         await window.BlazeMac.importCompleted();
                         dialog.close();
                     } catch (failure) { error(failure.message || 'This stem could not be opened.'); }
@@ -108,15 +108,16 @@
             if (dialog.open) error(failure.message || 'Stem separation could not be checked.');
         } finally { requestInFlight = false; }
     };
-    const start = async (mode = 'nine') => {
-        if (submitting || !sourceName) return;
+    const start = async (mode = 'nine', {throwOnError=false}={}) => {
+        if (submitting || !sourceName) return null;
         submitting = true; ++mutationEpoch; error(''); render();
         try {
             window.BlazeDesktop.cancelPreparation();
-            state = await api('/api/stems-start', {mode}); render();
+            const started = await api('/api/stems-start', {mode});state = started; render();
             dialog.close();
             await refresh();
-        } catch (failure) { error(failure.message || 'Stem separation could not start.'); }
+            return started;
+        } catch (failure) { error(failure.message || 'Stem separation could not start.');if(throwOnError)throw failure; }
         finally { submitting = false; render(); await refreshState(); }
     };
     const open = async () => {
@@ -152,7 +153,7 @@
         try { await api('/api/stems-folder', {jobId: state.jobId}); }
         catch (failure) { error(failure.message || 'The stem folder could not be opened.'); }
     };
-    window.BlazeMacStems = {open, refresh: refreshState, snapshot: () => ({...state})};
+    window.BlazeMacStems = {open, refresh: refreshState, snapshot: () => ({...state}),start:mode=>start(mode||'piano',{throwOnError:true})};
     const tick = async () => {
         if (stopped) return;
         render();

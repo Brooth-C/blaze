@@ -291,6 +291,198 @@ class StemJobTests(unittest.TestCase):
                 self.assertEqual(self.jobs.selected_job(), identity)
                 self.assertEqual(len(self.jobs.snapshot()['sessions']), 1)
 
+    def restored_jobs(self, initial=None):
+        restored = Studio(self.studio.directory, 'ffmpeg', initial)
+        restored.presentation = 'mac'
+        restored.stems = StemJobs(restored, separator_factory=self.separator)
+        self.addCleanup(restored.close)
+        return restored, restored.stems
+
+    def test_completed_piano_pair_and_original_restore_without_model_work(self):
+        self.separator.stems = ('piano', 'accompaniment')
+        self.jobs.start('piano')
+        state = self.finish()
+        identity = state['jobId']
+        key = self.jobs.recording_identity(identity)
+        self.assertTrue((self.jobs.root / identity / 'session.json').is_file())
+        restored, jobs = self.restored_jobs(self.source)
+        self.assertEqual(jobs.snapshot()['status'], 'done')
+        self.assertEqual(jobs.snapshot()['mode'], 'piano')
+        self.assertIsNone(jobs.snapshot()['sessions'][0]['sourceRevision'])
+        self.assertIsNone(jobs.worker, 'Restoring a pair must not rerun its model')
+        self.assertEqual(jobs.recording_identity(identity), key)
+        self.assertEqual(jobs.selected_job(), identity)
+        self.assertEqual(jobs.selected_stem(), 'source')
+        for stem in ('piano', 'accompaniment', 'source'):
+            jobs.select(identity, stem)
+            self.assertEqual(restored.source.read_bytes(), wav_bytes())
+            self.assertEqual(jobs.selected_stem(), stem)
+        self.assertEqual(restored.source_identity(jobs.recording_source(identity)), key)
+        self.assertNotIn(str(self.root), json.dumps(jobs.snapshot()))
+
+    def test_imported_original_stays_recoverable_after_app_restart(self):
+        self.request('/api/import', raw=wav_bytes(), headers={'X-File-Name': 'Learning song.wav'})
+        uploaded = self.studio.source
+        identity = self.start()
+        self.finish()
+        self.jobs.select(identity, 'vocals')
+        self.assertFalse(uploaded.exists())
+        restored, jobs = self.restored_jobs()
+        jobs.select(identity, 'source')
+        self.assertEqual(restored.name, 'Learning song.wav')
+        self.assertEqual(restored.source.read_bytes(), wav_bytes())
+        self.assertEqual(restored.source_identity(restored.source), jobs.recording_identity(identity))
+
+    def test_symlinked_data_directory_keeps_waveform_ownership_paths_consistent(self):
+        from music_studio.waveform import selection
+        alias = self.root / 'data-alias'
+        try:
+            alias.symlink_to(self.studio.directory, target_is_directory=True)
+        except OSError:
+            self.skipTest('Symlinks unavailable')
+        alternate = Studio(alias, 'ffmpeg', self.source)
+        alternate.presentation = 'mac'
+        self.addCleanup(alternate.close)
+        separator = ControlledSeparator()
+        separator.stems = ('piano', 'accompaniment')
+        separator.release.set()
+        jobs = alternate.stems = StemJobs(alternate, separator_factory=separator)
+        identity = jobs.start('piano')['jobId']
+        jobs.worker.join(3)
+        self.assertEqual(jobs.snapshot()['status'], 'done')
+        jobs.select(identity, 'piano')
+        source, valid, owned = selection(alternate, str(alternate.source_revision), identity, 'source')
+        self.assertEqual(owned, identity)
+        self.assertEqual(source, jobs.sessions[identity]['files']['source'])
+        self.assertTrue(valid(), 'Filesystem aliases invalidated the waveform immediately')
+
+    def test_changed_native_recording_does_not_reuse_persisted_pair(self):
+        identity = self.start()
+        self.finish()
+        self.source.write_bytes(wav_bytes() + b'changed recording')
+        restored, jobs = self.restored_jobs(self.source)
+        self.assertEqual(jobs.selected_job(), '')
+        self.assertEqual(jobs.selected_stem(), '')
+        jobs.select(identity, 'source')
+        self.assertEqual(restored.source.read_bytes(), wav_bytes())
+
+    def test_changed_retained_original_is_not_rebound_to_old_recording_identity(self):
+        identity = self.start()
+        self.finish()
+        original = self.jobs.recording_source(identity)
+        original.write_bytes(wav_bytes() + b'edited saved original')
+        with self.assertRaisesRegex(ValueError, 'original changed'):
+            self.jobs.recording_identity(identity)
+        _, jobs = self.restored_jobs()
+        self.assertEqual(jobs.snapshot()['sessions'], [])
+
+    def test_recording_modified_during_copy_does_not_publish_a_mixed_input(self):
+        self.source.write_bytes(wav_bytes() * 4000)
+        modified = False
+        def free_space(_path):
+            nonlocal modified
+            if not modified:
+                modified = True
+                self.source.write_bytes(b'changed in place during source copy')
+            return SimpleNamespace(free=10 * 1024 ** 3)
+        with patch('music_studio.stem_jobs.shutil.disk_usage', side_effect=free_space):
+            self.jobs.start()
+            self.jobs.worker.join(3)
+        self.assertTrue(modified)
+        self.assertEqual(self.jobs.snapshot()['status'], 'failed')
+        self.assertIn('recording changed', self.jobs.snapshot()['error'])
+        self.assertFalse(self.separator.started.is_set(), 'The model received a changing input')
+        self.assertEqual(self.jobs.snapshot()['sessions'], [])
+        self.assertEqual(list(self.jobs.root.glob('*/session.json')), [])
+
+    def test_explicit_old_stem_selection_is_not_hijacked_by_later_session(self):
+        first = self.start()
+        self.finish()
+        self.jobs.select(first, 'vocals')
+        self.separator.stems = ('piano', 'accompaniment')
+        self.jobs.start('piano')
+        second = self.finish()['jobId']
+        self.assertEqual(self.jobs.selected_job(), second)
+        self.jobs.select(first, 'vocals')
+        self.assertEqual(self.jobs.selected_job(), first)
+        self.assertEqual(self.jobs.selected_stem(), 'vocals')
+        _, restored = self.restored_jobs(self.jobs.file(first, 'vocals'))
+        self.assertEqual(restored.selected_job(), first)
+
+    def test_saved_session_loader_rejects_corrupt_or_unowned_records(self):
+        identity = self.start()
+        self.finish()
+        sidecar = self.jobs.root / identity / 'session.json'
+        original = json.loads(sidecar.read_text())
+        cases = []
+        for field, value in [('schema_version', 99), ('jobId', '../other'),
+                             ('sourceIdentity', ['/tmp/not-an-identity']), ('mode', []),
+                             ('sourceName', {}), ('createdAt', True)]:
+            value_record = dict(original)
+            value_record[field] = value
+            cases.append(value_record)
+        for value in ('../../My recording.wav', str(self.source), 'original/../vocals.wav'):
+            value_record = dict(original, files=dict(original['files'], vocals=value))
+            cases.append(value_record)
+        value_record = dict(original, files={k: v for k, v in original['files'].items() if k != 'vocals'})
+        cases.append(value_record)
+        cases.append(dict(original, files=dict(original['files'], vocals=original['files']['drums'])))
+        cases.extend(([], None))
+        for value in cases:
+            with self.subTest(value=value):
+                sidecar.write_text(json.dumps(value))
+                _, restored = self.restored_jobs()
+                self.assertEqual(restored.snapshot()['sessions'], [])
+                with self.assertRaises(ValueError):
+                    restored.file(identity, 'source')
+        sidecar.write_text('{incomplete JSON')
+        _, restored = self.restored_jobs()
+        self.assertEqual(restored.snapshot()['sessions'], [])
+
+    def test_missing_outputs_and_symlink_escapes_are_not_restored(self):
+        identity = self.start()
+        self.finish()
+        target = self.jobs.file(identity, 'vocals')
+        target.unlink()
+        _, jobs = self.restored_jobs()
+        self.assertEqual(jobs.snapshot()['sessions'], [])
+        try:
+            target.symlink_to(self.source)
+        except OSError:
+            self.skipTest('Symlinks unavailable')
+        _, jobs = self.restored_jobs()
+        self.assertEqual(jobs.snapshot()['sessions'], [])
+        with self.assertRaisesRegex(ValueError, 'missing'):
+            self.jobs.file(identity, 'vocals')
+
+    def test_failed_metadata_write_does_not_publish_a_partial_session(self):
+        self.separator.release.set()
+        with patch('music_studio.stem_jobs.os.fsync', side_effect=OSError('disk write failed')):
+            identity = self.jobs.start()['jobId']
+            self.jobs.worker.join(3)
+        self.assertEqual(self.jobs.snapshot()['status'], 'failed')
+        self.assertEqual(self.jobs.snapshot()['sessions'], [])
+        self.assertEqual(list(self.jobs.root.glob('*/session.json')), [])
+        self.assertEqual(list(self.jobs.root.glob('*/.session-*.tmp')), [])
+        _, jobs = self.restored_jobs()
+        self.assertEqual(jobs.snapshot()['sessions'], [])
+        self.assertTrue((self.jobs.root / identity / 'original' / 'Recording.wav').is_file())
+
+    def test_stale_mode_request_cannot_replace_a_newly_opened_recording(self):
+        identity = self.start()
+        self.finish()
+        captured = self.studio.source_revision
+        other = self.root / 'Another lesson.wav'
+        other.write_bytes(wav_bytes())
+        self.studio.open_local_file(other)
+        for revision in (captured, True, '0', -1):
+            with self.subTest(revision=revision):
+                with self.assertRaisesRegex(ValueError, 'recording changed'):
+                    self.jobs.select(identity, 'vocals', revision)
+                self.assertEqual(self.studio.source, other)
+        self.jobs.select(identity, 'vocals', self.studio.source_revision)
+        self.assertEqual(self.jobs.selected_stem(), 'vocals')
+
     def test_real_chord_worker_and_separation_can_run_at_the_same_time(self):
         entered, release = threading.Event(), threading.Event()
         def cached(_identity):

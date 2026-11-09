@@ -77,7 +77,7 @@ def install_menus(owner):
         owner.menu_items.append((main, file_root))
     else:
         file_menu = file_root.submenu()
-    add(file_menu, 'Open in Studio…', 'importFile:', 'o')
+    add(file_menu, 'Open Song for Practice…', 'importFile:', 'o')
     view_root = AppKit.NSMenuItem.alloc().initWithTitle_action_keyEquivalent_('Navigate', None, '')
     view_menu = AppKit.NSMenu.alloc().initWithTitle_('Navigate')
     view_root.setSubmenu_(view_menu)
@@ -88,7 +88,7 @@ def install_menus(owner):
     owner.menu_items.append((main, view_root))
     add(view_menu, 'Search', 'focusSearch:', 'f')
     for title, tag, key in [('Explore', 0, '1'), ('Library', 2, '2'),
-                            ('Downloads', 1, '3'), ('Music Studio', 3, '4')]:
+                            ('Downloads', 1, '3'), ('Practice', 3, '4')]:
         add(view_menu, title, 'selectSection:', key, tag)
     add(view_menu, 'Show or Hide Sidebar', 'toggleSidebar:')
     add(view_menu, 'Now Playing', 'openPlayer:')

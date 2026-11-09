@@ -5,6 +5,20 @@ Mac and Linux. Desktop 0.9.0 refines the Mac workspace with native navigation an
 a compact listening layout. Windows and Linux retain the discovery and playback
 workflow introduced in 0.8.0. Mac 0.10.0 adds a simple, local four-stem separation workflow on Apple Silicon. New Mac builds target Apple Silicon only; the final Intel 0.9.0 build stays available. Terminal installers keep their separate version and behavior.
 
+## Song practice on Mac
+
+Apple Silicon Mac builds open a focused Practice workspace. Open a song, then
+choose **Original**, **Piano**, or **Backing**. Piano and backing prepare locally
+in the background while playback remains available. Set A and B to repeat a
+passage, and slow playback without changing pitch. Analyse chords when a guide
+would help; chord labels are not a note-for-note transcription.
+
+Choose **Save practice** to retain the recording, listening mode, speed, position
+and loop. Later changes save automatically. Saved practices and completed
+separations survive app restart. Prepared tracks and saved chord guides are
+reused. **Advanced Studio** keeps the existing track inspector and export tools
+available without putting them in the primary practice flow.
+
 ## Stem separation on Apple Silicon
 
 Open a recording in Studio and choose **Split stems** to create vocals, drums,

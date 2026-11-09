@@ -262,6 +262,10 @@ def ui_smoke(window, studio, destination, receipt, probe, timeout=900):
             }
             probe.run(window, "window.BlazeMac.navigate('studio')")
             wait_for("window.BlazeDesktop.activeSection()==='studio'")
+            wait_for("window.BlazeMacPractice?.snapshot().visible === true")
+            receipt['practice'] = {'default': True}
+            capture_screenshot(target.with_name('native-practice.png'))
+            probe.run(window, "window.BlazeMacPractice.showStudio()")
         receipt['controls'] = probe.probe(window, """(() => {
           const ids = ['tab-downloads','tab-studio','tab-library','import','analyze',
             'play','previous','next','loop','speed','instrument','volume','down','up',
@@ -521,6 +525,24 @@ def ui_smoke(window, studio, destination, receipt, probe, timeout=900):
             wait_for("(() => {const m=document.getElementById('media');return m===window.blazeSmokeVideo && !m.paused && m.currentTime>.1;})()")
             receipt['piano'] = {**native_piano_identity(), 'real_model': True,
                                 'native_playback': True, 'outputs': 2}
+            probe.run(window, "document.getElementById('media').pause(); window.BlazeMacPractice.showPractice()")
+            wait_for("!!window.BlazeMacPractice.snapshot().pianoJobId")
+            for listening_mode in ('original', 'piano', 'backing'):
+                probe.run(window, "document.getElementById('practice-" + listening_mode + "').click()")
+                wait_for("window.BlazeMacPractice.snapshot().mode === " + json.dumps(listening_mode) +
+                         " && !window.BlazeMacStudio.viewState().pending")
+            probe.run(window, "window.BlazeMacStudio.commands.seek(.2); document.getElementById('practice-set-a').click(); "
+                      "window.BlazeMacStudio.commands.seek(.8); document.getElementById('practice-set-b').click(); "
+                      "document.querySelector('#practice-workspace [data-rate=\".75\"]').click(); "
+                      "document.getElementById('practice-save').click()")
+            wait_for("!!window.BlazeMacPractice.snapshot().sessionId && !window.BlazeMacPractice.snapshot().saving")
+            practice = probe.probe(window, "({...window.BlazeMacPractice.snapshot(), singlePlayer: "
+                                   "document.querySelectorAll('audio,video').length===1})")
+            if not (practice['singlePlayer'] and practice['pitchPreserved'] and practice['loopEnabled'] and
+                    practice['rate'] == .75 and practice['mode'] == 'backing'):
+                raise RuntimeError('Native song practice failed: ' + json.dumps(practice))
+            receipt['practice'].update(practice, modes=['original', 'piano', 'backing'])
+            capture_screenshot(target.with_name('native-practice.png'))
         receipt['ok'] = True
     except Exception as error:
         receipt.update(ok=False, error=str(error))

@@ -41,6 +41,8 @@ class PresentationTests(unittest.TestCase):
         self.assertIn('data-presentation="desktop"', html)
         self.assertNotIn('href="/mac.css"', html)
         self.assertNotIn('src="/mac.js"', html)
+        self.assertNotIn('src="/mac-practice.js"', html)
+        self.assertEqual(self.request('/mac-practice.js')[0], 404)
         self.assertNotIn('%%', html)
         self.assertEqual(self.request('/mac.css')[0], 404)
         self.studio.presentation = 'mac'
@@ -57,6 +59,9 @@ class PresentationTests(unittest.TestCase):
         self.assertLess(html.index('src="/mac-logic-live.js"'), html.index('src="/mac-logic-preview.js"'))
         self.assertEqual(self.request('/mac-logic-live.js')[0], 200)
         self.assertEqual(self.request('/mac-logic-live.css')[0], 200)
+        self.assertLess(html.index('src="/mac-logic-preview.js"'), html.index('src="/mac-practice.js"'))
+        self.assertEqual(self.request('/mac-practice.js')[0], 200)
+        self.assertEqual(self.request('/mac-practice.css')[0], 200)
 
     def test_native_selection_is_not_exposed_as_a_path_http_api(self):
         self.serve()

@@ -6,6 +6,7 @@ from urllib.parse import urlsplit, parse_qs, unquote, quote
 import json
 import hashlib
 import mimetypes
+import os
 import re
 import secrets
 import shutil
@@ -63,6 +64,7 @@ class Studio:
         self.discovery = None
         self.stems = None
         self.waveforms = None
+        self.practice_sessions = None
         self.presentation = 'desktop'
         self.source_revision = 0
         self.state.update(discoveryItem=None, sourceRevision=0, mediaKind=media_kind(self.source))
@@ -87,10 +89,10 @@ class Studio:
             raise ValueError('The selected file could not be opened.') from None
         return self.select_source(source, source.name)
 
-    def source_identity(self, source):
+    def source_identity(self, source, stat=None):
         """Identify unchanged local bytes without reading a large file on the UI thread."""
         source = Path(source).resolve()
-        stat = source.stat()
+        stat = stat if stat is not None else source.stat()
         key = (str(source), stat.st_dev, stat.st_ino, stat.st_size, stat.st_mtime_ns)
         return self.analysis_aliases.get(key, key)
 
@@ -148,8 +150,9 @@ class Studio:
             # Opening the file pins its bytes even if a browser import is later
             # unlinked. Copying and hashing happen on the worker, never in a UI handler.
             source, name = self.source, self.name
-            source_key = self.source_identity(source)
             stream = source.open('rb')
+            input_stat = os.fstat(stream.fileno())
+            source_key = self.source_identity(source, input_stat)
             pinned = (self.incoming / ('.analysis-' + uuid.uuid4().hex + source.suffix)
                       if self.presentation == 'mac' else None)
             cancel = threading.Event()
@@ -186,6 +189,9 @@ class Studio:
                                     raise ValueError('Free more storage before analysing this recording.')
                                 copied.write(block)
                             digest.update(block)
+                        final_stat = os.fstat(stream.fileno())
+                        if pinned and (input_stat.st_size, input_stat.st_mtime_ns) != (final_stat.st_size, final_stat.st_mtime_ns):
+                            raise ValueError('The recording changed while it was being read. Try analysis again.')
                     check()
                     bundle = ModelBundle(self.model_directory, selected)
                     check()
@@ -242,6 +248,9 @@ class Studio:
                             if current_key == source_key:
                                 self.result_identity = source_key
                                 self.state.update(result=result, error=None)
+                    if not cancelled and not error and self.practice_sessions is not None:
+                        with suppress(OSError, ValueError):
+                            self.practice_sessions.remember_analysis(source_key, result)
             self.worker = threading.Thread(target=run, name='BlazeMusicStudio', daemon=True)
             try:
                 self.worker.start()
@@ -296,6 +305,16 @@ def create_server(studio, port=0):
                 tools = studio.downloader.tools if studio.downloader else Path(studio.ffmpeg).parent
                 studio.discovery = Discovery(studio.directory, tools, studio.ffmpeg)
             return studio.discovery
+
+    def practice_sessions():
+        if studio.presentation != 'mac':
+            raise ValueError('Practice is available in the Mac app.')
+        stems()
+        with studio.lock:
+            if studio.practice_sessions is None:
+                from .practice_sessions import PracticeSessions
+                studio.practice_sessions = PracticeSessions(studio)
+            return studio.practice_sessions
 
     class Handler(BaseHTTPRequestHandler):
         protocol_version = 'HTTP/1.1'
@@ -355,6 +374,7 @@ def create_server(studio, port=0):
                 names.update({'/mac-logic-preview.html': 'mac-logic-preview.html',
                               '/mac-logic-preview.css': 'mac-logic-preview.css', '/mac-logic-preview.js': 'mac-logic-preview.js',
                               '/mac-logic-live.js': 'mac-logic-live.js', '/mac-logic-live.css': 'mac-logic-live.css',
+                              '/mac-practice.js': 'mac-practice.js', '/mac-practice.css': 'mac-practice.css',
                               '/mac.css': 'mac.css', '/mac.js': 'mac.js',
                               '/mac-stems.css': 'mac-stems.css', '/mac-stems.js': 'mac-stems.js',
                               '/mac-studio.css': 'mac-studio.css', '/mac-studio.js': 'mac-studio.js',
@@ -375,9 +395,11 @@ def create_server(studio, port=0):
                         live = (b'<template id="logic-live-template"><main ' + template + b'</main></template>'
                                 b'<link rel="stylesheet" href="/mac-logic-preview.css">'
                                 b'<link rel="stylesheet" href="/mac-logic-live.css">'
+                                b'<link rel="stylesheet" href="/mac-practice.css">'
                                 b'<script src="/mac.js"></script><script src="/mac-stems.js"></script>'
                                 b'<script src="/mac-studio.js"></script><script src="/mac-harmony.js"></script>'
-                                b'<script src="/mac-logic-live.js"></script><script src="/mac-logic-preview.js"></script>')
+                                b'<script src="/mac-logic-live.js"></script><script src="/mac-logic-preview.js"></script>'
+                                b'<script src="/mac-practice.js"></script>')
                     else:
                         live = b''
                     data = data.replace(b'%%MAC_SCRIPT%%', live)
@@ -417,6 +439,15 @@ def create_server(studio, port=0):
                     self.json({'error': str(error)}, 503)
                 except (ValueError, OSError, TypeError) as error:
                     self.json({'error': str(error) or 'The waveform is unavailable.'}, 400)
+                return
+            if path == '/api/practice':
+                if not mac:
+                    self.json({'error': 'Not found.'}, 404)
+                    return
+                try:
+                    self.json(practice_sessions().snapshot())
+                except (ValueError, OSError, TypeError) as error:
+                    self.json({'error': str(error) or 'Saved practice could not be loaded.'}, 400)
                 return
             if path in ('/api/stems', '/api/stem-file'):
                 try:
@@ -569,6 +600,13 @@ def create_server(studio, port=0):
                 body = json.loads(self.rfile.read(length) or b'{}')
                 if not isinstance(body, dict):
                     raise ValueError('Choose a supported action.')
+                if path in ('/api/practice-save', '/api/practice-open'):
+                    if studio.presentation != 'mac':
+                        self.json({'error': 'Not found.'}, 404)
+                        return
+                    manager = practice_sessions()
+                    self.json(manager.save(body) if path == '/api/practice-save' else manager.open(body))
+                    return
                 if path.startswith('/api/stems-'):
                     manager = stems()
                     if path == '/api/stems-start':
@@ -576,7 +614,7 @@ def create_server(studio, port=0):
                     elif path == '/api/stems-cancel':
                         self.json(manager.cancel())
                     elif path == '/api/stems-select':
-                        manager.select(body.get('jobId'), body.get('stem'))
+                        manager.select(body.get('jobId'), body.get('stem'), body.get('sourceRevision'))
                         self.json({'ok': True})
                     elif path == '/api/stems-folder':
                         manager.open_folder(body.get('jobId'))
