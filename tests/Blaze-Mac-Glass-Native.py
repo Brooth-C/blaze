@@ -108,7 +108,7 @@ def main():
                     assert not window.toolbar().isVisible(), receipt
                     expected = AppKit.NSAppearanceNameAqua if args.appearance == 'light' else AppKit.NSAppearanceNameDarkAqua
                     assert str(window.appearance().name()) == expected, receipt
-                    assert str(window.title()) == 'Blaze · Music Studio', receipt
+                    assert str(window.title()) == 'Blaze · Practice', receipt
                     receipt['studio_workspace'] = {'sidebar_collapsed': True, 'search_hidden': True,
                                                    'appearance_preserved': True, 'same_webview': web.window() is window}
                     adapter.search('late toolbar edit', True)
