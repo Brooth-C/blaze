@@ -138,6 +138,8 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7.0.1
+        with:
+          fetch-depth: 0
       - uses: actions/setup-python@v7.0.0
         with:
           python-version: '3.12.10'
@@ -193,6 +195,7 @@ jobs:
           if python -c 'import mlx.core as mx; raise SystemExit(0 if mx.metal.is_available() else 1)'; then
             python tools/instruments/verify_mlx_piano.py --assets build/mac-assets/stem-models/mlx-piano --device gpu
             python tools/benchmark_macos_stems.py --source build/profile-source.wav --models build/profile-models --output build/stem-profile/mlx --backend mlx --runs 1 --reference build/stem-profile/cpu/benchmark.json
+            python tools/benchmark_macos_piano.py --assets build/mac-assets/stem-models/mlx-piano --output build/stem-profile/comparison/benchmark.json
           else
             python - <<'PY'
           from pathlib import Path

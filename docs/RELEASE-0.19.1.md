@@ -14,6 +14,8 @@ output formats.
   channels, stems and chunks, avoiding repeated overlap calculations and large
   repeated-window allocations.
 - The existing Mac benchmark reports ONNX session creation and reuse counts.
+  A separate full-context Metal benchmark compares the released and updated
+  evaluators using warm-ups followed by ABBA trials on the same device.
 
 The retained-session weight budget and Metal buffer-cache limit are not caps
 on total memory or Core ML's internal buffers. GPU defaults and the Practice
