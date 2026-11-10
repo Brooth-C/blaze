@@ -528,9 +528,13 @@ def ui_smoke(window, studio, destination, receipt, probe, timeout=900):
             probe.run(window, "document.getElementById('media').pause(); window.BlazeMacPractice.showPractice()")
             wait_for("!!window.BlazeMacPractice.snapshot().pianoJobId")
             for listening_mode in ('original', 'piano', 'backing'):
+                button = json.dumps('practice-' + listening_mode)
+                ready = "(() => {const b=document.getElementById(" + button + ");" \
+                        "return !!b && !b.disabled && b.getAttribute('aria-busy')!=='true';})()"
+                wait_for(ready)
                 probe.run(window, "document.getElementById('practice-" + listening_mode + "').click()")
                 wait_for("window.BlazeMacPractice.snapshot().mode === " + json.dumps(listening_mode) +
-                         " && !window.BlazeMacStudio.viewState().pending")
+                         " && !window.BlazeMacStudio.viewState().pending && " + ready)
             probe.run(window, "window.BlazeMacStudio.commands.seek(.2); document.getElementById('practice-set-a').click(); "
                       "window.BlazeMacStudio.commands.seek(.8); document.getElementById('practice-set-b').click(); "
                       "document.querySelector('#practice-workspace [data-rate=\".75\"]').click(); "

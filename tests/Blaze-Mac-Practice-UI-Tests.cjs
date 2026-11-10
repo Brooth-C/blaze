@@ -71,7 +71,12 @@ async function stop(){if(!server)return;const current=server;server=null;await n
 async function pageFor(url){const page=await browser.newPage({viewport:{width:1440,height:900}});page.errors=[];page.on('pageerror',e=>page.errors.push(e.stack));await page.goto(url);await page.waitForFunction(()=>window.BlazeMacPractice?.snapshot().visible);return page;}
 const count=name=>Number(fs.readFileSync(path.join(data,name+'.count'),'utf8'));
 async function snapshot(page){return page.evaluate(()=>window.BlazeMacPractice.snapshot());}
-async function mode(page,name){await page.locator('#practice-'+name).click();await page.waitForFunction(name=>window.BlazeMacPractice.snapshot().mode===name&&!window.BlazeMacStudio.viewState().pending,name);}
+async function mode(page,name){
+ const id='practice-'+name;
+ await page.waitForFunction(id=>{const b=document.getElementById(id);return b&&!b.disabled&&b.getAttribute('aria-busy')!=='true';},id);
+ await page.evaluate(id=>document.getElementById(id).click(),id);
+ await page.waitForFunction(name=>window.BlazeMacPractice.snapshot().mode===name&&!window.BlazeMacStudio.viewState().pending&&document.getElementById('practice-'+name).getAttribute('aria-busy')!=='true',name);
+}
 (async()=>{try{
  base=await start('initial');
  // Obscura is the preferred lightweight rendering check when installed.
@@ -102,6 +107,17 @@ async function mode(page,name){await page.locator('#practice-'+name).click();awa
  for(const name of ['piano','backing','original','backing']){
   await mode(page,name);const s=await snapshot(page);assert.equal(s.rate,.75);assert(s.pitchPreserved);assert.equal(s.loopStart,2);assert.equal(s.loopEnd,6);assert(s.loopEnabled);assert(Math.abs(s.position-4.5)<.25,JSON.stringify(s));
  }
+ // Native DOM clicks have no Playwright auto-wait. Track selection can finish
+ // before Practice's metadata cleanup re-enables the next mode button.
+ let releaseModeMetadata;const modeMetadata=new Promise(resolve=>{releaseModeMetadata=resolve;});
+ await page.route('**/api/practice',async route=>{await modeMetadata;await route.continue();});
+ try{
+  await page.evaluate(()=>document.getElementById('practice-piano').click());
+  await page.waitForFunction(()=>window.BlazeMacPractice.snapshot().mode==='piano'&&!window.BlazeMacStudio.viewState().pending);
+  assert(await page.locator('#practice-backing').isDisabled(),'The metadata cleanup gap was not exercised');
+  const releaseTimer=setTimeout(releaseModeMetadata,250);
+  try{await mode(page,'backing');}finally{clearTimeout(releaseTimer);}
+ }finally{releaseModeMetadata();await page.unrouteAll({behavior:'wait'});}
  await page.locator('#practice-analyze').click();await page.waitForFunction(()=>!window.BlazeMacStudio.viewState().analysisBusy&&window.BlazeMacStudio.viewState().practiceGuide?.key==='F major');
  await page.evaluate(()=>document.getElementById('media').dispatchEvent(new Event('timeupdate')));
  assert.equal(await page.locator('#practice-current-chord strong').innerText(),'C','Stem analysis replaced the original song guide');
