@@ -5,7 +5,8 @@ existing models, full FP32 piano inference, chunk lengths, overlap, gain and
 output formats.
 
 - Piano isolation submits attention without an immediate CPU wait, combines
-  the Q/K rotary calculation and reuses the bounded Metal buffer cache between
+  the Q/K rotary calculation, compiles its parameterised feed-forward subgraph
+  for operator fusion and reuses the bounded Metal buffer cache between
   transformer layers. Cancellation checkpoints and final GPU cleanup remain.
 - RoFormer, instrument and Spleeter Core ML paths reuse up to two small verified
   sessions per job, with a 32 MiB admission budget for serialized weights. Large
@@ -15,7 +16,7 @@ output formats.
   repeated-window allocations.
 - The existing Mac benchmark reports ONNX session creation and reuse counts.
   A separate full-context Metal benchmark compares the released and updated
-  evaluators using warm-ups followed by ABBA trials on the same device.
+  evaluators using warm-ups followed by two ABBA rounds on the same device.
 
 The retained-session weight budget and Metal buffer-cache limit are not caps
 on total memory or Core ML's internal buffers. GPU defaults and the Practice

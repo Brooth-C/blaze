@@ -45,11 +45,12 @@ def main():
         'macos': platform.mac_ver()[0], 'device': mx.metal.device_info(),
         'weights_sha256': WEIGHTS['sha256'], 'input_shape': list(spectrum.shape),
         'notes': ['Model inference only, not file-to-WAV time or a musical quality test.',
-                  'Full-context warm-up for each evaluator, then ABBA trials; no CPU fallback.',
+                  'Full-context warm-up for each evaluator, then two ABBA rounds; no CPU fallback.',
                   'A virtual Metal device is not evidence of physical M3 performance.'], 'runs': []}
     reference = None
     try:
-        for index, name in enumerate(('released', 'candidate', 'released', 'candidate', 'candidate', 'released')):
+        order = ('released', 'candidate')+('released', 'candidate', 'candidate', 'released')*2
+        for index, name in enumerate(order):
             model = implementations[name](path)
             try:
                 mx.reset_peak_memory()

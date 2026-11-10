@@ -40,6 +40,9 @@ fused kernel is unavailable; it never silently falls back to CPU. Attention is
 submitted asynchronously before feed-forward work; the transformer output still
 finishes before its cancellation checkpoint. Q and K share their rotary
 calculation. The existing 256 MiB free-buffer cache is reused across layers and
+the feed-forward subgraph is compiled with each layer's FP32 parameters supplied
+as inputs, allowing MLX to fuse its elementwise work without capturing a layer's
+weights. Its original norm clamp and exact-erf GELU are retained. The cache is
 cleared when the model closes, including failed/cancelled jobs. This is a cache
 limit, not a cap on live tensor allocations or process memory. Set
 `BLAZE_PIANO_BACKEND=onnx` before starting the Mac app to use the ONNX CPU

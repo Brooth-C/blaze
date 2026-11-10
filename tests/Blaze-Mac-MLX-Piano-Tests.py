@@ -78,6 +78,7 @@ class MlxTests(unittest.TestCase):
                       'layer.1.net.4.weight':random.normal(0,.1,(4,8)).astype('float32'),
                       'layer.1.net.4.bias':np.zeros(4,dtype='float32')}
             model.weights = {key:mx.array(value) for key,value in arrays.items()}
+            model.feed_forward = mx.compile(model._feed_forward)
             for scale in (.1, 1e-15, 0):
                 x = mx.array(random.normal(0,scale,(2,4)).astype('float32'))
                 expected = x+model.attention(x,'layer.0');mx.eval(expected)
@@ -86,8 +87,12 @@ class MlxTests(unittest.TestCase):
                 expected = expected+model.linear(y,'layer.1.net.4');mx.eval(expected)
                 with patch('mlx.core.clear_cache') as clear:
                     actual = model.transformer(x,'layer',lambda: None)
-                np.testing.assert_array_equal(np.array(actual),np.array(expected))
+                np.testing.assert_allclose(np.array(actual),np.array(expected),atol=1e-7,rtol=1e-6)
                 clear.assert_not_called()
+            # A second layer must use its own parameters, not the first trace's.
+            model.weights['layer.1.net.4.bias'] = mx.full((4,), .25)
+            changed = np.array(model.transformer(mx.zeros((2,4)),'layer',lambda: None))
+            np.testing.assert_allclose(changed,.25,atol=1e-7)
 
     @unittest.skipUnless(importlib.util.find_spec('mlx'), 'MLX numeric reference requested in its environment')
     def test_rope_retains_the_original_rounded_frequencies(self):

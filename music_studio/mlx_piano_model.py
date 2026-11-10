@@ -55,6 +55,8 @@ class PianoModel:
                 self.weights = mx.load(str(path))
                 validate_weights(self.weights)
                 mx.eval(*self.weights.values())
+            # Parameters stay inputs so every layer reuses the compiled graph.
+            self.feed_forward = mx.compile(self._feed_forward)
         except Exception:
             mx.clear_cache();mx.set_cache_limit(self.old_cache_limit)
             raise
@@ -106,14 +108,22 @@ class PianoModel:
         out = (out*gates).transpose(0, 2, 1, 3).reshape(b, n, 512)
         return self.linear(out, key+'.to_out.0', False)
 
+    def _feed_forward(self, x, gamma, up, up_bias, down, down_bias):
+        mx = self.mx
+        length = mx.sqrt(mx.sum(x*x, axis=-1, keepdims=True))
+        normalized = x/mx.maximum(length, 1e-12)*math.sqrt(x.shape[-1])*gamma
+        y = normalized @ up.T+up_bias
+        y = .5*y*(1+mx.erf(y/math.sqrt(2)))
+        return x+(y @ down.T+down_bias)
+
     def transformer(self, x, prefix, check):
         mx = self.mx
         x = x+self.attention(x, prefix+'.0')
         # Submit attention without blocking Python before the feed-forward work.
         mx.async_eval(x);check()
-        y = self.linear(self.norm(x, prefix+'.1.net.0.gamma'), prefix+'.1.net.1')
-        y = .5*y*(1+mx.erf(y/math.sqrt(2)))
-        x = x+self.linear(y, prefix+'.1.net.4')
+        x = self.feed_forward(x, self.weights[prefix+'.1.net.0.gamma'],
+                              self.weights[prefix+'.1.net.1.weight'], self.weights[prefix+'.1.net.1.bias'],
+                              self.weights[prefix+'.1.net.4.weight'], self.weights[prefix+'.1.net.4.bias'])
         mx.eval(x);check()
         # Reuse buffers under the existing 256 MiB cache limit until close().
         return x
@@ -158,6 +168,7 @@ class PianoModel:
             self.mx.synchronize(self.stream)
         finally:
             try:
+                self.feed_forward = None
                 self.weights.clear()
             finally:
                 try:
