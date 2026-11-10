@@ -102,13 +102,17 @@ jobs:
       - name: Verify live search through the packaged downloader
         run: python tests/Blaze-Mac-Search-Live.py --tools build/mac26-app/Blaze.app/Contents/Resources/bin --output build/glass/live-search.json
       - name: Exercise the actual packaged app on macOS 26
-        run: python tests/Blaze-Mac-Package-Tests.py --app build/mac26-app/Blaze.app --work build/glass/packaged --arch arm64
-        # Hosted macOS runners are virtual and their Core ML compute plan was
-        # CPU-only; keep generic smoke tests finite and use device hardware for
-        # actual Core ML placement/performance validation.
+        run: |
+          if xcrun swift -framework Metal -e 'import Metal; import Darwin; exit(MTLCreateSystemDefaultDevice() == nil ? 1 : 0)'; then
+            export BLAZE_PIANO_BACKEND=mlx
+          else
+            export BLAZE_PIANO_BACKEND=onnx
+          fi
+          python tests/Blaze-Mac-Package-Tests.py --app build/mac26-app/Blaze.app --work build/glass/packaged --arch arm64
+        # Keep ONNX work finite on virtual Core ML; exercise bundled Metal/JIT
+        # inference whenever the runner exposes a Metal device.
         env:
           BLAZE_STEM_BACKEND: cpu
-          BLAZE_PIANO_BACKEND: onnx
       - name: Exercise real glass and navigation in light and dark appearances
         run: |
           defaults write com.apple.universalaccess reduceTransparency -bool false
@@ -328,12 +332,16 @@ jobs:
             --decoder-materials tools/macos_decoder/output --ytdlp build/mac-assets/bin/yt-dlp \
             --node build/mac-assets/bin/node --external-notices build/mac-assets/notices --python-license build/mac-assets/notices/Python-LICENSE.txt --python-license-version 3.12.10 --output dist --work build/mac-bundle
       - name: Verify the native app and rendered Cocoa interface
-        run: python tests/Blaze-Mac-Package-Tests.py --app dist/Blaze.app --work build/mac-tests --arch ${{ matrix.arch }}
-        # The hosted runner has no physical GPU; the dedicated MLX profile
-        # validates Metal, while this smoke verifies packaging and UI flows.
+        run: |
+          if xcrun swift -framework Metal -e 'import Metal; import Darwin; exit(MTLCreateSystemDefaultDevice() == nil ? 1 : 0)'; then
+            export BLAZE_PIANO_BACKEND=mlx
+          else
+            export BLAZE_PIANO_BACKEND=onnx
+          fi
+          python tests/Blaze-Mac-Package-Tests.py --app dist/Blaze.app --work build/mac-tests --arch ${{ matrix.arch }}
+        # Validate compiled MLX inside the bundle as well as in the profile job.
         env:
           BLAZE_STEM_BACKEND: cpu
-          BLAZE_PIANO_BACKEND: onnx
       - name: Record native interface proof
         if: always()
         run: |

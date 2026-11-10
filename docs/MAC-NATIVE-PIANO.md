@@ -48,8 +48,8 @@ limit, not a cap on live tensor allocations or process memory. Set
 `BLAZE_PIANO_BACKEND=onnx` before starting the Mac app to use the ONNX CPU
 backend instead. This changes execution hardware, not the model's
 piano-versus-pad behavior or separation quality. The packaged macOS 26 smoke
-test uses the explicit ONNX CPU override on the virtual Apple Silicon runner;
-the separate Metal profile only exercises the GPU when one is exposed. An M3/8 GB user-device
+test uses bundled MLX when the runner exposes Metal, and the explicit ONNX CPU
+override otherwise. The separate Metal profile also requires an exposed GPU. An M3/8 GB user-device
 check is still needed for local speed, memory pressure, and playback/chord
 analysis concurrency. Other Mac ONNX model sessions use the GPU-capable Core ML
 provider by default, as described below.
