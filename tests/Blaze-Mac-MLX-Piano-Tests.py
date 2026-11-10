@@ -12,6 +12,7 @@ from unittest.mock import Mock, patch
 import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from music_studio.stems import SeparationCancelled
 from music_studio.mlx_piano_model import PianoModel, validate_weights, weight_shapes
 from music_studio.mlx_piano import MlxPianoSeparator
 
@@ -54,6 +55,45 @@ class MlxTests(unittest.TestCase):
             model_factory.assert_called_once_with(assets/weights['file'])
             loaded.assert_not_called()
 
+    def test_cancellation_after_attention_submission_stops_before_feed_forward(self):
+        model = PianoModel.__new__(PianoModel);model.mx = Mock()
+        model.attention = Mock(return_value=np.ones(4))
+        model.norm = Mock()
+        with self.assertRaises(SeparationCancelled):
+            model.transformer(np.ones(4), 'layer', Mock(side_effect=SeparationCancelled('cancelled')))
+        model.mx.async_eval.assert_called_once()
+        model.mx.eval.assert_not_called()
+        model.norm.assert_not_called()
+
+    @unittest.skipUnless(importlib.util.find_spec('mlx'), 'MLX numeric reference requested in its environment')
+    def test_async_transformer_matches_synchronous_math_without_flushing_buffers(self):
+        import mlx.core as mx
+        with mx.stream(mx.new_stream(mx.cpu)):
+            model = PianoModel.__new__(PianoModel);model.mx = mx
+            model.attention = lambda x, _: x*.125
+            random = np.random.default_rng(18)
+            arrays = {'layer.1.net.0.gamma':np.ones(4,dtype='float32'),
+                      'layer.1.net.1.weight':random.normal(0,.1,(8,4)).astype('float32'),
+                      'layer.1.net.1.bias':np.zeros(8,dtype='float32'),
+                      'layer.1.net.4.weight':random.normal(0,.1,(4,8)).astype('float32'),
+                      'layer.1.net.4.bias':np.zeros(4,dtype='float32')}
+            model.weights = {key:mx.array(value) for key,value in arrays.items()}
+            model.feed_forward = mx.compile(model._feed_forward)
+            for scale in (.1, 1e-15, 0):
+                x = mx.array(random.normal(0,scale,(2,4)).astype('float32'))
+                expected = x+model.attention(x,'layer.0');mx.eval(expected)
+                y = model.linear(model.norm(expected,'layer.1.net.0.gamma'),'layer.1.net.1')
+                y = .5*y*(1+mx.erf(y/2**.5))
+                expected = expected+model.linear(y,'layer.1.net.4');mx.eval(expected)
+                with patch('mlx.core.clear_cache') as clear:
+                    actual = model.transformer(x,'layer',lambda: None)
+                np.testing.assert_allclose(np.array(actual),np.array(expected),atol=1e-7,rtol=1e-6)
+                clear.assert_not_called()
+            # A second layer must use its own parameters, not the first trace's.
+            model.weights['layer.1.net.4.bias'] = mx.full((4,), .25)
+            changed = np.array(model.transformer(mx.zeros((2,4)),'layer',lambda: None))
+            np.testing.assert_allclose(changed,.25,atol=1e-7)
+
     @unittest.skipUnless(importlib.util.find_spec('mlx'), 'MLX numeric reference requested in its environment')
     def test_rope_retains_the_original_rounded_frequencies(self):
         import mlx.core as mx
@@ -66,6 +106,10 @@ class MlxTests(unittest.TestCase):
             angles = np.arange(1025,dtype='float32')[:,None]*frequencies[None,:]
             np.testing.assert_allclose(actual[0,0,:,::2],np.cos(angles),atol=1e-6)
             np.testing.assert_allclose(actual[0,0,:,1::2],np.sin(angles),atol=1e-6)
+            paired = mx.stack((mx.array(values),mx.array(values)*.25))
+            actual_pair = np.array(model.rope(paired,'rotary'))
+            np.testing.assert_array_equal(actual_pair[0],actual)
+            np.testing.assert_array_equal(actual_pair[1],actual*.25)
 
     @unittest.skipUnless(importlib.util.find_spec('mlx'), 'MLX numeric reference requested in its environment')
     def test_norm_preserves_original_quiet_input_epsilon(self):

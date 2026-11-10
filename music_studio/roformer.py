@@ -4,7 +4,6 @@ The spectral transform is adapted from Santiago Quiroz Upegui's MIT port;
 see tools/roformer/LICENSE-Port.txt. No Torch or online inference at runtime.
 """
 from pathlib import Path
-import hashlib
 import json
 import os
 import shutil
@@ -52,10 +51,6 @@ class RoformerSeparator(Separator):
     def _graph(self, meta, features, event):
         check_cancel(event)
         path = self.directory / meta['file']
-        data = path.read_bytes()
-        if len(data) != meta['bytes'] or hashlib.sha256(data).hexdigest() != meta['sha256']:
-            raise ValueError('The stem model checksum is invalid. Reinstall the complete Mac app.')
-        check_cancel(event)
         options = ort.SessionOptions()
         options.intra_op_num_threads = min(4, os.cpu_count() or 2)
         options.inter_op_num_threads = 1
@@ -65,7 +60,8 @@ class RoformerSeparator(Separator):
         options.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_BASIC
         options.add_session_config_entry('session.disable_prepacking', '1')
         ort.disable_telemetry_events()
-        self.session = self.runtime.session(data, options, meta['sha256'])
+        self.session = self.runtime.session_from_file(path, options, meta['sha256'], meta['bytes'],
+                                                     check=lambda: check_cancel(event))
         try:
             inputs, outputs = self.session.get_inputs(), self.session.get_outputs()
             if (len(inputs) != 1 or inputs[0].name != 'x' or inputs[0].shape != meta['input_shape']
@@ -95,6 +91,9 @@ class RoformerSeparator(Separator):
             finally:
                 finished.set()
                 watcher.join(timeout=1)
+        except BaseException:
+            self.runtime.close()
+            raise
         finally:
             self.runtime.finish(self.session)
             self.session = None
@@ -213,6 +212,7 @@ class RoformerSeparator(Separator):
             raise
         finally:
             self.session = None
+            self.runtime.close()
 
 
 class QualityFiveStemSeparator:

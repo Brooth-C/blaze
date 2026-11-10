@@ -55,6 +55,8 @@ class PianoModel:
                 self.weights = mx.load(str(path))
                 validate_weights(self.weights)
                 mx.eval(*self.weights.values())
+            # Parameters stay inputs so every layer reuses the compiled graph.
+            self.feed_forward = mx.compile(self._feed_forward)
         except Exception:
             mx.clear_cache();mx.set_cache_limit(self.old_cache_limit)
             raise
@@ -85,8 +87,9 @@ class PianoModel:
         b, n, _ = x.shape
         normalized = self.norm(x, key+'.norm.gamma')
         qkv = self.linear(normalized, key+'.to_qkv', False).reshape(b, n, 3, 8, 64).transpose(2, 0, 3, 1, 4)
-        q = self.rope(qkv[0], key+'.rotary_embed.freqs')
-        k = self.rope(qkv[1], key+'.rotary_embed.freqs')
+        # Rotate Q and K together instead of building identical trig graphs.
+        qk = self.rope(qkv[:2], key+'.rotary_embed.freqs')
+        q, k = qk[0], qk[1]
         v = qkv[2]
         if self.gpu:
             # Fail if a fused kernel is unavailable. Never silently allocate
@@ -105,15 +108,24 @@ class PianoModel:
         out = (out*gates).transpose(0, 2, 1, 3).reshape(b, n, 512)
         return self.linear(out, key+'.to_out.0', False)
 
+    def _feed_forward(self, x, gamma, up, up_bias, down, down_bias):
+        mx = self.mx
+        length = mx.sqrt(mx.sum(x*x, axis=-1, keepdims=True))
+        normalized = x/mx.maximum(length, 1e-12)*math.sqrt(x.shape[-1])*gamma
+        y = normalized @ up.T+up_bias
+        y = .5*y*(1+mx.erf(y/math.sqrt(2)))
+        return x+(y @ down.T+down_bias)
+
     def transformer(self, x, prefix, check):
         mx = self.mx
         x = x+self.attention(x, prefix+'.0')
+        # Submit attention without blocking Python before the feed-forward work.
+        mx.async_eval(x);check()
+        x = self.feed_forward(x, self.weights[prefix+'.1.net.0.gamma'],
+                              self.weights[prefix+'.1.net.1.weight'], self.weights[prefix+'.1.net.1.bias'],
+                              self.weights[prefix+'.1.net.4.weight'], self.weights[prefix+'.1.net.4.bias'])
         mx.eval(x);check()
-        y = self.linear(self.norm(x, prefix+'.1.net.0.gamma'), prefix+'.1.net.1')
-        y = .5*y*(1+mx.erf(y/math.sqrt(2)))
-        x = x+self.linear(y, prefix+'.1.net.4')
-        mx.eval(x);check()
-        mx.clear_cache()
+        # Reuse buffers under the existing 256 MiB cache limit until close().
         return x
 
     def predict(self, spectrum, check=lambda: None, progress=lambda fraction: None):
@@ -138,7 +150,7 @@ class PianoModel:
                 y = x.reshape(t, 62, 256)
                 y = self.transformer(y, f'layers.{block}.1.layers.0', check)
                 x = y.reshape(1, t, 62, 256)
-                mx.eval(x);progress((block+1)/13)
+                progress((block+1)/13)
             x = self.norm(x, 'final_norm.gamma')
             masks = []
             for i in range(62):
@@ -156,6 +168,7 @@ class PianoModel:
             self.mx.synchronize(self.stream)
         finally:
             try:
+                self.feed_forward = None
                 self.weights.clear()
             finally:
                 try:

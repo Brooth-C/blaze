@@ -4,7 +4,6 @@ One model is evaluated as five spectral graphs, sequentially to bound memory.
 The accompaniment is the input minus estimated piano, preserving the full mix.
 """
 from pathlib import Path
-import hashlib
 import shutil
 import tempfile
 import threading
@@ -76,15 +75,17 @@ class PianoSeparator(Separator):
         path = self.directory / meta['file']
         if not path.is_file() or path.stat().st_size != meta['bytes']:
             raise ValueError('The instrument model is missing. Reinstall the complete Mac app.')
-        data = path.read_bytes()
-        if hashlib.sha256(data).hexdigest() != meta['sha256']:
-            raise ValueError('The instrument model checksum is invalid. Reinstall the Mac app.')
         options = ort.SessionOptions()
         options.intra_op_num_threads = 2
         options.inter_op_num_threads = 1
         options.execution_mode = ort.ExecutionMode.ORT_SEQUENTIAL
+        if self.runtime.backend == 'coreml':
+            options.enable_cpu_mem_arena = False
+            options.enable_mem_pattern = False
+            options.add_session_config_entry('session.disable_prepacking', '1')
         ort.disable_telemetry_events()
-        self.session = self.runtime.session(data, options, meta['sha256'])
+        self.session = self.runtime.session_from_file(path, options, meta['sha256'], meta['bytes'],
+                                                     check=lambda: check_cancel(event))
         try:
             check_cancel(event)
             if self.session.get_inputs()[0].shape != [1, 2, FRAMES, BINS]:
@@ -110,6 +111,9 @@ class PianoSeparator(Separator):
             if result.shape != features.shape or not np.isfinite(result).all():
                 raise ValueError('The instrument model returned invalid estimates.')
             return result[0]
+        except BaseException:
+            self.runtime.close()
+            raise
         finally:
             if self.session is not None:
                 self.runtime.finish(self.session)
@@ -181,6 +185,9 @@ class PianoSeparator(Separator):
             for stream in streams: stream.close()
             for path in paths.values(): path.unlink(missing_ok=True)
             raise
+        finally:
+            self.session = None
+            self.runtime.close()
 
 
 class FiveStemSeparator(PianoSeparator):

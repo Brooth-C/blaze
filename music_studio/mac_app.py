@@ -546,6 +546,13 @@ def ui_smoke(window, studio, destination, receipt, probe, timeout=900):
         receipt['ok'] = True
     except Exception as error:
         receipt.update(ok=False, error=str(error))
+        try:
+            receipt['failure_state'] = probe.probe(window, "({sourceRevision, sourceName, "
+                "practice:window.BlazeMacPractice?.snapshot(), studio:window.BlazeMacStudio?.snapshot(), "
+                "pending:window.BlazeMacStudio?.viewState().pending})")
+            capture_screenshot(target.with_name('native-failure.png'))
+        except Exception as diagnostic_error:
+            receipt['failure_state_error'] = str(diagnostic_error)
         traceback.print_exc()
     finally:
         if fixture:

@@ -200,11 +200,12 @@ class PracticeSessions:
 
     def snapshot(self):
         with self.lock:
-            origin = self._origin()
-            key = origin[0] if origin else None
-            current = next((row for row in self.records.values() if row['identity'] == key), None)
+            # Read the origin and revision together, including an empty Studio.
             with self.studio.lock:
                 revision = self.studio.source_revision
+                origin = self._origin()
+            key = origin[0] if origin else None
+            current = next((row for row in self.records.values() if row['identity'] == key), None)
             return {'sessions': [self._public(row) for row in sorted(self.records.values(), key=lambda row: row['updatedAt'], reverse=True)],
                     'current': self._public(current) if current else None,
                     'sourceRevision': revision, 'recordingId': recording_id(key) if key else None,

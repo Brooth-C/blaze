@@ -17,6 +17,7 @@ import time
 import onnxruntime as ort
 
 LOG = logging.getLogger(__name__)
+SESSION_CACHE_BYTES = 32 * 1024**2
 
 
 class StemRuntime:
@@ -30,6 +31,8 @@ class StemRuntime:
         self.profile = Path(profile) if profile else None
         self.records = []
         self._pending = {}
+        self._sessions = {}
+        self._session_bytes = 0
         if self.backend == 'coreml':
             if sys.platform != 'darwin' or platform.machine().lower() not in ('arm64', 'aarch64'):
                 raise ValueError('Core ML stem evaluation requires an Apple Silicon Mac.')
@@ -100,8 +103,40 @@ class StemRuntime:
         }
         return session
 
+    def session_from_file(self, path, options, model_sha, model_bytes, *, check=lambda: None):
+        """Reuse a small job-local subset; keep large graph arenas disposable."""
+        check()
+        key = (Path(path).resolve(), model_sha, model_bytes)
+        if key in self._sessions:
+            session = self._sessions[key]
+            record = self._pending.get(id(session))
+            if record is not None:
+                record['session_reuses'] = record.get('session_reuses', 0) + 1
+            return session
+        data = Path(path).read_bytes()
+        if len(data) != model_bytes or hashlib.sha256(data).hexdigest() != model_sha:
+            raise ValueError('The stem model checksum is invalid. Reinstall the complete Mac app.')
+        check()
+        session = self.session(data, options, model_sha)
+        # Sticky admission avoids cycling an LRU through every graph on each
+        # chunk. This bounds retained weights, not Core ML's total memory use.
+        if (self.backend == 'coreml' and len(self._sessions) < 2
+                and self._session_bytes + model_bytes <= SESSION_CACHE_BYTES):
+            self._sessions[key] = session
+            self._session_bytes += model_bytes
+        return session
+
+    def close(self):
+        sessions = list(self._sessions.values())
+        self._sessions.clear()
+        self._session_bytes = 0
+        for session in sessions:
+            self.finish(session)
+
     def finish(self, session):
         if session is None:
+            return
+        if any(session is cached for cached in self._sessions.values()):
             return
         record = self._pending.pop(id(session), None)
         if record is None:
