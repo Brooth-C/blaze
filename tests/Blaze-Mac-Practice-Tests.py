@@ -147,6 +147,22 @@ class PracticeTests(unittest.TestCase):
         self.assertEqual(answer['sourceRevision'], before['sourceRevision'])
         self.assertNotEqual(answer['sourceRevision'], self.studio.source_revision)
 
+    def test_import_cannot_relabel_empty_practice_metadata(self):
+        studio, practice = self.make_studio()
+        revision = studio.source_revision
+        origin = practice._origin
+
+        def import_after_reading_origin():
+            value = origin()
+            studio.open_local_file(self.other)
+            return value
+
+        with patch.object(practice, '_origin', side_effect=import_after_reading_origin):
+            answer = practice.snapshot()
+        self.assertIsNone(answer['recordingId'])
+        self.assertEqual(answer['sourceRevision'], revision)
+        self.assertNotEqual(answer['sourceRevision'], studio.source_revision)
+
     def test_imported_audio_is_retained_when_switching_during_save(self):
         imported = self.studio.incoming / 'upload.wav'
         data = recording()
