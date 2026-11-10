@@ -130,6 +130,23 @@ class PracticeTests(unittest.TestCase):
                 action()
         self.assertEqual(self.studio.source, self.other)
 
+    def test_track_switch_cannot_relabel_old_practice_metadata(self):
+        job = self.prepare_piano()
+        before = self.practice.snapshot()
+        origin = self.practice._origin
+
+        def switch_after_reading_origin():
+            value = origin()
+            self.studio.open_local_file(self.other)
+            return value
+
+        with patch.object(self.practice, '_origin', side_effect=switch_after_reading_origin):
+            answer = self.practice.snapshot()
+        self.assertEqual(answer['recordingId'], before['recordingId'])
+        self.assertEqual(answer['pianoJobId'], job)
+        self.assertEqual(answer['sourceRevision'], before['sourceRevision'])
+        self.assertNotEqual(answer['sourceRevision'], self.studio.source_revision)
+
     def test_imported_audio_is_retained_when_switching_during_save(self):
         imported = self.studio.incoming / 'upload.wav'
         data = recording()
