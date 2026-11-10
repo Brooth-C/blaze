@@ -132,7 +132,7 @@ def main():
             paths = engine.separate(source, args.output/('run-' + str(index)), cancel_event=event,
                                     progress=lambda f, m: print(json.dumps({'run': index, 'progress': f, 'message': m}), flush=True))
             elapsed = time.monotonic() - start
-            records = engine.runtime.records if args.mode == 'piano' else []
+            records = engine.runtime.records
             coverage = provider_summary(records)
             cache_state = (('fresh' if index == 0 else 'reused') if args.backend == 'coreml'
                            else ('first' if index == 0 else 'repeat'))

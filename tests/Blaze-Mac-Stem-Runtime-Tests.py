@@ -13,12 +13,41 @@ from music_studio.roformer import RoformerSeparator
 from music_studio.stems import SeparationCancelled
 from music_studio.stems import _write_header
 from tools.benchmark_macos_stems import compare_wavs
+from tools.benchmark_macos_stems import main as benchmark_main
 import numpy as np
 
 SHA = 'a' * 64
 
 
 class RuntimeTests(unittest.TestCase):
+    def test_legacy_benchmark_counts_its_actual_onnx_sessions(self):
+        import json
+        with tempfile.TemporaryDirectory() as d:
+            root = Path(d);source = root/'song.wav';source.write_bytes(b'controlled recording')
+            piano = root/'piano.wav';piano.write_bytes(b'controlled piano')
+            backing = root/'backing.wav';backing.write_bytes(b'controlled backing')
+            engine = Mock()
+            engine.separate.return_value = {'piano':piano, 'accompaniment':backing}
+            engine.runtime.records = [{'model_sha256':str(i),'session_creation_seconds':.01} for i in range(5)]
+            output = root/'report'
+            def command(*args):
+                if args[0] == 'ffprobe':return '1.0'
+                return {'machdep.cpu.brand_string':'Controlled M3','hw.memsize':str(8*1024**3),
+                        'vm.swapusage':'controlled swap baseline'}[args[-1]]
+            with patch.dict('os.environ', {}, clear=True), \
+                 patch('sys.argv', ['benchmark','--source',str(source),'--models',str(root/'models'),'--output',str(output),
+                                    '--mode','piano-legacy','--backend','cpu','--runs','1']), \
+                 patch('tools.benchmark_macos_stems.sys.platform','darwin'), \
+                 patch('tools.benchmark_macos_stems.platform.machine',return_value='arm64'), \
+                 patch('tools.benchmark_macos_stems.platform.mac_ver',return_value=('26.7.2',(),'')), \
+                 patch('tools.benchmark_macos_stems.command',side_effect=command), \
+                 patch('music_studio.piano.PianoSeparator',return_value=engine):
+                benchmark_main()
+            report = json.loads((output/'benchmark.json').read_text())
+            self.assertEqual(report['runs'][0]['onnx_sessions_created'],5)
+            self.assertEqual(report['runs'][0]['onnx_session_reuses'],0)
+            self.assertEqual(len(report['runs'][0]['graphs']),5)
+
     def test_gpu_comparison_detects_drift_and_incompatible_duration(self):
         with tempfile.TemporaryDirectory() as d:
             a, b = Path(d)/'cpu.wav', Path(d)/'candidate.wav'
