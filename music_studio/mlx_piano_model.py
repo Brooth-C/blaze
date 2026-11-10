@@ -85,8 +85,9 @@ class PianoModel:
         b, n, _ = x.shape
         normalized = self.norm(x, key+'.norm.gamma')
         qkv = self.linear(normalized, key+'.to_qkv', False).reshape(b, n, 3, 8, 64).transpose(2, 0, 3, 1, 4)
-        q = self.rope(qkv[0], key+'.rotary_embed.freqs')
-        k = self.rope(qkv[1], key+'.rotary_embed.freqs')
+        # Rotate Q and K together instead of building identical trig graphs.
+        qk = self.rope(qkv[:2], key+'.rotary_embed.freqs')
+        q, k = qk[0], qk[1]
         v = qkv[2]
         if self.gpu:
             # Fail if a fused kernel is unavailable. Never silently allocate
@@ -108,12 +109,13 @@ class PianoModel:
     def transformer(self, x, prefix, check):
         mx = self.mx
         x = x+self.attention(x, prefix+'.0')
-        mx.eval(x);check()
+        # Submit attention without blocking Python before the feed-forward work.
+        mx.async_eval(x);check()
         y = self.linear(self.norm(x, prefix+'.1.net.0.gamma'), prefix+'.1.net.1')
         y = .5*y*(1+mx.erf(y/math.sqrt(2)))
         x = x+self.linear(y, prefix+'.1.net.4')
         mx.eval(x);check()
-        mx.clear_cache()
+        # Reuse buffers under the existing 256 MiB cache limit until close().
         return x
 
     def predict(self, spectrum, check=lambda: None, progress=lambda fraction: None):
@@ -138,7 +140,7 @@ class PianoModel:
                 y = x.reshape(t, 62, 256)
                 y = self.transformer(y, f'layers.{block}.1.layers.0', check)
                 x = y.reshape(1, t, 62, 256)
-                mx.eval(x);progress((block+1)/13)
+                progress((block+1)/13)
             x = self.norm(x, 'final_norm.gamma')
             masks = []
             for i in range(62):

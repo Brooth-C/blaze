@@ -141,6 +141,8 @@ def main():
                    'process_lifetime_high_water_rss_bytes': resource.getrusage(resource.RUSAGE_SELF).ru_maxrss,
                    'swap_before': before, 'swap_after': command('sysctl', 'vm.swapusage'),
                    'provider_events': coverage, 'graphs': records,
+                   'onnx_sessions_created': len(records),
+                   'onnx_session_reuses': sum(record.get('session_reuses', 0) for record in records),
                    'outputs': {name: path.stat().st_size for name, path in paths.items()}}
             if args.backend == 'mlx':
                 run['mlx_execution'] = engine.mlx_records

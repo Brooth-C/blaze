@@ -13,7 +13,7 @@ import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from music_studio.roformer import RoformerSeparator, QualityFiveStemSeparator, SEGMENT
-from music_studio.roformer_transform import stft_bands_last, istft_bands_last
+from music_studio.roformer_transform import stft_bands_last, istft_bands_last, overlap_envelope
 from music_studio.stems import SeparationCancelled
 
 
@@ -58,6 +58,16 @@ class RoformerTests(unittest.TestCase):
         spec = stft_bands_last(audio, 2048, 441)
         restored = istft_bands_last(spec[0], 2, 2048, 441, audio.shape[-1])
         np.testing.assert_allclose(restored, audio, atol=1e-7)
+
+    def test_cached_window_envelope_matches_independent_overlap_for_distinct_shapes(self):
+        for fft, hop, frames in ((2048,441,31), (2048,512,31), (1024,256,19)):
+            window = .5*(1-np.cos(2*np.pi*np.arange(fft)/fft))
+            expected = np.zeros(fft+hop*(frames-1))
+            for i in range(frames):expected[i*hop:i*hop+fft] += window**2
+            envelope = overlap_envelope(fft,hop,frames)
+            np.testing.assert_array_equal(envelope,expected)
+            self.assertIs(envelope,overlap_envelope(fft,hop,frames))
+            self.assertFalse(envelope.flags.writeable)
 
     @unittest.skipUnless(shutil.which('ffmpeg'), 'FFmpeg required')
     def test_short_and_long_streaming_preserve_duration_alignment_and_mix(self):

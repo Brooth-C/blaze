@@ -37,6 +37,16 @@ def _overlap_add(frames: np.ndarray, hop_length: int, out_length: int) -> np.nda
     return signal
 
 
+@lru_cache(maxsize=4)
+def overlap_envelope(n_fft: int, hop_length: int, n_frames: int) -> np.ndarray:
+    """Reuse the same window normalisation across channels, stems and chunks."""
+    window = hann_periodic(n_fft)
+    frames = np.broadcast_to((window**2)[:, None], (n_fft, n_frames))
+    envelope = _overlap_add(frames, hop_length, n_fft + hop_length * (n_frames - 1))
+    envelope.setflags(write=False)
+    return envelope
+
+
 def istft(spec: np.ndarray, n_fft: int, hop_length: int, length: int) -> np.ndarray:
     """[n_fft//2+1, T] complex -> [length] real (WOLA, center padding removed)."""
     window = hann_periodic(n_fft)
@@ -44,9 +54,7 @@ def istft(spec: np.ndarray, n_fft: int, hop_length: int, length: int) -> np.ndar
     expected = n_fft + hop_length * (n_frames - 1)
     frames = np.fft.irfft(spec, n=n_fft, axis=0) * window[:, None]
     signal = _overlap_add(frames, hop_length, expected)
-    envelope = _overlap_add(
-        np.repeat((window**2)[:, None], n_frames, axis=1), hop_length, expected
-    )
+    envelope = overlap_envelope(n_fft, hop_length, n_frames)
     # Slice BEFORE dividing: the first and last n_fft/2 samples have partial
     # window coverage (the envelope is exactly 0 at sample 0 for a periodic
     # Hann), and those are precisely the samples `center=True` throws away.

@@ -27,7 +27,7 @@ SHA256 `13a02c35968a6d8cd56ea4384f706b976cfa3d952b5e48ef3d502e6061ae1697`.
 It shares the existing pinned front end and twelve transformer blocks. The
 app does not load all 53 heads or include the 1.37 GB training checkpoint.
 Fourteen graph stages execute sequentially, releasing their sessions rather
-than retaining all runtime arenas. The normal 20-second context and 50% overlap
+than retaining all runtime arenas on the ONNX CPU path. The normal 20-second context and 50% overlap
 are preserved. The existing bounded streaming/cancellation/output cleanup and
 background-job ownership contracts remain in use.
 
@@ -36,11 +36,17 @@ Silicon. It uses the same full FP32 Mega53 piano head and shared trunk. Its
 strict safetensors export contains **154,847,584 bytes** and is pinned to SHA256
 `ab79a7c00899949975e7090abb16b6702c32f0bcc22df6fd459004e125bf4160`.
 It requires fused Metal attention and fails explicitly if a Metal device or
-fused kernel is unavailable; it never silently falls back to CPU. Set
+fused kernel is unavailable; it never silently falls back to CPU. Attention is
+submitted asynchronously before feed-forward work; the transformer output still
+finishes before its cancellation checkpoint. Q and K share their rotary
+calculation. The existing 256 MiB free-buffer cache is reused across layers and
+cleared when the model closes, including failed/cancelled jobs. This is a cache
+limit, not a cap on live tensor allocations or process memory. Set
 `BLAZE_PIANO_BACKEND=onnx` before starting the Mac app to use the ONNX CPU
 backend instead. This changes execution hardware, not the model's
 piano-versus-pad behavior or separation quality. The packaged macOS 26 smoke
-test exercises this default on its Apple Silicon runner; an M3/8 GB user-device
+test uses the explicit ONNX CPU override on the virtual Apple Silicon runner;
+the separate Metal profile only exercises the GPU when one is exposed. An M3/8 GB user-device
 check is still needed for local speed, memory pressure, and playback/chord
 analysis concurrency. Other Mac ONNX model sessions use the GPU-capable Core ML
 provider by default, as described below.
@@ -113,7 +119,15 @@ The ONNX Runtime Core ML path uses MLProgram, dynamic-shape support, CPUAndGPU
 and eligible subgraph delegation. Loop control and unsupported operations may
 remain on CPU. Compiled disk caches are isolated by model bytes, ORT version and
 runtime settings. Verified ONNX bytes are passed in memory; model paths cannot
-redirect external ONNX data. Sessions are released after each graph. Cache
+redirect external ONNX data. Large sessions are released after each graph.
+RoFormer, instrument and Spleeter Core ML paths reuse at most two small verified
+sessions within one separation job, admitting at most 32 MiB of serialized
+weights. This does not bound Core ML's private buffers or total process RSS.
+Admissions are sticky rather than LRU so cyclic graph execution cannot evict
+the same useful sessions on every chunk. Completion, inference errors and
+cancellation close retained sessions and their profiles. CPU session policy is
+unchanged. Retained sessions use their checksum-verified immutable graphs;
+the next job verifies each file again. Cache
 directories live under `~/Library/Caches/Blaze/StemCoreML`; they are
 rebuildable. The cache does not retain fourteen resident sessions or unbounded
 GPU tensor arenas. Core ML
