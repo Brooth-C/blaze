@@ -351,7 +351,7 @@ class MacNavigation:
         panel.setCanChooseFiles_(True)
         panel.setCanChooseDirectories_(False)
         panel.setAllowsMultipleSelection_(False)
-        panel.setPrompt_('Open in Studio')
+        panel.setPrompt_('Open in Practice')
         panel.setMessage_('Choose an audio or video file to open in Blaze.')
         self.panel = panel
 

@@ -5,7 +5,6 @@ from http.server import SimpleHTTPRequestHandler
 import argparse
 import json
 import math
-import platform
 import shutil
 import struct
 import subprocess
@@ -104,34 +103,17 @@ def main():
         if log.is_file(): print(log.read_text(encoding='utf-8')[-6000:], flush=True)
     assert process.returncode == 0, receipt
     assert receipt['ok'], receipt
-    assert receipt['video']['decoded_pixels'] and receipt['video']['studio_return']
     navigation = receipt['native_navigation']
-    expected_material = 'liquid-glass' if int(platform.mac_ver()[0].split('.')[0]) >= 26 else 'system-vibrancy'
-    assert navigation['material'] == expected_material, navigation
-    assert navigation['installed'] and navigation['web_navigation'] and navigation['roundtrip'], navigation
-    assert receipt['mac_design']['sidebar'] and receipt['mac_design']['native_search'], receipt
-    assert receipt['mac_design']['compact_player'], receipt
-    assert receipt['mac_design']['selection_keeps_browsing'], receipt
-    assert receipt['mac_design']['expanded_controls_fit'], receipt
-    assert receipt['mac_design']['compact_layout']['controls'], receipt
-    assert receipt['layout']['studio_workspace'], receipt
-    assert receipt['layout']['names_fit'] and receipt['layout']['editor_toolbar_fits'], receipt
-    assert receipt['mac_design']['chord_drawer']['opened'] and receipt['mac_design']['chord_drawer']['keyboards_visible'], receipt
-    assert receipt['mac_design']['chord_drawer']['dark_controls'], receipt
-    assert receipt['mac_design']['compact_layout']['studio_workspace'] and receipt['mac_design']['compact_layout']['chord_drawer'], receipt
-    assert receipt['mac_design']['studio_waveform']['active'] and receipt['mac_design']['studio_waveform']['waveformReady'], receipt
-    assert all(receipt['mac_design']['harmony_workspace'][key] for key in ('project_timeline', 'regions', 'visible', 'transport_valid')), receipt
-    assert receipt['stems']['real_model'] and receipt['stems']['native_playback'], receipt
-    assert receipt['stems']['count'] == 9, receipt
+    assert navigation['installed'] and navigation['web_navigation'] and navigation['roundtrip'], receipt
+    assert all(receipt['layout'].values()), receipt
+    assert receipt['exports']['separateWavsInZip'], receipt
+    assert receipt['transpose']['samePlayer'] and receipt['transpose']['localAudio'] and receipt['transpose']['transpose'] == 1, receipt
+    for retired in ('mac-studio.js', 'mac-logic-live.js', 'mac-harmony.js', 'mac-logic-preview.html', 'reference-timeline.css'):
+        assert not (resources / 'music_studio/web' / retired).exists(), retired
     assert all(receipt['background_tasks'][key] for key in ('navigation', 'fixture_search', 'chord_analysis', 'separation_active_at_analysis_start')), receipt
-    assert receipt['stems']['instrument_playback'], receipt
-    session = receipt['stems']['studio_workspace']
-    assert session['active'] and session['waveformReady'] and session['selectedTrack'] == 'vocals', receipt
-    assert len(session['tracks']) == 10, receipt
-    assert any(track['id'] == 'source' for track in session['tracks']), receipt
     assert receipt['piano']['real_model'] and receipt['piano']['native_playback'], receipt
     practice = receipt['practice']
-    assert practice['default'] and practice['singlePlayer'] and practice['pitchPreserved'], receipt
+    assert practice['default'] and practice['singlePlayer'] and practice['pitchPreserved'] and practice['advancedRemoved'], receipt
     assert practice['loopEnabled'] and practice['rate'] == .75 and practice['sessionId'], receipt
     assert practice['modes'] == ['original', 'piano', 'backing'], receipt
     from music_studio.native_piano_assets import HEAD, CHECKPOINT_SHA

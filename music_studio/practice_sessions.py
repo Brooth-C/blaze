@@ -49,7 +49,10 @@ def settings_value(body):
                 not lower <= value <= upper):
             raise ValueError('Choose a valid practice ' + name + '.')
         return float(value)
-    value = {'position': number('position', 0, 0, MAX_SECONDS),
+    transpose = body.get('transpose', 0)
+    if type(transpose) is not int or not -12 <= transpose <= 12:
+        raise ValueError('Choose a transpose between −12 and +12 semitones.')
+    value = {'transpose': transpose, 'position': number('position', 0, 0, MAX_SECONDS),
              'rate': number('rate', 1, .5, 1.5),
              'loopStart': number('loopStart', None, 0, MAX_SECONDS, True),
              'loopEnd': number('loopEnd', None, 0, MAX_SECONDS, True),

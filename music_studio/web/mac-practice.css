@@ -9,6 +9,7 @@ html[data-presentation=mac] #practice-workspace {
 }
 html[data-presentation=mac] #practice-workspace[hidden] { display:none!important; }
 html[data-presentation=mac] body.practice-workspace-active #logic-preview { display:none!important; }
+html[data-presentation=mac] #studio-panel > :not(#practice-workspace) { display:none!important; }
 html[data-presentation=mac] body.practice-workspace-active #stems-task { display:none; }
 #practice-workspace * { box-sizing:border-box; }
 #practice-workspace button,#practice-workspace input { font:inherit; }
@@ -18,6 +19,17 @@ html[data-presentation=mac] body.practice-workspace-active #stems-task { display
 #practice-workspace button:disabled { opacity:.45; }
 #practice-workspace :is(button,input,canvas):focus-visible { outline:2px solid var(--practice-focus);outline-offset:3px; }
 #practice-workspace button.practice-quiet { border-color:transparent;background:transparent;color:var(--practice-muted); }
+.practice-tools { display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;margin:12px 0 16px; }
+.practice-transpose { display:flex;align-items:center;gap:7px;flex-wrap:wrap; }
+.practice-transpose select { min-height:32px;max-width:125px;border:1px solid var(--practice-line);border-radius:6px;background:var(--practice-input);color:var(--practice-ink);font:inherit;padding:4px 8px;font-variant-numeric:tabular-nums; }
+.practice-transpose small,.practice-download small { color:var(--practice-muted); }
+.practice-download { position:relative; }
+.practice-download summary { cursor:pointer;padding:7px 12px;border:1px solid var(--practice-line);border-radius:6px;background:var(--practice-input); }
+.practice-download>div { position:absolute;right:0;top:38px;z-index:5;min-width:185px;display:grid;gap:5px;padding:8px;background:var(--practice-panel);border:1px solid var(--practice-line);border-radius:8px;box-shadow:0 8px 24px #0003; }
+#practice-workspace #practice-current-chord { transition:background-color 180ms ease,border-color 180ms ease; }
+#practice-current-chord { position:relative;overflow:hidden; }
+#practice-current-chord::after { content:"";position:absolute;bottom:0;left:0;height:3px;width:100%;transform:scaleX(var(--chord-progress,0));transform-origin:left;background:var(--practice-accent); }
+@media(prefers-reduced-motion:reduce) { #practice-workspace #practice-current-chord { transition:none; } }
 #practice-workspace [hidden] { display:none!important; }
 #practice-workspace .practice-header { position:static;inset:auto;display:flex;align-items:center;justify-content:space-between;gap:24px;flex:0 0 auto;width:auto;height:auto;min-height:0;margin:0;padding:22px 28px 18px;border:0;border-bottom:1px solid var(--practice-line);background:var(--practice-bg); }
 #practice-workspace .practice-song { min-width:0; }

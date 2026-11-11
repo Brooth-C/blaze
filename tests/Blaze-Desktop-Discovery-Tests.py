@@ -8,6 +8,7 @@ import threading
 import time
 import unittest
 from unittest.mock import patch
+from unittest.mock import MagicMock
 import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -48,6 +49,65 @@ class DesktopDiscoveryTests(unittest.TestCase):
         self.assertEqual(d._https('https://i.ytimg.com.evil.test/x', d._IMAGES), '')
         self.assertEqual(d._https('https://user@i.ytimg.com/x', d._IMAGES), '')
         self.assertEqual(d._https('https://i.ytimg.com:443/x', d._IMAGES), '')
+
+    def test_catalogue_reopens_from_disk_without_running_provider_again(self):
+        with patch.object(self.service, '_query', return_value=[recording()]) as query:
+            first = self.wait(self.service.request({'action': 'search', 'query': 'cached music'}))
+            self.assertEqual(query.call_count, 1)
+        self.service.close()
+        self.service = d.Discovery(self.root, self.root / 'bin', '/usr/bin/ffmpeg')
+        with patch.object(self.service, '_query', side_effect=AssertionError('Unexpected provider fetch')):
+            again = self.wait(self.service.request({'action': 'search', 'query': 'cached music'}))
+        self.assertEqual(again['status'], 'ready')
+        self.assertEqual(again['items'][0]['id'], first['items'][0]['id'])
+        self.service.reset()
+        self.assertEqual(list(self.service.directory.glob('catalogue-*.json')), [])
+
+    def test_mac_image_proxy_loads_roots_and_reopens_artwork_offline(self):
+        item = self.service._public(recording())
+        identity = item['thumbnail'].split('id=')[1]
+        response = MagicMock()
+        response.headers.get_content_type.return_value = 'image/jpeg'
+        response.read.return_value = b'jpeg-fixture'
+        opener = MagicMock()
+        opener.open.return_value.__enter__.return_value = response
+        context = MagicMock()
+        with patch.object(d.sys, 'platform', 'darwin'), patch.dict(d.os.environ, {'SSL_CERT_FILE': ''}), \
+                patch.object(d.ssl, 'create_default_context', return_value=context), \
+                patch.object(d.subprocess, 'run', return_value=type('Roots', (), {'stdout': b'PEM roots'})()), \
+                patch.object(d, 'build_opener', return_value=opener):
+            self.assertEqual(self.service.image(identity), (b'jpeg-fixture', 'image/jpeg'))
+
+        context.load_verify_locations.assert_called_once_with(cadata='PEM roots')
+        self.service.close()
+        self.service = d.Discovery(self.root, self.root / 'bin', '/usr/bin/ffmpeg')
+        identity = self.service._public(recording())['thumbnail'].split('id=')[1]
+        with patch.object(d, 'build_opener', side_effect=AssertionError('Unexpected image fetch')):
+            self.assertEqual(self.service.image(identity), (b'jpeg-fixture', 'image/jpeg'))
+
+    def test_expired_video_artwork_uses_public_static_thumbnail(self):
+        item = recording()
+        item['thumbnail'] = f'https://i.ytimg.com/vi/{VIDEO}/hqdefault.jpg?expired=1'
+        identity = self.service._public(item)['thumbnail'].split('id=')[1]
+        response = MagicMock()
+        response.__enter__.return_value.headers.get_content_type.return_value = 'image/jpeg'
+        response.__enter__.return_value.read.return_value = b'fallback-jpeg'
+        opener = MagicMock()
+        opener.open.side_effect = [d.HTTPError(item['thumbnail'], 403, 'Expired', {}, None), response]
+        with patch.object(d, 'build_opener', return_value=opener):
+            self.assertEqual(self.service.image(identity), (b'fallback-jpeg', 'image/jpeg'))
+        self.assertEqual(opener.open.call_args_list[1].args[0].full_url, f'https://i.ytimg.com/vi/{VIDEO}/mqdefault.jpg')
+
+    def test_replaying_same_song_reuses_unchanged_recommendation_seeds(self):
+        item = self.service._public(recording())
+        self.service.listened({'item': item, 'seconds': 11})
+        with patch.object(self.service, '_query', return_value=[recording(OTHER, 'New song')]):
+            self.assertEqual(self.wait(self.service.request({'action': 'recommend'}))['status'], 'ready')
+        self.service.listened({'item': item, 'seconds': 11})
+        with patch.object(self.service, '_query', side_effect=AssertionError('Unchanged seeds should use cache')):
+            result = self.wait(self.service.request({'action': 'recommend'}))
+        self.assertEqual(result['status'], 'ready')
+        self.assertEqual(result['items'][0]['id'], OTHER)
 
     def test_search_scope_encoded_bounded_and_metadata_does_not_prepare(self):
         with patch.object(self.service, '_query', return_value=[recording()]) as query:

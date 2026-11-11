@@ -65,6 +65,7 @@ class Studio:
         self.stems = None
         self.waveforms = None
         self.practice_sessions = None
+        self.practice_audio = None
         self.presentation = 'desktop'
         self.source_revision = 0
         self.state.update(discoveryItem=None, sourceRevision=0, mediaKind=media_kind(self.source))
@@ -277,6 +278,8 @@ class Studio:
             self.stems.close()
         if self.discovery:
             self.discovery.close()
+        if self.practice_audio:
+            self.practice_audio.close()
         if self.downloader:
             self.downloader.close()
         if self.analyzer:
@@ -316,6 +319,16 @@ def create_server(studio, port=0):
                 studio.practice_sessions = PracticeSessions(studio)
             return studio.practice_sessions
 
+    def practice_audio():
+        if studio.presentation != 'mac':
+            raise ValueError('Practice audio is available in the Mac app.')
+        stems()
+        with studio.lock:
+            if studio.practice_audio is None:
+                from .practice_audio import PracticeAudio
+                studio.practice_audio = PracticeAudio(studio)
+            return studio.practice_audio
+
     class Handler(BaseHTTPRequestHandler):
         protocol_version = 'HTTP/1.1'
         def handle(self):
@@ -345,12 +358,13 @@ def create_server(studio, port=0):
             self.send_response(status)
             self.send_header('Content-Type', content_type)
             self.send_header('Content-Length', str(len(data)))
-            self.send_header('Cache-Control', 'no-store')
+            self.send_header('Cache-Control', (extra or {}).get('Cache-Control', 'no-store'))
             self.send_header('X-Content-Type-Options', 'nosniff')
             self.send_header('Referrer-Policy', 'no-referrer')
             self.send_header('Content-Security-Policy', "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; media-src 'self' blob:; connect-src 'self'; frame-ancestors 'none'")
             for key, value in (extra or {}).items():
-                self.send_header(key, value)
+                if key != 'Cache-Control':
+                    self.send_header(key, value)
             self.end_headers()
             self.wfile.write(data)
 
@@ -371,16 +385,10 @@ def create_server(studio, port=0):
             names = {'/': 'index.html', '/studio.js': 'studio.js', '/flow.js': 'flow.js',
                      '/studio.css': 'studio.css', '/blaze-logo.png': 'blaze-logo.png'}
             if mac:
-                names.update({'/mac-logic-preview.html': 'mac-logic-preview.html',
-                              '/mac-logic-preview.css': 'mac-logic-preview.css', '/mac-logic-preview.js': 'mac-logic-preview.js',
-                              '/mac-logic-live.js': 'mac-logic-live.js', '/mac-logic-live.css': 'mac-logic-live.css',
-                              '/mac-practice.js': 'mac-practice.js', '/mac-practice.css': 'mac-practice.css',
+                names.update({'/mac-practice.js': 'mac-practice.js', '/mac-practice.css': 'mac-practice.css',
+                              '/mac-practice-engine.js': 'mac-practice-engine.js',
                               '/mac.css': 'mac.css', '/mac.js': 'mac.js',
-                              '/mac-stems.css': 'mac-stems.css', '/mac-stems.js': 'mac-stems.js',
-                              '/mac-studio.css': 'mac-studio.css', '/mac-studio.js': 'mac-studio.js',
-                              '/mac-harmony.css': 'mac-harmony.css', '/mac-harmony.js': 'mac-harmony.js',
-                              '/studio-grand.png': 'studio-grand.png',
-                              '/studio-instruments.png': 'studio-instruments.png'})
+                              '/mac-stems.css': 'mac-stems.css', '/mac-stems.js': 'mac-stems.js'})
             if path in names:
                 name = names[path]
                 data = (assets / name).read_bytes()
@@ -388,18 +396,11 @@ def create_server(studio, port=0):
                     data = data.replace(b'%%TOKEN%%', studio.token.encode())
                     data = data.replace(b'%%APPEARANCE%%', studio.appearance.encode())
                     data = data.replace(b'%%PRESENTATION%%', b'mac' if mac else b'desktop')
-                    data = data.replace(b'%%MAC_STYLES%%', b'<link rel="stylesheet" href="/mac.css"><link rel="stylesheet" href="/mac-stems.css"><link rel="stylesheet" href="/mac-studio.css"><link rel="stylesheet" href="/mac-harmony.css">' if mac else b'')
+                    data = data.replace(b'%%MAC_STYLES%%', b'<link rel="stylesheet" href="/mac.css"><link rel="stylesheet" href="/mac-stems.css">' if mac else b'')
                     if mac:
-                        preview = (assets / 'mac-logic-preview.html').read_bytes()
-                        template = preview.split(b'<main ', 1)[1].split(b'</main>', 1)[0]
-                        live = (b'<template id="logic-live-template"><main ' + template + b'</main></template>'
-                                b'<link rel="stylesheet" href="/mac-logic-preview.css">'
-                                b'<link rel="stylesheet" href="/mac-logic-live.css">'
-                                b'<link rel="stylesheet" href="/mac-practice.css">'
+                        live = (b'<link rel="stylesheet" href="/mac-practice.css">'
                                 b'<script src="/mac.js"></script><script src="/mac-stems.js"></script>'
-                                b'<script src="/mac-studio.js"></script><script src="/mac-harmony.js"></script>'
-                                b'<script src="/mac-logic-live.js"></script><script src="/mac-logic-preview.js"></script>'
-                                b'<script src="/mac-practice.js"></script>')
+                                b'<script src="/mac-practice-engine.js"></script><script src="/mac-practice.js"></script>')
                     else:
                         live = b''
                     data = data.replace(b'%%MAC_SCRIPT%%', live)
@@ -439,6 +440,19 @@ def create_server(studio, port=0):
                     self.json({'error': str(error)}, 503)
                 except (ValueError, OSError, TypeError) as error:
                     self.json({'error': str(error) or 'The waveform is unavailable.'}, 400)
+                return
+            if path in ('/api/practice-render', '/api/practice-audio'):
+                try:
+                    query = parse_qs(urlsplit(self.path).query)
+                    manager = practice_audio()
+                    identity = query.get('id', [''])[0]
+                    if path == '/api/practice-render':
+                        self.json(manager.status(identity))
+                    else:
+                        source, filename = manager.file(identity)
+                        self.media(source, filename if query.get('download') == ['1'] else None)
+                except (ValueError, OSError, TypeError) as error:
+                    self.json({'error': str(error)}, 400)
                 return
             if path == '/api/practice':
                 if not mac:
@@ -489,7 +503,7 @@ def create_server(studio, port=0):
                         self.json({'items': discovery().history()})
                     elif path == '/api/discovery-image':
                         data, content_type = discovery().image(query.get('id', [''])[0])
-                        self.send(data, content_type=content_type)
+                        self.send(data, content_type=content_type, extra={'Cache-Control': 'private, max-age=3600'})
                     else:
                         self.json({'error': 'Not found.'}, 404)
                 except (ValueError, OSError, TypeError):
@@ -524,13 +538,13 @@ def create_server(studio, port=0):
                 return
             self.json({'error': 'Not found.'}, 404)
 
-        def media(self):
+        def media(self, prepared_source=None, download=None):
             revision = parse_qs(urlsplit(self.path).query).get('sourceRevision', [None])[0]
             with studio.lock:
                 if revision is not None and revision != str(studio.source_revision):
                     self.json({'error': 'The selected recording changed.'}, 409)
                     return
-                source = studio.source
+                source = prepared_source if prepared_source is not None else studio.source
             if source is None or not source.is_file():
                 self.json({'error': 'No selected media.'}, 404)
                 return
@@ -549,6 +563,8 @@ def create_server(studio, port=0):
             self.send_response(206 if header else 200)
             self.send_header('Content-Type', mimetypes.guess_type(str(source))[0] or 'application/octet-stream')
             self.send_header('Accept-Ranges', 'bytes')
+            if download:
+                self.send_header('Content-Disposition', "attachment; filename*=UTF-8''" + quote(download, safe=''))
             self.send_header('Cache-Control', 'no-store')
             self.send_header('Content-Length', str(end - begin + 1))
             self.send_header('Cache-Control', 'no-store')
@@ -600,6 +616,9 @@ def create_server(studio, port=0):
                 body = json.loads(self.rfile.read(length) or b'{}')
                 if not isinstance(body, dict):
                     raise ValueError('Choose a supported action.')
+                if path == '/api/practice-render':
+                    self.json(practice_audio().request(body))
+                    return
                 if path in ('/api/practice-save', '/api/practice-open'):
                     if studio.presentation != 'mac':
                         self.json({'error': 'Not found.'}, 404)
