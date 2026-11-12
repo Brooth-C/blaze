@@ -24,6 +24,7 @@ class PracticeAudio:
         self.lock = threading.RLock()
         self.jobs = {}
         self.worker = None
+        self.active = None
         self.closed = threading.Event()
 
     def request(self, body):
@@ -60,7 +61,7 @@ class PracticeAudio:
                                    'filename': 'Piano-and-Backing' + (f' ({semitones:+d})' if semitones else '') + '.zip' if kind == 'both' else
                                    {'source': 'Recording', 'piano': 'Piano', 'backing': 'Backing'}[kind] +
                                    (f' ({semitones:+d})' if semitones else '') + '.wav'}
-            for old in list(self.jobs)[:-16]:
+            for old in [key for key in self.jobs if key != self.active][:max(0, len(self.jobs) - 16)]:
                 del self.jobs[old]
             self.worker = threading.Thread(target=self._render, args=(identity, sources, stamps, semitones, kind),
                                            name='BlazePracticeAudio', daemon=True)
@@ -116,8 +117,11 @@ class PracticeAudio:
                     path.unlink()
             with self.lock:
                 row.update(status='ready', path=target)
-                # Bound disk retention; never remove the just-published export.
-                for old in sorted(self.root.iterdir(), key=lambda p: p.stat().st_mtime, reverse=True)[4:]:
+                # Keep both the current player resource and the new export.
+                protected = {identity, self.active} - {None}
+                candidates = sorted((p for p in self.root.iterdir() if p.name not in protected),
+                                    key=lambda p: p.stat().st_mtime, reverse=True)
+                for old in candidates[max(0, 4 - len(protected)):]:
                     if old.is_dir():
                         shutil.rmtree(old, ignore_errors=True)
                 for old in self.jobs.values():
@@ -135,11 +139,13 @@ class PracticeAudio:
                 raise ValueError('Audio request expired.')
             return {'requestId': identity, 'status': row['status'], 'error': row['error'], 'filename': row['filename']}
 
-    def file(self, identity):
+    def file(self, identity, playback=False):
         with self.lock:
             row = self.jobs.get(identity)
             if not row or row['status'] != 'ready' or not row['path'].is_file():
                 raise ValueError('Audio export is not ready.')
+            if playback:
+                self.active = identity
             return row['path'], row['filename']
 
     def close(self):

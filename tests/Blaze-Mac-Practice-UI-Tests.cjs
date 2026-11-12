@@ -75,7 +75,7 @@ async function snapshot(page){return page.evaluate(()=>window.BlazeMacPractice.s
 async function assertPitch(page,frequency,label){
  const reply=await page.request.get(await page.locator('#media').evaluate(media=>media.currentSrc));assert.equal(reply.status(),200);
  const wav=path.join(data,label+'.wav');fs.writeFileSync(wav,await reply.body());
- const check=spawnSync(process.env.BLAZE_TEST_PYTHON||'python3',['-c',"import sys,subprocess,numpy as np; raw=subprocess.run(['ffmpeg','-v','error','-i',sys.argv[1],'-ac','1','-f','f32le','-'],check=True,capture_output=True).stdout; x=np.frombuffer(raw,dtype='<f4'); f=np.fft.rfftfreq(len(x),1/44100)[np.argmax(abs(np.fft.rfft(x)))]; assert abs(f-float(sys.argv[2]))<2,(f,sys.argv[2])",wav,String(frequency)],{encoding:'utf8'});assert.equal(check.status,0,check.stderr);
+ const check=spawnSync(process.env.BLAZE_TEST_PYTHON||'python3',['-c',"import sys,subprocess,numpy as np; raw=subprocess.run(['ffmpeg','-v','error','-i',sys.argv[1],'-ac','1','-ar','44100','-f','f32le','-'],check=True,capture_output=True).stdout; x=np.frombuffer(raw,dtype='<f4'); f=np.fft.rfftfreq(len(x),1/44100)[np.argmax(abs(np.fft.rfft(x)))]; assert abs(f-float(sys.argv[2]))<2,(f,sys.argv[2])",wav,String(frequency)],{encoding:'utf8'});assert.equal(check.status,0,check.stderr);
 }
 async function mode(page,name){
  const id='practice-'+name;
@@ -128,6 +128,17 @@ async function mode(page,name){
  await assertPitch(page,220*2**(2/12),'pitched-backing');
  await mode(page,'piano');await page.waitForFunction(()=>!window.BlazeMacPractice.snapshot().pitchBusy);await assertPitch(page,440*2**(2/12),'pitched-piano');
  await mode(page,'backing');await page.waitForFunction(()=>!window.BlazeMacPractice.snapshot().pitchBusy);await assertPitch(page,220*2**(2/12),'pitched-backing-again');
+ // A failed re-pitch after selecting raw audio must reset the displayed key.
+ await page.route('**/api/practice-render',route=>route.request().method()==='POST'?route.fulfill({status:503,contentType:'application/json',body:JSON.stringify({error:'Controlled render failure'})}):route.continue());
+ await mode(page,'piano');await page.waitForFunction(()=>!window.BlazeMacPractice.snapshot().pitchBusy&&window.BlazeMacPractice.snapshot().transpose===0);
+ await page.unrouteAll({behavior:'wait'});await assertPitch(page,440,'mode-render-failure-raw-piano');
+ assert.equal(await page.locator('#practice-current-chord strong').innerText(),'C');
+ await page.locator('#practice-pitch-value').selectOption('2');await page.waitForFunction(()=>window.BlazeMacPractice.snapshot().transpose===2&&!window.BlazeMacPractice.snapshot().pitchBusy);
+ await page.route('**/api/practice-audio?**',route=>route.fulfill({status:404,body:'controlled missing mode render'}));
+ await mode(page,'backing');await page.waitForFunction(()=>!window.BlazeMacPractice.snapshot().pitchBusy&&window.BlazeMacPractice.snapshot().transpose===0&&document.getElementById('media').readyState>=1);
+ await page.unrouteAll({behavior:'wait'});await assertPitch(page,220,'mode-load-failure-raw-backing');
+ assert.equal(await page.locator('#practice-current-chord strong').innerText(),'C');
+ await page.locator('#practice-pitch-value').selectOption('2');await page.waitForFunction(()=>window.BlazeMacPractice.snapshot().transpose===2&&!window.BlazeMacPractice.snapshot().pitchBusy);
  assert.equal((await snapshot(page)).rate,.75);assert.equal((await snapshot(page)).loopStart,2);assert.equal((await snapshot(page)).loopEnd,6);
  await page.locator('#practice-pitch-value').selectOption('-3');await page.waitForFunction(()=>window.BlazeMacPractice.snapshot().transpose===-3&&!window.BlazeMacPractice.snapshot().pitchBusy);await assertPitch(page,220*2**(-3/12),'pitched-direct-choice');
  await page.locator('#practice-pitch-reset').click();await page.waitForFunction(()=>window.BlazeMacPractice.snapshot().transpose===0&&!window.BlazeMacPractice.snapshot().pitchBusy);
@@ -176,6 +187,13 @@ async function mode(page,name){
  const resumed=await snapshot(page);assert.equal(resumed.loopStart,2);assert.equal(resumed.loopEnd,6);assert(Math.abs(resumed.position-4.5)<.25,JSON.stringify(resumed));
  assert.equal(resumed.transpose,2);await assertPitch(page,220*2**(2/12),'resumed-pitched-backing');
  await page.waitForFunction(()=>document.querySelector('#practice-current-chord strong').textContent==='D');
+ // Native Open can select the same registered file without changing its ID.
+ const reopened=(await snapshot(page)).recordingId;
+ await page.evaluate(async id=>{await api('/api/practice-open',{id,sourceRevision});await window.BlazeMac.importCompleted();},saved);
+ await page.waitForFunction(()=>window.BlazeMacPractice.snapshot().transpose===0&&!window.BlazeMacPractice.snapshot().pitchBusy&&document.getElementById('media').readyState>=1);
+ assert.equal((await snapshot(page)).recordingId,reopened);
+ await assertPitch(page,220,'same-recording-reopened-original-key');
+ await page.waitForFunction(()=>document.querySelector('#practice-current-chord strong').textContent==='C');
  await page.locator('#practice-play').click();await page.waitForFunction(()=>!document.getElementById('media').paused);await page.locator('#practice-play').click();
  assert.equal(count('separation'),1,'Resume reran separation');assert.equal(count('analysis'),2,'Resume reran analysis');assert.deepEqual(page.errors,[]);
  const previousRevision=await page.evaluate(()=>sourceRevision);

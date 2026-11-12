@@ -449,8 +449,9 @@ def create_server(studio, port=0):
                     if path == '/api/practice-render':
                         self.json(manager.status(identity))
                     else:
-                        source, filename = manager.file(identity)
-                        self.media(source, filename if query.get('download') == ['1'] else None)
+                        download = query.get('download') == ['1']
+                        source, filename = manager.file(identity, playback=not download)
+                        self.media(source, filename if download else None)
                 except (ValueError, OSError, TypeError) as error:
                     self.json({'error': str(error)}, 400)
                 return

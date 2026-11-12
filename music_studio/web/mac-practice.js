@@ -79,10 +79,10 @@
   if(answer.status!=='ready')throw Error(answer.error||'Could not prepare audio.');
   return {...answer,url:'/api/practice-audio?id='+encodeURIComponent(answer.requestId)+'&token='+encodeURIComponent(token)};
  }
- async function applyTranspose(value,{force=false,resume=null}={}){
+ async function applyTranspose(value,{force=false,resume=null,rawSource=false}={}){
   if(!hasSong()||(!force&&value===transposeValue))return;
   const epoch=++pitchEpoch,revision=sourceRevision;pitchBusy=true;error='';text($('pitch-status'),'Preparing pitch on this Mac…');update();
-  let previous=null;
+  let previous=null,committed=false;
   try{
    const prepared=await renderAudio('source',value,true);
    if(epoch!==pitchEpoch||revision!==sourceRevision)return;
@@ -98,10 +98,11 @@
    if(epoch!==pitchEpoch||revision!==sourceRevision)return;
    previous=null;
    player.classList.add('audio-only');player.controls=false;window.BlazeDesktop.mediaFormatChanged();
-   transposeValue=value;shift(value-amount);keepPitch();player.playbackRate=rate;player.currentTime=Math.min(position,Number(player.duration)||position);
+   transposeValue=value;shift(value-amount);committed=true;keepPitch();player.playbackRate=rate;player.currentTime=Math.min(position,Number(player.duration)||position);
    if(playing)await player.play();changed();
   }catch(failure){if(epoch===pitchEpoch){
    if(previous&&revision===sourceRevision){const restore=previous;player.addEventListener('loadedmetadata',()=>{if(epoch!==pitchEpoch||revision!==sourceRevision)return;player.playbackRate=restore.rate;player.currentTime=Math.min(restore.position,Number(player.duration)||restore.position);if(restore.playing)player.play().catch(report);},{once:true});player.src=restore.src;player.load();}
+   if(rawSource&&!committed&&revision===sourceRevision){transposeValue=0;shift(-amount);if(resume&&!previous)player.play().catch(report);changed();}
    report(failure);
   }}
   finally{if(epoch===pitchEpoch){pitchBusy=false;text($('pitch-status'),transposeValue?'Playback and chords transposed · tempo preserved':'Original key · tempo preserved');update();}}
@@ -125,8 +126,9 @@
    const answer=await api('/api/practice');if(serial!==metadataSerial||stopped)return;
    if(Number.isSafeInteger(sourceRevision)&&answer.sourceRevision!==sourceRevision){outcome='stale';metadataAgain=true;return;}
    const changedSong=lastKey!==null&&answer.recordingId!==lastKey;
+   const reloaded=meta.sourceRevision>=0&&answer.sourceRevision!==meta.sourceRevision;
    meta=answer;outcome='fresh';
-   if(changedSong&&!restoring){++actionEpoch;++pitchEpoch;pitchBusy=false;transposeValue=0;shift(-amount);pendingMode=null;queuedMode=null;a=b=null;saveMessage='';error='';clearTimeout(saveTimer);lastSavedFingerprint='';lastControlsFingerprint='';}
+   if((changedSong||reloaded)&&!restoring&&!modeBusy){++actionEpoch;++pitchEpoch;pitchBusy=false;transposeValue=0;shift(-amount);pendingMode=null;queuedMode=null;a=b=null;saveMessage='';error='';clearTimeout(saveTimer);lastSavedFingerprint='';lastControlsFingerprint='';}
    if(lastKey!==answer.recordingId){lastKey=answer.recordingId;lastControlsFingerprint=fingerprint(settings());}
    if(pendingMode&&pendingMode.recordingId!==meta.recordingId)pendingMode=null;
    if(active)update();
@@ -163,7 +165,7 @@
   if(currentJob()===job&&state.selected===stem){update();return;}
   modeBusy=true;update();
   const resume=!player.paused;if(transposeValue)player.pause();
-  try{await cmd.practiceTrack(job,stem);if(intent===actionEpoch&&meta.recordingId===key){pendingMode=null;await refreshMetadata();if(transposeValue)await applyTranspose(transposeValue,{force:true,resume});changed();}}
+  try{await cmd.practiceTrack(job,stem);if(intent===actionEpoch&&meta.recordingId===key){pendingMode=null;await refreshMetadata();if(transposeValue)await applyTranspose(transposeValue,{force:true,resume,rawSource:true});changed();}}
   catch(failure){if(intent===actionEpoch)report(failure);}
   finally{modeBusy=false;update();runQueued();}
  }
@@ -178,7 +180,7 @@
    const ready=async()=>{
     if(pendingRestore?.handler===ready)pendingRestore=null;
     if(intent!==actionEpoch||sourceRevision!==expected){restoring=false;return;}
-    if(value.transpose||transposeValue)await applyTranspose(value.transpose||0,{force:true});if(intent!==actionEpoch||sourceRevision!==expected)return;
+    if(value.transpose||transposeValue)await applyTranspose(value.transpose||0,{force:true,rawSource:true});if(intent!==actionEpoch||sourceRevision!==expected)return;
     keepPitch();cmd.rate(value.rate);a=value.loopStart;b=value.loopEnd;
     if(a!==null&&b!==null)cmd.setLoop(a,b,value.loopEnabled);else cmd.clearLoop();
     cmd.seek(value.position);restoring=false;lastControlsFingerprint=fingerprint(settings());lastSavedFingerprint=lastControlsFingerprint;lastSaveAt=performance.now();message=answer.notice||'';update();

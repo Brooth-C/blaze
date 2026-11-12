@@ -92,6 +92,24 @@ class PracticeAudioTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.audio.file('../../private')
 
+    def test_active_playback_survives_export_and_request_eviction(self):
+        active, target = self.render(kind='source', semitones=1)
+        identity = active['requestId']
+        expected = target.read_bytes()
+        self.audio.file(identity, playback=True)
+        # More than both retention bounds; exports must not disown the player.
+        for semitones in [n for n in range(-8, 10) if n != 1]:
+            self.render(kind='source', semitones=semitones)
+            self.assertEqual(self.audio.file(identity)[0].read_bytes(), expected)
+            self.assertLessEqual(len(list(self.audio.root.iterdir())), 4)
+            self.assertLessEqual(len(self.audio.jobs), 16)
+        self.assertEqual(self.audio.status(identity)['status'], 'ready')
+        replacement, _ = self.render(kind='source', semitones=10)
+        self.audio.file(replacement['requestId'], playback=True)
+        for semitones in (11, 12, -12, -11):
+            self.render(kind='source', semitones=semitones)
+        self.assertFalse(target.exists(), 'Released playback should become evictable')
+
 
 if __name__ == '__main__':
     unittest.main()
