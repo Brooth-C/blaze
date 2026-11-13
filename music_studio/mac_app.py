@@ -331,11 +331,11 @@ def ui_smoke(window, studio, destination, receipt, probe, timeout=900):
         probe.run(window, "document.getElementById('practice-play').click()")
         wait_for("!document.getElementById('media').paused && document.getElementById('media').currentTime>.1")
         receipt['piano'] = {**native_piano_identity(), 'real_model': True, 'native_playback': True, 'outputs': 2}
-        probe.run(window, "document.getElementById('media').pause(); document.getElementById('practice-pitch-up').click()")
+        probe.run(window, "document.getElementById('media').pause();window.blazeChordAudio=document.getElementById('media').currentSrc;document.getElementById('practice-pitch-up').click()")
         wait_for("window.BlazeMacPractice.snapshot().transpose===1 && !window.BlazeMacPractice.snapshot().pitchBusy")
-        pitch = probe.probe(window, "({samePlayer:window.blazePracticeMedia===document.getElementById('media'), localAudio:document.getElementById('media').src.includes('/api/practice-audio'), transpose:window.BlazeMacPractice.snapshot().transpose})")
-        if not pitch['samePlayer'] or not pitch['localAudio']:
-            raise RuntimeError('Native transpose did not use the single local player.')
+        pitch = probe.probe(window, "({samePlayer:window.blazePracticeMedia===document.getElementById('media'), audioUnchanged:document.getElementById('media').currentSrc===window.blazeChordAudio, transpose:window.BlazeMacPractice.snapshot().transpose})")
+        if not pitch['samePlayer'] or not pitch['audioUnchanged']:
+            raise RuntimeError('Chord-only transpose changed the audio player.')
         receipt['transpose'] = pitch
         probe.run(window, "document.getElementById('practice-pitch-reset').click()")
         wait_for("window.BlazeMacPractice.snapshot().transpose===0 && !window.BlazeMacPractice.snapshot().pitchBusy")

@@ -80,6 +80,68 @@ class AnalysisJobsTests(unittest.TestCase):
         self.assertIsNone(self.studio.analyzer)
         self.assertEqual(list(self.studio.incoming.glob('.analysis-*')), [])
 
+    def test_saved_result_skips_analyzer_and_keeps_saved_corrections(self):
+        result = result_for(self.source)
+        result['chords'][0].update(chord='D:min', edited=True)
+        self.studio.store.save(result)
+        with patch('music_studio.server.ModelBundle', return_value=BUNDLE), \
+                patch('music_studio.server.Analyzer', side_effect=AssertionError('Cache hit must not load inference')) as factory:
+            self.studio.analyze('powerful')
+            self.studio.worker.join(3)
+            self.assertFalse(self.studio.worker.is_alive())
+            factory.assert_not_called()
+        self.assertEqual(self.studio.state['analysisTask']['status'], 'done')
+        self.assertEqual(self.studio.state['result']['chords'][0]['chord'], 'D:min')
+
+    def test_changed_source_does_not_reuse_saved_result(self):
+        self.studio.store.save(result_for(self.source))
+        self.source.write_bytes(b'new audio must be analysed')
+        with patch('music_studio.server.ModelBundle', return_value=BUNDLE), \
+                patch('music_studio.server.Analyzer', self.controlled()):
+            self.start()
+            self.finish()
+        self.assertEqual(self.studio.state['result']['source_sha256'], hashlib.sha256(self.source.read_bytes()).hexdigest())
+
+    def test_changed_model_does_not_reuse_saved_result(self):
+        self.studio.store.save(result_for(self.source))
+        changed = SimpleNamespace(structured=False, metadata={'sha256': 'new-model'}, manifest=BUNDLE.manifest)
+        with patch('music_studio.server.ModelBundle', return_value=changed), \
+                patch('music_studio.server.Analyzer', self.controlled()):
+            self.start()
+            self.finish()
+        self.assertEqual(self.studio.state['analysisTask']['status'], 'done')
+
+    def test_cancel_during_cache_lookup_does_not_publish_result(self):
+        def saved(_):
+            self.studio.cancel_analysis()
+            return result_for(self.source)
+        with patch('music_studio.server.ModelBundle', return_value=BUNDLE), \
+                patch.object(self.studio.store, 'load', side_effect=saved), \
+                patch('music_studio.server.Analyzer') as factory:
+            self.studio.analyze('powerful')
+            self.studio.worker.join(3)
+            factory.assert_not_called()
+        self.assertEqual(self.studio.state['analysisTask']['status'], 'cancelled')
+        self.assertIsNone(self.studio.state['result'])
+
+    def test_worker_passes_digest_only_for_its_verified_private_copy(self):
+        studio = self.studio
+        base = self.controlled()
+        class Recognition(base):
+            def analyze(inner, source, progress):
+                pinned, stamp, digest = inner.verified_input
+                self.assertEqual(pinned, source)
+                stat = source.stat()
+                self.assertEqual(stamp, (stat.st_dev, stat.st_ino, stat.st_size, stat.st_mtime_ns, stat.st_ctime_ns))
+                self.assertEqual(digest, hashlib.sha256(source.read_bytes()).hexdigest())
+                self.assertEqual(source.parent, studio.incoming)
+                return super().analyze(source, progress)
+        with patch('music_studio.server.ModelBundle', return_value=BUNDLE), \
+                patch('music_studio.server.Analyzer', Recognition):
+            self.start()
+            self.finish()
+        self.assertEqual(self.studio.state['analysisTask']['status'], 'done')
+
     def test_switching_source_does_not_attach_old_result_and_return_restores_it(self):
         with patch('music_studio.server.ModelBundle', return_value=BUNDLE), \
                 patch('music_studio.server.Analyzer', self.controlled()):

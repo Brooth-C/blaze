@@ -107,7 +107,7 @@ def main():
     assert navigation['installed'] and navigation['web_navigation'] and navigation['roundtrip'], receipt
     assert all(receipt['layout'].values()), receipt
     assert receipt['exports']['separateWavsInZip'], receipt
-    assert receipt['transpose']['samePlayer'] and receipt['transpose']['localAudio'] and receipt['transpose']['transpose'] == 1, receipt
+    assert receipt['transpose']['samePlayer'] and receipt['transpose']['audioUnchanged'] and receipt['transpose']['transpose'] == 1, receipt
     for retired in ('mac-studio.js', 'mac-logic-live.js', 'mac-harmony.js', 'mac-logic-preview.html', 'reference-timeline.css'):
         assert not (resources / 'music_studio/web' / retired).exists(), retired
     assert all(receipt['background_tasks'][key] for key in ('navigation', 'fixture_search', 'chord_analysis', 'separation_active_at_analysis_start')), receipt

@@ -12,6 +12,7 @@ import onnxruntime as ort
 from .chords import estimate_key
 from .rhythm import RhythmDetector
 from .stem_runtime import StemRuntime
+from .verified_session import VerifiedSession
 
 RATE = 22050
 CHUNK = 108 * 2048
@@ -58,22 +59,13 @@ class ModelBundle:
             self.metadata['sha256'] = hashlib.sha256(''.join(assets).encode()).hexdigest()
 
     def _session(self, metadata, options):
-        name = metadata['file']
-        if Path(name).name != name:
-            raise ValueError('Model asset paths must remain inside the bundle.')
-        path = self.directory / name
-        if not path.is_file() or path.stat().st_size > 700 * 1024 ** 2:
-            raise ValueError('Recognition model file is missing or too large.')
-        data = path.read_bytes()
-        if hashlib.sha256(data).hexdigest() != metadata['sha256']:
-            raise ValueError('Recognition model verification failed. Reinstall or import a verified model bundle.')
-        # Bytes prevent ONNX external-data paths from reading arbitrary files.
-        return self.runtime.session(data, options, metadata['sha256'])
+        return VerifiedSession(self.directory, metadata, self.runtime, options, 700 * 1024 ** 2)
 
     def close(self):
-        self.runtime.finish(self.frontend)
-        self.runtime.finish(self.network)
+        self.frontend.close()
+        self.network.close()
         if self.structured:
+            self.structured.close()
             self.structured.finish()
 
     def predict(self, pcm):
@@ -202,6 +194,11 @@ def bridge_uncertain_frames(frames, max_gap=.28):
     return frames
 
 
+def waveform_peaks(blocks):
+    """Reduce complete envelope blocks in one NumPy pass instead of per block."""
+    return np.max(np.abs(blocks), axis=1).tolist() if len(blocks) else []
+
+
 class Analyzer:
     def __init__(self, bundle, ffmpeg):
         self.bundle = bundle
@@ -209,6 +206,7 @@ class Analyzer:
         self.cancelled = threading.Event()
         self.process = None
         self.rhythm = None
+        self.verified_input = None
 
     def cancel(self):
         self.cancelled.set()
@@ -236,17 +234,31 @@ class Analyzer:
                 self.rhythm.close()
             self.bundle.close()
 
+    @staticmethod
+    def input_stamp(path):
+        stat = Path(path).stat()
+        return (stat.st_dev, stat.st_ino, stat.st_size, stat.st_mtime_ns, stat.st_ctime_ns)
+
+    def _source_digest(self, path):
+        self.check()
+        if self.verified_input is not None:
+            pinned, stamp, digest = self.verified_input
+            if path == pinned and self.input_stamp(path) == stamp:
+                return digest
+        digest = hashlib.sha256()
+        with path.open('rb') as stream:
+            while block := stream.read(1024 * 1024):
+                self.check()
+                digest.update(block)
+        return digest.hexdigest()
+
     def _analyze(self, source, progress=lambda message: None):
         path = Path(source).resolve()
         if not path.is_file() or path.stat().st_size == 0:
             raise ValueError('Choose a nonempty local audio or video file.')
         if path.stat().st_size > MAX_BYTES:
             raise ValueError('Choose a media file smaller than 2 GB.')
-        digest = hashlib.sha256()
-        with path.open('rb') as stream:
-            while block := stream.read(65536):
-                self.check()
-                digest.update(block)
+        source_sha256 = self._source_digest(path)
         progress('Finding chords locally…')
         rhythm = RhythmDetector(self.bundle.directory) if (self.bundle.directory / 'rhythm_manifest.json').is_file() else None
         self.rhythm = rhythm
@@ -265,6 +277,7 @@ class Analyzer:
         envelope_tail = np.empty(0, dtype=np.float32)
         spectral_tail = np.zeros(1792, dtype=np.float32)
         previous_spectrum = np.zeros(1025, dtype=np.float64)
+        onset_window = np.hanning(2048)
         try:
             wav_header(process.stdout)
             while True:
@@ -300,14 +313,13 @@ class Analyzer:
                 if len(blocks):
                     spectral_signal = np.concatenate((spectral_tail, blocks.reshape(-1)))
                     windows = np.lib.stride_tricks.sliding_window_view(spectral_signal, 2048)[::256]
-                    spectrum = np.abs(np.fft.rfft(windows * np.hanning(2048), axis=1))
+                    spectrum = np.abs(np.fft.rfft(windows * onset_window, axis=1))
                     preceding = np.vstack((previous_spectrum, spectrum[:-1]))
                     flux = np.maximum(0, spectrum - preceding).sum(axis=1) / np.maximum(1e-8, spectrum.sum(axis=1))
                     onsets.extend(np.maximum(0, flux - .05).tolist())
                     spectral_tail = spectral_signal[-1792:].copy()
                     previous_spectrum = spectrum[-1]
-                for block in blocks:
-                    waveform.append(float(np.max(np.abs(block))))
+                waveform.extend(waveform_peaks(blocks))
                 if len(pcm) < 128:
                     probabilities = None
                 else:
@@ -401,7 +413,7 @@ class Analyzer:
         if rhythm:
             bpm, beats = rhythm_result['tempo_bpm'], rhythm_result['beats']
         metadata = self.bundle.metadata
-        return {'schema_version': 1, 'engine_version': 'structured1' if self.bundle.structured else 'overlap1', 'audio_file': path.name, 'source_sha256': digest.hexdigest(),
+        return {'schema_version': 1, 'engine_version': 'structured1' if self.bundle.structured else 'overlap1', 'audio_file': path.name, 'source_sha256': source_sha256,
                 'duration': sample_count / RATE, 'key': estimate_key(events), 'tempo_bpm': bpm, 'beats': beats,
                 'waveform': peaks, 'model': {'name': metadata['name'], 'version': metadata['version'],
                 'sha256': metadata['sha256'], 'frontend_sha256': self.bundle.manifest['frontend']['sha256']},

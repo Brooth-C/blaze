@@ -73,10 +73,14 @@ def stft_bands_last(audio: np.ndarray, n_fft: int, hop_length: int) -> np.ndarra
     channel is the FASTEST-varying axis, interleaved inside frequency.
     """
     spec = stft(audio, n_fft, hop_length)  # [C, F, T]
-    real = np.stack([spec.real, spec.imag], axis=-1)  # [C, F, T, 2]
-    interleaved = real.transpose(1, 0, 2, 3)  # [F, C, T, 2]
-    flat = interleaved.reshape(-1, spec.shape[2], 2)  # [(F C), T, 2]
-    return np.ascontiguousarray(flat[None].astype(np.float32))
+    # Pack directly into the final float32 buffer. Stacking complex128 parts,
+    # transposing/reshaping and then casting used multiple full-size temporaries.
+    channels, frequencies, frames = spec.shape
+    packed = np.empty((1, frequencies * channels, frames, 2), dtype=np.float32)
+    view = packed.reshape(frequencies, channels, frames, 2)
+    view[..., 0] = spec.real.transpose(1, 0, 2)
+    view[..., 1] = spec.imag.transpose(1, 0, 2)
+    return packed
 
 
 def istft_bands_last(

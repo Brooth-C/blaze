@@ -155,7 +155,9 @@ class RoformerSeparator(Separator):
                     accumulated = np.zeros((len(outputs), 2, segment), dtype=np.float32)
                     denominator = np.zeros(segment, dtype=np.float32)
                     written_frames = 0
-                    for offset in range(0, total, stride):
+                    # Chunks starting after the retained audio cannot contribute
+                    # to any output sample; avoid a full model pass over padding.
+                    for offset in range(0, min(total, border + count), stride):
                         check_cancel(event)
                         length = min(segment, total - offset)
                         indices = np.arange(offset, offset + length) - border

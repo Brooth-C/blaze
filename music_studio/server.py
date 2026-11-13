@@ -174,6 +174,7 @@ class Studio:
                 result = None
                 error = None
                 cancelled = False
+                bundle = None
                 try:
                     check()
                     digest = hashlib.sha256()
@@ -194,22 +195,34 @@ class Studio:
                         if pinned and (input_stat.st_size, input_stat.st_mtime_ns) != (final_stat.st_size, final_stat.st_mtime_ns):
                             raise ValueError('The recording changed while it was being read. Try analysis again.')
                     check()
-                    bundle = ModelBundle(self.model_directory, selected)
+                    candidate = (os.environ.get('BLAZE_EXPERIMENTAL_CHORDMINI_DIR')
+                                 if self.presentation == 'mac' and selected == 'powerful' else None)
+                    if candidate:
+                        from .chordmini import ChordMiniBundle, ChordMiniAnalyzer
+                        bundle = ChordMiniBundle(candidate)
+                    else:
+                        bundle = ModelBundle(self.model_directory, selected)
                     check()
-                    analyzer = Analyzer(bundle, self.ffmpeg)
-                    with self.lock:
-                        self.analyzer = analyzer
-                    if cancel.is_set():
-                        analyzer.cancel()
-                    analyzer.check()
                     progress('Checking saved analysis…')
                     identity = self.store.identity({
                         'source_sha256': digest.hexdigest(),
-                        'engine_version': 'structured1' if bundle.structured else 'overlap1',
+                        'engine_version': getattr(bundle, 'engine_version', 'structured1' if bundle.structured else 'overlap1'),
                         'model': {'sha256': bundle.metadata['sha256'],
                                   'frontend_sha256': bundle.manifest['frontend']['sha256']}})
                     result = self.store.load(identity)
                     if result is None:
+                        analyzer = (ChordMiniAnalyzer if candidate else Analyzer)(bundle, self.ffmpeg)
+                        if pinned:
+                            # This private copy was hashed while being written above.
+                            stamp = pinned.stat()
+                            analyzer.verified_input = (pinned,
+                                (stamp.st_dev, stamp.st_ino, stamp.st_size, stamp.st_mtime_ns, stamp.st_ctime_ns),
+                                digest.hexdigest())
+                        with self.lock:
+                            self.analyzer = analyzer
+                        if cancel.is_set():
+                            analyzer.cancel()
+                        analyzer.check()
                         result = analyzer.analyze(pinned or source, progress)
                         check()
                         result = self.store.save(result)
@@ -220,6 +233,10 @@ class Studio:
                 except Exception as failure:
                     error = str(failure) or 'Could not analyse this file.'
                 finally:
+                    if bundle is not None:
+                        close = getattr(bundle, 'close', None)
+                        if close:
+                            close()
                     with suppress(OSError):
                         stream.close()
                     if pinned:
