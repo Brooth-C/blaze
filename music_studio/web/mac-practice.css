@@ -15,7 +15,7 @@ html[data-presentation=mac] body.practice-workspace-active #stems-task { display
 html[data-presentation=mac] body.practice-workspace-active:not(.mac-player-expanded) #mini-player { display:none; }
 html[data-presentation=mac] body.practice-workspace-active:not(.mac-player-expanded) .studio { padding-bottom:12px; }
 html[data-presentation=mac] body.practice-workspace-active:not(.mac-player-expanded) #playback-status { bottom:112px; }
-html[data-presentation=mac] body.practice-workspace-active.mac-player-expanded .practice-transport { display:none; }
+html[data-presentation=mac] body.practice-workspace-active.mac-player-expanded #practice-workspace .practice-transport { display:none; }
 #practice-workspace * { box-sizing:border-box; }
 #practice-workspace button,#practice-workspace input { font:inherit; }
 #practice-workspace button { min-height:32px;border:1px solid var(--practice-line);border-radius:6px;padding:6px 12px;background:var(--practice-input);color:var(--practice-ink);cursor:default;white-space:nowrap;box-shadow:none; }
