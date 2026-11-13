@@ -28,7 +28,7 @@ html[data-presentation=mac] body.practice-workspace-active.mac-player-expanded #
 .practice-transpose { display:flex;align-items:center;gap:7px;flex-wrap:wrap; }
 .practice-transpose select { min-height:32px;max-width:125px;border:1px solid var(--practice-line);border-radius:6px;background:var(--practice-input);color:var(--practice-ink);font:inherit;padding:4px 8px;font-variant-numeric:tabular-nums; }
 .practice-transpose small,.practice-download small { color:var(--practice-muted); }
-.practice-download { position:relative;border:0;padding:0;margin:0; }
+#practice-workspace .practice-download { position:relative;border:0;padding:0;margin:0; }
 .practice-download summary { cursor:pointer;padding:7px 12px;border:1px solid var(--practice-line);border-radius:6px;background:var(--practice-input); }
 .practice-download>div { position:absolute;right:0;top:38px;z-index:5;min-width:185px;display:grid;gap:5px;padding:8px;background:var(--practice-panel);border:1px solid var(--practice-line);border-radius:8px;box-shadow:0 8px 24px #0003; }
 #practice-workspace #practice-current-chord { transition:background-color 180ms ease,border-color 180ms ease; }
@@ -59,7 +59,7 @@ html[data-presentation=mac] body.practice-workspace-active.mac-player-expanded #
 #practice-workspace .practice-wave-heading { padding-bottom:8px; }
 #practice-workspace .practice-wave-area { position:relative;overflow:hidden;height:clamp(130px,22vh,225px);border:1px solid var(--practice-line);border-radius:7px;background:var(--practice-wave-bg); }
 #practice-workspace #practice-wave { display:block;width:100%;height:100%;touch-action:none; }
-#practice-workspace .practice-playhead { position:absolute;top:0;bottom:0;width:1px;background:#f6f6f6;box-shadow:0 0 4px #0007;pointer-events:none; }
+#practice-workspace .practice-playhead { position:absolute;top:0;bottom:0;left:0;width:1px;will-change:transform;background:#f6f6f6;box-shadow:0 0 4px #0007;pointer-events:none; }
 #practice-workspace .practice-loop-range { position:absolute;top:0;bottom:0;border-left:1px solid var(--practice-loop);border-right:1px solid var(--practice-loop);background:#e5a7550d;pointer-events:none; }
 #practice-workspace .practice-loop-range.enabled { background:#e5a75521;box-shadow:inset 0 2px var(--practice-loop); }
 #practice-workspace #practice-wave-empty { position:absolute;inset:0;display:grid;place-items:center;padding:20px;color:#c0def5;pointer-events:none;text-align:center;font-size:12px; }
@@ -144,3 +144,23 @@ html[data-presentation=mac] body.practice-workspace-active.mac-player-expanded #
 
 #logic-preview button.practice-return { min-height:20px;padding:0 6px;font:10px -apple-system,BlinkMacSystemFont,sans-serif;color:inherit;background:transparent;border:1px solid currentColor;border-radius:3px;opacity:.85; }
 #logic-preview button.practice-return[hidden] { display:none; }
+/* Keep notation above the scrollable waveform, sessions and optional audio tools. */
+#practice-workspace .practice-wave-area { height:clamp(96px,16vh,170px); }
+#practice-workspace > .practice-chords { flex:0 0 auto;margin:0 28px;padding:10px 0 14px;border-top:0;border-bottom:1px solid var(--practice-line); }
+#practice-workspace > .practice-chords .practice-transpose { margin:6px 0; }
+#practice-workspace > .practice-chords #practice-chord-help { margin:4px 0 10px; }
+#practice-workspace .practice-audio-pitch { border:0;padding:0;margin:0; }
+#practice-workspace .practice-audio-pitch summary { cursor:pointer;padding:7px 12px;border:1px solid var(--practice-line);border-radius:6px;background:var(--practice-input); }
+#practice-workspace .practice-audio-pitch > div { margin-top:8px; }
+#practice-workspace .practice-audio-pitch small { flex-basis:100%;color:var(--practice-muted); }
+@media(max-width:950px) { #practice-workspace > .practice-chords { margin-inline:20px; } }
+@media(max-width:620px) {
+ #practice-workspace > .practice-chords { padding:6px 0 10px; }
+ #practice-workspace > .practice-chords .practice-transpose { gap:5px;font-size:11px; }
+ #practice-workspace > .practice-chords .practice-transpose select { max-width:94px; }
+ #practice-workspace > .practice-chords .practice-transpose button { padding:4px 8px; }
+ #practice-workspace > .practice-chords #practice-pitch-status { display:none; }
+ #practice-workspace > .practice-chords #practice-chord-help { margin:2px 0 6px;font-size:10px; }
+ #practice-workspace > .practice-chords button.practice-chord { min-height:76px;padding:8px 10px; }
+ #practice-workspace > .practice-chords .practice-chord > strong { font-size:27px; }
+}

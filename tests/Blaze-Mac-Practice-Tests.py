@@ -109,11 +109,32 @@ class PracticeTests(unittest.TestCase):
         self.assertNotIn(str(self.root), json.dumps(second))
         self.assertEqual(len(second['recordingId']), 64)
 
+    def test_chord_transpose_and_audio_pitch_are_independent_saved_settings(self):
+        saved = self.save(transpose=5, audioPitch=-2)['saved']
+        self.studio.close()
+        _, practice = self.make_studio()
+        opened = practice.open({'id': saved['id']})
+        self.assertEqual(opened['settings']['transpose'], 5)
+        self.assertEqual(opened['settings']['audioPitch'], -2)
+
+    def test_older_saved_practice_defaults_optional_audio_to_original_pitch(self):
+        saved = self.save(transpose=3)['saved']
+        path = self.practice.records_root / (saved['id'] + '.json')
+        row = json.loads(path.read_text())
+        row['settings'].pop('audioPitch')
+        path.write_text(json.dumps(row))
+        self.studio.close()
+        _, practice = self.make_studio()
+        opened = practice.open({'id': saved['id']})
+        self.assertEqual(opened['settings']['transpose'], 3)
+        self.assertEqual(opened['settings']['audioPitch'], 0)
+
     def test_settings_are_validated_before_saving(self):
         for changes in ({'rate': float('nan')}, {'rate': True}, {'rate': 2},
                         {'position': float('inf')}, {'position': -1},
                         {'loopStart': 2, 'loopEnd': 1}, {'loopEnd': None},
-                        {'loopEnabled': 'true'}, {'mode': 'voice'}, {'sourceRevision': True}):
+                        {'loopEnabled': 'true'}, {'mode': 'voice'}, {'sourceRevision': True},
+                        {'audioPitch': True}, {'audioPitch': 13}, {'audioPitch': -13}):
             with self.subTest(changes=changes), self.assertRaises(ValueError):
                 self.save(**changes)
         self.assertEqual(self.practice.snapshot()['sessions'], [])

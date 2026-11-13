@@ -13,7 +13,7 @@ import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from music_studio.roformer import RoformerSeparator, QualityFiveStemSeparator, SEGMENT
-from music_studio.roformer_transform import stft_bands_last, istft_bands_last, overlap_envelope
+from music_studio.roformer_transform import stft_bands_last, istft_bands_last, overlap_envelope, stft
 from music_studio.stems import SeparationCancelled
 
 
@@ -59,6 +59,18 @@ class RoformerTests(unittest.TestCase):
         restored = istft_bands_last(spec[0], 2, 2048, 441, audio.shape[-1])
         np.testing.assert_allclose(restored, audio, atol=1e-7)
 
+    def test_direct_spectral_packing_matches_original_values_and_channel_order(self):
+        rng = np.random.default_rng(52)
+        for channels, length, fft, hop in ((2, 882000, 2048, 512), (2, 44100, 2048, 441), (1, 4096, 1024, 256)):
+            audio = rng.normal(size=(channels, length)).astype(np.float32)
+            spectrum = stft(audio, fft, hop)
+            original = np.stack([spectrum.real, spectrum.imag], axis=-1).transpose(1, 0, 2, 3)
+            original = np.ascontiguousarray(original.reshape(-1, spectrum.shape[2], 2)[None].astype(np.float32))
+            packed = stft_bands_last(audio, fft, hop)
+            np.testing.assert_array_equal(packed, original)
+            self.assertTrue(packed.flags.c_contiguous)
+            self.assertEqual(packed.dtype, np.float32)
+
     def test_cached_window_envelope_matches_independent_overlap_for_distinct_shapes(self):
         for fft, hop, frames in ((2048,441,31), (2048,512,31), (1024,256,19)):
             window = .5*(1-np.cos(2*np.pi*np.arange(fft)/fft))
@@ -85,6 +97,25 @@ class RoformerTests(unittest.TestCase):
                     np.testing.assert_allclose(decoded[name], original * fraction, atol=1e-7)
                 np.testing.assert_allclose(sum(decoded.values()), original, atol=1e-7)
                 self.assertEqual(source.read_bytes(), source_bytes)
+
+    @unittest.skipUnless(shutil.which('ffmpeg'), 'FFmpeg required')
+    def test_padding_only_tail_does_not_run_an_extra_model_pass(self):
+        calls = []
+        class Counting(Controlled):
+            def _chunk(self, audio, event):
+                calls.append(1)
+                return super()._chunk(audio, event)
+        count = SEGMENT + 137
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / 'source.wav'
+            original = recording(source, count)
+            result = Counting().separate(source, root / 'out')
+            stride = SEGMENT // 2
+            self.assertEqual(len(calls), len(range(0, count + stride, stride)))
+            self.assertLess(len(calls), len(range(0, count + 2 * stride, stride)))
+            restored = sum(samples(path) for path in result.values())
+            np.testing.assert_allclose(restored, original, atol=1e-7)
 
     def test_cancel_does_not_load_or_create_outputs(self):
         event = threading.Event(); event.set()

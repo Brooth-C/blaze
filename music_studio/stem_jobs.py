@@ -310,6 +310,9 @@ class StemJobs:
                         return
                     if self.separator_factory:
                         separator = self.separator_factory(self.models, self.studio.ffmpeg)
+                    elif mode == 'stems' and os.environ.get('BLAZE_EXPERIMENTAL_SCNET_DIR'):
+                        from .native_scnet import NativeSCNetSeparator
+                        separator = NativeSCNetSeparator(os.environ['BLAZE_EXPERIMENTAL_SCNET_DIR'], self.studio.ffmpeg)
                     else:
                         from .stems import Separator
                         from .native_piano import NativePianoSeparator

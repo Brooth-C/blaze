@@ -52,7 +52,10 @@ def settings_value(body):
     transpose = body.get('transpose', 0)
     if type(transpose) is not int or not -12 <= transpose <= 12:
         raise ValueError('Choose a transpose between −12 and +12 semitones.')
-    value = {'transpose': transpose, 'position': number('position', 0, 0, MAX_SECONDS),
+    audio_pitch = body.get('audioPitch', 0)
+    if type(audio_pitch) is not int or not -12 <= audio_pitch <= 12:
+        raise ValueError('Choose an audio pitch between −12 and +12 semitones.')
+    value = {'transpose': transpose, 'audioPitch': audio_pitch, 'position': number('position', 0, 0, MAX_SECONDS),
              'rate': number('rate', 1, .5, 1.5),
              'loopStart': number('loopStart', None, 0, MAX_SECONDS, True),
              'loopEnd': number('loopEnd', None, 0, MAX_SECONDS, True),

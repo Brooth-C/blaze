@@ -69,6 +69,7 @@ class StructuredRecognizer:
         # Importing this module therefore does not require Python ORT.
         import onnxruntime as ort
         from .stem_runtime import StemRuntime
+        from .verified_session import VerifiedSession
         self.directory=Path(directory)
         self.manifest=json.loads((self.directory/'structured_manifest.json').read_text(encoding='utf-8'))
         if self.manifest.get('schema_version')!=1 or self.manifest.get('feature_size')!=252 or len(self.manifest['models'])!=5:
@@ -76,7 +77,7 @@ class StructuredRecognizer:
         options=ort.SessionOptions();options.intra_op_num_threads=2;options.inter_op_num_threads=1
         options.execution_mode=ort.ExecutionMode.ORT_SEQUENTIAL;ort.disable_telemetry_events()
         self.runtime=StemRuntime()
-        self.networks=[self.runtime.session(self._asset(a),options,a['sha256']) for a in self.manifest['models']]
+        self.networks=[VerifiedSession(self.directory,a,self.runtime,options,100*1024**2) for a in self.manifest['models']]
         self._asset(self.manifest['frontend'])
         self.frontend=PortableLVFrontend(self.directory/self.manifest['frontend']['file'])
         self.labels=[a['label'] for a in self.manifest['labels']]
@@ -103,7 +104,7 @@ class StructuredRecognizer:
 
     def finish(self):
         for network in self.networks:
-            self.runtime.finish(network)
+            network.close()
 
     def begin(self):
         self.close();self.audio=tempfile.TemporaryFile();self.samples=0
@@ -121,14 +122,16 @@ class StructuredRecognizer:
         for start in range(0,size,stride):
             check();end=min(size,start+context)
             value=np.ascontiguousarray(features[start:end][None],dtype=np.float32)
-            votes=[]
+            average=None
             for net in self.networks:
                 check();raw=net.run(None,{'features':value})
                 probs=[]
                 for head in raw:
                     head=head-head.max(axis=1,keepdims=True);head=np.exp(head);head/=head.sum(axis=1,keepdims=True);probs.append(head)
-                votes.append(probs)
-            average=[np.mean([v[k] for v in votes],axis=0) for k in range(6)]
+                if average is None:average=probs
+                else:
+                    for total,head in zip(average,probs):total+=head
+            for head in average:head/=len(self.networks)
             if outputs is None:outputs=[np.zeros((size,a.shape[1]),dtype=np.float32) for a in average]
             weight=np.minimum(np.minimum(np.arange(end-start)+1,np.arange(end-start,0,-1)),129)/129
             for dest,head in zip(outputs,average):dest[start:end]+=head*weight[:,None]
