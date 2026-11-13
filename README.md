@@ -19,7 +19,7 @@ Windows · macOS · Linux · Android
 | Platform | Download |
 | --- | --- |
 | Windows 10/11 · x64, 0.9.0 | [Blaze Windows app](https://github.com/Brooth-C/blaze/releases/download/v4.5.0/Blaze-Windows.zip) |
-| macOS · Apple Silicon, 0.19.2 (tested on macOS 26) | [Blaze Mac app](https://github.com/Brooth-C/blaze/releases/download/macos-v0.19.2/Blaze-Mac-arm64.zip) |
+| macOS · Apple Silicon, 0.19.3 (tested on macOS 26) | [Blaze Mac app](https://github.com/Brooth-C/blaze/releases/download/macos-v0.19.3/Blaze-Mac-arm64.zip) |
 | macOS 13+ · Intel, final 0.9.0 preview | [Blaze Mac app](https://github.com/Brooth-C/blaze/releases/download/v4.5.0/Blaze-Mac-x86_64.zip) |
 | Linux desktop · Ubuntu 22.04 x86_64, 0.9.0 preview | [Blaze Linux desktop](https://github.com/Brooth-C/blaze/releases/download/v4.5.0/Blaze-Linux-x86_64.tar.gz) |
 | Linux terminal · x86_64 / ARM64, glibc | [Linux ZIP](https://github.com/Brooth-C/blaze/releases/download/v4.5.0/Blaze-Linux-Installer.zip) |
@@ -28,10 +28,10 @@ Windows · macOS · Linux · Android
 The Mac app focuses on **Explore and Practice**: find a song, isolate piano and
 backing, transpose playback and chords, loop passages, and download either WAV
 or both separate WAVs in a ZIP. Advanced Studio is removed from the latest Mac
-build and its development is paused. See [Mac 0.19.2](docs/RELEASE-0.19.2.md)
+build and its development is paused. See [Mac 0.19.3](docs/RELEASE-0.19.3.md)
 and the [research notes](docs/MAC-PRACTICE-POLISH-RESEARCH.md).
 
-The Latest release is Blaze for macOS 0.19.2 for Apple Silicon. Existing Windows,
+The Latest release is Blaze for macOS 0.19.3 for Apple Silicon. Existing Windows,
 Linux, Intel Mac and Android downloads remain available in [Blaze 4.5.0](https://github.com/Brooth-C/blaze/releases/tag/v4.5.0).
 
 Download one file for your platform using the links above. For Windows, extract

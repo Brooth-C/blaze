@@ -337,7 +337,8 @@ $('download-urls').addEventListener('input',()=>{$('download-error').hidden=true
         updatePlayer();if(!$('now-dialog').open){if(window.BlazeMac?.presentPlayer)window.BlazeMac.presentPlayer($('now-dialog'));else $('now-dialog').showModal();}
     }
     $('mini-open').onclick=openNow;$('now-close').onclick=closeNow;
-    $('now-dialog').addEventListener('close',restoreVideo);
+    // A close event is queued: the same dialog may already have reopened.
+    $('now-dialog').addEventListener('close',()=>{if(!$('now-dialog').open)restoreVideo();});
     for(const id of ['mini-play','now-play'])$(id).onclick=()=>media.paused?media.play().catch(playerError):media.pause();
     $('now-back').innerHTML=icon('previous');$('now-next').innerHTML=icon('next');$('mini-next').innerHTML=icon('next');$('now-fullscreen').innerHTML=icon('fullscreen');
     $('now-back').onclick=()=>seek(media.currentTime-10);

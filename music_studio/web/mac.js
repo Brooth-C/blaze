@@ -258,7 +258,7 @@
         } else if (event.key === ' ' && !event.metaKey && !event.ctrlKey && !editing && !modalOpen() && hasMedia()) {
             window.BlazeMac.action('play'); handled = true;
         } else if (event.key === 'Escape' && now.open && !modalOpen()) {
-            closePlayer(); byId('mini-open').focus(); handled = true;
+            closePlayer(); byId(currentSection() === 'studio' ? 'practice-play' : 'mini-open')?.focus(); handled = true;
         }
         if (handled) { event.preventDefault(); event.stopImmediatePropagation(); }
     }, true);

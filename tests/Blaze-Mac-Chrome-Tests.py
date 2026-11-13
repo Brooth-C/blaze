@@ -140,7 +140,7 @@ class MacChromeTests(unittest.TestCase):
         adapter.action('settings')
         adapter.action('play')  # no loaded media
         self.assertEqual([script for script, _ in web.scripts], [
-            mac_chrome.navigation_script('library'), '!window.BlazeMacStudio?.snapshot().active && ' + mac_chrome.search_script('piano', True),
+            mac_chrome.navigation_script('library'), mac_chrome.search_script('piano', True),
             mac_chrome.action_script('settings')])
         adapter.has_media = True
         adapter.action('play')
@@ -187,28 +187,27 @@ class MacChromeTests(unittest.TestCase):
         adapter.toolbar_items['blaze.search'] = adapter.search_item
         return adapter, web, native, sidebar_state
 
-    def test_studio_workspace_collapses_once_and_restores_original_browse_chrome(self):
+    def test_practice_keeps_navigation_and_the_users_sidebar_choice(self):
         for originally_collapsed in (False, True):
             with self.subTest(originally_collapsed=originally_collapsed):
-                adapter, _, native, sidebar_state = self.studio_adapter(originally_collapsed)
+                adapter, web, native, sidebar_state = self.studio_adapter(originally_collapsed)
                 state = {'section': 'studio', 'studioWorkspace': True, 'appearance': 'light',
                          'nativeChromeInstalled': True}
                 appearance = self.apply(adapter, state)
-                self.assertTrue(sidebar_state[0])
-                native.toolbar().removeItemAtIndex_.assert_called_once_with(1)
-                native.toolbar().setVisible_.assert_called_with(False)
+                self.assertEqual(sidebar_state[0], originally_collapsed)
+                native.toolbar().removeItemAtIndex_.assert_not_called()
+                native.toolbar().setVisible_.assert_not_called()
                 native.setTitle_.assert_called_with('Blaze · Practice')
                 appearance.appearanceNamed_.assert_called_with('Aqua')
-                # A user can reopen the browse sidebar while editing. Polling
-                # the web state must not repeatedly collapse it.
-                sidebar_state[0] = False
+                adapter.search('piano', True)
+                self.assertEqual(web.scripts[-1][0], mac_chrome.search_script('piano', True))
+                # A manual sidebar toggle is preserved through polling and navigation.
+                sidebar_state[0] = not originally_collapsed
                 self.apply(adapter, state)
-                self.assertFalse(sidebar_state[0])
-                adapter.sidebar_item.setCollapsed_.assert_called_once_with(True)
                 self.apply(adapter, dict(state, section='explore'))
-                native.toolbar().setVisible_.assert_called_with(True)
-                self.assertEqual(sidebar_state[0], originally_collapsed)
-                native.toolbar().insertItemWithItemIdentifier_atIndex_.assert_called_once_with('blaze.search', 1)
+                self.assertEqual(sidebar_state[0], not originally_collapsed)
+                adapter.sidebar_item.setCollapsed_.assert_not_called()
+                native.toolbar().insertItemWithItemIdentifier_atIndex_.assert_not_called()
                 self.assertIs(native.toolbar().items()[1], adapter.search_item)
                 native.setTitle_.assert_called_with('Blaze')
                 self.assertEqual(adapter.appearance, 'light')

@@ -100,6 +100,12 @@ async function mode(page,name){
  await page.locator('#practice-play').click();await page.waitForFunction(()=>!document.getElementById('media').paused&&document.getElementById('media').currentTime>.1);
  await page.locator('#practice-piano').click();await page.waitForFunction(()=>window.BlazeMacPractice.snapshot().preparing);
  assert.equal(await page.locator('#practice-play').isEnabled(),true,'Preparation blocked playback');
+ assert.equal(await page.locator('#mini-player').isVisible(),false,'Practice has duplicate playback controls');
+ await page.evaluate(()=>window.BlazeMac.navigate('explore'));await page.locator('#mini-player').waitFor({state:'visible'});
+ assert.equal(await page.locator('#mini-play').isEnabled(),true,'Leaving Practice hid background playback');
+ assert.equal(await page.locator('#media').evaluate(media=>media.paused),false,'Browsing interrupted playback');
+ await page.evaluate(()=>window.BlazeMac.navigate('studio'));await page.locator('#practice-play').waitFor({state:'visible'});
+ await page.waitForFunction(()=>!document.getElementById('mini-player').getBoundingClientRect().height);
  await page.locator('#practice-analyze').click();
  await page.waitForFunction(()=>!window.BlazeMacPractice.snapshot().preparing&&window.BlazeMacPractice.snapshot().mode==='piano'&&!window.BlazeMacStudio.viewState().pending);
  assert.equal(await page.evaluate(()=>window.BlazeMacStudio.viewState().loopStart),2,'Preparation lost the active loop start');
@@ -143,6 +149,11 @@ async function mode(page,name){
  await page.locator('#practice-pitch-value').selectOption('-3');await page.waitForFunction(()=>window.BlazeMacPractice.snapshot().transpose===-3&&!window.BlazeMacPractice.snapshot().pitchBusy);await assertPitch(page,220*2**(-3/12),'pitched-direct-choice');
  await page.locator('#practice-pitch-reset').click();await page.waitForFunction(()=>window.BlazeMacPractice.snapshot().transpose===0&&!window.BlazeMacPractice.snapshot().pitchBusy);
  await page.locator('.practice-download summary').click();
+ await page.keyboard.press('Escape');assert.equal(await page.locator('.practice-download').evaluate(menu=>menu.open),false);
+ assert(await page.locator('.practice-download summary').evaluate(summary=>summary===document.activeElement),'Escape lost download-menu focus');
+ await page.locator('.practice-download summary').click();await page.locator('#practice-title').click();
+ assert.equal(await page.locator('.practice-download').evaluate(menu=>menu.open),false,'Outside click did not dismiss downloads');
+ await page.locator('.practice-download summary').click();
  for(const kind of ['piano','backing','both']){
   const pending=page.waitForEvent('download');await page.locator('#practice-download-'+kind).click();const download=await pending;
   const output=path.join(data,kind+(kind==='both'?'.zip':'.wav'));await download.saveAs(output);assert.equal(await download.failure(),null);assert(fs.statSync(output).size>44);
@@ -182,6 +193,10 @@ async function mode(page,name){
  assert.equal(count('separation'),1);assert.equal(count('analysis'),2);
  base=await start('restart');page=await pageFor(base);
  assert(await page.locator('#practice-empty').isVisible());
+ assert(await page.locator('.practice-entry-actions #practice-open').isVisible());
+ assert(await page.locator('.practice-entry-actions #practice-find').isVisible());
+ assert.equal(await page.locator('.practice-transport').isVisible(),false,'Empty Practice shows inert playback controls');
+ if(evidence){await page.locator('[data-practice-id="'+saved+'"]').waitFor();await page.screenshot({path:path.join(evidence,'practice-choose-song.png')});}
  await page.locator('[data-practice-id="'+saved+'"]').click();
  await page.waitForFunction(()=>window.BlazeMacPractice.snapshot().mode==='backing'&&window.BlazeMacPractice.snapshot().loopEnabled&&window.BlazeMacPractice.snapshot().rate===.75);
  const resumed=await snapshot(page);assert.equal(resumed.loopStart,2);assert.equal(resumed.loopEnd,6);assert(Math.abs(resumed.position-4.5)<.25,JSON.stringify(resumed));
