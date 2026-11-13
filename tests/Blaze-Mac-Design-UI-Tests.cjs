@@ -223,6 +223,15 @@ async function fit(page,ids,message){
         const position=await page.locator('#media').evaluate(el=>el.currentTime);
         await page.locator('#now-studio').click();
         assert(await page.locator('#media').evaluate((el,position)=>el===window.testMedia&&el.paused&&Math.abs(el.currentTime-position)<.1,position),'Studio lost the paused video');
+        await page.waitForFunction(()=>document.body.classList.contains('practice-workspace-active'));
+        assert.equal(await page.locator('#mini-player').isVisible(),false,'Practice duplicated the browsing transport');
+        await page.evaluate(()=>window.BlazeMac.action('open-player'));
+        await page.locator('#now-dialog').waitFor({state:'visible'});
+        assert.equal(await page.locator('.practice-transport').isVisible(),false,'Playback detail duplicated Practice transport');
+        await page.keyboard.press('Escape');
+        assert(await page.locator('#practice-play').evaluate(el=>el===document.activeElement),'Closing detail focused a hidden mini player');
+        assert.equal(await page.locator('#mini-player').isVisible(),false);
+        assert.equal(await page.locator('audio,video').count(),1);
 
         await page.evaluate(()=>window.BlazeMac.search(''));
         await page.waitForFunction(()=>document.querySelectorAll('.discovery-featured').length===3);

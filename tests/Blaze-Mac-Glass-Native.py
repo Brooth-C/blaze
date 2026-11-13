@@ -103,20 +103,14 @@ def main():
                     stage = 2
                 elif stage == 2 and receipt['navigation'].get('selected') == 'studio':
                     receipt['navigation']['roundtrip'] = True
-                    assert adapter.studio_workspace and adapter.sidebar_item.isCollapsed(), receipt
-                    assert not any(str(item.itemIdentifier()) == 'blaze.search' for item in window.toolbar().items()), receipt
-                    assert not window.toolbar().isVisible(), receipt
+                    assert adapter.studio_workspace and not adapter.sidebar_item.isCollapsed(), receipt
+                    assert any(str(item.itemIdentifier()) == 'blaze.search' for item in window.toolbar().items()), receipt
+                    assert window.toolbar().isVisible(), receipt
                     expected = AppKit.NSAppearanceNameAqua if args.appearance == 'light' else AppKit.NSAppearanceNameDarkAqua
                     assert str(window.appearance().name()) == expected, receipt
                     assert str(window.title()) == 'Blaze · Practice', receipt
-                    receipt['studio_workspace'] = {'sidebar_collapsed': True, 'search_hidden': True,
+                    receipt['studio_workspace'] = {'sidebar_collapsed': False, 'search_hidden': False,
                                                    'appearance_preserved': True, 'same_webview': web.window() is window}
-                    adapter.search('late toolbar edit', True)
-                    stage, capture_at = 2.5, time.monotonic() + .4
-                elif stage == 2.5 and time.monotonic() >= capture_at:
-                    assert receipt['navigation'].get('selected') == 'studio', 'A delayed search action navigated away from Studio.'
-                    receipt['studio_workspace']['stale_search_ignored'] = True
-                    adapter.focus_search()
                     field = adapter.search_item.searchField()
                     field.setStringValue_('acoustic sessions')
                     field.sendAction_to_(field.action(), field.target())

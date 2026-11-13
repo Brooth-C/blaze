@@ -22,6 +22,11 @@
  host.prepend(root);
  root.querySelector('.practice-listening').insertAdjacentHTML('afterend',`<section class="practice-tools" aria-label="Practice audio tools"><div class="practice-transpose"><span>Transpose</span><button id="practice-pitch-down" aria-label="Transpose down one semitone">−</button><select id="practice-pitch-value" aria-label="Transpose semitones">${Array.from({length:25},(_,i)=>i-12).map(n=>'<option value="'+n+'"'+(n===0?' selected':'')+'>'+(n>0?'+':'')+n+(n===0?' · Original':'')+'</option>').join('')}</select><button id="practice-pitch-up" aria-label="Transpose up one semitone">+</button><button id="practice-pitch-reset">Reset</button><small id="practice-pitch-status" role="status">Original key · tempo preserved</small></div><details class="practice-download"><summary>Download WAV</summary><div><button id="practice-download-piano">Piano WAV</button><button id="practice-download-backing">Backing WAV</button><button id="practice-download-both">Both WAVs (.zip)</button><small id="practice-download-status" role="status"></small></div></details></section>`);
  const $=id=>root.querySelector('#practice-'+id),text=(node,value)=>{value=String(value??'');if(node.textContent!==value)node.textContent=value;};
+ const entryActions=document.createElement('div');entryActions.className='practice-entry-actions';$('empty').append(entryActions);
+ const downloadMenu=root.querySelector('.practice-download'),downloadSummary=downloadMenu.querySelector('summary');
+ const dismissDownload=event=>{if(downloadMenu.open&&!downloadMenu.contains(event.target))downloadMenu.open=false;};
+ const escapeDownload=event=>{if(event.key==='Escape'&&downloadMenu.open){downloadMenu.open=false;downloadSummary.focus();event.preventDefault();event.stopPropagation();}};
+ document.addEventListener('pointerdown',dismissDownload);root.addEventListener('keydown',escapeDownload);
  let playFrame=0,pendingRestore=null;
  let transposeValue=0,pitchBusy=false,pitchEpoch=0,downloadBusy=false,chordIdentity='';
  let active=true,stopped=false,state=engine.viewState(),meta={sessions:[],current:null,pianoJobId:null,recordingId:null,sourceRevision:-1,guide:null};
@@ -37,7 +42,7 @@
  const fingerprint=value=>JSON.stringify([value.rate,value.loopStart,value.loopEnd,value.loopEnabled,value.mode,value.transpose||0]);
  function report(failure){error=failure?.message||String(failure);update();}
  const run=action=>async()=>{error='';try{await action();}catch(failure){report(failure);}finally{update();}};
- function visibility(){document.body.classList.toggle('practice-workspace-active',!host.hidden);root.hidden=false;if(host.hidden){cancelAnimationFrame(playFrame);playFrame=0;}}
+ function visibility(){document.body.classList.toggle('practice-workspace-active',!host.hidden);root.hidden=false;if(host.hidden){downloadMenu.open=false;cancelAnimationFrame(playFrame);playFrame=0;}}
  function showPractice(){active=true;if(amount!==transposeValue)shift(transposeValue-amount);visibility();void refreshMetadata();update();}
  $('open').onclick=run(()=>cmd.import());$('find').onclick=run(()=>cmd.browse());
  $('play').onclick=run(()=>cmd.play());$('back').onclick=run(()=>cmd.seek((Number(player.currentTime)||0)-5));$('forward').onclick=run(()=>cmd.seek((Number(player.currentTime)||0)+5));
@@ -237,7 +242,11 @@
   for(const id of ['pitch-down','pitch-up','pitch-reset','pitch-value'])$(id).disabled=!song||pitchBusy||downloadBusy||modeBusy||restoring||(id==='pitch-down'&&transposeValue<=-12)||(id==='pitch-up'&&transposeValue>=12);
   for(const kind of ['piano','backing','both'])$('download-'+kind).disabled=!meta.pianoJobId||downloadBusy||pitchBusy||modeBusy||restoring;
   text($('title'),song?(state.title&&!/^Untitled/.test(state.title)?state.title:sourceName):'Practice');$('title').title=$('title').textContent;text($('song-detail'),song?'Piano practice · '+(mode==='original'?'Original recording':mode==='piano'?'Piano only':'Backing without piano'):'Open a song and learn it one passage at a time.');
-  $('empty').hidden=song;$('song-controls').hidden=!song;
+  $('empty').hidden=song;$('song-controls').hidden=!song;root.querySelector('.practice-transport').hidden=!song;
+  const actionHost=song?root.querySelector('.practice-header-actions'):entryActions;
+  if($('open').parentElement!==actionHost)actionHost.append($('open'),$('find'));
+  root.querySelector('.practice-header-actions').hidden=!song;
+  root.querySelector('.practice-saved').hidden=!song&&!meta.sessions?.length;
   for(const value of ['original','piano','backing']){$(value).setAttribute('aria-pressed',String(mode===value));$(value).disabled=!song||restoring||pitchBusy||(modeBusy&&value!=='original');$(value).setAttribute('aria-busy',String(modeBusy||pitchBusy||pendingMode?.mode===value));}
   const isPreparing=task.status==='running';text($('preparation'),isPreparing?'Preparing '+(task.sourceName||'your recording')+' · '+Math.round((task.progress||0)*100)+'%. You can keep listening.':meta.pianoJobId?'Piano and backing are ready.':song?'Choose Piano or Backing to prepare this song on your Mac.':'');$('preparation-details').hidden=!isPreparing&&task.status!=='failed';
   text($('mode-label'),mode==='original'?'Original recording':mode==='piano'?'Piano only':'Backing without piano');text($('wave-status'),state.loading||state.pending?'Loading waveform…':'');$('wave-empty').hidden=!!state.peaks;text($('wave-empty'),state.loading||state.pending?'Reading waveform…':'Waveform unavailable. Playback is still available.');
@@ -269,5 +278,5 @@
  for(const [id,label]of [['tab-studio','Practice'],['now-studio','Practise']]){const node=document.getElementById(id);if(node)node.textContent=label;}
  window.BlazeMac.navigate('studio');
  window.BlazeMacPractice={showPractice,refresh:refreshMetadata,snapshot:()=>({visible:active&&!host.hidden,mode:actualMode(),requestedMode:pendingMode?.mode||null,transpose:transposeValue,pitchBusy,downloadBusy,recordingId:meta.recordingId,sessionId:meta.current?.id||null,pianoJobId:meta.pianoJobId,preparing:window.BlazeMacStems?.snapshot().status==='running',loopStart:a,loopEnd:b,loopEnabled:!!(state.loop&&a!==null&&b!==null),rate:player.playbackRate,pitchPreserved:player.preservesPitch,position:Number(player.currentTime)||0,savedSessions:meta.sessions?.length||0,saving,error})};
- window.addEventListener('pagehide',()=>{stopped=true;clearInterval(timer);clearTimeout(saveTimer);cancelAnimationFrame(playFrame);cancelRestore();resize.disconnect();observer.disconnect();for(const event of mediaEvents)player.removeEventListener(event,update);player.removeEventListener('pause',saveOnPause);player.removeEventListener('seeked',saveOnPause);window.removeEventListener('blaze-mac-media-changed',update);},{once:true});
+ window.addEventListener('pagehide',()=>{stopped=true;clearInterval(timer);clearTimeout(saveTimer);cancelAnimationFrame(playFrame);cancelRestore();resize.disconnect();observer.disconnect();document.removeEventListener('pointerdown',dismissDownload);root.removeEventListener('keydown',escapeDownload);for(const event of mediaEvents)player.removeEventListener(event,update);player.removeEventListener('pause',saveOnPause);player.removeEventListener('seeked',saveOnPause);window.removeEventListener('blaze-mac-media-changed',update);},{once:true});
 })();

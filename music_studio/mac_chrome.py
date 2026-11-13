@@ -316,9 +316,7 @@ class MacNavigation:
 
     def search(self, query, commit=False):
         if not self.stopped and not self.modal:
-            # A search field leaving the native toolbar can emit its final edit
-            # action after Studio opens. It must not navigate the editor away.
-            self._evaluate('!window.BlazeMacStudio?.snapshot().active && ' + search_script(query, commit))
+            self._evaluate(search_script(query, commit))
 
     def focus_search(self):
         if self.stopped or self.modal or self.search_item is None:
@@ -465,36 +463,16 @@ class MacNavigation:
                 action()
 
     def _set_studio_workspace(self, active):
-        """Give the editor room without taking ownership of web navigation.
-
-        Collapse only on a real transition, so the sidebar toggle still works
-        inside Studio. Keep its previous browse state and the original toolbar
-        item instance for restoration. No second web view or window is created.
-        """
+        """Keep standard navigation and the user's sidebar choice in Practice."""
         if (active == self.studio_workspace or self.native is None
                 or self.split is None or self.sidebar_item is None):
             return
         import AppKit
-        toolbar = self.native.toolbar()
         if active:
-            self._studio_sidebar_was_collapsed = bool(self.sidebar_item.isCollapsed())
-            self.sidebar_item.setCollapsed_(True)
-            self._studio_search_index = next((i for i, item in enumerate(toolbar.items())
-                                              if str(item.itemIdentifier()) == 'blaze.search'), None)
-            if self._studio_search_index is not None:
-                toolbar.removeItemAtIndex_(self._studio_search_index)
             self.native.setTitle_('Blaze · Practice')
             self.native.setTitleVisibility_(AppKit.NSWindowTitleVisible)
-            toolbar.setVisible_(False)
         else:
-            toolbar.setVisible_(True)
             self.studio_title = None
-            self.sidebar_item.setCollapsed_(self._studio_sidebar_was_collapsed)
-            if (self._studio_search_index is not None and not any(
-                    str(item.itemIdentifier()) == 'blaze.search' for item in toolbar.items())):
-                toolbar.insertItemWithItemIdentifier_atIndex_(
-                    'blaze.search', min(self._studio_search_index, len(toolbar.items())))
-            self._studio_sidebar_was_collapsed = self._studio_search_index = None
             self.native.setTitle_('Blaze')
             self.native.setTitleVisibility_(AppKit.NSWindowTitleHidden)
         self.studio_workspace = active

@@ -11,6 +11,11 @@ html[data-presentation=mac] #practice-workspace[hidden] { display:none!important
 html[data-presentation=mac] body.practice-workspace-active #logic-preview { display:none!important; }
 html[data-presentation=mac] #studio-panel > :not(#practice-workspace) { display:none!important; }
 html[data-presentation=mac] body.practice-workspace-active #stems-task { display:none; }
+/* Practice has its own transport. Browsing keeps the shared mini player. */
+html[data-presentation=mac] body.practice-workspace-active:not(.mac-player-expanded) #mini-player { display:none; }
+html[data-presentation=mac] body.practice-workspace-active:not(.mac-player-expanded) .studio { padding-bottom:12px; }
+html[data-presentation=mac] body.practice-workspace-active:not(.mac-player-expanded) #playback-status { bottom:112px; }
+html[data-presentation=mac] body.practice-workspace-active.mac-player-expanded .practice-transport { display:none; }
 #practice-workspace * { box-sizing:border-box; }
 #practice-workspace button,#practice-workspace input { font:inherit; }
 #practice-workspace button { min-height:32px;border:1px solid var(--practice-line);border-radius:6px;padding:6px 12px;background:var(--practice-input);color:var(--practice-ink);cursor:default;white-space:nowrap;box-shadow:none; }
@@ -23,7 +28,7 @@ html[data-presentation=mac] body.practice-workspace-active #stems-task { display
 .practice-transpose { display:flex;align-items:center;gap:7px;flex-wrap:wrap; }
 .practice-transpose select { min-height:32px;max-width:125px;border:1px solid var(--practice-line);border-radius:6px;background:var(--practice-input);color:var(--practice-ink);font:inherit;padding:4px 8px;font-variant-numeric:tabular-nums; }
 .practice-transpose small,.practice-download small { color:var(--practice-muted); }
-.practice-download { position:relative; }
+.practice-download { position:relative;border:0;padding:0;margin:0; }
 .practice-download summary { cursor:pointer;padding:7px 12px;border:1px solid var(--practice-line);border-radius:6px;background:var(--practice-input); }
 .practice-download>div { position:absolute;right:0;top:38px;z-index:5;min-width:185px;display:grid;gap:5px;padding:8px;background:var(--practice-panel);border:1px solid var(--practice-line);border-radius:8px;box-shadow:0 8px 24px #0003; }
 #practice-workspace #practice-current-chord { transition:background-color 180ms ease,border-color 180ms ease; }
@@ -41,6 +46,8 @@ html[data-presentation=mac] body.practice-workspace-active #stems-task { display
 #practice-workspace .practice-empty { padding:58px 0 44px;max-width:440px; }
 #practice-workspace .practice-empty h2 { margin:0 0 10px;font-size:23px;font-weight:600;letter-spacing:-.5px; }
 #practice-workspace .practice-empty p { margin:0;color:var(--practice-muted);font-size:14px;line-height:1.7; }
+#practice-workspace .practice-entry-actions { display:flex;gap:8px;flex-wrap:wrap;margin-top:22px; }
+#practice-workspace .practice-entry-actions #practice-open { background:var(--practice-accent);color:var(--practice-accent-ink);border-color:transparent; }
 #practice-workspace .practice-listening { display:flex;align-items:center;gap:16px;flex-wrap:wrap;padding:20px 0 16px; }
 #practice-workspace .practice-mode { display:flex;flex:none;padding:3px;background:var(--practice-panel);border:1px solid var(--practice-line);border-radius:8px; }
 #practice-workspace .practice-mode button { min-width:87px;min-height:31px;border:0;padding:5px 15px;background:transparent;color:var(--practice-muted); }
