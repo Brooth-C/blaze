@@ -6,6 +6,7 @@ test jobs. The receipt distinguishes live provider access from fixture UI tests.
 import argparse
 import json
 from pathlib import Path
+from urllib.parse import parse_qs, urlsplit
 import shutil
 import subprocess
 import sys
@@ -45,9 +46,16 @@ def main():
                         raise RuntimeError('Live search did not settle within its deadline.')
                     time.sleep(.1)
                 count = len(result['items'])
+                image_bytes = 0
+                if result['status'] == 'ready' and count:
+                    image_id = parse_qs(urlsplit(result['items'][0]['thumbnail']).query).get('id', [''])[0]
+                    image, content_type = catalogue.image(image_id)
+                    if content_type not in ('image/jpeg', 'image/png', 'image/webp'):
+                        raise RuntimeError('Live thumbnail did not return an image.')
+                    image_bytes = len(image)
                 receipt['checks'].append({'filter': scope, 'status': result['status'], 'count': count,
-                                          'error': result['error']})
-            receipt['ok'] = all(row['status'] == 'ready' and row['count'] > 0 for row in receipt['checks'])
+                                          'thumbnailBytes': image_bytes, 'error': result['error']})
+            receipt['ok'] = all(row['status'] == 'ready' and row['count'] > 0 and row['thumbnailBytes'] > 0 for row in receipt['checks'])
         finally:
             catalogue.close()
             args.output.parent.mkdir(parents=True, exist_ok=True)

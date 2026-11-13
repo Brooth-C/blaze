@@ -1,12 +1,12 @@
 /* Piano-first practice over the existing player, analysis and separation engines. */
 (() => {
  'use strict';
- const engine=window.BlazeMacStudio;
- if(document.documentElement.dataset.presentation!=='mac'||!engine||window.BlazeLogicVisual?.scope!=='live-session')return;
- const host=document.getElementById('studio-panel'),studio=document.getElementById('logic-preview'),player=document.getElementById('media'),cmd=engine.commands;
+ const engine=window.BlazePracticeEngine;
+ if(document.documentElement.dataset.presentation!=='mac'||!engine)return;
+ const host=document.getElementById('studio-panel'),player=document.getElementById('media'),cmd=engine.commands;
  const root=document.createElement('section');root.id='practice-workspace';root.setAttribute('aria-label','Song practice');
  root.innerHTML=`
-  <header class="practice-header"><div class="practice-song"><h1 id="practice-title">Practice</h1><p id="practice-song-detail">Open a song and learn it one passage at a time.</p></div><div class="practice-header-actions"><button id="practice-open">Open song</button><button id="practice-find">Find a song</button><button id="practice-advanced" class="practice-quiet">Advanced Studio</button></div></header>
+  <header class="practice-header"><div class="practice-song"><h1 id="practice-title">Practice</h1><p id="practice-song-detail">Open a song and learn it one passage at a time.</p></div><div class="practice-header-actions"><button id="practice-open">Open song</button><button id="practice-find">Find a song</button></div></header>
   <div class="practice-content">
    <section id="practice-empty" class="practice-empty"><h2>Choose a song to begin.</h2><p>Hear its piano, slow down a difficult passage, then play along with the backing.</p></section>
    <div id="practice-song-controls" hidden>
@@ -20,9 +20,10 @@
   </div>
   <footer class="practice-transport" aria-label="Practice playback"><div class="practice-speed"><label for="practice-speed">Speed <output id="practice-speed-value">1×</output></label><input id="practice-speed" type="range" min=".5" max="1.25" step=".05" value="1"><div class="practice-speed-presets"><button data-rate=".5">0.5×</button><button data-rate=".75">0.75×</button><button data-rate="1" aria-pressed="true">1×</button></div></div><div class="practice-play-controls"><button id="practice-back" class="practice-icon" aria-label="Back five seconds"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5v14M19 5 7 12l12 7Z"/></svg></button><button id="practice-play" class="practice-play" aria-label="Play song"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m8 4 12 8-12 8Z"/></svg></button><button id="practice-forward" class="practice-icon" aria-label="Forward five seconds"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 5v14M5 5l12 7-12 7Z"/></svg></button><output id="practice-position">0:00 / 0:00</output></div><div class="practice-volume"><label for="practice-volume">Volume</label><input id="practice-volume" type="range" min="0" max="1" step=".01" value="1"></div><p id="practice-status" role="status"></p></footer>`;
  host.prepend(root);
+ root.querySelector('.practice-listening').insertAdjacentHTML('afterend',`<section class="practice-tools" aria-label="Practice audio tools"><div class="practice-transpose"><span>Transpose</span><button id="practice-pitch-down" aria-label="Transpose down one semitone">−</button><select id="practice-pitch-value" aria-label="Transpose semitones">${Array.from({length:25},(_,i)=>i-12).map(n=>'<option value="'+n+'"'+(n===0?' selected':'')+'>'+(n>0?'+':'')+n+(n===0?' · Original':'')+'</option>').join('')}</select><button id="practice-pitch-up" aria-label="Transpose up one semitone">+</button><button id="practice-pitch-reset">Reset</button><small id="practice-pitch-status" role="status">Original key · tempo preserved</small></div><details class="practice-download"><summary>Download WAV</summary><div><button id="practice-download-piano">Piano WAV</button><button id="practice-download-backing">Backing WAV</button><button id="practice-download-both">Both WAVs (.zip)</button><small id="practice-download-status" role="status"></small></div></details></section>`);
  const $=id=>root.querySelector('#practice-'+id),text=(node,value)=>{value=String(value??'');if(node.textContent!==value)node.textContent=value;};
- let studioVisible=null;
  let playFrame=0,pendingRestore=null;
+ let transposeValue=0,pitchBusy=false,pitchEpoch=0,downloadBusy=false,chordIdentity='';
  let active=true,stopped=false,state=engine.viewState(),meta={sessions:[],current:null,pianoJobId:null,recordingId:null,sourceRevision:-1,guide:null};
  let metadataBusy=false,metadataWait=null,metadataAgain=false,metadataSerial=0,actionEpoch=0,modeBusy=false,queuedMode=null,pendingMode=null,restoring=false;
  let message='',error='',saveMessage='',saving=false,saveTimer=0,saveAgain=false,lastSaveAt=0,lastSavedFingerprint='',lastControlsFingerprint='',lastKey=null,lastMetaTrigger='';
@@ -32,15 +33,13 @@
  const hasSong=()=>!!sourceName;
  const currentJob=()=>state.tracks.find(t=>t.id===state.selected)?.jobId||state.tracks.find(t=>t.id==='source')?.jobId||null;
  const actualMode=()=>currentJob()===meta.pianoJobId&&state.selected==='piano'?'piano':currentJob()===meta.pianoJobId&&state.selected==='accompaniment'?'backing':'original';
- const settings=()=>({position:Math.max(0,Number(player.currentTime)||0),rate:player.playbackRate||1,loopStart:a,loopEnd:b,loopEnabled:!!(state.loop&&a!==null&&b!==null),mode:actualMode()});
- const fingerprint=value=>JSON.stringify([value.rate,value.loopStart,value.loopEnd,value.loopEnabled,value.mode]);
+ const settings=()=>({transpose:transposeValue,position:Math.max(0,Number(player.currentTime)||0),rate:player.playbackRate||1,loopStart:a,loopEnd:b,loopEnabled:!!(state.loop&&a!==null&&b!==null),mode:actualMode()});
+ const fingerprint=value=>JSON.stringify([value.rate,value.loopStart,value.loopEnd,value.loopEnabled,value.mode,value.transpose||0]);
  function report(failure){error=failure?.message||String(failure);update();}
  const run=action=>async()=>{error='';try{await action();}catch(failure){report(failure);}finally{update();}};
- function visibility(){document.body.classList.toggle('practice-workspace-active',active&&!host.hidden);root.hidden=!active;studio.hidden=active;if(studioVisible!==!active){studioVisible=!active;window.BlazeLogicVisual?.setVisible?.(!active);}returnButton.hidden=active;if(!active||host.hidden){cancelAnimationFrame(playFrame);playFrame=0;}}
- function showPractice(){active=true;visibility();void refreshMetadata();update();}
- function showStudio(){active=false;visibility();window.BlazeLogicVisual?.redraw();}
- const returnButton=document.createElement('button');returnButton.className='practice-return';returnButton.textContent='Practice';returnButton.setAttribute('aria-label','Return to Practice');returnButton.onclick=showPractice;studio.querySelector('footer').append(returnButton);
- $('advanced').onclick=showStudio;$('open').onclick=run(()=>cmd.import());$('find').onclick=run(()=>cmd.browse());
+ function visibility(){document.body.classList.toggle('practice-workspace-active',!host.hidden);root.hidden=false;if(host.hidden){cancelAnimationFrame(playFrame);playFrame=0;}}
+ function showPractice(){active=true;if(amount!==transposeValue)shift(transposeValue-amount);visibility();void refreshMetadata();update();}
+ $('open').onclick=run(()=>cmd.import());$('find').onclick=run(()=>cmd.browse());
  $('play').onclick=run(()=>cmd.play());$('back').onclick=run(()=>cmd.seek((Number(player.currentTime)||0)-5));$('forward').onclick=run(()=>cmd.seek((Number(player.currentTime)||0)+5));
  const keepPitch=()=>{player.preservesPitch=true;if('webkitPreservesPitch'in player)player.webkitPreservesPitch=true;if('mozPreservesPitch'in player)player.mozPreservesPitch=true;};
  $('speed').oninput=()=>{keepPitch();cmd.rate(Number($('speed').value));changed();update();};
@@ -68,6 +67,57 @@
   finally{saving=false;update();if(saveAgain&&meta.recordingId===key)scheduleSave();}
  }
  $('save').onclick=()=>void save(true);
+ async function renderAudio(kind,semitones,selected=false){
+  const revision=sourceRevision;if(meta.sourceRevision!==revision)await refreshMetadata();
+  if(revision!==sourceRevision||meta.sourceRevision!==revision)throw Error('The recording changed. Try again.');
+  const jobId=selected?null:meta.pianoJobId;if(kind!=='source'&&!jobId)throw Error('Prepare piano and backing first.');
+  let answer=await api('/api/practice-render',{kind,semitones,sourceRevision:revision,...(jobId?{jobId}:{})});
+  while(answer.status==='pending'){
+   await new Promise(resolve=>setTimeout(resolve,200));if(stopped||revision!==sourceRevision)throw Error('The recording changed. Try again.');
+   answer=await api('/api/practice-render?id='+encodeURIComponent(answer.requestId));
+  }
+  if(answer.status!=='ready')throw Error(answer.error||'Could not prepare audio.');
+  return {...answer,url:'/api/practice-audio?id='+encodeURIComponent(answer.requestId)+'&token='+encodeURIComponent(token)};
+ }
+ async function applyTranspose(value,{force=false,resume=null,rawSource=false}={}){
+  if(!hasSong()||(!force&&value===transposeValue))return;
+  const epoch=++pitchEpoch,revision=sourceRevision;pitchBusy=true;error='';text($('pitch-status'),'Preparing pitch on this Mac…');update();
+  let previous=null,committed=false;
+  try{
+   const prepared=await renderAudio('source',value,true);
+   if(epoch!==pitchEpoch||revision!==sourceRevision)return;
+   const position=Number(player.currentTime)||0,rate=player.playbackRate,playing=resume??!player.paused;
+   previous={src:player.currentSrc||player.src,position,rate,playing};
+   player.pause();
+   await new Promise((resolve,reject)=>{
+    const timeout=setTimeout(()=>finish(Error('Prepared audio did not load.')),15000);
+    const loaded=()=>finish(),failed=()=>finish(Error('Prepared audio could not play.'));
+    function finish(failure){clearTimeout(timeout);player.removeEventListener('loadedmetadata',loaded);player.removeEventListener('error',failed);failure?reject(failure):resolve();}
+    player.addEventListener('loadedmetadata',loaded,{once:true});player.addEventListener('error',failed,{once:true});player.src=prepared.url;player.load();
+   });
+   if(epoch!==pitchEpoch||revision!==sourceRevision)return;
+   previous=null;
+   player.classList.add('audio-only');player.controls=false;window.BlazeDesktop.mediaFormatChanged();
+   transposeValue=value;shift(value-amount);committed=true;keepPitch();player.playbackRate=rate;player.currentTime=Math.min(position,Number(player.duration)||position);
+   if(playing)await player.play();changed();
+  }catch(failure){if(epoch===pitchEpoch){
+   if(previous&&revision===sourceRevision){const restore=previous;player.addEventListener('loadedmetadata',()=>{if(epoch!==pitchEpoch||revision!==sourceRevision)return;player.playbackRate=restore.rate;player.currentTime=Math.min(restore.position,Number(player.duration)||restore.position);if(restore.playing)player.play().catch(report);},{once:true});player.src=restore.src;player.load();}
+   if(rawSource&&!committed&&revision===sourceRevision){transposeValue=0;shift(-amount);if(resume&&!previous)player.play().catch(report);changed();}
+   report(failure);
+  }}
+  finally{if(epoch===pitchEpoch){pitchBusy=false;text($('pitch-status'),transposeValue?'Playback and chords transposed · tempo preserved':'Original key · tempo preserved');update();}}
+ }
+ $('pitch-value').onchange=()=>void applyTranspose(Number($('pitch-value').value));
+ $('pitch-down').onclick=()=>void applyTranspose(Math.max(-12,transposeValue-1));
+ $('pitch-up').onclick=()=>void applyTranspose(Math.min(12,transposeValue+1));
+ $('pitch-reset').onclick=()=>void applyTranspose(0);
+ async function downloadAudio(kind){
+  downloadBusy=true;text($('download-status'),'Preparing your WAV download…');update();
+  try{const prepared=await renderAudio(kind,transposeValue),link=document.createElement('a');link.href=prepared.url+'&download=1';link.download=prepared.filename;document.body.append(link);link.click();link.remove();text($('download-status'),'Download ready.');}
+  catch(failure){text($('download-status'),failure.message||'Could not download audio.');}
+  finally{downloadBusy=false;update();}
+ }
+ for(const kind of ['piano','backing','both'])$('download-'+kind).onclick=()=>void downloadAudio(kind);
  async function refreshMetadata(){
   if(stopped)return;
   if(metadataBusy){metadataAgain=true;const outcome=await metadataWait;if(outcome==='stale'&&!stopped)return refreshMetadata();return;}
@@ -76,8 +126,9 @@
    const answer=await api('/api/practice');if(serial!==metadataSerial||stopped)return;
    if(Number.isSafeInteger(sourceRevision)&&answer.sourceRevision!==sourceRevision){outcome='stale';metadataAgain=true;return;}
    const changedSong=lastKey!==null&&answer.recordingId!==lastKey;
+   const reloaded=meta.sourceRevision>=0&&answer.sourceRevision!==meta.sourceRevision;
    meta=answer;outcome='fresh';
-   if(changedSong&&!restoring){++actionEpoch;pendingMode=null;queuedMode=null;a=b=null;saveMessage='';error='';clearTimeout(saveTimer);lastSavedFingerprint='';lastControlsFingerprint='';}
+   if((changedSong||reloaded)&&!restoring&&!modeBusy){++actionEpoch;++pitchEpoch;pitchBusy=false;transposeValue=0;shift(-amount);pendingMode=null;queuedMode=null;a=b=null;saveMessage='';error='';clearTimeout(saveTimer);lastSavedFingerprint='';lastControlsFingerprint='';}
    if(lastKey!==answer.recordingId){lastKey=answer.recordingId;lastControlsFingerprint=fingerprint(settings());}
    if(pendingMode&&pendingMode.recordingId!==meta.recordingId)pendingMode=null;
    if(active)update();
@@ -113,7 +164,8 @@
   const stem={original:'source',piano:'piano',backing:'accompaniment'}[mode];
   if(currentJob()===job&&state.selected===stem){update();return;}
   modeBusy=true;update();
-  try{await cmd.practiceTrack(job,stem);if(intent===actionEpoch&&meta.recordingId===key){pendingMode=null;await refreshMetadata();changed();}}
+  const resume=!player.paused;if(transposeValue)player.pause();
+  try{await cmd.practiceTrack(job,stem);if(intent===actionEpoch&&meta.recordingId===key){pendingMode=null;await refreshMetadata();if(transposeValue)await applyTranspose(transposeValue,{force:true,resume,rawSource:true});changed();}}
   catch(failure){if(intent===actionEpoch)report(failure);}
   finally{modeBusy=false;update();runQueued();}
  }
@@ -125,14 +177,15 @@
    const answer=await api('/api/practice-open',{id,sourceRevision:revision});if(intent!==actionEpoch)return;
    const expected=answer.sourceRevision;await window.BlazeMac.importCompleted();if(intent!==actionEpoch||sourceRevision!==expected)return;
    meta=answer;lastKey=answer.recordingId;const value=answer.settings||answer.opened.settings;
-   const ready=()=>{
+   const ready=async()=>{
     if(pendingRestore?.handler===ready)pendingRestore=null;
     if(intent!==actionEpoch||sourceRevision!==expected){restoring=false;return;}
+    if(value.transpose||transposeValue)await applyTranspose(value.transpose||0,{force:true,rawSource:true});if(intent!==actionEpoch||sourceRevision!==expected)return;
     keepPitch();cmd.rate(value.rate);a=value.loopStart;b=value.loopEnd;
     if(a!==null&&b!==null)cmd.setLoop(a,b,value.loopEnabled);else cmd.clearLoop();
     cmd.seek(value.position);restoring=false;lastControlsFingerprint=fingerprint(settings());lastSavedFingerprint=lastControlsFingerprint;lastSaveAt=performance.now();message=answer.notice||'';update();
    };
-   if(player.readyState>=1)ready();else{awaitingMetadata=true;pendingRestore={revision:expected,handler:ready};player.addEventListener('loadedmetadata',ready,{once:true});}
+   if(player.readyState>=1)await ready();else{awaitingMetadata=true;pendingRestore={revision:expected,handler:ready};player.addEventListener('loadedmetadata',ready,{once:true});}
    saveMessage='Saved practice opened';
   }catch(failure){if(intent===actionEpoch)report(failure);}
   finally{if(!awaitingMetadata)restoring=false;update();}
@@ -146,7 +199,7 @@
    details.textContent=row.available===false?'Recording unavailable':[(value.rate||1)+'×',value.loopEnabled&&value.loopStart!==null?'Loop '+stamp(value.loopStart)+'–'+stamp(value.loopEnd):'From '+stamp(value.position),({original:'Original',piano:'Piano',backing:'Backing'})[value.mode]||'Original'].join(' · ');
    button.append(name,details);button.onclick=()=>void openSaved(row.id);$('sessions').append(button);}
  }
- function chordLabel(chord){if(!chord||chord==='X')return 'Uncertain';if(chord==='N')return 'No chord';const [main,bass]=chord.split('/'),[note,quality='maj']=main.split(':'),suffix={maj:'',min:'m',min7:'m7',minmaj7:'m(maj7)',maj6:'6',min6:'m6',hdim7:'m7♭5'};return note+(suffix[quality]??quality)+(bass?'/'+bass:'');}
+ function chordLabel(chord){if(!chord||chord==='X')return 'Uncertain';if(chord==='N')return 'No chord';return pretty(chord);}
  function after(values,position){let left=0,right=values.length;while(left<right){const mid=(left+right)>>>1;if(values[mid].start<=position)left=mid+1;else right=mid;}return left;}
  function renderChords(){
   const recordingGuide=meta.sourceRevision===sourceRevision?meta.guide:null;
@@ -154,8 +207,13 @@
   if(candidate!==lastGuide){lastGuide=candidate;events=candidate;knownEvents=events.filter(event=>event.chord!=='N'&&event.chord!=='X');}
   const position=Number(player.currentTime)||0,index=after(events,position)-1;
   currentChord=index>=0&&events[index].end>position?events[index]:null;nextChord=knownEvents[after(knownEvents,position)]||null;
+  paintChordProgress();
+  const identity=JSON.stringify([currentChord?.start,currentChord?.chord,nextChord?.chord,transposeValue]);
+  if(identity!==chordIdentity){chordIdentity=identity;if(!matchMedia('(prefers-reduced-motion: reduce)').matches){for(const id of ['current-chord','next-chord']){const button=$(id);button.getAnimations().forEach(animation=>animation.cancel());button.animate([{opacity:.35,transform:'translateY(5px)'},{opacity:1,transform:'translateY(0)'}],{duration:180,easing:'ease-out'});}}}
   for(const [id,event]of [['current-chord',currentChord],['next-chord',nextChord]]){const button=$(id);text(button.querySelector('strong'),event?chordLabel(event.chord):'—');text(button.querySelector('small'),event?stamp(event.start)+'–'+stamp(event.end):events.length?'No chord here':'Not analysed');button.disabled=!event;button.onclick=event?()=>cmd.seek(event.start):null;}
-  const key=guide?.key||state.key,tempo=guide?.tempo_bpm||guide?.tempo||state.tempo;const details=events.length?[key&&key!=='—'?key:'',tempo?Math.round(tempo)+' BPM':''].filter(Boolean).join(' · '):'';text($('key-tempo'),details);
+  const key=guide?.key||state.key,tempo=guide?.tempo_bpm||guide?.tempo||state.tempo;
+  const keyLabel=key&&key!=='—'?key.replace(/^([A-G][#b]?)/,note=>roots[(pitch(note)+transposeValue+12)%12]):'';
+  const details=events.length?[keyLabel,tempo?Math.round(tempo)+' BPM':''].filter(Boolean).join(' · '):'';text($('key-tempo'),details);
   text($('chord-help'),state.analysisBusy?'Analysing '+(state.analysisTask?.sourceName||'your recording')+'…':events.length?'A listening guide, with uncertain sections marked.':'Analyse this song to follow its chords while you play.');
   text($('analyze'),state.analysisBusy?'Cancel analysis':events.length?'Analyse again':'Analyse chords');$('analyze').disabled=!hasSong();
  }
@@ -175,9 +233,12 @@
  function update(){
   if(stopped)return;if(pendingRestore&&pendingRestore.revision!==sourceRevision)cancelRestore();state=engine.viewState();visibility();if(!active||host.hidden)return;
   const song=hasSong(),mode=actualMode(),task=window.BlazeMacStems?.snapshot()||{};
+  if(!pitchBusy)$('pitch-value').value=String(transposeValue);
+  for(const id of ['pitch-down','pitch-up','pitch-reset','pitch-value'])$(id).disabled=!song||pitchBusy||downloadBusy||modeBusy||restoring||(id==='pitch-down'&&transposeValue<=-12)||(id==='pitch-up'&&transposeValue>=12);
+  for(const kind of ['piano','backing','both'])$('download-'+kind).disabled=!meta.pianoJobId||downloadBusy||pitchBusy||modeBusy||restoring;
   text($('title'),song?(state.title&&!/^Untitled/.test(state.title)?state.title:sourceName):'Practice');$('title').title=$('title').textContent;text($('song-detail'),song?'Piano practice · '+(mode==='original'?'Original recording':mode==='piano'?'Piano only':'Backing without piano'):'Open a song and learn it one passage at a time.');
   $('empty').hidden=song;$('song-controls').hidden=!song;
-  for(const value of ['original','piano','backing']){$(value).setAttribute('aria-pressed',String(mode===value));$(value).disabled=!song||restoring||(modeBusy&&value!=='original');$(value).setAttribute('aria-busy',String(modeBusy||pendingMode?.mode===value));}
+  for(const value of ['original','piano','backing']){$(value).setAttribute('aria-pressed',String(mode===value));$(value).disabled=!song||restoring||pitchBusy||(modeBusy&&value!=='original');$(value).setAttribute('aria-busy',String(modeBusy||pitchBusy||pendingMode?.mode===value));}
   const isPreparing=task.status==='running';text($('preparation'),isPreparing?'Preparing '+(task.sourceName||'your recording')+' · '+Math.round((task.progress||0)*100)+'%. You can keep listening.':meta.pianoJobId?'Piano and backing are ready.':song?'Choose Piano or Backing to prepare this song on your Mac.':'');$('preparation-details').hidden=!isPreparing&&task.status!=='failed';
   text($('mode-label'),mode==='original'?'Original recording':mode==='piano'?'Piano only':'Backing without piano');text($('wave-status'),state.loading||state.pending?'Loading waveform…':'');$('wave-empty').hidden=!!state.peaks;text($('wave-empty'),state.loading||state.pending?'Reading waveform…':'Waveform unavailable. Playback is still available.');
   const position=Number(player.currentTime)||0,length=state.duration||0;text($('song-duration'),stamp(length));text($('position'),stamp(position)+' / '+stamp(length));$('playhead').style.left=(length?position/length*100:0)+'%';
@@ -190,14 +251,15 @@
   if(document.activeElement!==$('speed'))$('speed').value=String(player.playbackRate||1);text($('speed-value'),Number((player.playbackRate||1).toFixed(2))+'×');for(const preset of root.querySelectorAll('[data-rate]'))preset.setAttribute('aria-pressed',String(Math.abs(Number(preset.dataset.rate)-player.playbackRate)<.001));
   if(document.activeElement!==$('volume'))$('volume').value=String(player.volume);
   $('save').disabled=!song||saving||restoring;text($('save'),saving?'Saving…':meta.current?.id?'Save changes':'Save practice');text($('save-status'),saveMessage||'Save a song to remember your passage, speed and listening mode.');
-  text($('status'),error||message||(!song?'':state.messageState==='error'?state.message:''));$('status').dataset.error=String(!!error||state.messageState==='error');
+  text($('status'),error||(state.messageState==='error'?state.message:'')||message);$('status').dataset.error=String(!!error||state.messageState==='error');
   drawWave();renderChords();renderSessions();if(player.paused){cancelAnimationFrame(playFrame);playFrame=0;}else animatePlayback();
   const trigger=JSON.stringify([sourceRevision,task.status,task.jobId,state.analysisBusy]);if(trigger!==lastMetaTrigger){lastMetaTrigger=trigger;void refreshMetadata();}
   if(pendingMode&&meta.pianoJobId===pendingMode.jobId&&meta.recordingId===pendingMode.recordingId&&!modeBusy&&!state.pending){const desired=pendingMode.mode;pendingMode=null;void chooseMode(desired);}
   if(pendingMode&&['failed','cancelled'].includes(task.status)&&task.jobId===pendingMode.jobId){error=task.error||'Piano preparation was cancelled.';pendingMode=null;}
   const value=settings(),controls=fingerprint(value);if(meta.current?.id&&!restoring&&meta.sourceRevision===sourceRevision){if(lastControlsFingerprint&&controls!==lastControlsFingerprint){lastControlsFingerprint=controls;scheduleSave();}if(!player.paused&&performance.now()-lastSaveAt>8000&&!saving)scheduleSave(300,false);}
  }
- function paintPlayback(){const length=state.duration||0,position=Number(player.currentTime)||0;const percentage=length?Math.max(0,Math.min(100,position/length*100)):0;$('playhead').style.left=percentage+'%';text($('position'),stamp(position)+' / '+stamp(length));}
+ function paintChordProgress(){const progress=currentChord?Math.max(0,Math.min(100,((Number(player.currentTime)||0)-currentChord.start)/Math.max(.001,currentChord.end-currentChord.start)*100)):0;$('current-chord').style.setProperty('--chord-progress',String(progress/100));}
+ function paintPlayback(){paintChordProgress();const length=state.duration||0,position=Number(player.currentTime)||0;const percentage=length?Math.max(0,Math.min(100,position/length*100)):0;$('playhead').style.left=percentage+'%';text($('position'),stamp(position)+' / '+stamp(length));}
  function animatePlayback(){if(playFrame||stopped||!active||host.hidden||player.paused)return;playFrame=requestAnimationFrame(()=>{playFrame=0;if(stopped||!active||host.hidden||player.paused)return;paintPlayback();animatePlayback();});}
  const mediaEvents=['play','pause','timeupdate','loadedmetadata','seeked','ratechange','volumechange','ended'];for(const event of mediaEvents)player.addEventListener(event,update);
  const saveOnPause=()=>{if(meta.current?.id&&!restoring)scheduleSave(300,false);};player.addEventListener('pause',saveOnPause);player.addEventListener('seeked',saveOnPause);window.addEventListener('blaze-mac-media-changed',update);
@@ -206,6 +268,6 @@
  const timer=setInterval(update,200);keepPitch();showPractice();
  for(const [id,label]of [['tab-studio','Practice'],['now-studio','Practise']]){const node=document.getElementById(id);if(node)node.textContent=label;}
  window.BlazeMac.navigate('studio');
- window.BlazeMacPractice={showPractice,showStudio,refresh:refreshMetadata,snapshot:()=>({visible:active&&!host.hidden,mode:actualMode(),requestedMode:pendingMode?.mode||null,recordingId:meta.recordingId,sessionId:meta.current?.id||null,pianoJobId:meta.pianoJobId,preparing:window.BlazeMacStems?.snapshot().status==='running',loopStart:a,loopEnd:b,loopEnabled:!!(state.loop&&a!==null&&b!==null),rate:player.playbackRate,pitchPreserved:player.preservesPitch,position:Number(player.currentTime)||0,savedSessions:meta.sessions?.length||0,saving,error})};
+ window.BlazeMacPractice={showPractice,refresh:refreshMetadata,snapshot:()=>({visible:active&&!host.hidden,mode:actualMode(),requestedMode:pendingMode?.mode||null,transpose:transposeValue,pitchBusy,downloadBusy,recordingId:meta.recordingId,sessionId:meta.current?.id||null,pianoJobId:meta.pianoJobId,preparing:window.BlazeMacStems?.snapshot().status==='running',loopStart:a,loopEnd:b,loopEnabled:!!(state.loop&&a!==null&&b!==null),rate:player.playbackRate,pitchPreserved:player.preservesPitch,position:Number(player.currentTime)||0,savedSessions:meta.sessions?.length||0,saving,error})};
  window.addEventListener('pagehide',()=>{stopped=true;clearInterval(timer);clearTimeout(saveTimer);cancelAnimationFrame(playFrame);cancelRestore();resize.disconnect();observer.disconnect();for(const event of mediaEvents)player.removeEventListener(event,update);player.removeEventListener('pause',saveOnPause);player.removeEventListener('seeked',saveOnPause);window.removeEventListener('blaze-mac-media-changed',update);},{once:true});
 })();

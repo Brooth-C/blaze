@@ -170,7 +170,7 @@
         snapshot() {
             return {
                 section: currentSection(),
-                studioWorkspace: !!window.BlazeMacStudio?.snapshot().active,
+                studioWorkspace: !!window.BlazePracticeEngine?.snapshot().active,
                 studioTitle: window.BlazeMacStudio?.snapshot().sessionTitle || '',
                 appearance: document.documentElement.dataset.appearance || 'system',
                 query: bounded(byId('explore-search').value),

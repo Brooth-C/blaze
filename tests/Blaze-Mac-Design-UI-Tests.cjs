@@ -80,14 +80,12 @@ async function fit(page,ids,message){
         });
         page.on('request',request=>{if(request.method()==='POST'&&request.url()===base+'/api/discovery-select')selections.push(request.postDataJSON());});
         // Isolate retained engine controls; default production layout has its own live suite.
-        await page.route('**/mac-logic-live.js', route => route.fulfill({contentType:'text/javascript',body:''}));
-        await page.route('**/mac-logic-preview.js', route => route.fulfill({contentType:'text/javascript',body:''}));
         await page.goto(base);
         assert.equal(await page.title(),'Blaze');
         assert.equal(new URL(page.url()).origin,base);
         assert.equal(await page.locator('html').getAttribute('data-presentation'),'mac');
         await page.waitForFunction(()=>!!window.BlazeMac);
-        await page.evaluate(()=>window.BlazeMac.installNativeChrome({sidebar:true,search:true}));
+        await page.evaluate(()=>{window.BlazeMac.installNativeChrome({sidebar:true,search:true});window.BlazeMac.navigate('explore');});
         await page.waitForFunction(()=>document.body.dataset.nativeSidebar==='true');
         await page.locator('.discovery-featured').first().waitFor();
         assert.equal(await page.locator('.discovery-featured').count(),3);
@@ -101,7 +99,7 @@ async function fit(page,ids,message){
             return art.width>=r.width-2&&art.height>=r.height-2;
         })),'Featured artwork must cover the card rather than appear as a small thumbnail');
         assert.equal(await page.locator('video').count(),1);
-        assert.equal(await page.locator('header').isVisible(),false);
+        assert.equal(await page.locator('header').first().isVisible(),false);
         await shot(page,'explore-wide');
 
         await page.evaluate(()=>{window.testMedia=document.getElementById('media');window.BlazeMac.search('acoustic');});
@@ -152,7 +150,7 @@ async function fit(page,ids,message){
         for(const section of ['downloads','library','studio']){
             await page.evaluate(section=>window.BlazeMac.navigate(section),section);
             assert(await page.locator('#media').evaluate(el=>el===window.testMedia&&el.paused&&el.currentTime>11));
-            await fit(page,section==='studio'?['daw-play','daw-stop','daw-waveform']:['mini-open','mini-play','mac-mini-seek'],'Navigation hid playback controls');
+            await fit(page,section==='studio'?['practice-play','practice-open','practice-find']:['mini-open','mini-play','mac-mini-seek'],'Navigation hid playback controls');
         }
         // This synthetic result tests notation/layout, not model inference.
         await page.evaluate(()=>{
@@ -162,36 +160,16 @@ async function fit(page,ids,message){
                 chords:[{start:0,end:10,chord:'C:maj'},{start:10,end:20,chord:'G:maj'},{start:20,end:30,chord:'A:min'}]});
         });
         await page.waitForFunction(()=>window.BlazeMacStudio.snapshot().waveformReady);
-        await fit(page,['daw-play','daw-stop','daw-arrangement','daw-editor'],'Wide Studio controls clipped');
-        await shot(page,'studio-wide');
-        // Chord practice remains a separate, scrollable panel. The primary
-        // Studio view now gives its space to arrangement and waveform editing.
-        await page.locator('#daw-chords').click();
-        await page.locator('#daw-practice').waitFor({state:'visible'});
-        await fit(page,['analyze'],'Chord practice hides analysis');
-        await page.locator('.diagram-card canvas').first().waitFor();
-        assert.equal(await page.locator('.diagram-card canvas').count(),3);
-        await page.locator('#guitar').click();
-        assert.equal(await page.locator('#guitar').getAttribute('aria-pressed'),'true');
-        await page.locator('#piano').click();
-        assert.equal(await page.locator('#piano').getAttribute('aria-pressed'),'true');
-        await page.locator('#daw-practice-close').click();
+        assert.equal(await page.locator('#logic-preview,#mac-studio-workspace,#practice-advanced').count(),0);
+        await fit(page,['practice-play','practice-open','practice-find'],'Wide Practice controls clipped');
+        await page.waitForFunction(()=>document.querySelector('#practice-current-chord strong').textContent==='C');
+        await shot(page,'practice-wide');
         for(const [width,height] of [[570,540],[569,548]]){
             await page.setViewportSize({width,height});
-            // Resize redraws/replaces the voicing canvases. Inspect the current
-            // DOM after that scheduled work has reached the compositor.
-            await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
-            await fit(page,['daw-play','daw-stop','daw-arrangement','daw-editor','daw-waveform'],'Compact Studio controls clipped');
-            assert(await page.evaluate(()=>document.documentElement.scrollHeight<=innerHeight+1),'Compact Studio requires page scrolling');
-            await page.locator('#daw-chords').click();
-            await page.locator('#daw-practice').waitFor({state:'visible'});
-            await page.locator('#diagram-strip').scrollIntoViewIfNeeded();
-            assert(await page.locator('.diagram-card canvas').evaluateAll(canvases=>canvases.length===3&&canvases.every(canvas=>canvas.width>0&&canvas.height>0)),'Chord practice lost its three rendered voicings');
-            await page.locator('#daw-practice-close').click();
-            await shot(page,'studio-compact-'+width+'x'+height);
+            await fit(page,['practice-play','practice-open','practice-find'],'Compact Practice controls clipped');
+            assert(await page.evaluate(()=>document.documentElement.scrollHeight<=innerHeight+1),'Practice requires outer page scrolling');
+            await shot(page,'practice-compact-'+width+'x'+height);
         }
-        await shot(page,'studio-compact');
-
         await page.evaluate(()=>window.BlazeMac.action('settings'));
         await page.locator('#settings-dialog').waitFor({state:'visible'});
         // Native navigation must not change the workspace behind a modal sheet.
@@ -266,7 +244,7 @@ async function fit(page,ids,message){
         await page.locator('#settings-dialog').waitFor({state:'visible'});
         await page.locator('#close-settings').click();
         assert.deepEqual(errors,[]);
-        console.log('Mac content and retained Studio renderer PASS: controlled artwork, native bridge search/navigation, real WAV and VP8/Opus decode, selection keeps browsing, one persistent player, seek, Studio notation,570x540 detail fit, modal navigation guard, late preparation cannot replace native import, nonmodal expanded video, keyboard focus/shortcuts, light/dark/reduced motion, no console errors. AppKit/native glass and live YouTube require separate checks.');
+        console.log('Mac Explore and Practice-only layout PASS: controlled artwork, native bridge search/navigation, real WAV and VP8/Opus decode, selection keeps browsing, one persistent player, seek, chord cards and retired-UI absence,570x540 detail fit, modal navigation guard, late preparation cannot replace native import, nonmodal expanded video, keyboard focus/shortcuts, light/dark/reduced motion, no console errors. AppKit/native glass and live YouTube require separate checks.');
     }catch(error){
         if(stderr.trim())console.error(stderr);
         if(page&&screenshots)await shot(page,'failure').catch(()=>{});

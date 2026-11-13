@@ -7,12 +7,15 @@ The web renderer receives opaque local image identifiers and local media only.
 from collections import OrderedDict
 from concurrent.futures import ThreadPoolExecutor
 import itertools
+import hashlib
 import json
 import math
 from pathlib import Path
 import re
 import secrets
 import shutil
+import os
+import ssl
 import signal
 import subprocess
 import sys
@@ -20,7 +23,8 @@ import tempfile
 import threading
 import time
 from urllib.parse import parse_qs, urlencode, urlsplit
-from urllib.request import Request, build_opener, HTTPRedirectHandler
+from urllib.request import Request, build_opener, HTTPRedirectHandler, HTTPSHandler
+from urllib.error import HTTPError
 
 _VIDEO = re.compile(r'^[A-Za-z0-9_-]{11}$')
 _CHANNEL = re.compile(r'^UC[A-Za-z0-9_-]{22}$')
@@ -182,10 +186,15 @@ class Discovery:
         self.directory.mkdir(parents=True, exist_ok=True)
         self.cache_directory = self.directory / 'playback'
         self.cache_directory.mkdir(exist_ok=True)
+        self.art_directory = self.directory / 'artwork'
+        self.art_directory.mkdir(exist_ok=True)
         self.tools, self.ffmpeg = Path(tools), Path(ffmpeg)
         self.lock = threading.RLock()
         self.jobs, self.metadata, self.images = OrderedDict(), OrderedDict(), OrderedDict()
         self.pictures, self.issued = OrderedDict(), OrderedDict()
+        self.image_fallbacks = {}
+        self.image_context = None
+        self.image_context_lock = threading.Lock()
         self.pool = ThreadPoolExecutor(max_workers=2, thread_name_prefix='BlazeCatalogue')
         self.player_pool = ThreadPoolExecutor(max_workers=1, thread_name_prefix='BlazePrepare')
         self.closed, self.pinned, self.epoch, self.profile_epoch = False, None, 0, 0
@@ -348,10 +357,13 @@ class Discovery:
             with self.lock:
                 key = next((key for key, url in self.images.items() if url == image), key)
                 self.images[key] = image
+                if item['kind'] in ('song', 'video'):
+                    self.image_fallbacks[key] = f"https://i.ytimg.com/vi/{item['id']}/mqdefault.jpg"
                 self.images.move_to_end(key)
                 while len(self.images) > 512:
                     removed, _url = self.images.popitem(last=False)
                     self.pictures.pop(removed, None)
+                    self.image_fallbacks.pop(removed, None)
             value['thumbnail'] = '/api/discovery-image?id=' + key
         else:
             value['thumbnail'] = ''
@@ -405,18 +417,28 @@ class Discovery:
             limit = min(limit, 18)
             with self.lock:
                 profile = [dict(row) for row in self.profile]
-            key = (action, lane, json.dumps(profile, sort_keys=True), limit)
+            planned_queries, planned_heard = _recommendation_plan(profile, lane)
+            key = (action, lane, tuple(planned_queries), tuple(sorted(planned_heard)), limit)
         else:
             raise ValueError('Choose a discovery action.')
 
         def work(job):
+            cache_file = self.directory / ('catalogue-' + hashlib.sha256(repr(key).encode()).hexdigest() + '.json')
             with self.lock:
                 cached = self.metadata.get(key)
                 if cached and cached[0] > time.monotonic():
                     self.metadata.move_to_end(key)
                     return {'items': [self._public(row) for row in cached[1]]}
+            try:
+                if time.time() - cache_file.stat().st_mtime < (21600 if action == 'recommend' else 120) and cache_file.stat().st_size <= 1048576:
+                    rows = json.loads(cache_file.read_text())
+                    items = [canonical_item(row) for row in rows[:limit]] if isinstance(rows, list) else []
+                    if items:
+                        return {'items': [self._public(row) for row in items]}
+            except (OSError, ValueError, TypeError):
+                pass
             if action == 'recommend':
-                queries, heard = _recommendation_plan(profile, lane)
+                queries, heard = planned_queries, planned_heard
                 buckets = []
                 for query in queries:
                     self._check(job)
@@ -424,6 +446,12 @@ class Discovery:
                         buckets.append(self._query(job, f'ytsearch12:{query}' if lane == 'videos' else
                                                    'https://music.youtube.com/search?' + urlencode({'q': query}) + '#songs',
                                                    'videos' if lane == 'videos' else 'songs', 12))
+                        # Render a useful first page without waiting for more searches.
+                        useful = [row for row in buckets[-1] if row['kind'] in ('song', 'video') and
+                                  (row['durationMs'] < 0 or 30000 <= row['durationMs'] <= 1800000)]
+                        if (not profile and len({row['title'].casefold() for row in useful}) >= min(limit, 8) and
+                                len({row['creator'].casefold() or row['id'] for row in useful}) >= min(limit, 4)):
+                            break
                     except Cancelled:
                         raise
                     except Exception:
@@ -451,6 +479,19 @@ class Discovery:
                 items = self._query(job, target, scope, limit)
             self._check(job)
             if items:
+                with self.lock:
+                    if epoch != self.epoch:
+                        raise Cancelled()
+                    temporary = cache_file.with_suffix('.' + secrets.token_hex(8) + '.tmp')
+                    try:
+                        temporary.write_text(json.dumps(items))
+                        temporary.replace(cache_file)
+                        for old in sorted(self.directory.glob('catalogue-*.json'), key=lambda p: p.stat().st_mtime, reverse=True)[12:]:
+                            old.unlink(missing_ok=True)
+                    except OSError:
+                        pass
+                    finally:
+                        temporary.unlink(missing_ok=True)
                 with self.lock:
                     if epoch == self.epoch:
                         self.metadata[key] = (time.monotonic() + (21600 if action == 'recommend' else 120), items)
@@ -579,6 +620,8 @@ class Discovery:
             self.profile_epoch += 1
             self.metadata.clear()
             self.profile_path.unlink(missing_ok=True)
+            for cached in self.directory.glob('catalogue-*.json'):
+                cached.unlink(missing_ok=True)
 
     def image(self, identity):
         with self.lock:
@@ -586,16 +629,57 @@ class Discovery:
                 self.pictures.move_to_end(identity)
                 return self.pictures[identity]
             url = self.images.get(identity)
+            fallback = self.image_fallbacks.get(identity)
         if not url:
             raise ValueError('Image expired.')
+        stored = self.art_directory / (hashlib.sha256(url.encode()).hexdigest() + '.image')
+        try:
+            if not stored.is_symlink() and time.time() - stored.stat().st_mtime < 604800:
+                with stored.open('rb') as stream:
+                    cached = stream.read(1024 * 1024 + 64)
+                header, data = cached.split(b'\n', 1)
+                kind = header.decode('ascii')
+                if kind in ('image/jpeg', 'image/png', 'image/webp') and 0 < len(data) <= 1024 * 1024:
+                    return data, kind
+        except (OSError, ValueError, UnicodeError):
+            pass
         request = Request(url, headers={'User-Agent': 'Blaze/1.0', 'Accept': 'image/jpeg,image/png,image/webp'})
-        with build_opener(ImageRedirects()).open(request, timeout=8) as response:
-            kind = response.headers.get_content_type()
+        with self.image_context_lock:
+            if self.image_context is None:
+                context = ssl.create_default_context()
+                if sys.platform == 'darwin' and not os.environ.get('SSL_CERT_FILE'):
+                    # Match the packaged downloader: frozen OpenSSL CA paths
+                    # can point at the build machine rather than this Mac.
+                    roots = subprocess.run(['/usr/bin/security', 'find-certificate', '-a', '-p',
+                        '/System/Library/Keychains/SystemRootCertificates.keychain'],
+                        check=True, capture_output=True, timeout=15)
+                    context.load_verify_locations(cadata=roots.stdout.decode('ascii'))
+                self.image_context = context
+        opener = build_opener(HTTPSHandler(context=self.image_context), ImageRedirects())
+        try:
+            response = opener.open(request, timeout=8)
+        except HTTPError as error:
+            if error.code not in (403, 404) or not fallback or fallback == url:
+                raise
+            error.close()
+            response = opener.open(Request(fallback, headers={'User-Agent': 'Blaze/1.0'}), timeout=8)
+        with response as image_response:
+            kind = image_response.headers.get_content_type()
             if kind not in ('image/jpeg', 'image/png', 'image/webp'):
                 raise ValueError('Unsupported image.')
-            data = response.read(1024 * 1024 + 1)
+            data = image_response.read(1024 * 1024 + 1)
         if not data or len(data) > 1024 * 1024:
             raise ValueError('Image too large.')
+        temporary = stored.with_suffix('.' + secrets.token_hex(8) + '.tmp')
+        try:
+            temporary.write_bytes(kind.encode('ascii') + b'\n' + data)
+            temporary.replace(stored)
+            for old in sorted(self.art_directory.glob('*.image'), key=lambda p: p.stat().st_mtime, reverse=True)[64:]:
+                old.unlink(missing_ok=True)
+        except OSError:
+            pass
+        finally:
+            temporary.unlink(missing_ok=True)
         with self.lock:
             self.pictures[identity] = (data, kind)
             self.pictures.move_to_end(identity)
