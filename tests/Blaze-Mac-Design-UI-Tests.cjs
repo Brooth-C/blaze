@@ -225,9 +225,11 @@ async function fit(page,ids,message){
         assert(await page.locator('#media').evaluate((el,position)=>el===window.testMedia&&el.paused&&Math.abs(el.currentTime-position)<.1,position),'Studio lost the paused video');
         await page.waitForFunction(()=>document.body.classList.contains('practice-workspace-active'));
         assert.equal(await page.locator('#mini-player').isVisible(),false,'Practice duplicated the browsing transport');
-        await page.evaluate(()=>window.BlazeMac.action('open-player'));
+        // Reopening in the same turn leaves the previous dialog close event queued.
+        await page.evaluate(async()=>{window.BlazeMac.action('open-player');window.BlazeDesktop.closePlayer();window.BlazeMac.action('open-player');await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));});
         await page.locator('#now-dialog').waitFor({state:'visible'});
         assert.equal(await page.locator('.practice-transport').isVisible(),false,'Playback detail duplicated Practice transport');
+        assert(await page.locator('#media').evaluate(el=>el.parentElement.id==='now-video-slot'),'A stale close event removed the reopened video');
         await page.keyboard.press('Escape');
         assert(await page.locator('#practice-play').evaluate(el=>el===document.activeElement),'Closing detail focused a hidden mini player');
         assert.equal(await page.locator('#mini-player').isVisible(),false);
