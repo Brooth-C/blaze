@@ -22,7 +22,7 @@
     document.body.append(taskButton);
     let state = {available: false, status: 'idle', stems: []};
     let requestInFlight = false, submitting = false, stopped = false, mutationEpoch = 0;
-    let lastResults = '', timer, actionError = '', lastPaint = [];
+    let lastResults = '', timer, actionError = '', lastPaint = [], lastEngineState = '';
     const paintError = () => {
         const message = actionError || state.error || '';
         byId('stems-error').textContent = String(message);
@@ -36,6 +36,11 @@
         const paint = [state, sourceName, sourceRevision, submitting, analysisBlocksSelection(), actionError];
         if (paint.every((value, index) => value === lastPaint[index])) return;
         lastPaint = paint;
+        const engineState = JSON.stringify([state.status, state.jobId]);
+        if (engineState !== lastEngineState) {
+            lastEngineState = engineState;
+            window.dispatchEvent(new Event('blaze-mac-stems-changed'));
+        }
         const running = state.status === 'running';
         const failed = state.status === 'failed';
         dialog.querySelector('.stems-description').hidden = running || state.status === 'done';

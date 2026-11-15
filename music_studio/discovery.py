@@ -5,7 +5,7 @@ fetches every recording. Only an explicit preparation downloads a playable copy.
 The web renderer receives opaque local image identifiers and local media only.
 """
 from collections import OrderedDict
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import Future, ThreadPoolExecutor
 import itertools
 import hashlib
 import json
@@ -73,7 +73,7 @@ def _thumbnail(entry, identity='', video=False):
         return image
     return f'https://i.ytimg.com/vi/{identity}/mqdefault.jpg' if video else ''
 
-def normalize(entry, scope='all'):
+def normalize(entry, scope='all', strict_identity=False):
     """Normalize flat provider entries without performing further extraction."""
     if not isinstance(entry, dict):
         return None
@@ -84,6 +84,8 @@ def normalize(entry, scope='all'):
         identity = parsed.path.strip('/')
     elif parsed and parsed.path == '/watch':
         identity = (parse_qs(parsed.query).get('v') or [identity])[0]
+    if strict_identity and _VIDEO.fullmatch(str(entry.get('id') or '')) and identity != str(entry['id']):
+        return None
     kind = entry.get('_blaze_kind')
     if parsed and parsed.path == '/playlist':
         identity = (parse_qs(parsed.query).get('list') or [''])[0]
@@ -120,9 +122,19 @@ def normalize(entry, scope='all'):
     if not title:
         return None
     creator = _text(entry.get('artist') or entry.get('channel') or entry.get('uploader') or entry.get('creator'), 200)
-    return {'id': identity, 'kind': kind, 'title': title, 'creator': creator,
+    item = {'id': identity, 'kind': kind, 'title': title, 'creator': creator,
             'url': candidate, 'thumbnail': _thumbnail(entry, identity, kind in ('song', 'video')),
             'durationMs': _duration(entry.get('duration')), 'localJobId': ''}
+    views = entry.get('view_count')
+    if type(views) is int and 0 <= views <= 10**15:
+        item['viewCount'] = views
+    published = _text(entry.get('upload_date'), 8)
+    if re.fullmatch(r'\d{8}', published):
+        item['publishedDate'] = published
+    description = _text(entry.get('description'), 280)
+    if description:
+        item['description'] = description
+    return item
 
 def _recommendation_plan(history, lane):
     """Rank local listening signals; send only small search terms to YouTube."""
@@ -172,6 +184,8 @@ def canonical_item(value, playable=False):
     normalized = normalize({'id': value.get('id'), '_blaze_kind': kind,
                             'url': value.get('url'), 'title': value.get('title'),
                             'artist': value.get('creator'), 'thumbnail': value.get('thumbnail'),
+                            'view_count': value.get('viewCount'), 'upload_date': value.get('publishedDate'),
+                            'description': value.get('description'),
                             'duration': (value.get('durationMs', -1) / 1000
                                          if type(value.get('durationMs')) in (int, float) else -1)},
                            'songs' if kind == 'song' else 'all')
@@ -181,7 +195,7 @@ def canonical_item(value, playable=False):
 
 
 class Discovery:
-    def __init__(self, directory, tools, ffmpeg):
+    def __init__(self, directory, tools, ffmpeg, verify_playback=False):
         self.directory = Path(directory) / 'discovery'
         self.directory.mkdir(parents=True, exist_ok=True)
         self.cache_directory = self.directory / 'playback'
@@ -189,12 +203,17 @@ class Discovery:
         self.art_directory = self.directory / 'artwork'
         self.art_directory.mkdir(exist_ok=True)
         self.tools, self.ffmpeg = Path(tools), Path(ffmpeg)
+        self.verify_playback, self.latest_prepare = verify_playback, None
         self.lock = threading.RLock()
         self.jobs, self.metadata, self.images = OrderedDict(), OrderedDict(), OrderedDict()
         self.pictures, self.issued = OrderedDict(), OrderedDict()
         self.image_fallbacks = {}
+        self.image_requests = {}
         self.image_context = None
         self.image_context_lock = threading.Lock()
+        self.tls_lock = threading.Lock()
+        self.tls_folder = None
+        self.tls_file = None
         self.pool = ThreadPoolExecutor(max_workers=2, thread_name_prefix='BlazeCatalogue')
         self.player_pool = ThreadPoolExecutor(max_workers=1, thread_name_prefix='BlazePrepare')
         self.closed, self.pinned, self.epoch, self.profile_epoch = False, None, 0, 0
@@ -237,8 +256,11 @@ class Discovery:
             job = {'id': identity, 'kind': kind, 'status': 'pending', 'items': [], 'error': '',
                    'progress': 'Finding recordings…' if kind == 'metadata' else 'Preparing playback on this device…',
                    'cancel': threading.Event(), 'process': None,
+                   'done': threading.Event(),
                    'deadline': time.monotonic() + (25 if kind == 'metadata' else 125)}
             self.jobs[identity] = job
+            if kind == 'prepare':
+                self.latest_prepare = identity
             for key in list(self.jobs):
                 if len(self.jobs) <= 24:
                     break
@@ -246,7 +268,7 @@ class Discovery:
                     del self.jobs[key]
             pool = self.pool if kind == 'metadata' else self.player_pool
             job['future'] = pool.submit(self._run, job, work)
-            return {'requestId': identity}
+            return dict(requestId=identity, **({'canWait': True} if self.verify_playback and kind == 'metadata' else {}))
 
     def _run(self, job, work):
         try:
@@ -263,6 +285,8 @@ class Discovery:
                 job.update(status='failed', error=('Playback could not be prepared. Try another recording or check your connection.'
                                                   if job['kind'] == 'prepare' else
                                                   'Could not reach the media service. Check your connection and try again.'))
+        finally:
+            job['done'].set()
 
     def _check(self, job):
         if self.closed or job['cancel'].is_set():
@@ -286,6 +310,34 @@ class Discovery:
             except OSError:
                 pass
 
+    def _tls_environment(self, job):
+        """Export native roots once per Mac catalogue lifetime, not per query."""
+        if not self.verify_playback or sys.platform != 'darwin' or os.environ.get('SSL_CERT_FILE'):
+            return None
+        while not self.tls_lock.acquire(timeout=.05):
+            self._check(job)
+        try:
+            self._check(job)
+            if self.tls_file is None:
+                roots = subprocess.run(['/usr/bin/security', 'find-certificate', '-a', '-p',
+                    '/System/Library/Keychains/SystemRootCertificates.keychain'],
+                    check=True, capture_output=True, timeout=15)
+                self._check(job)
+                # Validate the PEM before handing it to a child OpenSSL runtime.
+                context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+                context.load_verify_locations(cadata=roots.stdout.decode('ascii'))
+                folder = tempfile.TemporaryDirectory(prefix='tls-', dir=self.directory)
+                target = Path(folder.name) / 'system-roots.pem'
+                try:
+                    target.write_bytes(roots.stdout)
+                except OSError:
+                    folder.cleanup()
+                    raise
+                self.tls_folder, self.tls_file = folder, target
+            return dict(os.environ, SSL_CERT_FILE=str(self.tls_file))
+        finally:
+            self.tls_lock.release()
+
     def _command(self, job, arguments, seconds=20, workspace=None, output_limit=1024 * 1024):
         """Never shell out, expose provider errors, or accumulate unlimited output."""
         command = [str(self._executable()), '--ignore-config', '--no-cache-dir', '--quiet', '--no-warnings',
@@ -298,6 +350,10 @@ class Discovery:
         command += arguments
         kwargs = {'start_new_session': True} if sys.platform != 'win32' else {
             'creationflags': subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.CREATE_NO_WINDOW}
+        environment = self._tls_environment(job)
+        if environment is not None:
+            kwargs['env'] = environment
+        self._check(job)
         with tempfile.TemporaryFile(dir=self.directory) as output:
             process = subprocess.Popen(command, stdin=subprocess.DEVNULL, stdout=output,
                                        stderr=subprocess.DEVNULL, **kwargs)
@@ -336,7 +392,7 @@ class Discovery:
         found = OrderedDict()
         for row in itertools.islice(entries, limit):
             self._check(job)
-            item = normalize(row, scope)
+            item = normalize(row, scope, strict_identity=self.verify_playback)
             if item:
                 key = (item['kind'] if item['kind'] not in ('song', 'video') else 'video', item['id'])
                 found.setdefault(key, item)
@@ -422,8 +478,19 @@ class Discovery:
         else:
             raise ValueError('Choose a discovery action.')
 
+        # The Mac client understands an immediate response. A warm search does
+        # not need a worker slot, request ID, or a second polling round trip.
+        if self.verify_playback and action == 'search':
+            with self.lock:
+                if self.closed:
+                    raise ValueError('Blaze is closing.')
+                cached = self.metadata.get(key)
+                if cached and cached[0] > time.monotonic():
+                    self.metadata.move_to_end(key)
+                    return {'status': 'ready', 'items': [self._public(row) for row in cached[1]]}
+
         def work(job):
-            cache_file = self.directory / ('catalogue-' + hashlib.sha256(repr(key).encode()).hexdigest() + '.json')
+            cache_file = self.directory / ('catalogue-' + hashlib.sha256(repr((key, 'identity-v1') if self.verify_playback else key).encode()).hexdigest() + '.json')
             with self.lock:
                 cached = self.metadata.get(key)
                 if cached and cached[0] > time.monotonic():
@@ -511,12 +578,23 @@ class Discovery:
                 value['item'] = self._public(job['item'])
             return value
 
+    def wait_status(self, identity):
+        """One bounded wait wakes immediately on completion or cancellation."""
+        with self.lock:
+            job = self.jobs.get(identity)
+            if not job:
+                raise ValueError('This request expired. Try again.')
+            done = job['done']
+        done.wait(.3)
+        return self.status(identity)
+
     def cancel(self, identity):
         with self.lock:
             job = self.jobs.get(identity)
             if not job:
                 return
             job['cancel'].set()
+            job['done'].set()
             job.update(status='cancelled', error='Request cancelled.')
             process = job['process']
             job['future'].cancel()
@@ -545,7 +623,7 @@ class Discovery:
         if item['durationMs'] > 7200000:
             raise ValueError('Choose a recording shorter than two hours for playback.')
         suffix = '.mp4' if mode == 'video' else '.m4a'
-        destination = self.cache_directory / (item['id'] + '-' + mode + suffix)
+        destination = self.cache_directory / (('verified-v1-' if self.verify_playback else '') + item['id'] + '-' + mode + suffix)
 
         def work(job):
             if destination.is_file() and 0 < destination.stat().st_size <= MAX_MEDIA:
@@ -567,9 +645,13 @@ class Discovery:
                     arguments += ['--merge-output-format', 'mp4', '--remux-video', 'mp4']
                 else:
                     arguments += ['--extract-audio', '--audio-format', 'm4a']
+                if self.verify_playback:
+                    arguments += ['--no-simulate', '--print', 'after_move:%(id)s']
                 arguments += ['--', item['url']]
-                self._command(job, arguments, seconds=120, workspace=workspace, output_limit=65536)
+                receipt = self._command(job, arguments, seconds=120, workspace=workspace, output_limit=65536)
                 self._check(job)
+                if self.verify_playback and receipt.decode('utf-8', errors='strict').splitlines() != [item['id']]:
+                    raise ValueError('The downloaded recording does not match the selected YouTube result.')
                 source = workspace / ('selected' + suffix)
                 if not source.is_file() or not 0 < source.stat().st_size <= MAX_MEDIA:
                     raise ValueError('No playable recording.')
@@ -586,6 +668,8 @@ class Discovery:
             job = self.jobs.get(identity)
             if not job or job['kind'] != 'prepare' or job['status'] != 'ready':
                 raise ValueError('Wait until playback is ready.')
+            if self.verify_playback and identity != self.latest_prepare:
+                raise ValueError('A newer recording was selected. Choose this result again to play it.')
             path = job['path']
             if not path.is_file() or not path.resolve().is_relative_to(self.cache_directory.resolve()):
                 raise ValueError('The playback copy expired. Select the recording again.')
@@ -624,6 +708,44 @@ class Discovery:
                 cached.unlink(missing_ok=True)
 
     def image(self, identity):
+        if not self.verify_playback:
+            return self._load_image(identity)
+        with self.lock:
+            if self.closed:
+                raise ValueError('Blaze is closing.')
+            if identity in self.pictures:
+                self.pictures.move_to_end(identity)
+                return self.pictures[identity]
+            if identity not in self.images:
+                raise ValueError('Image expired.')
+            pending = self.image_requests.get(identity)
+            leader = pending is None
+            if leader:
+                pending = Future()
+                self.image_requests[identity] = pending
+        if not leader:
+            # Wait outside the catalogue lock; metadata and other images remain usable.
+            return pending.result(timeout=40)
+        try:
+            result = self._load_image(identity)
+            pending.set_result(result)
+            return result
+        except BaseException as error:
+            pending.set_exception(error)
+            raise
+        finally:
+            with self.lock:
+                self.image_requests.pop(identity, None)
+
+    def _remember_picture(self, identity, picture):
+        with self.lock:
+            self.pictures[identity] = picture
+            self.pictures.move_to_end(identity)
+            while len(self.pictures) > 32:
+                self.pictures.popitem(last=False)
+        return picture
+
+    def _load_image(self, identity):
         with self.lock:
             if identity in self.pictures:
                 self.pictures.move_to_end(identity)
@@ -640,14 +762,15 @@ class Discovery:
                 header, data = cached.split(b'\n', 1)
                 kind = header.decode('ascii')
                 if kind in ('image/jpeg', 'image/png', 'image/webp') and 0 < len(data) <= 1024 * 1024:
-                    return data, kind
+                    return self._remember_picture(identity, (data, kind))
         except (OSError, ValueError, UnicodeError):
             pass
         request = Request(url, headers={'User-Agent': 'Blaze/1.0', 'Accept': 'image/jpeg,image/png,image/webp'})
         with self.image_context_lock:
             if self.image_context is None:
-                context = ssl.create_default_context()
-                if sys.platform == 'darwin' and not os.environ.get('SSL_CERT_FILE'):
+                environment = self._tls_environment({'cancel': threading.Event()}) if self.verify_playback else None
+                context = ssl.create_default_context(cafile=environment['SSL_CERT_FILE']) if environment else ssl.create_default_context()
+                if sys.platform == 'darwin' and not os.environ.get('SSL_CERT_FILE') and not environment:
                     # Match the packaged downloader: frozen OpenSSL CA paths
                     # can point at the build machine rather than this Mac.
                     roots = subprocess.run(['/usr/bin/security', 'find-certificate', '-a', '-p',
@@ -680,12 +803,7 @@ class Discovery:
             pass
         finally:
             temporary.unlink(missing_ok=True)
-        with self.lock:
-            self.pictures[identity] = (data, kind)
-            self.pictures.move_to_end(identity)
-            while len(self.pictures) > 32:
-                self.pictures.popitem(last=False)
-        return data, kind
+        return self._remember_picture(identity, (data, kind))
 
     def close(self):
         with self.lock:
@@ -695,3 +813,10 @@ class Discovery:
             self.cancel(identity)
         self.pool.shutdown(wait=False, cancel_futures=True)
         self.player_pool.shutdown(wait=False, cancel_futures=True)
+        if self.tls_lock.acquire(blocking=False):
+            try:
+                if self.tls_folder is not None:
+                    self.tls_folder.cleanup()
+                    self.tls_folder = self.tls_file = None
+            finally:
+                self.tls_lock.release()

@@ -13,6 +13,30 @@ from .roformer_transform import stft_bands_last, istft_bands_last
 from .stems import check_cancel
 
 
+def apply_complex_mask(spectrum, mask):
+    """Preserve complex-mask arithmetic with one reusable product workspace."""
+    a, b = spectrum[..., 0], spectrum[..., 1]
+    c, d = mask[..., 0], mask[..., 1]
+    dtype = np.result_type(spectrum.dtype, mask.dtype)
+    result = np.empty(spectrum.shape, dtype=dtype)
+    scratch = np.empty(spectrum.shape[:-1], dtype=dtype)
+    np.multiply(a, c, out=result[..., 0])
+    np.multiply(b, d, out=scratch)
+    np.subtract(result[..., 0], scratch, out=result[..., 0])
+    np.multiply(a, d, out=result[..., 1])
+    np.multiply(b, c, out=scratch)
+    np.add(result[..., 1], scratch, out=result[..., 1])
+    return result
+
+
+def piano_and_backing(audio, piano):
+    """Preserve residual precision while packing directly into final FP32 stems."""
+    estimates = np.empty((2, *piano.shape), dtype=np.float32)
+    estimates[0] = piano
+    np.subtract(audio, piano, out=estimates[1], dtype=np.result_type(audio.dtype, piano.dtype))
+    return estimates
+
+
 class NativePianoSeparator(InstrumentSeparator):
     outputs = ('piano', 'accompaniment')
     other_index = 1
@@ -54,9 +78,7 @@ class NativePianoSeparator(InstrumentSeparator):
         check_cancel(event)
         if mask.shape != (1, 1, 2050, 1723, 2) or not np.isfinite(mask).all():
             raise ValueError('The piano model returned an invalid complex mask.')
-        a, b = features[0, ..., 0], features[0, ..., 1]
-        c, d = mask[0, 0, ..., 0], mask[0, 0, ..., 1]
-        masked = np.stack((a * c - b * d, a * d + b * c), axis=-1)
+        masked = apply_complex_mask(features[0], mask[0, 0])
         masked[:2] = 0
         piano = istft_bands_last(masked, 2, FFT, HOP, SEGMENT)
-        return np.stack((piano, audio - piano)).astype(np.float32)
+        return piano_and_backing(audio, piano)

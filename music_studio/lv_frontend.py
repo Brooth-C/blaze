@@ -56,7 +56,9 @@ def _spectral_blocks(y: np.ndarray, nfft: int, hop: int, window: np.ndarray,
         last = min(count, frame + block_frames)
         left, right = frame * hop - half, (last - 1) * hop + half
         signal = y[max(0, left):min(len(y), right)]
-        signal = np.pad(signal, (max(0, -left), max(0, right - len(y))))
+        padding = (max(0, -left), max(0, right - len(y)))
+        if padding[0] or padding[1]:
+            signal = np.pad(signal, padding)
         frames = np.lib.stride_tricks.sliding_window_view(signal, nfft)[::hop]
         yield frame, np.fft.rfft(frames * window, axis=-1).T.astype(np.complex64)
 
@@ -163,15 +165,24 @@ def _basis(sr: float, frequencies: np.ndarray, alpha: np.ndarray,
     return filters.astype(np.complex64), nfft
 
 
-def _project(filters: np.ndarray, spectrum: np.ndarray) -> np.ndarray:
+def _projection_rows(filters):
+    rows = []
+    for coefficients in filters:
+        indices = np.flatnonzero(coefficients)
+        rows.append((indices, coefficients[indices, None]))
+    return rows
+
+
+def _project(filters: np.ndarray, spectrum: np.ndarray, rows=None) -> np.ndarray:
     # Sparse rows are typically only tens of frequency bins, so this avoids
     # a large dense GEMM and any SciPy dependency.
     output = np.empty((len(filters), spectrum.shape[1]), np.complex64)
-    for row, coefficients in enumerate(filters):
-        indices = np.flatnonzero(coefficients)
+    if rows is None:
+        rows = _projection_rows(filters)
+    for row, (indices, coefficients) in enumerate(rows):
         for start in range(0, spectrum.shape[1], 512):
             output[row, start:start + 512] = np.sum(
-                coefficients[indices, None] * spectrum[indices, start:start + 512],
+                coefficients * spectrum[indices, start:start + 512],
                 axis=0, dtype=np.complex64)
     return output
 
@@ -180,11 +191,12 @@ def _response(y: np.ndarray, filters: np.ndarray, nfft: int, hop: int,
               window: np.ndarray, magnitude_only: bool = False,
               destination=None, check=lambda: None) -> np.ndarray:
     result = np.empty((len(filters), 1 + len(y) // hop), np.float32) if destination is None else destination
+    rows = _projection_rows(filters)
     for start, spectrum in _spectral_blocks(y, nfft, hop, window):
         check()
         if magnitude_only:
             spectrum = np.abs(spectrum)
-        projected = np.abs(_project(filters, spectrum))
+        projected = np.abs(_project(filters, spectrum, rows))
         count = min(projected.shape[1], result.shape[1] - start)
         if count > 0:
             result[:, start:start + count] = projected[:, :count]
@@ -211,17 +223,24 @@ class PortableLVFrontend:
     def _down(self, y: np.ndarray, output_path=None, check=lambda: None) -> np.ndarray:
         result = (np.empty((len(y) + 1) // 2, np.float32) if output_path is None else
                   np.memmap(output_path, dtype='<f4', mode='w+', shape=((len(y) + 1) // 2,)))
+        # Keep this cache local: the kernel cannot become stale across calls,
+        # and only full-block and final-block FFT sizes are retained.
+        kernel_spectra = {}
         # Overlap-save blocks keep FFT work memory bounded for long recordings.
         for start in range(0, len(y), 65536):
             check()
             end = min(len(y), start + 65536)
             left, right = start - self.half, end + self.half
             signal = y[max(0, left):min(len(y), right)]
-            signal = np.pad(signal, (max(0, -left), max(0, right - len(y))))
+            padding = (max(0, -left), max(0, right - len(y)))
+            if padding[0] or padding[1]:
+                signal = np.pad(signal, padding)
             size = len(signal) + len(self.kernel) - 1
             nfft = 1 << (size - 1).bit_length()
+            if nfft not in kernel_spectra:
+                kernel_spectra[nfft] = np.fft.rfft(self.kernel, n=nfft)
             convolved = np.fft.irfft(np.fft.rfft(signal, n=nfft) *
-                                     np.fft.rfft(self.kernel, n=nfft), n=nfft)
+                                     kernel_spectra[nfft], n=nfft)
             samples = convolved[2 * self.half:2 * self.half + end - start:2]
             result[start // 2:(end + 1) // 2] = samples * np.sqrt(2)
         return result

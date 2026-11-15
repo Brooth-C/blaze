@@ -10,6 +10,40 @@ import threading
 import time
 import traceback
 import uuid
+import os
+import shutil
+import tempfile
+
+
+def save_practice_audio(window, source, filename):
+    """Save an already registered export through Cocoa's native file dialog.
+
+    Called on a local request worker. Pywebview marshals the panel to Cocoa;
+    the file copy stays off the UI thread and never navigates the web view.
+    """
+    import webview
+    extension = Path(filename).suffix.lower()
+    if extension not in ('.wav', '.zip'):
+        raise ValueError('Unsupported audio export.')
+    choices = window.create_file_dialog(
+        webview.FileDialog.SAVE, save_filename=Path(filename).name,
+        file_types=('WAV audio (*.wav)' if extension == '.wav' else 'ZIP archive (*.zip)',))
+    if not choices:
+        return {'status': 'cancelled'}
+    target = Path(choices if isinstance(choices, str) else choices[0])
+    temporary = None
+    try:
+        with tempfile.NamedTemporaryFile(dir=target.parent, prefix='.blaze-export-', delete=False) as output:
+            temporary = Path(output.name)
+            with Path(source).open('rb') as incoming:
+                shutil.copyfileobj(incoming, output, length=1024 * 1024)
+            output.flush()
+            os.fsync(output.fileno())
+        temporary.replace(target)
+    finally:
+        if temporary is not None:
+            temporary.unlink(missing_ok=True)
+    return {'status': 'saved', 'filename': target.name}
 
 
 def resource_root():
@@ -423,6 +457,7 @@ def launch(args, root, data, smoke_receipt):
         window = webview.create_window('Blaze', f'http://127.0.0.1:{server.server_port}/',
                                        width=1280, height=820, min_size=(780, 600),
                                        background_color='#ffffff')
+        studio.save_practice_audio = lambda source, filename: save_practice_audio(window, source, filename)
         studio.native_fullscreen = window.toggle_fullscreen
         try:
             from music_studio.mac_chrome import attach_navigation

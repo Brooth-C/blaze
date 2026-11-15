@@ -5,6 +5,16 @@
     if (document.documentElement.dataset.presentation !== 'mac') return;
 
     const byId = id => document.getElementById(id);
+    // Keep instructions beside the relevant option, rather than repeating
+    // promotional subtitles on every page. Shared platform markup stays intact.
+    for (const subtitle of document.querySelectorAll('.page-heading p')) subtitle.remove();
+    const qualityNote = document.querySelector('.quality-note');
+    if (qualityNote) document.querySelector('.download-options').append(qualityNote);
+    const recommendationNote = document.querySelector('.discovery-privacy > span');
+    if (recommendationNote) {
+        recommendationNote.title = recommendationNote.textContent;
+        recommendationNote.textContent = 'Based on your listening';
+    }
     const sections = new Set(['explore', 'downloads', 'library', 'studio']);
     const player = byId('mini-player');
     const now = byId('now-dialog');

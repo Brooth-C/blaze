@@ -13,12 +13,29 @@ import threading
 import numpy as np
 import onnxruntime as ort
 
-from .stems import Separator, check_cancel, _write_header, MAX_BYTES, DISK_RESERVE
+from .stems import Separator, check_cancel, _write_header, _write_float_samples, MAX_BYTES, DISK_RESERVE
 from .roformer_transform import stft_bands_last, istft_bands_last
 
 RATE, SEGMENT, FFT, HOP = 44100, 485100, 2048, 441
 STEMS = ('drums', 'bass', 'other', 'vocals')
 CHECKPOINT_SHA = '3e9daecd70aaed5b5a0d1f861cc4d77eaa45afb3fc6301b1cf32c1be0f5868fb'
+
+
+def source_chunk(pcm, offset, length, border, count):
+    """Borrow interior PCM; retain the exact reflected-index path at borders."""
+    first=offset-border
+    if first>=0 and first+length<=count:
+        return np.asarray(pcm[first:first+length].T,dtype=np.float32)
+    last=first+length
+    if first<0<last<=count and -first<count:
+        return np.asarray(np.concatenate((pcm[-first:0:-1],pcm[:last])).T,dtype=np.float32)
+    if 0<=first<count<last<2*count-1:
+        stop=2*count-2-last
+        return np.asarray(np.concatenate((pcm[first:],pcm[count-2:stop:-1])).T,dtype=np.float32)
+    indices=np.arange(offset,offset+length)-border
+    indices=np.where(indices<0,-indices,indices)
+    indices=np.where(indices>=count,2*count-2-indices,indices)
+    return np.asarray(pcm[indices].T,dtype=np.float32)
 
 
 class RoformerSeparator(Separator):
@@ -160,10 +177,7 @@ class RoformerSeparator(Separator):
                     for offset in range(0, min(total, border + count), stride):
                         check_cancel(event)
                         length = min(segment, total - offset)
-                        indices = np.arange(offset, offset + length) - border
-                        indices = np.where(indices < 0, -indices, indices)
-                        indices = np.where(indices >= count, 2 * count - 2 - indices, indices)
-                        audio = np.asarray(pcm[indices].T, dtype=np.float32)
+                        audio = source_chunk(pcm, offset, length, border, count)
                         if not np.isfinite(audio).all():
                             raise ValueError('The recording contains invalid audio samples.')
                         if length < segment:
@@ -180,10 +194,21 @@ class RoformerSeparator(Separator):
                             current_weight[:fade] = 1
                         elif offset + stride >= total:
                             current_weight[-fade:] = 1
-                        accumulated[:, :, :length] += estimates[:, :, :length] * current_weight[:length]
+                        if estimates.dtype == np.float32 and estimates.flags.owndata and estimates.flags.writeable:
+                            # Model outputs are disposable after this overlap-add.
+                            # Reuse their storage without touching shared/readonly
+                            # arrays returned by alternate implementations.
+                            weighted = estimates[:, :, :length]
+                            np.multiply(weighted, current_weight[:length], out=weighted)
+                            accumulated[:, :, :length] += weighted
+                        else:
+                            accumulated[:, :, :length] += estimates[:, :, :length] * current_weight[:length]
                         denominator[:length] += current_weight[:length]
                         written = min(stride, total - offset)
-                        block = accumulated[:, :, :written] / denominator[None, None, :written]
+                        # This prefix is emitted now and discarded before the
+                        # next chunk; the overlap tail must remain unmodified.
+                        block = accumulated[:, :, :written]
+                        np.divide(block, denominator[None, None, :written], out=block)
                         left, right = max(0, border - offset), min(written, border + count - offset)
                         if right > left:
                             block = block[:, :, left:right]
@@ -191,7 +216,7 @@ class RoformerSeparator(Separator):
                             # Keep original gain/bandwidth and unity-gain reconstruction.
                             block[self.other_index] += original - block.sum(axis=0)
                             for stream, samples in zip(streams, block):
-                                stream.write(np.asarray(samples.T, dtype='<f4').tobytes())
+                                _write_float_samples(stream, samples)
                             written_frames += right - left
                         accumulated[:, :, :-stride] = accumulated[:, :, stride:]
                         accumulated[:, :, -stride:] = 0

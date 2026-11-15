@@ -26,6 +26,8 @@ class PracticeAudio:
         self.worker = None
         self.active = None
         self.closed = threading.Event()
+        self.save_lock = threading.Lock()
+        self.saving = set()
 
     def request(self, body):
         semitones = body.get('semitones', 0)
@@ -61,7 +63,7 @@ class PracticeAudio:
                                    'filename': 'Piano-and-Backing' + (f' ({semitones:+d})' if semitones else '') + '.zip' if kind == 'both' else
                                    {'source': 'Recording', 'piano': 'Piano', 'backing': 'Backing'}[kind] +
                                    (f' ({semitones:+d})' if semitones else '') + '.wav'}
-            for old in [key for key in self.jobs if key != self.active][:max(0, len(self.jobs) - 16)]:
+            for old in [key for key in self.jobs if key != self.active and key not in self.saving][:max(0, len(self.jobs) - 16)]:
                 del self.jobs[old]
             self.worker = threading.Thread(target=self._render, args=(identity, sources, stamps, semitones, kind),
                                            name='BlazePracticeAudio', daemon=True)
@@ -118,7 +120,7 @@ class PracticeAudio:
             with self.lock:
                 row.update(status='ready', path=target)
                 # Keep both the current player resource and the new export.
-                protected = {identity, self.active} - {None}
+                protected = ({identity, self.active} | self.saving) - {None}
                 candidates = sorted((p for p in self.root.iterdir() if p.name not in protected),
                                     key=lambda p: p.stat().st_mtime, reverse=True)
                 for old in candidates[max(0, 4 - len(protected)):]:
@@ -137,7 +139,26 @@ class PracticeAudio:
             row = self.jobs.get(identity)
             if row is None:
                 raise ValueError('Audio request expired.')
-            return {'requestId': identity, 'status': row['status'], 'error': row['error'], 'filename': row['filename']}
+            return {'requestId': identity, 'status': row['status'], 'error': row['error'], 'filename': row['filename'],
+                    'nativeSaveAvailable': callable(getattr(self.studio, 'save_practice_audio', None))}
+
+    def save(self, identity):
+        callback = getattr(self.studio, 'save_practice_audio', None)
+        if not callable(callback):
+            raise ValueError('Native saving is unavailable. Download this file in the browser.')
+        if not self.save_lock.acquire(blocking=False):
+            raise ValueError('Finish or cancel the open save dialog first.')
+        try:
+            with self.lock:
+                source, filename = self.file(identity)
+                self.saving.add(identity)
+            try:
+                return callback(source, filename)
+            finally:
+                with self.lock:
+                    self.saving.discard(identity)
+        finally:
+            self.save_lock.release()
 
     def file(self, identity, playback=False):
         with self.lock:

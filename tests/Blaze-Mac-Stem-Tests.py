@@ -5,6 +5,7 @@ No model downloads, PyTorch dependency, or live provider access in this suite.
 """
 from pathlib import Path
 import json
+import io
 import os
 import shutil
 import struct
@@ -53,6 +54,21 @@ def make_recording(path, seconds=1, silence=False):
 
 
 class StemContracts(unittest.TestCase):
+    def test_float_wav_packing_preserves_interleaving_casts_and_input_ownership(self):
+        rng=np.random.default_rng(177)
+        for dtype in (np.float16,np.float32,np.float64,np.dtype('>f4')):
+            for count in (0,1,31,4097):
+                samples=rng.normal(size=(2,count*2)).astype(dtype)[:,::2]
+                if count:
+                    samples[:,0]=-0.
+                    if count>1:samples[:,1]=np.nan
+                original=samples.tobytes();samples.setflags(write=False)
+                expected=np.asarray(samples.T,dtype='<f4').tobytes()
+                stream=io.BytesIO()
+                self.assertEqual(stems._write_float_samples(stream,samples),len(expected))
+                self.assertEqual(stream.getvalue(),expected)
+                self.assertEqual(samples.tobytes(),original)
+
     def test_stft_roundtrip_preserves_channel_order_length_and_peaks(self):
         rng = np.random.default_rng(8)
         audio = rng.normal(0, .1, (2, stems.SEGMENT)).astype(np.float32)

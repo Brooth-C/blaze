@@ -4,13 +4,14 @@ One model is evaluated as five spectral graphs, sequentially to bound memory.
 The accompaniment is the input minus estimated piano, preserving the full mix.
 """
 from pathlib import Path
+from functools import lru_cache
 import shutil
 import tempfile
 import threading
 import numpy as np
 import onnxruntime as ort
 from .piano_assets import MODELS
-from .stems import Separator, check_cancel, _write_header, MAX_BYTES, DISK_RESERVE
+from .stems import Separator, check_cancel, _write_header, _write_float_samples, MAX_BYTES, DISK_RESERVE
 
 FFT, HOP, FRAMES, BINS = 4096, 1024, 512, 1024
 SEGMENT = (FRAMES - 3) * HOP
@@ -41,17 +42,30 @@ def piano_mask(logits, magnitude):
     return ratio_masks(logits, magnitude)[2]
 
 
+
+@lru_cache(maxsize=2)
+def synthesis_weights(count):
+    size=(count-1)*HOP+FFT
+    weights=np.zeros(size,dtype=np.float32)
+    squared=WINDOW*WINDOW
+    for index in range(count):
+        start=index*HOP
+        weights[start:start+FFT]+=squared
+    weights.setflags(write=False)
+    return weights
+
+
 def synthesise(spec, mask, length):
     filtered = np.zeros_like(spec)
     filtered[:, :, :BINS] = spec[:, :, :BINS] * mask[:, :spec.shape[1]]
     frames = np.fft.irfft(filtered, n=FFT, axis=-1).astype(np.float32)
     size = (frames.shape[1] - 1) * HOP + FFT
     out = np.zeros((2, size), dtype=np.float32)
-    weights = np.zeros(size, dtype=np.float32)
+    weights = synthesis_weights(frames.shape[1])
+    np.multiply(frames, WINDOW, out=frames)
     for index in range(frames.shape[1]):
         start = index * HOP
-        out[:, start:start + FFT] += frames[:, index] * WINDOW
-        weights[start:start + FFT] += WINDOW * WINDOW
+        out[:, start:start + FFT] += frames[:, index]
     np.divide(out, weights[None], out=out, where=weights[None] > 1e-8)
     return out[:, 3072:3072 + length]
 
@@ -169,7 +183,7 @@ class PianoSeparator(Separator):
                         written = min(stride, count - offset)
                         block = accumulated[:, :, :written] / denominator[None, None, :written]
                         for stream, samples in zip(streams, block):
-                            stream.write(np.asarray(samples.T, dtype='<f4').tobytes())
+                            _write_float_samples(stream, samples)
                         accumulated[:, :, :-stride] = accumulated[:, :, stride:]
                         accumulated[:, :, -stride:] = 0
                         denominator[:-stride] = denominator[stride:]

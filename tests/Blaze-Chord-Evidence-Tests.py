@@ -1,11 +1,14 @@
 """Posterior grouping preserves musical distinctions and probability mass."""
 import sys
 from pathlib import Path
+from collections.abc import Sequence
+import json
 
 import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from music_studio.evidence import grouped_candidates
+from music_studio.evidence import grouped_candidates, _posterior
+from music_studio.chords import normalize, notes, pitch
 
 
 def check_values(actual, expected):
@@ -102,6 +105,96 @@ for probabilities, labels in [([], ['C:maj']), (np.empty((0, 0)), []),
 rejects([[1]], ['C:maj'], np.ones((1, 12)) / 12)
 rejects([[1]], ['C:maj'], np.ones((2, 13)) / 13)
 rejects([[1]], ['C:maj'], np.zeros((1, 13)))
+
+
+
+def reference_grouped_candidates(probabilities, labels: Sequence[str], bass_probabilities=None):
+    """Return (existing label per frame, group confidence, group margin).
+
+    ``probabilities`` is a normalized [frames, classes] posterior. Labels must
+    use Blaze's supported chord vocabulary. The optional bass posterior has
+    13 columns: no-bass followed by C, C#, ... B, matching LV-Chordia's head.
+
+    The highest-probability existing label normally names the winning group.
+    A bass probability of at least .6 may select a group member whose root
+    matches that bass, provided its chord probability is at least .03 and
+    one tenth of the group's highest class probability. No notes or labels
+    are invented, and weak bass evidence never changes the selected name.
+    Consumers apply their usual confidence/margin thresholds to the result.
+    """
+    if isinstance(labels, (str, bytes)):
+        raise ValueError('Labels must be a nonempty sequence of chord names.')
+    try:
+        original = list(labels)
+    except TypeError as error:
+        raise ValueError('Labels must be a nonempty sequence of chord names.') from error
+    if not original or not all(isinstance(label, str) for label in original):
+        raise ValueError('Labels must be a nonempty sequence of chord names.')
+
+    normalized = [normalize(label) for label in original]
+    groups = {}
+    roots = []
+    for index, label in enumerate(normalized):
+        if label in ('N', 'X'):
+            key = ('sentinel', label)
+            roots.append(-1)
+        else:
+            key = ('notes', tuple(notes(label)))
+            roots.append(pitch(label.split(':', 1)[0]))
+        groups.setdefault(key, []).append(index)
+    indices = [np.asarray(group, dtype=np.intp) for group in groups.values()]
+    posterior = _posterior(probabilities, len(original), 'Chord probabilities')
+    bass = None if bass_probabilities is None else _posterior(
+        bass_probabilities, 13, 'Bass probabilities', len(posterior))
+
+    if not len(posterior):
+        return [], np.empty(0, dtype=np.float32), np.empty(0, dtype=np.float32)
+
+    # Each vocabulary column belongs to exactly one group. Summing here
+    # partitions posterior mass and cannot duplicate evidence across groups.
+    mass = np.column_stack([np.sum(posterior[:, group], axis=1) for group in indices])
+    winning = np.argmax(mass, axis=1)
+    confidence = mass[np.arange(len(posterior)), winning]
+    second = np.zeros(len(posterior), np.float64) if len(indices) == 1 else np.partition(
+        mass, -2, axis=1)[:, -2]
+    margin = confidence - second
+
+    result = []
+    roots = np.asarray(roots, dtype=np.int8)
+    for frame, winner in enumerate(winning):
+        group = indices[winner]
+        probabilities_in_group = posterior[frame, group]
+        highest = float(np.max(probabilities_in_group))
+        choice = int(group[np.argmax(probabilities_in_group)])
+        if bass is not None:
+            bass_index = int(np.argmax(bass[frame]))
+            if bass_index > 0 and bass[frame, bass_index] >= .6:
+                eligible = group[(roots[group] == bass_index - 1) &
+                                 (probabilities_in_group >= max(.03, highest * .1))]
+                if len(eligible):
+                    choice = int(eligible[np.argmax(posterior[frame, eligible])])
+        result.append(original[choice])
+    return result, confidence.astype(np.float32), margin.astype(np.float32)
+
+rng=np.random.default_rng(177)
+model_labels=json.loads((Path(__file__).resolve().parents[1]/'music_studio/models/manifest.json').read_text())['models']['extended']['labels']
+for dtype in (np.float32,np.float64):
+    for count in (1,31,4097):
+        posterior=rng.uniform(0,1,(count,len(model_labels))).astype(dtype)
+        posterior/=posterior.sum(axis=1,keepdims=True)
+        bass=rng.uniform(0,1,(count,13)).astype(dtype)
+        bass/=bass.sum(axis=1,keepdims=True)
+        bass[:min(count,13)]=.4/12
+        for row in range(min(count,13)):bass[row,row]=.6
+        for supplied in (None,bass):
+            actual=grouped_candidates(posterior,model_labels,supplied)
+            expected=reference_grouped_candidates(posterior,model_labels,supplied)
+            assert actual[0]==expected[0]
+            assert actual[1].tobytes()==expected[1].tobytes()
+            assert actual[2].tobytes()==expected[2].tobytes()
+# Exact ties keep the first original vocabulary member.
+posterior=np.full((4097,len(model_labels)),1/len(model_labels))
+assert grouped_candidates(posterior,model_labels)[0]==reference_grouped_candidates(posterior,model_labels)[0]
 
 print('Chord evidence: equivalent sets, independent bass naming, mass partition, '
       'N/X distinction, real-note differences and invalid-input checks PASS')

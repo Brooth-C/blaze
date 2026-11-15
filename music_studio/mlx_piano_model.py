@@ -40,11 +40,19 @@ def validate_weights(weights):
             raise ValueError('The MLX piano parameter shape or precision is invalid: ' + key)
 
 
+def numpy_mask(result):
+    """Borrow an evaluated MLX buffer; NumPy retains its owner until release."""
+    mask = np.array(result, copy=False)
+    mask.setflags(write=False)
+    return mask
+
+
 class PianoModel:
     def __init__(self, path, *, require_gpu=True):
         import mlx.core as mx
         self.mx = mx
         self.gpu = require_gpu
+        self.rotary_cache = {}
         if require_gpu and not mx.metal.is_available():
             raise ValueError('A Metal GPU is required for the MLX piano backend.')
         self.stream = mx.new_stream(mx.gpu if require_gpu else mx.cpu)
@@ -76,11 +84,19 @@ class PianoModel:
         mx = self.mx
         # The checkpoint's frequency values were stored in FP16. Loading them
         # into FP32 preserves those values; recomputing ideal base10000 does not.
-        angles = mx.arange(x.shape[-2], dtype=mx.float32)[:, None]*self.weights[key][None, :]
-        angles = mx.repeat(angles, 2, axis=-1)
+        length = x.shape[-2]
+        cached = self.rotary_cache.get(key)
+        if cached is None or cached[0] != length:
+            angles = mx.arange(length, dtype=mx.float32)[:, None]*self.weights[key][None, :]
+            angles = mx.repeat(angles, 2, axis=-1)
+            # One entry per checkpoint frequency key: changing context replaces
+            # its table rather than accumulating tables for every chunk length.
+            cached = (length, mx.cos(angles), mx.sin(angles))
+            self.rotary_cache[key] = cached
+        cosine, sine = cached[1:]
         pairs = x.reshape(*x.shape[:-1], 32, 2)
         rotated = mx.stack((-pairs[..., 1], pairs[..., 0]), axis=-1).reshape(x.shape)
-        return x*mx.cos(angles)+rotated*mx.sin(angles)
+        return x*cosine+rotated*sine
 
     def attention(self, x, key):
         mx = self.mx
@@ -161,7 +177,7 @@ class PianoModel:
                 masks.append(a*mx.sigmoid(b))
             result = mx.concatenate(masks, axis=-1).reshape(1, 1, t, 2050, 2).transpose(0, 1, 3, 2, 4)
             mx.eval(result);check();progress(1)
-            return np.array(result, copy=True)
+            return numpy_mask(result)
 
     def close(self):
         try:
@@ -170,6 +186,7 @@ class PianoModel:
             try:
                 self.feed_forward = None
                 self.weights.clear()
+                self.rotary_cache.clear()
             finally:
                 try:
                     self.mx.clear_cache()

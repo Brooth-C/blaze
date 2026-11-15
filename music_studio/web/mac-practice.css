@@ -31,6 +31,9 @@ html[data-presentation=mac] body.practice-workspace-active.mac-player-expanded #
 #practice-workspace .practice-download { position:relative;border:0;padding:0;margin:0; }
 .practice-download summary { cursor:pointer;padding:7px 12px;border:1px solid var(--practice-line);border-radius:6px;background:var(--practice-input); }
 .practice-download>div { position:absolute;right:0;top:38px;z-index:5;min-width:185px;display:grid;gap:5px;padding:8px;background:var(--practice-panel);border:1px solid var(--practice-line);border-radius:8px;box-shadow:0 8px 24px #0003; }
+.practice-download label { color:var(--practice-muted);font-size:11px;padding:2px 4px; }
+.practice-download select { width:100%;min-height:32px;padding:4px 8px;border:1px solid var(--practice-line);border-radius:6px;background:var(--practice-input);color:var(--practice-ink);font:inherit;margin-bottom:5px; }
+.practice-download small { max-width:230px;white-space:normal;overflow-wrap:anywhere; }
 #practice-workspace #practice-current-chord { transition:background-color 180ms ease,border-color 180ms ease; }
 #practice-current-chord { position:relative;overflow:hidden; }
 #practice-current-chord::after { content:"";position:absolute;bottom:0;left:0;height:3px;width:100%;transform:scaleX(var(--chord-progress,0));transform-origin:left;background:var(--practice-accent); }
@@ -49,9 +52,10 @@ html[data-presentation=mac] body.practice-workspace-active.mac-player-expanded #
 #practice-workspace .practice-entry-actions { display:flex;gap:8px;flex-wrap:wrap;margin-top:22px; }
 #practice-workspace .practice-entry-actions #practice-open { background:var(--practice-accent);color:var(--practice-accent-ink);border-color:transparent; }
 #practice-workspace .practice-listening { display:flex;align-items:center;gap:16px;flex-wrap:wrap;padding:20px 0 16px; }
-#practice-workspace .practice-mode { display:flex;flex:none;padding:3px;background:var(--practice-panel);border:1px solid var(--practice-line);border-radius:8px; }
-#practice-workspace .practice-mode button { min-width:87px;min-height:31px;border:0;padding:5px 15px;background:transparent;color:var(--practice-muted); }
-#practice-workspace .practice-mode button[aria-pressed=true] { background:var(--practice-input);color:var(--practice-ink);box-shadow:0 1px 3px #0003; }
+#practice-workspace .practice-mode { display:flex;position:relative;isolation:isolate;flex:none;padding:3px;background:var(--practice-panel);border:1px solid var(--practice-line);border-radius:8px; }
+#practice-workspace .practice-mode::before { content:"";position:absolute;z-index:-1;inset:3px auto 3px 3px;width:calc((100% - 6px)/3);border-radius:5px;background:var(--practice-input);box-shadow:0 1px 3px #0003;transform:translateX(calc(var(--mode-index,0)*100%));transition:transform 280ms cubic-bezier(.22,.85,.25,1); }
+#practice-workspace .practice-mode button { flex:1;min-width:87px;min-height:31px;border:0;padding:5px 15px;background:transparent;color:var(--practice-muted); }
+#practice-workspace .practice-mode button[aria-pressed=true] { background:transparent;color:var(--practice-ink);box-shadow:none; }
 #practice-workspace .practice-listening p { margin:0;flex:1;min-width:160px;color:var(--practice-muted);font-size:12px; }
 #practice-workspace .practice-listening>button { font-size:12px; }
 #practice-workspace .practice-passage { border-top:1px solid var(--practice-line);padding-top:12px; }
@@ -106,11 +110,12 @@ html[data-presentation=mac] body.practice-workspace-active.mac-player-expanded #
 #practice-workspace #practice-status { grid-column:1/-1;min-height:15px;margin:0;color:var(--practice-muted);font-size:11px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis; }
 #practice-workspace #practice-status[data-error=true] { color:#ffb0a4; }
 @media(prefers-color-scheme:light) {
- html[data-presentation=mac] #practice-workspace { --practice-bg:#f1f1f1;--practice-panel:#e6e6e6;--practice-input:#dadada;--practice-ink:#252525;--practice-muted:#5d5d5d;--practice-line:#0000001c;--practice-focus:#326aa9;--practice-loop:#895a16;--practice-wave-bg:#e0e5e8;--practice-wave-ink:#326474; }
+ html[data-presentation=mac]:not([data-appearance=dark]) #practice-workspace { --practice-bg:#f1f1f1;--practice-panel:#e6e6e6;--practice-input:#dadada;--practice-ink:#252525;--practice-muted:#5d5d5d;--practice-line:#0000001c;--practice-focus:#326aa9;--practice-loop:#895a16;--practice-wave-bg:#e0e5e8;--practice-wave-ink:#326474; }
  #practice-workspace #practice-wave-empty { color:#405b66; }
  #practice-workspace #practice-status[data-error=true] { color:#a6271b; }
  #practice-workspace #practice-loop-toggle[aria-pressed=true] { border-color:#895a1666;background:#895a1610; }
 }
+html[data-presentation=mac][data-appearance=light] #practice-workspace { --practice-bg:#f1f1f1;--practice-panel:#e6e6e6;--practice-input:#dadada;--practice-ink:#252525;--practice-muted:#5d5d5d;--practice-line:#0000001c;--practice-focus:#326aa9;--practice-loop:#895a16;--practice-wave-bg:#e0e5e8;--practice-wave-ink:#326474; }
 @media(max-width:950px) {
  #practice-workspace .practice-header { align-items:flex-start;gap:12px;flex-wrap:wrap;padding:17px 20px 14px; }
  #practice-workspace .practice-song { flex:1 1 300px; }
@@ -163,4 +168,27 @@ html[data-presentation=mac] body.practice-workspace-active.mac-player-expanded #
  #practice-workspace > .practice-chords #practice-chord-help { margin:2px 0 6px;font-size:10px; }
  #practice-workspace > .practice-chords button.practice-chord { min-height:76px;padding:8px 10px; }
  #practice-workspace > .practice-chords .practice-chord > strong { font-size:27px; }
+}
+/* Quiet at rest; motion follows the action rather than running continuously. */
+#practice-workspace :is(#practice-song-detail,#practice-chord-help,#practice-save-status,#practice-status,#practice-preparation):empty { display:none; }
+#practice-workspace .practice-header { padding-block:22px; }
+#practice-workspace .practice-listening { padding-block:16px 10px; }
+#practice-workspace .practice-tools { margin-block:4px 16px; }
+#practice-workspace button { transition:background-color 140ms ease,color 140ms ease,border-color 140ms ease,transform 140ms cubic-bezier(.2,.8,.2,1); }
+#practice-workspace button:active:not(:disabled) { transform:scale(.97); }
+#practice-workspace button.practice-chord { min-height:104px; }
+#practice-workspace .practice-chord>strong { transform-origin:left center; }
+#practice-workspace #practice-current-chord { border-color:color-mix(in srgb,var(--practice-accent) 38%,var(--practice-line));background:color-mix(in srgb,var(--practice-accent) 5%,var(--practice-panel)); }
+#practice-workspace .practice-chord>strong { font-size:34px; }
+#practice-workspace button.practice-play { box-shadow:0 3px 10px #0002; }
+#practice-workspace button.practice-play:hover:not(:disabled) { background:var(--practice-accent);transform:scale(1.06); }
+#practice-workspace button.practice-play:active:not(:disabled) { transform:scale(.94); }
+#practice-workspace .practice-loop-range { transition:background-color 180ms ease; }
+@media(max-height:650px) {
+ #practice-workspace .practice-header { padding-block:12px; }
+ #practice-workspace button.practice-chord { min-height:76px; }
+}
+@media(prefers-reduced-motion:reduce) {
+ #practice-workspace *,#practice-workspace *::before,#practice-workspace *::after { animation:none!important;transition:none!important; }
+ #practice-workspace button:active:not(:disabled),#practice-workspace button.practice-play:hover:not(:disabled) { transform:none; }
 }

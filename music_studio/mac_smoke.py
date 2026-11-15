@@ -41,8 +41,8 @@ class MacSmokeCatalogue:
             if self.closed:
                 raise ValueError('The test catalogue is closed.')
             identity = uuid.uuid4().hex
-            self.jobs[identity] = dict(ready=time.monotonic() + .04, cancelled=False, **value)
-            return {'requestId': identity}
+            self.jobs[identity] = dict(ready=time.monotonic() + .04, cancelled=False, wake=threading.Event(), **value)
+            return {'requestId': identity, 'canWait': True}
 
     def request(self, body):
         action = body.get('action')
@@ -50,7 +50,10 @@ class MacSmokeCatalogue:
         self.requests.append(dict(body))
         rows = self.home
         if action == 'search':
-            if body.get('filter') == 'videos':
+            if query == 'many results':
+                rows = [self.item(str(index).zfill(11), 'Result ' + str(index), 'Test artist')
+                        for index in range(min(60, body.get('limit', 16)))]
+            elif body.get('filter') == 'videos':
                 rows = [self.item('fffffffffff', query + ' live session', 'Juniper', kind='video')]
             else:
                 rows = [self.item('aaaaaaaaaaa', query + ' acoustic session', 'Mira Lane', image='acoustic'),
@@ -79,10 +82,19 @@ class MacSmokeCatalogue:
                 return {'status': 'ready', 'item': job['item'], 'error': None}
             return {'status': 'ready', 'items': job['items'], 'error': None}
 
+    def wait_status(self, identity):
+        with self.lock:
+            job = self.jobs[identity]
+            delay = max(0, min(.3, job['ready'] - time.monotonic()))
+            wake = job['wake']
+        wake.wait(delay)
+        return self.status(identity)
+
     def cancel(self, identity):
         with self.lock:
             if identity in self.jobs:
                 self.jobs[identity]['cancelled'] = True
+                self.jobs[identity]['wake'].set()
 
     def prepare(self, body):
         item = body.get('item')
@@ -119,3 +131,4 @@ class MacSmokeCatalogue:
             self.closed = True
             for job in self.jobs.values():
                 job['cancelled'] = True
+                job['wake'].set()

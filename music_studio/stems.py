@@ -83,6 +83,17 @@ def _write_header(stream, frames):
                              b'fact', 4, frames, b'data', size))
 
 
+def _write_float_samples(stream, samples):
+    """Write channel-first samples as identical interleaved float32 WAV data."""
+    channels, frames = samples.shape
+    if not frames:
+        return stream.write(b'')
+    packed = np.empty((frames, channels), dtype='<f4')
+    for channel in range(channels):
+        packed[:, channel] = samples[channel]
+    return stream.write(memoryview(packed).cast('B'))
+
+
 class Separator:
     def __init__(self, model_directory=None, ffmpeg='ffmpeg', runtime_backend=None):
         self.directory = Path(model_directory or Path(__file__).parent / 'stem_models')
@@ -264,7 +275,7 @@ class Separator:
                     written = min(stride, frames - offset)
                     block = accum[:, :, :written] / denominator[None, None, :written]
                     for index, stream in enumerate(streams):
-                        stream.write(np.asarray(block[index].T, dtype='<f4').tobytes())
+                        _write_float_samples(stream, block[index])
                     accum[:, :, :-stride] = accum[:, :, stride:]
                     accum[:, :, -stride:] = 0
                     denominator[:-stride] = denominator[stride:]

@@ -18,6 +18,39 @@ FAMILY={'maj6':'maj','maj7':'maj','7':'maj','9':'maj','maj9':'maj','11':'maj','1
 PARENT={'9':'7','11':'7','13':'7','maj9':'maj7','maj13':'maj7','min9':'min7','min11':'min7','min13':'min7','7sus4':'sus4'}
 
 
+
+def silence_mask(pcm,times,check=lambda:None):
+    """Keep original frame boundaries and threshold with bounded batch work."""
+    silent=np.ones(len(times),dtype=bool)
+    comparison_dtype=np.result_type(pcm.dtype.type(0),1e-5)
+    windows=np.lib.stride_tricks.sliding_window_view(pcm,512) if len(pcm)>=512 else None
+    for first in range(0,len(times),128):
+        check();last=min(len(times),first+128)
+        starts=(times[first:last]*22050).astype(np.int64)
+        full=(starts>=0)&(starts+512<=len(pcm))
+        if np.any(full):
+            peaks=np.max(np.abs(windows[starts[full]]),axis=1,initial=0)
+            # Scalar NumPy comparisons promote float32 peaks against the Python
+            # threshold. Match that rule at the exact silence boundary.
+            silent[first:last][full]=peaks.astype(comparison_dtype)<1e-5
+        for offset in np.flatnonzero(~full):
+            start=int(starts[offset])
+            silent[first+offset]=np.max(np.abs(pcm[start:min(len(pcm),start+512)]),initial=0)<1e-5
+    return silent
+
+
+
+def observation_scores(priors,columns,baseline_frames,heads,components,start,end):
+    """Log each distinct component once before expanding the chord vocabulary."""
+    prior=1.2*np.log(np.maximum(priors[baseline_frames[start:end]],1e-7))
+    score=prior[:,columns]
+    for k,head in enumerate(heads):
+        weight=1.0 if k==0 else .65
+        values=weight*np.log(np.maximum(head[start:end],1e-7))
+        score+=values[:,components[:,k]]
+    return score
+
+
 def sequence_decode(emissions,penalties,beam=20,check=lambda:None):
     """Beam Viterbi with soft change costs; every frame may change chord."""
     history=[];previous=np.empty(0,dtype=np.int32);scores=np.empty(0,dtype=np.float64)
@@ -28,12 +61,13 @@ def sequence_decode(emissions,penalties,beam=20,check=lambda:None):
         if not len(previous):
             values=row[ids].astype(np.float64);parents=np.full(len(ids),-1,dtype=np.int16)
         else:
-            best=int(np.argmax(scores));lookup={int(i):n for n,i in enumerate(previous)}
-            values=np.empty(len(ids));parents=np.empty(len(ids),dtype=np.int16)
-            for n,i in enumerate(ids):
-                stay=lookup.get(int(i));changed=scores[best]-penalties[t]
-                if stay is not None and scores[stay]>=changed:parents[n]=stay;values[n]=scores[stay]+row[i]
-                else:parents[n]=best;values[n]=changed+row[i]
+            best=int(np.argmax(scores));changed=scores[best]-penalties[t]
+            lookup=np.full(len(row),-1,dtype=np.int32)
+            lookup[previous]=np.arange(len(previous),dtype=np.int32)
+            stay=lookup[ids];stay_scores=scores[np.maximum(stay,0)]
+            keep=(stay>=0)&(stay_scores>=changed)
+            parents=np.where(keep,stay,best).astype(np.int16)
+            values=np.where(keep,stay_scores,changed)+row[ids]
         retained=np.argsort(values)[-beam:];previous=ids[retained];scores=values[retained]
         scores-=scores.max();history.append((previous.copy(),parents[retained].copy()))
     if not history:return np.empty(0,dtype=np.int32)
@@ -45,14 +79,18 @@ def sequence_decode(emissions,penalties,beam=20,check=lambda:None):
 
 def stabilize_equivalent_names(frames):
     """Name one uninterrupted sounding set consistently; retain slash bass."""
+    sounding_cache={}
+    def sounding_set(label):
+        if label not in sounding_cache:sounding_cache[label]=notes(label)
+        return sounding_cache[label]
     start=0
     while start<len(frames):
         label=frames[start]['chord']
         if label in ('X','N') or '/' in label:start+=1;continue
-        sounding=notes(label);end=start+1
+        sounding=sounding_set(label);end=start+1
         while end<len(frames):
             next_label=frames[end]['chord']
-            if next_label in ('X','N') or '/' in next_label or notes(next_label)!=sounding:break
+            if next_label in ('X','N') or '/' in next_label or sounding_set(next_label)!=sounding:break
             end+=1
         support={}
         for frame in frames[start:end]:
@@ -96,7 +134,9 @@ class StructuredRecognizer:
         return data
 
     def feed(self,pcm):
-        self.audio.write(np.asarray(pcm,dtype=np.float32).tobytes());self.samples+=len(pcm)
+        samples=np.ascontiguousarray(pcm,dtype=np.float32)
+        if samples.size:self.audio.write(memoryview(samples).cast('B'))
+        self.samples+=len(pcm)
 
     def close(self):
         if not self.audio.closed:
@@ -127,7 +167,7 @@ class StructuredRecognizer:
                 check();raw=net.run(None,{'features':value})
                 probs=[]
                 for head in raw:
-                    head=head-head.max(axis=1,keepdims=True);head=np.exp(head);head/=head.sum(axis=1,keepdims=True);probs.append(head)
+                    head=head-head.max(axis=1,keepdims=True);np.exp(head,out=head);head/=head.sum(axis=1,keepdims=True);probs.append(head)
                 if average is None:average=probs
                 else:
                     for total,head in zip(average,probs):total+=head
@@ -138,7 +178,10 @@ class StructuredRecognizer:
             weights[start:end]+=weight
             progress(f'Advanced chord ensemble · {end*512/22050:.1f} seconds analysed')
             if end==size:break
-        return [head/weights[:,None] for head in outputs]
+        # These are private accumulation buffers; normalize them without
+        # allocating another full recording's worth of ensemble outputs.
+        for head in outputs:np.divide(head,weights[:,None],out=head)
+        return outputs
 
     def decode(self,heads,baseline,baseline_labels,duration,beats,pcm,check=lambda:None):
         count=min(len(heads[0]),int(np.ceil(duration*22050/512)))
@@ -166,7 +209,7 @@ class StructuredRecognizer:
         priors=np.stack(values,axis=1)
         prior_columns=np.asarray(prior_columns)
         # Derive a silence mask directly from the original audio, not a model guess.
-        silent=np.array([np.max(np.abs(pcm[int(t*22050):min(len(pcm),int(t*22050)+512)]),initial=0)<1e-5 for t in times])
+        silent=silence_mask(pcm,times,check)
         penalties=np.full(count,2.8,dtype=np.float32)
         if beats:
             positions=np.searchsorted(beats,times)
@@ -175,10 +218,7 @@ class StructuredRecognizer:
         def observations():
             for start in range(0,count,128):
                 end=min(count,start+128)
-                score=1.2*np.log(np.maximum(priors[baseline_frames[start:end]][:,prior_columns],1e-7))
-                for k,head in enumerate(heads):
-                    weight=1.0 if k==0 else .65
-                    score+=weight*np.log(np.maximum(head[start:end,self.components[:,k]],1e-7))
+                score=observation_scores(priors,prior_columns,baseline_frames,heads,self.components,start,end)
                 for n in range(start,end):
                     row=score[n-start]
                     if silent[n]:row[:]=-1000;row[0]=0

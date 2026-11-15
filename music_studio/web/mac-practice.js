@@ -6,24 +6,24 @@
  const host=document.getElementById('studio-panel'),player=document.getElementById('media'),cmd=engine.commands;
  const root=document.createElement('section');root.id='practice-workspace';root.setAttribute('aria-label','Song practice');
  root.innerHTML=`
-  <header class="practice-header"><div class="practice-song"><h1 id="practice-title">Practice</h1><p id="practice-song-detail">Open a song and learn it one passage at a time.</p></div><div class="practice-header-actions"><button id="practice-open">Open song</button><button id="practice-find">Find a song</button></div></header>
+  <header class="practice-header"><div class="practice-song"><h1 id="practice-title">Practice</h1><p id="practice-song-detail"></p></div><div class="practice-header-actions"><button id="practice-open">Open song</button><button id="practice-find">Find a song</button></div></header>
   <div class="practice-content">
-   <section id="practice-empty" class="practice-empty"><h2>Choose a song to begin.</h2><p>Hear its piano, slow down a difficult passage, then play along with the backing.</p></section>
+   <section id="practice-empty" class="practice-empty"><h2>Choose a song</h2><p>Open a file or find a song to practise.</p></section>
    <div id="practice-song-controls" hidden>
-    <div class="practice-listening"><div class="practice-mode" role="group" aria-label="Listening mode"><button id="practice-original" aria-pressed="true">Original</button><button id="practice-piano" aria-pressed="false">Piano</button><button id="practice-backing" aria-pressed="false">Backing</button></div><p id="practice-preparation" role="status"></p><button id="practice-preparation-details" class="practice-quiet" hidden>Preparation details</button></div>
+    <div class="practice-listening"><div class="practice-mode" role="group" aria-label="Listening mode"><button id="practice-original" aria-pressed="true">Original</button><button id="practice-piano" aria-pressed="false">Piano</button><button id="practice-backing" aria-pressed="false">Backing</button></div><p id="practice-preparation" role="status"></p><button id="practice-preparation-details" class="practice-quiet" hidden>Details</button></div>
     <section class="practice-passage" aria-label="Song passage"><div class="practice-wave-heading"><span id="practice-mode-label">Original recording</span><span id="practice-wave-status"></span></div><div id="practice-wave-area" class="practice-wave-area"><canvas id="practice-wave" role="slider" tabindex="0" aria-label="Song waveform. Click to seek; shift-drag to loop a passage." aria-valuemin="0" aria-valuemax="100"></canvas><div id="practice-loop-range" class="practice-loop-range" hidden></div><div id="practice-playhead" class="practice-playhead" aria-hidden="true"></div><span id="practice-wave-empty">Reading waveform…</span></div><div class="practice-wave-times"><span>0:00</span><span id="practice-song-duration">0:00</span></div>
-     <div class="practice-loop-tools"><div class="practice-loop-points"><button id="practice-set-a">Set A <span id="practice-a-value">—</span></button><button id="practice-set-b">Set B <span id="practice-b-value">—</span></button></div><button id="practice-loop-toggle" aria-pressed="false">Loop passage</button><button id="practice-clear-loop" class="practice-quiet">Clear</button><span id="practice-loop-hint">Set A and B, or shift-drag on the waveform.</span></div>
+     <div class="practice-loop-tools"><div class="practice-loop-points"><button id="practice-set-a">Set A <span id="practice-a-value">—</span></button><button id="practice-set-b">Set B <span id="practice-b-value">—</span></button></div><button id="practice-loop-toggle" aria-pressed="false">Loop passage</button><button id="practice-clear-loop" class="practice-quiet">Clear</button><span id="practice-loop-hint" title="Set A and B at the playback position, or hold Shift and drag on the waveform.">Shift-drag to loop</span></div>
     </section>
     <section class="practice-chords" aria-labelledby="practice-chords-heading"><div class="practice-section-heading"><h2 id="practice-chords-heading">Chord guide</h2><span id="practice-key-tempo"></span><button id="practice-analyze" class="practice-quiet">Analyse chords</button></div><p id="practice-chord-help">Analyse this song to follow its chords while you play.</p><div class="practice-chord-pair"><button id="practice-current-chord" class="practice-chord"><span>Current</span><strong aria-live="polite">—</strong><small>Not analysed</small></button><button id="practice-next-chord" class="practice-chord"><span>Up next</span><strong>—</strong><small>Not analysed</small></button></div></section>
    </div>
-   <section class="practice-saved" aria-labelledby="practice-saved-heading"><div class="practice-section-heading"><h2 id="practice-saved-heading">Saved practices</h2><button id="practice-save" class="practice-quiet" disabled>Save practice</button></div><p id="practice-save-status" role="status">Save a song to remember your passage, speed and listening mode.</p><div id="practice-sessions" role="group" aria-label="Saved practices"></div></section>
+   <section class="practice-saved" aria-labelledby="practice-saved-heading"><div class="practice-section-heading"><h2 id="practice-saved-heading">Saved practices</h2><button id="practice-save" class="practice-quiet" disabled>Save practice</button></div><p id="practice-save-status" role="status"></p><div id="practice-sessions" role="group" aria-label="Saved practices"></div></section>
   </div>
   <footer class="practice-transport" aria-label="Practice playback"><div class="practice-speed"><label for="practice-speed">Speed <output id="practice-speed-value">1×</output></label><input id="practice-speed" type="range" min=".5" max="1.25" step=".05" value="1"><div class="practice-speed-presets"><button data-rate=".5">0.5×</button><button data-rate=".75">0.75×</button><button data-rate="1" aria-pressed="true">1×</button></div></div><div class="practice-play-controls"><button id="practice-back" class="practice-icon" aria-label="Back five seconds"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5v14M19 5 7 12l12 7Z"/></svg></button><button id="practice-play" class="practice-play" aria-label="Play song"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m8 4 12 8-12 8Z"/></svg></button><button id="practice-forward" class="practice-icon" aria-label="Forward five seconds"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 5v14M5 5l12 7-12 7Z"/></svg></button><output id="practice-position">0:00 / 0:00</output></div><div class="practice-volume"><label for="practice-volume">Volume</label><input id="practice-volume" type="range" min="0" max="1" step=".01" value="1"></div><p id="practice-status" role="status"></p></footer>`;
  host.prepend(root);
  const chordSection=root.querySelector('.practice-chords');root.querySelector('.practice-header').after(chordSection);
  const semitones=()=>Array.from({length:25},(_,i)=>i-12).map(n=>'<option value="'+n+'"'+(n===0?' selected':'')+'>'+(n>0?'+':'')+n+(n===0?' · Original':'')+'</option>').join('');
- chordSection.querySelector('.practice-section-heading').insertAdjacentHTML('afterend',`<div class="practice-transpose"><label for="practice-pitch-value">Transpose chords</label><button id="practice-pitch-down" aria-label="Transpose chords down one semitone">−</button><select id="practice-pitch-value" aria-label="Chord transpose semitones">${semitones()}</select><button id="practice-pitch-up" aria-label="Transpose chords up one semitone">+</button><button id="practice-pitch-reset">Reset</button><small id="practice-pitch-status" role="status">Display only · playback unaffected</small></div>`);
- root.querySelector('.practice-listening').insertAdjacentHTML('afterend',`<section class="practice-tools" aria-label="Optional audio tools"><details class="practice-audio-pitch"><summary>Audio pitch (optional)</summary><div class="practice-transpose"><label for="practice-audio-pitch-value">Audio semitones</label><select id="practice-audio-pitch-value" aria-label="Audio pitch semitones">${semitones()}</select><button id="practice-audio-pitch-reset">Reset audio</button><small id="practice-audio-pitch-status" role="status">Original audio · chord display is independent</small></div></details><details class="practice-download"><summary>Download WAV</summary><div><button id="practice-download-piano">Piano WAV</button><button id="practice-download-backing">Backing WAV</button><button id="practice-download-both">Both WAVs (.zip)</button><small id="practice-download-status" role="status"></small></div></details></section>`);
+ chordSection.querySelector('.practice-section-heading').insertAdjacentHTML('afterend',`<div class="practice-transpose"><label for="practice-pitch-value">Transpose chords</label><button id="practice-pitch-down" aria-label="Transpose chords down one semitone">−</button><select id="practice-pitch-value" aria-label="Chord transpose semitones">${semitones()}</select><button id="practice-pitch-up" aria-label="Transpose chords up one semitone">+</button><button id="practice-pitch-reset">Reset</button><small id="practice-pitch-status" role="status" title="Transposing chords changes notation only. Playback and downloads keep their original pitch.">Chords only</small></div>`);
+ root.querySelector('.practice-listening').insertAdjacentHTML('afterend',`<section class="practice-tools" aria-label="Optional audio tools"><details class="practice-audio-pitch"><summary>Audio pitch (optional)</summary><div class="practice-transpose"><label for="practice-audio-pitch-value">Audio semitones</label><select id="practice-audio-pitch-value" aria-label="Audio pitch semitones">${semitones()}</select><button id="practice-audio-pitch-reset">Reset audio</button><small id="practice-audio-pitch-status" role="status">Original audio</small></div></details><details class="practice-download"><summary>Download WAV</summary><div><label for="practice-download-pitch-value">Audio pitch</label><select id="practice-download-pitch-value" aria-label="Download audio pitch semitones">${semitones()}</select><button id="practice-download-source">Recording WAV</button><button id="practice-download-piano">Piano WAV</button><button id="practice-download-backing">Backing WAV</button><button id="practice-download-both">Both WAVs (.zip)</button><small id="practice-download-status" role="status"></small></div></details></section>`);
 
  const nodes=new Map(),styles=new WeakMap();
  const $=id=>{if(!nodes.has(id))nodes.set(id,root.querySelector('#practice-'+id));return nodes.get(id);},text=(node,value)=>{value=String(value??'');if(node.textContent!==value)node.textContent=value;};
@@ -37,8 +37,9 @@
  const dismissDownload=event=>{if(downloadMenu.open&&!downloadMenu.contains(event.target))downloadMenu.open=false;};
  const escapeDownload=event=>{if(event.key==='Escape'&&downloadMenu.open){downloadMenu.open=false;downloadSummary.focus();event.preventDefault();event.stopPropagation();}};
  document.addEventListener('pointerdown',dismissDownload);root.addEventListener('keydown',escapeDownload);
- let playFrame=0,pendingRestore=null;
- let transposeValue=0,audioPitchValue=0,pitchBusy=false,pitchEpoch=0,downloadBusy=false,chordIdentity='';
+ const reducedMotion=matchMedia('(prefers-reduced-motion: reduce)');
+ let playFrame=0,updateFrame=0,timer=0,pendingRestore=null;
+ let transposeValue=0,audioPitchValue=0,pitchBusy=false,pitchEpoch=0,downloadBusy=false;
  let active=true,stopped=false,state=engine.viewState(),meta={sessions:[],current:null,pianoJobId:null,recordingId:null,sourceRevision:-1,guide:null};
  let metadataBusy=false,metadataWait=null,metadataAgain=false,metadataSerial=0,actionEpoch=0,modeBusy=false,queuedMode=null,pendingMode=null,restoring=false;
  let message='',error='',saveMessage='',saving=false,saveTimer=0,saveAgain=false,lastSaveAt=0,lastSavedFingerprint='',lastControlsFingerprint='',lastKey=null,lastMetaTrigger='';
@@ -52,7 +53,7 @@
  const fingerprint=value=>JSON.stringify([value.rate,value.loopStart,value.loopEnd,value.loopEnabled,value.mode,value.transpose||0,value.audioPitch||0]);
  function report(failure){error=failure?.message||String(failure);update();}
  const run=action=>async()=>{error='';try{await action();}catch(failure){report(failure);}finally{update();}};
- function visibility(){if(document.body.classList.contains('practice-workspace-active')===host.hidden)document.body.classList.toggle('practice-workspace-active',!host.hidden);prop(root,'hidden',false);if(host.hidden){downloadMenu.open=false;cancelAnimationFrame(playFrame);playFrame=0;}}
+ function visibility(){if(document.body.classList.contains('practice-workspace-active')===host.hidden)document.body.classList.toggle('practice-workspace-active',!host.hidden);prop(root,'hidden',false);if(host.hidden||document.hidden){downloadMenu.open=false;cancelAnimationFrame(playFrame);playFrame=0;}}
  function showPractice(){active=true;if(amount!==transposeValue)shift(transposeValue-amount);visibility();void refreshMetadata();update();}
  $('open').onclick=run(()=>cmd.import());$('find').onclick=run(()=>cmd.browse());
  $('play').onclick=run(()=>cmd.play());$('back').onclick=run(()=>cmd.seek((Number(player.currentTime)||0)-5));$('forward').onclick=run(()=>cmd.seek((Number(player.currentTime)||0)+5));
@@ -120,7 +121,7 @@
    if(rawSource&&!committed&&revision===sourceRevision){audioPitchValue=0;if(resume&&!previous)player.play().catch(report);changed();}
    report(failure);
   }}
-  finally{if(epoch===pitchEpoch){pitchBusy=false;text($('audio-pitch-status'),audioPitchValue?'Audio '+(audioPitchValue>0?'+':'')+audioPitchValue+' · playback and WAV downloads':'Original audio · chord display is independent');update();}}
+  finally{if(epoch===pitchEpoch){pitchBusy=false;text($('audio-pitch-status'),audioPitchValue?'Audio '+(audioPitchValue>0?'+':'')+audioPitchValue+' · playback':'Original audio');update();}}
  }
  function transposeChords(value){if(!hasSong())return;transposeValue=Math.max(-12,Math.min(12,value));shift(transposeValue-amount);changed();update();}
  $('pitch-value').onchange=()=>transposeChords(Number($('pitch-value').value));
@@ -130,12 +131,25 @@
  $('audio-pitch-value').onchange=()=>void applyAudioPitch(Number($('audio-pitch-value').value));
  $('audio-pitch-reset').onclick=()=>void applyAudioPitch(0);
  async function downloadAudio(kind){
-  downloadBusy=true;text($('download-status'),'Preparing your WAV download…');update();
-  try{const prepared=await renderAudio(kind,audioPitchValue),link=document.createElement('a');link.href=prepared.url+'&download=1';link.download=prepared.filename;document.body.append(link);link.click();link.remove();text($('download-status'),'Download ready.');}
+  if(downloadBusy)return;
+  const exportPitch=Number($('download-pitch-value').value);
+  downloadBusy=true;text($('download-status'),'Preparing WAV…');update();
+  try{
+   const prepared=await renderAudio(kind,exportPitch);
+   if(prepared.nativeSaveAvailable){
+    text($('download-status'),'Choose where to save…');
+    const saved=await api('/api/practice-save-audio',{requestId:prepared.requestId});
+    if(saved.status!=='saved'&&saved.status!=='cancelled')throw Error('The file could not be saved. Try again.');
+    text($('download-status'),saved.status==='saved'?'Saved '+(saved.filename||prepared.filename):'Save cancelled.');
+   }else{
+    const link=document.createElement('a');link.href=prepared.url+'&download=1';link.download=prepared.filename;document.body.append(link);link.click();setTimeout(()=>link.remove(),1000);
+    text($('download-status'),'Download started.');
+   }
+  }
   catch(failure){text($('download-status'),failure.message||'Could not download audio.');}
   finally{downloadBusy=false;update();}
  }
- for(const kind of ['piano','backing','both'])$('download-'+kind).onclick=()=>void downloadAudio(kind);
+ for(const kind of ['source','piano','backing','both'])$('download-'+kind).onclick=()=>void downloadAudio(kind);
  async function refreshMetadata(){
   if(stopped)return;
   if(metadataBusy){metadataAgain=true;const outcome=await metadataWait;if(outcome==='stale'&&!stopped)return refreshMetadata();return;}
@@ -226,13 +240,11 @@
   const position=Number(player.currentTime)||0,index=after(events,position)-1;
   currentChord=index>=0&&events[index].end>position?events[index]:null;nextChord=knownEvents[after(knownEvents,position)]||null;
   paintChordProgress();
-  const identity=JSON.stringify([currentChord?.start,currentChord?.chord,nextChord?.chord,transposeValue]);
-  if(identity!==chordIdentity){chordIdentity=identity;if(!matchMedia('(prefers-reduced-motion: reduce)').matches){for(const id of ['current-chord','next-chord']){const button=$(id);button.getAnimations().forEach(animation=>animation.cancel());button.animate([{opacity:.35,transform:'translateY(5px)'},{opacity:1,transform:'translateY(0)'}],{duration:180,easing:'ease-out'});}}}
-  for(const view of chordViews){const event=view.id==='current-chord'?currentChord:nextChord;const button=view.button;text(view.label,event?chordLabel(event.chord):'—');text(view.detail,event?stamp(event.start)+'–'+stamp(event.end):events.length?'No chord here':'Not analysed');prop(button,'disabled',!event);if(view.event!==event){view.event=event;button.onclick=event?()=>cmd.seek(event.start):null;}}
+  for(const view of chordViews){const event=view.id==='current-chord'?currentChord:nextChord;const button=view.button;const label=event?chordLabel(event.chord):'—';if(view.label.textContent!==label){text(view.label,label);view.animation?.cancel();if(!reducedMotion.matches&&events.length)view.animation=view.label.animate([{opacity:0,transform:'translateY(7px) scale(.97)'},{opacity:1,transform:'translateY(0) scale(1)'}],{duration:240,easing:'cubic-bezier(.2,.8,.2,1)'});}text(view.detail,event?stamp(event.start)+'–'+stamp(event.end):'');prop(button,'disabled',!event);if(view.event!==event){view.event=event;button.onclick=event?()=>cmd.seek(event.start):null;}}
   const key=guide?.key||state.key,tempo=guide?.tempo_bpm||guide?.tempo||state.tempo;
   const keyLabel=key&&key!=='—'?key.replace(/^([A-G][#b]?)/,note=>roots[(pitch(note)+transposeValue+12)%12]):'';
   const details=events.length?[keyLabel,tempo?Math.round(tempo)+' BPM':''].filter(Boolean).join(' · '):'';text($('key-tempo'),details);
-  text($('chord-help'),state.analysisBusy?'Analysing '+(state.analysisTask?.sourceName||'your recording')+'…':events.length?'A listening guide, with uncertain sections marked.':'Analyse this song to follow its chords while you play.');
+  text($('chord-help'),state.analysisBusy?'Analysing '+(state.analysisTask?.sourceName||'your recording')+'…':events.length?'':'Analyse to see the chords.');
   text($('analyze'),state.analysisBusy?'Cancel analysis':events.length?'Analyse again':'Analyse chords');prop($('analyze'),'disabled',!hasSong());
  }
  function drawWave(){
@@ -249,20 +261,22 @@
  $('wave').onpointerup=finishWave;$('wave').onpointercancel=event=>{previewRange=null;pointer=null;if($('wave').hasPointerCapture(event.pointerId))$('wave').releasePointerCapture(event.pointerId);update();};
  $('wave').onkeydown=event=>{const position=Number(player.currentTime)||0,steps={ArrowLeft:position-5,ArrowRight:position+5,Home:0,End:state.duration};if(Object.hasOwn(steps,event.key)){event.preventDefault();cmd.seek(steps[event.key]);update();}};
  function update(){
-  if(stopped)return;if(pendingRestore&&pendingRestore.revision!==sourceRevision)cancelRestore();state=engine.viewState();visibility();if(!active||host.hidden)return;
+  if(stopped)return;visibility();if(!active||host.hidden||document.hidden)return;if(pendingRestore&&pendingRestore.revision!==sourceRevision)cancelRestore();state=engine.viewState();
   const song=hasSong(),mode=actualMode(),task=window.BlazeMacStems?.snapshot()||{};
   prop(chordSection,'hidden',!song);prop($('pitch-value'),'value',String(transposeValue));if(!pitchBusy)prop($('audio-pitch-value'),'value',String(audioPitchValue));
   for(const id of ['pitch-down','pitch-up','pitch-reset','pitch-value'])prop($(id),'disabled',!song||restoring||(id==='pitch-down'&&transposeValue<=-12)||(id==='pitch-up'&&transposeValue>=12));
   for(const id of ['audio-pitch-value','audio-pitch-reset'])prop($(id),'disabled',!song||pitchBusy||downloadBusy||modeBusy||restoring);
-  for(const kind of ['piano','backing','both'])prop($('download-'+kind),'disabled',!meta.pianoJobId||downloadBusy||pitchBusy||modeBusy||restoring);
-  text($('title'),song?(state.title&&!/^Untitled/.test(state.title)?state.title:sourceName):'Practice');prop($('title'),'title',$('title').textContent);text($('song-detail'),song?'Piano practice · '+(mode==='original'?'Original recording':mode==='piano'?'Piano only':'Backing without piano'):'Open a song and learn it one passage at a time.');
+  for(const kind of ['source','piano','backing','both'])prop($('download-'+kind),'disabled',(kind==='source'?!song:!meta.pianoJobId)||downloadBusy||pitchBusy||modeBusy||restoring);
+  prop($('download-pitch-value'),'disabled',downloadBusy);
+  text($('title'),song?(state.title&&!/^Untitled/.test(state.title)?state.title:sourceName):'Practice');prop($('title'),'title',$('title').textContent);text($('song-detail'),'');
   prop($('empty'),'hidden',song);prop($('song-controls'),'hidden',!song);prop(transport,'hidden',!song);
   const actionHost=song?headerActions:entryActions;
   if($('open').parentElement!==actionHost)actionHost.append($('open'),$('find'));
   prop(headerActions,'hidden',!song);
   prop(savedSection,'hidden',!song&&!meta.sessions?.length);
   for(const value of ['original','piano','backing']){attr($(value),'aria-pressed',String(mode===value));prop($(value),'disabled',!song||restoring||pitchBusy||(modeBusy&&value!=='original'));attr($(value),'aria-busy',String(modeBusy||pitchBusy||pendingMode?.mode===value));}
-  const isPreparing=task.status==='running';text($('preparation'),isPreparing?'Preparing '+(task.sourceName||'your recording')+' · '+Math.round((task.progress||0)*100)+'%. You can keep listening.':meta.pianoJobId?'Piano and backing are ready.':song?'Choose Piano or Backing to prepare this song on your Mac.':'');prop($('preparation-details'),'hidden',!isPreparing&&task.status!=='failed');
+  style(root.querySelector('.practice-mode'),'--mode-index',String(['original','piano','backing'].indexOf(mode)));
+  const isPreparing=task.status==='running';text($('preparation'),isPreparing?'Preparing piano · '+Math.round((task.progress||0)*100)+'%':'');prop($('preparation-details'),'hidden',!isPreparing&&task.status!=='failed');
   text($('mode-label'),mode==='original'?'Original recording':mode==='piano'?'Piano only':'Backing without piano');text($('wave-status'),state.loading||state.pending?'Loading waveform…':'');prop($('wave-empty'),'hidden',!!state.peaks);text($('wave-empty'),state.loading||state.pending?'Reading waveform…':'Waveform unavailable. Playback is still available.');
   const position=Number(player.currentTime)||0,length=state.duration||0;text($('song-duration'),stamp(length));text($('position'),stamp(position)+' / '+stamp(length));
   attr($('wave'),'aria-valuenow',String(Math.round(length?position/length*100:0)));attr($('wave'),'aria-valuetext',stamp(position)+' of '+stamp(length));
@@ -273,7 +287,7 @@
   for(const id of ['play','back','forward','speed','volume'])prop($(id),'disabled',!state.enabled||restoring);
   if(document.activeElement!==$('speed'))prop($('speed'),'value',String(player.playbackRate||1));text($('speed-value'),Number((player.playbackRate||1).toFixed(2))+'×');for(const preset of root.querySelectorAll('[data-rate]'))attr(preset,'aria-pressed',String(Math.abs(Number(preset.dataset.rate)-player.playbackRate)<.001));
   if(document.activeElement!==$('volume'))prop($('volume'),'value',String(player.volume));
-  prop($('save'),'disabled',!song||saving||restoring);text($('save'),saving?'Saving…':meta.current?.id?'Save changes':'Save practice');text($('save-status'),saveMessage||'Save a song to remember your passage, speed and listening mode.');
+  prop($('save'),'disabled',!song||saving||restoring);text($('save'),saving?'Saving…':meta.current?.id?'Save changes':'Save practice');text($('save-status'),saveMessage);
   text($('status'),error||(state.messageState==='error'?state.message:'')||message);attr($('status'),'data-error',String(!!error||state.messageState==='error'));
   drawWave();paintPlayback();renderChords();renderSessions();if(player.paused){cancelAnimationFrame(playFrame);playFrame=0;}else animatePlayback();
   const trigger=JSON.stringify([sourceRevision,task.status,task.jobId,state.analysisBusy]);if(trigger!==lastMetaTrigger){lastMetaTrigger=trigger;void refreshMetadata();}
@@ -282,15 +296,26 @@
   const value=settings(),controls=fingerprint(value);if(meta.current?.id&&!restoring&&meta.sourceRevision===sourceRevision){if(lastControlsFingerprint&&controls!==lastControlsFingerprint){lastControlsFingerprint=controls;scheduleSave();}if(!player.paused&&performance.now()-lastSaveAt>8000&&!saving)scheduleSave(300,false);}
  }
  function paintChordProgress(){const progress=currentChord?Math.max(0,Math.min(100,((Number(player.currentTime)||0)-currentChord.start)/Math.max(.001,currentChord.end-currentChord.start)*100)):0;style($('current-chord'),'--chord-progress',String(progress/100));}
- function paintPlayback(){paintChordProgress();const length=state.duration||0,position=Number(player.currentTime)||0;const percentage=length?Math.max(0,Math.min(100,position/length*100)):0;style($('playhead'),'transform','translateX('+(percentage/100*lastCanvasWidth)+'px)');text($('position'),stamp(position)+' / '+stamp(length));}
- function animatePlayback(){if(playFrame||stopped||!active||host.hidden||player.paused)return;playFrame=requestAnimationFrame(()=>{playFrame=0;if(stopped||!active||host.hidden||player.paused)return;paintPlayback();animatePlayback();});}
- const mediaEvents=['play','pause','timeupdate','loadedmetadata','seeked','ratechange','volumechange','ended'];for(const event of mediaEvents)player.addEventListener(event,update);
- const saveOnPause=()=>{if(meta.current?.id&&!restoring)scheduleSave(300,false);};player.addEventListener('pause',saveOnPause);player.addEventListener('seeked',saveOnPause);window.addEventListener('blaze-mac-media-changed',update);
- const resize=new ResizeObserver(()=>{peaksIdentity=null;update();});resize.observe(root);
+ function paintPlayback(){if(loopEnd!==null&&player.currentTime>=loopEnd&&!player.paused)player.currentTime=loopStart;if(events.length){const position=Number(player.currentTime)||0,index=after(events,position)-1,event=index>=0&&events[index].end>position?events[index]:null;if(event!==currentChord)renderChords();}paintChordProgress();const length=state.duration||0,position=Number(player.currentTime)||0;const percentage=length?Math.max(0,Math.min(100,position/length*100)):0;style($('playhead'),'transform','translateX('+(percentage/100*lastCanvasWidth)+'px)');text($('position'),stamp(position)+' / '+stamp(length));}
+ function animatePlayback(){if(playFrame||stopped||!active||host.hidden||document.hidden||player.paused)return;playFrame=requestAnimationFrame(()=>{playFrame=0;if(stopped||!active||host.hidden||document.hidden||player.paused)return;paintPlayback();animatePlayback();});}
+ function requestUpdate(){if(updateFrame||stopped||document.hidden)return;updateFrame=requestAnimationFrame(()=>{updateFrame=0;update();});}
+ // The frame loop already paints playback; timeupdate need not rebuild all controls.
+ const timeUpdated=()=>{if(player.paused&&!host.hidden)requestUpdate();};
+ player.addEventListener('timeupdate',timeUpdated);
+ const mediaEvents=['play','pause','loadedmetadata','seeked','ratechange','volumechange','ended'];for(const event of mediaEvents)player.addEventListener(event,requestUpdate);
+ const saveOnPause=()=>{if(meta.current?.id&&!restoring)scheduleSave(300,false);};player.addEventListener('pause',saveOnPause);player.addEventListener('seeked',saveOnPause);window.addEventListener('blaze-mac-media-changed',requestUpdate);window.addEventListener('blaze-mac-practice-state-changed',requestUpdate);
+ const refreshPalette=()=>{peaksIdentity=null;requestUpdate();};
+ const resize=new ResizeObserver(refreshPalette);resize.observe(root);
+ const systemAppearance=matchMedia('(prefers-color-scheme: light)');systemAppearance.addEventListener('change',refreshPalette);
+ const appearanceObserver=new MutationObserver(refreshPalette);appearanceObserver.observe(document.documentElement,{attributes:true,attributeFilter:['data-appearance']});
  const observer=new MutationObserver(()=>{visibility();if(!host.hidden&&active){void refreshMetadata();update();}});observer.observe(host,{attributes:true,attributeFilter:['hidden']});
- const timer=setInterval(update,200);keepPitch();showPractice();
+ function poll(){if(stopped)return;update();const busy=state.analysisBusy||modeBusy||pitchBusy||pendingMode||window.BlazeMacStems?.snapshot().status==='running';timer=setTimeout(poll,document.hidden||host.hidden?2000:busy?250:1000);}
+ const visibilityChanged=()=>{visibility();if(!document.hidden){clearTimeout(timer);requestUpdate();timer=setTimeout(poll,0);}};
+ const motionChanged=()=>{if(reducedMotion.matches)for(const view of chordViews)view.animation?.cancel();};
+ document.addEventListener('visibilitychange',visibilityChanged);reducedMotion.addEventListener('change',motionChanged);
+ keepPitch();showPractice();timer=setTimeout(poll,1000);
  for(const [id,label]of [['tab-studio','Practice'],['now-studio','Practise']]){const node=document.getElementById(id);if(node)node.textContent=label;}
  window.BlazeMac.navigate('studio');
  window.BlazeMacPractice={showPractice,refresh:refreshMetadata,snapshot:()=>({visible:active&&!host.hidden,mode:actualMode(),requestedMode:pendingMode?.mode||null,transpose:transposeValue,audioPitch:audioPitchValue,pitchBusy,downloadBusy,recordingId:meta.recordingId,sessionId:meta.current?.id||null,pianoJobId:meta.pianoJobId,preparing:window.BlazeMacStems?.snapshot().status==='running',loopStart:a,loopEnd:b,loopEnabled:!!(state.loop&&a!==null&&b!==null),rate:player.playbackRate,pitchPreserved:player.preservesPitch,position:Number(player.currentTime)||0,savedSessions:meta.sessions?.length||0,saving,error})};
- window.addEventListener('pagehide',()=>{stopped=true;clearInterval(timer);clearTimeout(saveTimer);cancelAnimationFrame(playFrame);cancelRestore();resize.disconnect();observer.disconnect();document.removeEventListener('pointerdown',dismissDownload);root.removeEventListener('keydown',escapeDownload);for(const event of mediaEvents)player.removeEventListener(event,update);player.removeEventListener('pause',saveOnPause);player.removeEventListener('seeked',saveOnPause);window.removeEventListener('blaze-mac-media-changed',update);},{once:true});
+ window.addEventListener('pagehide',()=>{stopped=true;clearTimeout(timer);clearTimeout(saveTimer);cancelAnimationFrame(playFrame);cancelAnimationFrame(updateFrame);document.removeEventListener('visibilitychange',visibilityChanged);reducedMotion.removeEventListener('change',motionChanged);systemAppearance.removeEventListener('change',refreshPalette);appearanceObserver.disconnect();for(const view of chordViews)view.animation?.cancel();cancelRestore();resize.disconnect();observer.disconnect();document.removeEventListener('pointerdown',dismissDownload);root.removeEventListener('keydown',escapeDownload);for(const event of mediaEvents)player.removeEventListener(event,requestUpdate);player.removeEventListener('timeupdate',timeUpdated);player.removeEventListener('pause',saveOnPause);player.removeEventListener('seeked',saveOnPause);window.removeEventListener('blaze-mac-media-changed',requestUpdate);window.removeEventListener('blaze-mac-practice-state-changed',requestUpdate);},{once:true});
 })();
