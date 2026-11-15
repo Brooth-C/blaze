@@ -18,9 +18,9 @@ Live search, reliable WAV exports and lower processing overhead for learning son
   data more efficiently. Idle browsing no longer repeatedly scans the library.
 
 The existing model weights, inference precision, sample rates, chunk sizes and
-separation overlap settings are retained. CPU reference comparisons verify exact
-outputs for the optimized steps, including complete controlled piano/backing WAV
-exports. Component benchmarks are not claims of whole-song speed on an M3 Mac.
+separation overlap settings are retained. CPU comparisons verify the optimized
+steps against their original numerical precision, including byte-identical complete
+controlled piano/backing WAV exports. Component benchmarks are not claims of whole-song speed on an M3 Mac.
 
 Advanced Studio remains excluded. This release builds Apple Silicon only;
 existing Windows, Linux, Android and Intel downloads remain available unchanged.
