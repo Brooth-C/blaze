@@ -210,6 +210,19 @@ class LazyTests(unittest.TestCase):
             with patch.object(np,'flatnonzero',wraps=np.flatnonzero) as prepare:
                 actual=lv._response(audio,filters,512,16,window,magnitude)
             self.assertEqual(prepare.call_count,len(filters))
+            if actual.tobytes()!=expected.tobytes():
+                again=reference_response(audio,filters,512,16,window,magnitude)
+                repeated=lv._response(audio,filters,512,16,window,magnitude)
+                print('CQT_DIAGNOSTIC',{'magnitude':magnitude,'reference_stable':again.tobytes()==expected.tobytes(),
+                      'optimized_stable':repeated.tobytes()==actual.tobytes(),
+                      'max_difference':float(np.max(np.abs(actual.astype(np.float64)-expected)))},flush=True)
+                for (start,left),(_,right) in zip(reference_spectral_blocks(audio,512,16,window),lv._spectral_blocks(audio,512,16,window)):
+                    same_fft=left.tobytes()==right.tobytes()
+                    if magnitude:left=np.abs(left);right=np.abs(right)
+                    old=reference_project(filters,left);new=lv._project(filters,right)
+                    if not same_fft or old.tobytes()!=new.tobytes() or np.abs(old).tobytes()!=np.abs(new).tobytes():
+                        print('CQT_STAGE',{'start':start,'fft_equal':same_fft,'projection_equal':old.tobytes()==new.tobytes(),
+                              'magnitude_equal':np.abs(old).tobytes()==np.abs(new).tobytes()},flush=True)
             self.assertEqual(actual.tobytes(),expected.tobytes())
             destination=np.empty((7,expected.shape[1]*2),np.float32)[:,::2]
             self.assertIs(lv._response(audio,filters,512,16,window,magnitude,destination),destination)
