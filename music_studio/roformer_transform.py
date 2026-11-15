@@ -18,13 +18,17 @@ def hann_periodic(win_length: int) -> np.ndarray:
     return 0.5 * (1.0 - np.cos(2.0 * np.pi * np.arange(win_length) / win_length))
 
 
-def stft(audio: np.ndarray, n_fft: int, hop_length: int) -> np.ndarray:
-    """[C, N] real -> [C, n_fft//2+1, T] complex, T = N // hop_length + 1."""
+def _stft_frames(audio: np.ndarray, n_fft: int, hop_length: int) -> np.ndarray:
+    """Compute in NumPy's native [channel, frame, frequency] FFT layout."""
     window = hann_periodic(n_fft)
     padded = np.pad(audio, ((0, 0), (n_fft // 2, n_fft // 2)), mode="reflect")
     frames = np.lib.stride_tricks.sliding_window_view(padded, n_fft, axis=1)[:, ::hop_length, :]
-    spec = np.fft.rfft(frames * window, axis=2)
-    return np.ascontiguousarray(spec.transpose(0, 2, 1))
+    return np.fft.rfft(frames * window, axis=2)
+
+
+def stft(audio: np.ndarray, n_fft: int, hop_length: int) -> np.ndarray:
+    """[C, N] real -> contiguous [C, n_fft//2+1, T] complex."""
+    return np.ascontiguousarray(_stft_frames(audio, n_fft, hop_length).transpose(0, 2, 1))
 
 
 def _overlap_add(frames: np.ndarray, hop_length: int, out_length: int) -> np.ndarray:
@@ -72,14 +76,15 @@ def stft_bands_last(audio: np.ndarray, n_fft: int, hop_length: int) -> np.ndarra
     Mirrors the reference's `rearrange(spec, 'b s f t c -> b (f s) t c')`:
     channel is the FASTEST-varying axis, interleaved inside frequency.
     """
-    spec = stft(audio, n_fft, hop_length)  # [C, F, T]
-    # Pack directly into the final float32 buffer. Stacking complex128 parts,
-    # transposing/reshaping and then casting used multiple full-size temporaries.
-    channels, frequencies, frames = spec.shape
+    # Pack directly from FFT layout; copying a complex128 frequency-first
+    # spectrogram would create a full-size temporary just before this packing.
+    spec = _stft_frames(audio, n_fft, hop_length)  # [C, T, F]
+    # A complex64 view casts real and imaginary parts together into the final
+    # float32 buffer, preserving the graph's interleaved component layout.
+    channels, frames, frequencies = spec.shape
     packed = np.empty((1, frequencies * channels, frames, 2), dtype=np.float32)
-    view = packed.reshape(frequencies, channels, frames, 2)
-    view[..., 0] = spec.real.transpose(1, 0, 2)
-    view[..., 1] = spec.imag.transpose(1, 0, 2)
+    view = packed.view(np.complex64).reshape(frequencies, channels, frames)
+    view[:] = spec.transpose(2, 0, 1)
     return packed
 
 

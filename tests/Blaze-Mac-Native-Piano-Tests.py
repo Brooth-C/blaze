@@ -15,7 +15,7 @@ from unittest.mock import patch
 import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from music_studio.native_piano import NativePianoSeparator, SEGMENT
+from music_studio.native_piano import NativePianoSeparator, SEGMENT, apply_complex_mask, piano_and_backing
 from music_studio.stems import SeparationCancelled
 
 
@@ -47,6 +47,43 @@ def read_output(path):
 
 
 class NativePianoTests(unittest.TestCase):
+    def test_direct_piano_stems_preserve_residual_precision_and_owned_output(self):
+        rng=np.random.default_rng(179)
+        for left,right in ((np.float32,np.float64),(np.float32,np.float32),(np.float64,np.float64)):
+            for strided in (False,True):
+                audio=rng.normal(0,.1,(2,4097)).astype(left)
+                piano=rng.normal(0,.1,audio.shape).astype(right)
+                audio[:,0]=-0.;piano[:,1]=0.
+                if strided:audio=audio[:,::-1];piano=piano[:,::-1]
+                original_audio,original_piano=audio.copy(),piano.copy()
+                expected=np.stack((piano,audio-piano)).astype(np.float32)
+                audio.setflags(write=False);piano.setflags(write=False)
+                actual=piano_and_backing(audio,piano)
+                self.assertEqual(actual.tobytes(),expected.tobytes())
+                self.assertEqual(actual.dtype,np.float32)
+                self.assertTrue(actual.flags.owndata and actual.flags.c_contiguous and actual.flags.writeable)
+                self.assertFalse(np.shares_memory(actual,audio) or np.shares_memory(actual,piano))
+                self.assertEqual(audio.tobytes(),original_audio.tobytes())
+                self.assertEqual(piano.tobytes(),original_piano.tobytes())
+
+    def test_mask_workspace_preserves_original_arithmetic_and_input_arrays(self):
+        rng = np.random.default_rng(82)
+        for left, right in ((np.float32,np.float32), (np.float64,np.float64), (np.float32,np.float64)):
+            for strided in (False, True):
+                with self.subTest(left=left, right=right, strided=strided):
+                    spectrum = rng.normal(size=(31,43,2)).astype(left)
+                    mask = rng.normal(size=spectrum.shape).astype(right)
+                    spectrum[0] = 0;mask[1] = -0.
+                    if strided:spectrum=spectrum[:,::-1];mask=mask[:,::-1]
+                    original_spectrum, original_mask = spectrum.copy(), mask.copy()
+                    a,b=spectrum[...,0],spectrum[...,1];c,d=mask[...,0],mask[...,1]
+                    expected=np.stack((a*c-b*d,a*d+b*c),axis=-1)
+                    actual=apply_complex_mask(spectrum,mask)
+                    self.assertEqual(actual.dtype,expected.dtype)
+                    self.assertEqual(actual.tobytes(),expected.tobytes())
+                    self.assertEqual(spectrum.tobytes(),original_spectrum.tobytes())
+                    self.assertEqual(mask.tobytes(),original_mask.tobytes())
+
     def test_model_receipt_imports_when_mac_app_is_a_standalone_entrypoint(self):
         namespace = runpy.run_path(str(Path(__file__).resolve().parents[1]/'music_studio/mac_app.py'))
         self.assertFalse(namespace['__package__'])

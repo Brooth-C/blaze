@@ -323,7 +323,8 @@ def create_server(studio, port=0):
             if studio.discovery is None:
                 from .discovery import Discovery
                 tools = studio.downloader.tools if studio.downloader else Path(studio.ffmpeg).parent
-                studio.discovery = Discovery(studio.directory, tools, studio.ffmpeg)
+                studio.discovery = Discovery(studio.directory, tools, studio.ffmpeg,
+                                             verify_playback=studio.presentation == 'mac')
             return studio.discovery
 
     def practice_sessions():
@@ -516,7 +517,11 @@ def create_server(studio, port=0):
                 try:
                     query = parse_qs(urlsplit(self.path).query)
                     if path == '/api/discovery':
-                        self.json(discovery().status(query.get('id', [''])[0]))
+                        manager = discovery()
+                        wait = getattr(manager, 'wait_status', None)
+                        identity = query.get('id', [''])[0]
+                        self.json(wait(identity) if studio.presentation == 'mac' and query.get('wait') == ['1'] and callable(wait)
+                                  else manager.status(identity))
                     elif path == '/api/discovery-history':
                         self.json({'items': discovery().history()})
                     elif path == '/api/discovery-image':
@@ -637,6 +642,15 @@ def create_server(studio, port=0):
                 if path == '/api/practice-render':
                     self.json(practice_audio().request(body))
                     return
+                if path == '/api/practice-save-audio':
+                    if studio.presentation != 'mac':
+                        self.json({'error': 'Not found.'}, 404)
+                        return
+                    identity = body.get('requestId')
+                    if not isinstance(identity, str) or not re.fullmatch(r'[0-9a-f]{32}', identity):
+                        raise ValueError('Choose a prepared audio export.')
+                    self.json(practice_audio().save(identity))
+                    return
                 if path in ('/api/practice-save', '/api/practice-open'):
                     if studio.presentation != 'mac':
                         self.json({'error': 'Not found.'}, 404)
@@ -664,14 +678,22 @@ def create_server(studio, port=0):
                     if path == '/api/discovery':
                         self.json(manager.request(body))
                     elif path == '/api/discovery-prepare':
-                        self.json(manager.prepare(body))
+                        with studio.lock:
+                            prepared = manager.prepare(body)
+                            prepared['sourceRevision'] = studio.source_revision
+                        self.json(prepared)
                     elif path == '/api/discovery-select':
                         with studio.lock:
                             if studio.state['busy'] and studio.presentation != 'mac':
                                 raise ValueError('Finish or cancel chord analysis first.')
+                            if studio.presentation == 'mac' and (type(body.get('sourceRevision')) is not int or
+                                                                body['sourceRevision'] != studio.source_revision):
+                                raise ValueError('The recording changed. Select the search result again.')
                             source, item = manager.select(body.get('requestId'))
                             studio.select_source(source, item['title'], discovery_item=item)
-                        self.json({'name': item['title'], 'item': item, 'mediaKind': media_kind(source)})
+                            selection_revision = studio.source_revision
+                        self.json({'name': item['title'], 'item': item, 'mediaKind': media_kind(source),
+                                   'sourceRevision': selection_revision})
                     elif path == '/api/discovery-cancel':
                         manager.cancel(body.get('requestId'))
                         self.json({'ok': True})

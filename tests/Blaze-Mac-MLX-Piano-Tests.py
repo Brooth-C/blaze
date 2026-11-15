@@ -13,7 +13,7 @@ import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from music_studio.stems import SeparationCancelled
-from music_studio.mlx_piano_model import PianoModel, validate_weights, weight_shapes
+from music_studio.mlx_piano_model import PianoModel, validate_weights, weight_shapes, numpy_mask
 from music_studio.mlx_piano import MlxPianoSeparator
 
 
@@ -101,6 +101,7 @@ class MlxTests(unittest.TestCase):
             model = PianoModel.__new__(PianoModel);model.mx = mx
             frequencies = (10000**(-np.arange(0,64,2,dtype='float32')/64)).astype('float16').astype('float32')
             model.weights = {'rotary':mx.array(frequencies)}
+            model.rotary_cache = {}
             values = np.zeros((1,1,1025,64),dtype='float32');values[...,::2] = 1
             actual = np.array(model.rope(mx.array(values),'rotary'))
             angles = np.arange(1025,dtype='float32')[:,None]*frequencies[None,:]
@@ -110,6 +111,60 @@ class MlxTests(unittest.TestCase):
             actual_pair = np.array(model.rope(paired,'rotary'))
             np.testing.assert_array_equal(actual_pair[0],actual)
             np.testing.assert_array_equal(actual_pair[1],actual*.25)
+            first = model.rotary_cache['rotary']
+            with patch('mlx.core.cos',side_effect=AssertionError('Repeated rotary cosine')), \
+                 patch('mlx.core.sin',side_effect=AssertionError('Repeated rotary sine')):
+                repeated=np.array(model.rope(mx.array(values),'rotary'))
+            self.assertEqual(repeated.tobytes(),actual.tobytes())
+            self.assertIs(model.rotary_cache['rotary'],first)
+            # Context changes replace only this key; they never use a stale table.
+            shorter=mx.array(values[:,:,:62])
+            angles=mx.repeat(mx.arange(62,dtype=mx.float32)[:,None]*model.weights['rotary'][None,:],2,axis=-1)
+            pairs=shorter.reshape(*shorter.shape[:-1],32,2)
+            rotated=mx.stack((-pairs[...,1],pairs[...,0]),axis=-1).reshape(shorter.shape)
+            reference=np.array(shorter*mx.cos(angles)+rotated*mx.sin(angles))
+            changed=np.array(model.rope(shorter,'rotary'))
+            self.assertEqual(changed.tobytes(),reference.tobytes())
+            self.assertEqual(len(model.rotary_cache),1)
+            self.assertEqual(model.rotary_cache['rotary'][0],62)
+            model.weights['alternate']=model.weights['rotary']*.5
+            alternate=np.array(model.rope(shorter,'alternate'))
+            self.assertFalse(np.array_equal(alternate,changed))
+            self.assertEqual(len(model.rotary_cache),2)
+            self.assertEqual(np.array(model.rope(shorter,'rotary')).tobytes(),changed.tobytes())
+
+
+
+    @unittest.skipUnless(importlib.util.find_spec('mlx'), 'MLX numeric reference requested in its environment')
+    def test_numpy_mask_view_retains_owner_precision_and_values_after_cache_cleanup(self):
+        import gc
+        import mlx.core as mx
+        from music_studio.native_piano import apply_complex_mask
+        with mx.stream(mx.new_stream(mx.cpu)):
+            rng=np.random.default_rng(175)
+            value=mx.array(rng.normal(size=(1,1,37,41,2)).astype(np.float32)).transpose(0,1,3,2,4)
+            mx.eval(value)
+            original=np.array(value,copy=True);mask=numpy_mask(value)
+            self.assertEqual(mask.dtype,original.dtype)
+            self.assertEqual(mask.tobytes(),original.tobytes())
+            self.assertFalse(mask.flags.owndata)
+            self.assertFalse(mask.flags.writeable)
+            with self.assertRaises(ValueError):mask[0,0,0,0,0]=0
+            spectrum=rng.normal(size=mask.shape[2:]).astype(np.float32)
+            expected=apply_complex_mask(spectrum,original[0,0])
+            del value;gc.collect();mx.clear_cache()
+            self.assertEqual(mask.tobytes(),original.tobytes())
+            self.assertEqual(apply_complex_mask(spectrum,mask[0,0]).tobytes(),expected.tobytes())
+
+    def test_close_releases_cached_rotary_tables(self):
+        model=PianoModel.__new__(PianoModel);model.mx=Mock();model.stream=object()
+        model.weights={'weight':object()};model.rotary_cache={'rotary':(1723,object(),object())}
+        model.old_cache_limit=123;model.feed_forward=object()
+        model.close()
+        self.assertEqual(model.rotary_cache,{})
+        self.assertEqual(model.weights,{})
+        model.mx.clear_cache.assert_called_once()
+        model.mx.set_cache_limit.assert_called_once_with(123)
 
     @unittest.skipUnless(importlib.util.find_spec('mlx'), 'MLX numeric reference requested in its environment')
     def test_norm_preserves_original_quiet_input_epsilon(self):

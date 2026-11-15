@@ -16,8 +16,14 @@ would help; chord labels are not a note-for-note transcription.
 Choose **Save practice** to retain the recording, listening mode, speed, position
 and loop. Later changes save automatically. Saved practices and completed
 separations survive app restart. Prepared tracks and saved chord guides are
-reused. **Advanced Studio** keeps the existing track inspector and export tools
-available without putting them in the primary practice flow.
+reused. Advanced Studio is excluded from the current stable Mac interface.
+
+Choose **Download WAV** to save the recording, piano, backing, or a ZIP containing
+both separate WAVs. Its **Audio pitch** selector defaults to the original pitch;
+choose −12 to +12 semitones to export transposed audio without changing tempo.
+Download pitch is independent of playback pitch and **Transpose chords**.
+The Mac app uses a native Save dialog and reports saved, cancelled or failed
+exports. Browser sessions use a regular file download.
 
 ## Stem separation on Apple Silicon
 
@@ -42,6 +48,20 @@ Use Download to choose a format and save a permanent copy in the regular downloa
 folder, or Open in Studio to analyse the current copy. Provider restrictions, network speed and the
 available source determine whether preparation succeeds. The playback cache is
 bounded and is separate from Library's saved downloads.
+
+On Mac, playback preparation checks the downloader's completed YouTube ID
+against the selected result. Conflicting catalogue IDs are discarded and older
+unverified playback copies are prepared again once. A superseded selection or
+late request cannot replace a newer recording or local import.
+
+Mac search shows an initial page of up to 16 results, with **More results** to
+request additional matches. Repeated searches use bounded, short-lived caches;
+cached server responses skip background-job polling. Typing stays debounced,
+and newer queries cancel older work without moving focus out of search.
+Pending Mac searches can wait briefly for a completion signal instead of
+waiting for the next polling timer. The packaged downloader and thumbnail
+loader reuse one validated macOS certificate bundle per catalogue session;
+explicit certificate settings remain respected.
 
 Playback preparation selects AAC audio or AVC/AAC video up to 720p for renderer
 compatibility; Downloads retains the wider quality choices. Preparation is

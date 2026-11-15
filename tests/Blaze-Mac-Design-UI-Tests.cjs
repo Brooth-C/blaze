@@ -69,16 +69,20 @@ async function fit(page,ids,message){
         const base=await start();
         browser=await chromium.launch({headless:true,executablePath:process.env.PLAYWRIGHT_CHROMIUM||undefined,args:['--no-sandbox','--autoplay-policy=no-user-gesture-required']});
         page=await browser.newPage({viewport:{width:1230,height:840}});
-        const errors=[],selections=[];
+        const errors=[],selections=[],searchRequests=[];
+        let expectStaleSelection=false;
         page.on('pageerror',error=>errors.push(error.stack));
         page.on('console',message=>{
             const url=message.location().url;
             // Native import deliberately invalidates an in-flight waveform.
             // Its authenticated 409 is an expected stale-result rejection.
             const staleWaveform=url.includes('/api/studio-waveform?')&&message.text().includes('409 (Conflict)');
-            if(message.type()==='error'&&!url.endsWith('/favicon.ico')&&!staleWaveform)errors.push(message.text());
+            const staleSelection=expectStaleSelection&&url.endsWith('/api/discovery-select')&&message.text().includes('400 (Bad Request)');
+            if(staleSelection)expectStaleSelection=false;
+            if(message.type()==='error'&&!url.endsWith('/favicon.ico')&&!staleWaveform&&!staleSelection)errors.push(message.text());
         });
         page.on('request',request=>{if(request.method()==='POST'&&request.url()===base+'/api/discovery-select')selections.push(request.postDataJSON());});
+        page.on('request',request=>{if(request.method()==='POST'&&request.url()===base+'/api/discovery')searchRequests.push(request.postDataJSON());});
         // Isolate retained engine controls; default production layout has its own live suite.
         await page.goto(base);
         assert.equal(await page.title(),'Blaze');
@@ -203,6 +207,81 @@ async function fit(page,ids,message){
         await page.evaluate(()=>refresh());
         assert(await page.evaluate(()=>sourceName==='Native Choice.wav'&&document.getElementById('media')===window.testMedia),'Late preparation replaced the native file choice');
         assert(!selections.some(value=>value.requestId===pending),'A cancelled discovery generation selected stale media');
+
+        // Warm queries restore immediately without launching another provider
+        // request, while a new search fetches only the first useful page.
+        for(const query of ['cache alpha','cache beta','cache alpha']){
+            await page.evaluate(query=>window.BlazeMac.search(query,true),query);
+            await page.waitForFunction(query=>document.getElementById('explore-results').textContent.includes(query+' acoustic session'),query);
+        }
+        assert.equal(searchRequests.filter(row=>row.query==='cache alpha').length,1,'Repeated search missed the short-lived cache');
+        assert.equal(searchRequests.find(row=>row.query==='cache alpha').limit,16);
+        await page.evaluate(()=>{window.BlazeMac.search('duplicate enter',true);window.BlazeMac.search('duplicate enter',true);});
+        await page.waitForFunction(()=>document.getElementById('explore-results').textContent.includes('duplicate enter acoustic session'));
+        assert.equal(searchRequests.filter(row=>row.query==='duplicate enter').length,1,'Enter submitted the same in-flight search twice');
+        const typingStarted=page.waitForRequest(request=>request.method()==='POST'&&request.url().endsWith('/api/discovery')&&request.postDataJSON().query==='same typing');
+        await page.evaluate(()=>{window.BlazeMac.search('same typing');window.BlazeMac.search('same typing');});
+        await typingStarted;
+        await page.evaluate(()=>window.BlazeMac.search('same typing'));
+        await page.waitForFunction(()=>document.getElementById('explore-results').textContent.includes('same typing acoustic session')&&document.getElementById('explore-results').getAttribute('aria-busy')==='false');
+        assert.equal(searchRequests.filter(row=>row.query==='same typing').length,1,'Duplicate typing restarted the provider request');
+        // Live typing and IME must never submit an unfinished composition.
+        await page.evaluate(()=>{
+            const input=document.getElementById('explore-search');
+            input.dispatchEvent(new CompositionEvent('compositionstart'));
+            input.value='unfinished ime';input.dispatchEvent(new InputEvent('input',{isComposing:true}));
+        });
+        await page.waitForTimeout(250);
+        assert(!searchRequests.some(row=>row.query==='unfinished ime'));
+        const guarded=await page.evaluate(()=>{
+            const input=document.getElementById('explore-search');input.value='live piano';
+            input.dispatchEvent(new CompositionEvent('compositionend'));
+            return document.getElementById('explore-results').inert;
+        });
+        assert(guarded,'Previous query remained clickable during debounce');
+        await page.waitForFunction(()=>document.getElementById('explore-results').textContent.includes('live piano acoustic session')&&!document.getElementById('explore-results').inert);
+        assert.equal(await page.locator('#explore-panel').getAttribute('data-view'),'search');
+        assert.equal(await page.locator('.search-duration').count(),2);
+        assert.equal(await page.locator('.search-creator').count(),2);
+        const savedViewport=page.viewportSize();
+        for(const width of [1230,570]){
+            await page.setViewportSize({width,height:840});
+            assert(await page.locator('.discovery-art').first().evaluate(el=>{
+                const r=el.getBoundingClientRect();return r.width>=130&&Math.abs(r.width/r.height-16/9)<.02;
+            }),'Search thumbnail lost its video proportions');
+            assert(await page.locator('.discovery-list').evaluate(el=>getComputedStyle(el).gridTemplateColumns.split(' ').length===1));
+            assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'Search overflowed horizontally');
+            await shot(page,'search-'+width);
+        }
+        await page.setViewportSize(savedViewport);
+        await page.evaluate(()=>window.BlazeMac.search('many results',true));
+        for(const count of [16,32,48,60]){
+            await page.waitForFunction(count=>document.querySelectorAll('.discovery-card').length===count,count);
+            if(count===16)await page.evaluate(()=>{window.retainedSearchRow=document.querySelector('.discovery-card');window.retainedSearchImage=window.retainedSearchRow.querySelector('img');});
+            if(count>16)assert(await page.evaluate(()=>document.querySelector('.discovery-card')===window.retainedSearchRow&&document.querySelector('.discovery-card img')===window.retainedSearchImage),'More results rebuilt a retained row or its decoded thumbnail');
+            if(count<60)await page.locator('#explore-more').click();
+        }
+        assert.equal(await page.locator('#explore-more').count(),0);
+        assert.deepEqual(searchRequests.filter(row=>row.query==='many results').map(row=>row.limit),[16,32,48,60]);
+
+        // Hold the actual selection POST, beyond the preparation stage. A
+        // native import must still win when that old request reaches the server.
+        let heldSelection, releaseSelection;
+        const held=new Promise(resolve=>{heldSelection=resolve;});
+        const released=new Promise(resolve=>{releaseSelection=resolve;});
+        await page.route('**/api/discovery-select',async route=>{heldSelection();await released;await route.continue();});
+        await page.evaluate(()=>window.BlazeMac.search('delayed selection',true));
+        await page.waitForFunction(()=>document.getElementById('explore-results').textContent.includes('delayed selection acoustic session'));
+        await page.locator('.discovery-primary').first().click();await held;
+        await page.evaluate(async()=>{
+            if(!window.BlazeMac.beginImport())throw Error('Native import refused');
+            const reply=await fetch('/api/import',{method:'POST',headers:{'X-Blaze-Token':document.querySelector('meta[name="blaze-token"]').content,'X-File-Name':'Newer%20Choice.wav'},body:window.nativeChoiceBytes});
+            if(!reply.ok)throw Error('Native import failed');await window.BlazeMac.importCompleted();
+        });
+        const staleSelection=page.waitForResponse(response=>response.url()===base+'/api/discovery-select');
+        expectStaleSelection=true;releaseSelection();assert.equal((await staleSelection).status(),400);
+        await page.unroute('**/api/discovery-select');await page.evaluate(()=>refresh());
+        assert(await page.evaluate(()=>sourceName==='Newer Choice.wav'&&document.getElementById('mini-title').textContent==='Newer Choice'),'Late selection mismatched the title and current recording');
 
         await page.evaluate(()=>window.BlazeMac.search('landscape'));
         await page.locator('[data-discovery-filter=videos]').click();

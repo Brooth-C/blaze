@@ -16,6 +16,30 @@ from music_studio.stems import SeparationCancelled
 
 
 class PianoTests(unittest.TestCase):
+    def test_synthesis_matches_original_samples_and_reuses_readonly_weights(self):
+        from music_studio import piano
+        rng=np.random.default_rng(176)
+        for count in (1,7,512):
+            spectrum=(rng.normal(size=(2,count,piano.FFT//2+1))+1j*rng.normal(size=(2,count,piano.FFT//2+1))).astype(np.complex64)
+            mask=rng.uniform(0,1,size=(2,count,piano.BINS)).astype(np.float32)
+            filtered=np.zeros_like(spectrum)
+            filtered[:,:,:piano.BINS]=spectrum[:,:,:piano.BINS]*mask
+            frames=np.fft.irfft(filtered,n=piano.FFT,axis=-1).astype(np.float32)
+            size=(count-1)*piano.HOP+piano.FFT
+            expected=np.zeros((2,size),np.float32);weights=np.zeros(size,np.float32)
+            for index in range(count):
+                start=index*piano.HOP
+                expected[:,start:start+piano.FFT]+=frames[:,index]*piano.WINDOW
+                weights[start:start+piano.FFT]+=piano.WINDOW*piano.WINDOW
+            np.divide(expected,weights[None],out=expected,where=weights[None]>1e-8)
+            length=min(piano.SEGMENT,size-3072)
+            actual=synthesise(spectrum,mask,length)
+            self.assertEqual(actual.tobytes(),expected[:,3072:3072+length].tobytes())
+            cached=piano.synthesis_weights(count)
+            self.assertIs(cached,piano.synthesis_weights(count))
+            self.assertEqual(cached.tobytes(),weights.tobytes())
+            self.assertFalse(cached.flags.writeable)
+
     def test_joint_mask(self):
         x = np.ones((1, 2, 512, 1024), dtype=np.float32)
         equal = piano_mask([np.zeros_like(x[0]) for _ in range(5)], x)

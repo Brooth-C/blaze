@@ -9,7 +9,7 @@
  const duration=()=>Number.isFinite(player.duration)?player.duration:Number(peaks?.duration)||0;
  const title=value=>String(value||'').replace(/\.[a-z0-9]{2,5}$/i,'');
  async function sync(){
-  if(stopped||host.hidden)return;
+  if(stopped||host.hidden||document.hidden)return;
   const stems=window.BlazeMacStems?.snapshot()||{},key=JSON.stringify([sourceRevision,sourceName,stems.status,stems.jobId]);
   if(result&&result!==guideIdentity){guide=result;guideIdentity=result;}
   if(key===signature)return;signature=key;const epoch=++generation;controller?.abort();controller=new AbortController();
@@ -32,7 +32,7 @@
    sessionTitle=title(session?.sourceName||sourceName);
    tracks=session?[{id:'source',label:'Original',jobId:sessionJob,filename:session.original?.filename},...session.stems.map(row=>({...row,label:labels[row.id]||row.label,jobId:sessionJob}))]:[{id:'source',label:'Original',jobId:null}];
   }catch(failure){if(failure.name!=='AbortError'&&epoch===generation)console.warn('Practice waveform:',failure.message);}
-  finally{if(epoch===generation)loading=false;}
+  finally{if(epoch===generation){loading=false;window.dispatchEvent(new Event('blaze-mac-practice-state-changed'));}}
  }
  async function select(jobId,stem){
   if(pending||analysisBlocksSelection()||importing)return;
@@ -76,6 +76,17 @@
  window.BlazePracticeEngine={viewState,commands,snapshot};
  // The native presentation adapter consumes this private compatibility name.
  window.BlazeMacStudio=window.BlazePracticeEngine;
- const timer=setInterval(sync,200);void sync();
- window.addEventListener('pagehide',()=>{stopped=true;clearInterval(timer);controller?.abort();},{once:true});
+ // Synchronize when inputs change instead of waking five times a second.
+ const changes=['blaze-mac-media-changed','blaze-mac-stems-changed','blaze-mac-analysis-changed'];
+ const changed=()=>{void sync();};
+ for(const name of changes)window.addEventListener(name,changed);
+ const visibility=()=>{if(!document.hidden&&!host.hidden)changed();};
+ document.addEventListener('visibilitychange',visibility);
+ const observer=new MutationObserver(visibility);observer.observe(host,{attributes:true,attributeFilter:['hidden']});
+ void sync();
+ window.addEventListener('pagehide',()=>{
+  stopped=true;controller?.abort();observer.disconnect();
+  for(const name of changes)window.removeEventListener(name,changed);
+  document.removeEventListener('visibilitychange',visibility);
+ },{once:true});
 })();

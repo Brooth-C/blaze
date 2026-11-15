@@ -33,4 +33,44 @@ frames=recognizer.decode(heads,base,labels,duration,[],audio*0)
 assert all(f['chord']=='N' for f in frames)
 assert abs(frames[-1]['end']-duration)<1e-8
 assert all(abs(a['end']-b['start'])<1e-8 for a,b in zip(frames,frames[1:]))
+
+# Frozen pre-optimization decoder: preserve the entire path, including ties,
+# short vocabularies and both production floating-point input precisions.
+def reference_sequence_decode(emissions,penalties,beam=20,check=lambda:None):
+    """Beam Viterbi with soft change costs; every frame may change chord."""
+    history=[];previous=np.empty(0,dtype=np.int32);scores=np.empty(0,dtype=np.float64)
+    for t,row in enumerate(emissions):
+        if t%256==0:check()
+        top=np.argpartition(row,-min(beam,len(row)))[-beam:]
+        ids=np.unique(np.concatenate((top,previous))).astype(np.int32)
+        if not len(previous):
+            values=row[ids].astype(np.float64);parents=np.full(len(ids),-1,dtype=np.int16)
+        else:
+            best=int(np.argmax(scores));lookup={int(i):n for n,i in enumerate(previous)}
+            values=np.empty(len(ids));parents=np.empty(len(ids),dtype=np.int16)
+            for n,i in enumerate(ids):
+                stay=lookup.get(int(i));changed=scores[best]-penalties[t]
+                if stay is not None and scores[stay]>=changed:parents[n]=stay;values[n]=scores[stay]+row[i]
+                else:parents[n]=best;values[n]=changed+row[i]
+        retained=np.argsort(values)[-beam:];previous=ids[retained];scores=values[retained]
+        scores-=scores.max();history.append((previous.copy(),parents[retained].copy()))
+    if not history:return np.empty(0,dtype=np.int32)
+    cursor=int(np.argmax(scores));path=np.empty(len(history),dtype=np.int32)
+    for t in range(len(history)-1,-1,-1):
+        ids,parents=history[t];path[t]=ids[cursor];cursor=int(parents[cursor])
+    return path
+
+rng=np.random.default_rng(862)
+for dtype in (np.float32,np.float64):
+    for vocabulary in (2,25,170,1000):
+        for beam in (1,20):
+            for ties in (False,True):
+                emissions=rng.normal(size=(300,vocabulary)).astype(dtype)
+                if ties:emissions=np.round(emissions)
+                penalties=rng.uniform(0,5,300).astype(dtype)
+                np.testing.assert_array_equal(sequence_decode(emissions,penalties,beam),
+                                              reference_sequence_decode(emissions,penalties,beam))
+np.testing.assert_array_equal(sequence_decode(np.zeros((300,25)),np.zeros(300)),
+                              reference_sequence_decode(np.zeros((300,25)),np.zeros(300)))
+
 print('Sequence: transient rejection, sustained/offbeat changes, extension evidence, baseline preservation, silence and cancellation PASS')

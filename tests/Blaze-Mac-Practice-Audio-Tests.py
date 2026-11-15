@@ -8,11 +8,16 @@ import time
 import unittest
 import wave
 import zipfile
+import threading
+import http.client
+from types import SimpleNamespace
+from unittest.mock import Mock, patch
 
 import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from music_studio.server import Studio
+from music_studio.server import Studio, create_server
+from music_studio.mac_app import save_practice_audio
 from music_studio.stem_jobs import StemJobs
 from music_studio.practice_audio import PracticeAudio
 
@@ -92,6 +97,71 @@ class PracticeAudioTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.audio.file('../../private')
 
+    def test_native_save_reports_completion_cancel_and_failure_without_losing_export(self):
+        answer, source = self.render(kind='source', semitones=0)
+        callback = self.studio.save_practice_audio = Mock(return_value={'status': 'saved', 'filename': 'Song.wav'})
+        self.assertTrue(self.audio.status(answer['requestId'])['nativeSaveAvailable'])
+        self.assertEqual(self.audio.save(answer['requestId'])['status'], 'saved')
+        callback.assert_called_once_with(source, 'Recording.wav')
+        callback.return_value = {'status': 'cancelled'}
+        self.assertEqual(self.audio.save(answer['requestId'])['status'], 'cancelled')
+        callback.side_effect = OSError('Disk full')
+        with self.assertRaises(OSError):
+            self.audio.save(answer['requestId'])
+        self.assertFalse(self.audio.saving)
+        self.assertFalse(self.audio.save_lock.locked())
+        self.assertEqual(self.audio.file(answer['requestId'])[0].read_bytes(), self.source.read_bytes())
+
+    def test_open_save_dialog_pins_export_and_rejects_second_dialog(self):
+        answer, source = self.render(kind='source', semitones=0)
+        original = source.read_bytes()
+        entered, release = threading.Event(), threading.Event()
+
+        def save(path, filename):
+            entered.set()
+            if not release.wait(15):
+                raise ValueError('Test save timed out')
+            self.assertEqual(path.read_bytes(), original)
+            return {'status': 'cancelled'}
+
+        self.studio.save_practice_audio = save
+        worker = threading.Thread(target=lambda: self.audio.save(answer['requestId']))
+        worker.start()
+        try:
+            self.assertTrue(entered.wait(2))
+            with self.assertRaisesRegex(ValueError, 'open save dialog'):
+                self.audio.save(answer['requestId'])
+            for semitones in (1, 2, 3, 4, 5):
+                self.render(kind='source', semitones=semitones)
+            self.assertTrue(source.is_file())
+        finally:
+            release.set()
+            worker.join(5)
+
+    def test_native_save_endpoint_requires_token_and_registered_request(self):
+        answer, _ = self.render(kind='source', semitones=0)
+        callback = self.studio.save_practice_audio = Mock(return_value={'status': 'cancelled'})
+        server = create_server(self.studio)
+        threading.Thread(target=server.serve_forever, daemon=True).start()
+        self.addCleanup(server.server_close)
+        self.addCleanup(server.shutdown)
+
+        def request(body, token=True):
+            connection = http.client.HTTPConnection('127.0.0.1', server.server_port, timeout=5)
+            try:
+                connection.request('POST', '/api/practice-save-audio', json.dumps(body),
+                                   {'X-Blaze-Token': self.studio.token} if token else {})
+                response = connection.getresponse()
+                return response.status, json.loads(response.read())
+            finally:
+                connection.close()
+
+        self.assertEqual(request({'requestId': answer['requestId']}, token=False)[0], 403)
+        self.assertEqual(request({'requestId': '../private'})[0], 400)
+        callback.assert_not_called()
+        self.assertEqual(request({'requestId': answer['requestId']})[1], {'status': 'cancelled'})
+        callback.assert_called_once()
+
     def test_active_playback_survives_export_and_request_eviction(self):
         active, target = self.render(kind='source', semitones=1)
         identity = active['requestId']
@@ -109,6 +179,36 @@ class PracticeAudioTests(unittest.TestCase):
         for semitones in (11, 12, -12, -11):
             self.render(kind='source', semitones=semitones)
         self.assertFalse(target.exists(), 'Released playback should become evictable')
+
+
+class NativeAudioSaveTests(unittest.TestCase):
+    def test_panel_copy_and_cancel_are_independent_of_web_downloads(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source, target = root / 'export.wav', root / 'Chosen.wav'
+            source.write_bytes(b'RIFF-test-wav')
+            window = SimpleNamespace(create_file_dialog=Mock(return_value=(str(target),)))
+            with patch.dict(sys.modules, {'webview': SimpleNamespace(FileDialog=SimpleNamespace(SAVE=30))}):
+                self.assertEqual(save_practice_audio(window, source, 'Piano (+2).wav'),
+                                 {'status': 'saved', 'filename': 'Chosen.wav'})
+                self.assertEqual(target.read_bytes(), source.read_bytes())
+                self.assertEqual(window.create_file_dialog.call_args.kwargs['save_filename'], 'Piano (+2).wav')
+                self.assertEqual(window.create_file_dialog.call_args.kwargs['file_types'], ('WAV audio (*.wav)',))
+                window.create_file_dialog.return_value = None
+                self.assertEqual(save_practice_audio(window, source, 'Piano.wav'), {'status': 'cancelled'})
+                self.assertEqual(target.read_bytes(), source.read_bytes())
+
+    def test_failed_copy_preserves_existing_destination(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            target = root / 'Existing.zip'
+            target.write_bytes(b'keep existing file')
+            window = SimpleNamespace(create_file_dialog=Mock(return_value=(str(target),)))
+            with patch.dict(sys.modules, {'webview': SimpleNamespace(FileDialog=SimpleNamespace(SAVE=30))}):
+                with self.assertRaises(OSError):
+                    save_practice_audio(window, root / 'missing.zip', 'Both.zip')
+            self.assertEqual(target.read_bytes(), b'keep existing file')
+            self.assertEqual(list(root.glob('.blaze-export-*')), [])
 
 
 if __name__ == '__main__':

@@ -1,3 +1,7 @@
+@keyframes mac-content-enter {
+  from { opacity:0; transform:translateY(5px); }
+  to { opacity:1; transform:translateY(0); }
+}
 /* Mac content presentation. AppKit owns the sidebar and toolbar; this sheet
    keeps the existing single-player workspace at desktop density at every size. */
 html[data-presentation=mac] {
@@ -8,6 +12,19 @@ html[data-presentation=mac] {
   --rail:176px; --mac-player-height:76px;
   --shadow:0 12px 40px #00000018;
   font-family:-apple-system,BlinkMacSystemFont,sans-serif;
+}
+html[data-presentation=mac] :is(#explore-panel,#downloads-panel,#library-panel,#studio-panel):not([hidden]) {
+  animation:mac-content-enter 200ms cubic-bezier(.2,.8,.2,1);
+}
+html[data-presentation=mac] .discovery-card .discovery-art img {
+  transition:transform 260ms cubic-bezier(.2,.8,.2,1);
+}
+@media(hover:hover) {
+  html[data-presentation=mac] .discovery-card:hover .discovery-art img { transform:scale(1.035); }
+}
+@media(prefers-reduced-motion:reduce) {
+  html[data-presentation=mac] :is(#explore-panel,#downloads-panel,#library-panel,#studio-panel):not([hidden]),
+  html[data-presentation=mac] .discovery-card .discovery-art img { animation:none;transition:none;transform:none; }
 }
 html[data-presentation=mac][data-appearance=dark] {
   --bg:#202023; --panel:#29292d; --subtle:#303035; --sidebar:#26262a;
@@ -122,6 +139,7 @@ html[data-presentation=mac] .discovery-copy small { font-size:.6875rem; }
 html[data-presentation=mac] .discovery-item-actions button { min-width:27px; min-height:28px; padding:5px; }
 html[data-presentation=mac] .discovery-privacy { padding-top:14px; margin-top:24px; font-size:.625rem; gap:12px; }
 html[data-presentation=mac] #explore-reset { font-size:.625rem; padding:4px 0; }
+html[data-presentation=mac] #explore-more { display:block;margin:20px auto 8px;min-height:32px;padding:6px 18px; }
 /* Downloads and Library use compact, aligned desktop rows. */
 html[data-presentation=mac] .download-composer { padding:18px; border-radius:11px; box-shadow:0 1px 2px #00000003; }
 html[data-presentation=mac] .download-composer>label { font-size:.8125rem; }
@@ -407,4 +425,52 @@ html[data-presentation=mac] body.large-type.studio-active .diagram-section { min
   html[data-presentation=mac] select { border-color:var(--border); }
   html[data-presentation=mac] #mini-player,
   html[data-presentation=mac] #now-dialog { border-width:1px; }
+}
+
+/* YouTube-style results are confined to search; recommendations keep their layout. */
+html[data-presentation=mac] .mac-search-submit { display:none; }
+html[data-presentation=mac] #explore-panel[data-view=search] { max-width:1180px; }
+html[data-presentation=mac] #explore-panel[data-view=search] .explore-heading { margin-bottom:16px; }
+html[data-presentation=mac] #explore-panel[data-view=search] .explore-heading h2 { font-size:20px; letter-spacing:-.02em; }
+html[data-presentation=mac] #explore-panel[data-view=search] .discovery-search { max-width:720px; min-height:44px; padding:0 0 0 20px; gap:0; border:1px solid var(--border); border-radius:24px; background:var(--panel); }
+html[data-presentation=mac] #explore-panel[data-view=search] .discovery-search>span,
+html[data-presentation=mac] #explore-panel[data-view=search] .discovery-search>.sr-only { display:none; }
+html[data-presentation=mac] #explore-panel[data-view=search] .discovery-search input { font-size:16px; min-width:0; }
+html[data-presentation=mac] #explore-panel[data-view=search] .mac-search-submit { display:grid; place-items:center; width:60px; min-height:44px; flex-shrink:0; padding:0; border:0; border-left:1px solid var(--border); border-radius:0 24px 24px 0; background:var(--subtle); }
+html[data-presentation=mac] #explore-panel[data-view=search] .mac-search-submit svg { width:21px; height:21px; }
+html[data-presentation=mac] #explore-panel[data-view=search] .discovery-filters { background:none; border:0; padding:0; gap:8px; border-radius:0; overflow-x:auto; }
+html[data-presentation=mac] #explore-panel[data-view=search] .discovery-filters button { min-height:32px; padding:6px 13px; border-radius:8px; background:var(--subtle); font-size:13px; }
+html[data-presentation=mac] #explore-panel[data-view=search] .discovery-filters button.selected { color:var(--bg); background:var(--text); box-shadow:none; }
+html[data-presentation=mac] #explore-panel[data-view=search] .discovery-context { position:relative; padding-bottom:8px; margin-bottom:16px; overflow:hidden; }
+html[data-presentation=mac] #explore-panel[data-view=search]:has(#explore-results[aria-busy=true]) .discovery-context::after { content:''; position:absolute; height:2px; bottom:0; left:0; width:35%; border-radius:2px; background:#f03; animation:mac-search-progress 1.2s ease-in-out infinite; }
+html[data-presentation=mac] #explore-panel[data-view=search] .discovery-list { grid-template-columns:minmax(0,1fr); gap:22px; }
+html[data-presentation=mac] #explore-panel[data-view=search] .discovery-card { padding:0; border:0; gap:12px; align-items:flex-start; animation:mac-search-arrive 180ms ease-out both; }
+html[data-presentation=mac] #explore-panel[data-view=search] .discovery-primary { display:grid; grid-template-columns:minmax(180px,38%) minmax(0,1fr); gap:20px; align-items:start; }
+html[data-presentation=mac] #explore-panel[data-view=search] .discovery-art { position:relative; width:100%; height:auto; aspect-ratio:16/9; border-radius:12px; overflow:hidden; }
+html[data-presentation=mac] #explore-panel[data-view=search] .discovery-copy { padding-top:2px; gap:8px; }
+html[data-presentation=mac] #explore-panel[data-view=search] .discovery-copy strong { font-size:18px; line-height:1.4; font-weight:500; letter-spacing:-.012em; }
+html[data-presentation=mac] #explore-panel[data-view=search] .discovery-copy small { font-size:12px; color:var(--muted); }
+html[data-presentation=mac] #explore-panel[data-view=search] .search-metadata { order:-1; }
+html[data-presentation=mac] #explore-panel[data-view=search] .discovery-copy strong { order:-2; }
+html[data-presentation=mac] #explore-panel[data-view=search] .search-creator { display:flex; align-items:center; gap:7px; margin-top:3px; }
+html[data-presentation=mac] #explore-panel[data-view=search] .search-channel-mark { display:grid; place-items:center; width:24px; height:24px; flex-shrink:0; border-radius:50%; background:var(--subtle); color:var(--muted); font-size:11px; }
+html[data-presentation=mac] #explore-panel[data-view=search] .search-description { font-size:12px; line-height:1.6; color:var(--muted); display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+html[data-presentation=mac] #explore-panel[data-view=search] .search-duration { position:absolute; bottom:7px; right:7px; padding:2px 5px; border-radius:4px; background:#000d; color:#fff; font-size:12px; font-weight:600; line-height:1.4; font-variant-numeric:tabular-nums; }
+html[data-presentation=mac] #explore-panel[data-view=search] .discovery-item-actions { flex-direction:column; gap:6px; }
+html[data-presentation=mac] #explore-panel[data-view=search] .discovery-item-actions button { width:32px; min-height:32px; border-radius:50%; }
+html[data-presentation=mac] #explore-panel[data-view=search] #explore-results[inert] { opacity:.48; transition:opacity 120ms ease; }
+html[data-presentation=mac] #explore-panel[data-view=search] .discovery-privacy { display:none; }
+@keyframes mac-search-arrive { from { opacity:0; transform:translateY(5px); } to { opacity:1; transform:none; } }
+@keyframes mac-search-progress { from { transform:translateX(-110%); } to { transform:translateX(390%); } }
+@media(max-width:800px) {
+  html[data-presentation=mac] #explore-panel[data-view=search] .discovery-primary { grid-template-columns:minmax(130px,42%) minmax(0,1fr); gap:12px; }
+  html[data-presentation=mac] #explore-panel[data-view=search] .discovery-copy strong { font-size:15px; }
+  html[data-presentation=mac] #explore-panel[data-view=search] .search-description { display:none; }
+  html[data-presentation=mac] #explore-panel[data-view=search] .discovery-card { gap:5px; }
+  html[data-presentation=mac] #explore-panel[data-view=search] .discovery-copy { gap:4px; }
+}
+@media(prefers-reduced-motion:reduce) {
+  html[data-presentation=mac] #explore-panel[data-view=search] .discovery-card,
+  html[data-presentation=mac] #explore-panel[data-view=search] .discovery-context::after { animation:none !important; }
+  html[data-presentation=mac] #explore-panel[data-view=search] #explore-results[inert] { transition:none; }
 }

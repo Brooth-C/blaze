@@ -1,5 +1,6 @@
 """Offline desktop catalogue/process/cache contracts; no provider access."""
 from pathlib import Path
+from concurrent.futures import ThreadPoolExecutor
 import json
 import http.client
 import importlib.util
@@ -50,6 +51,18 @@ class DesktopDiscoveryTests(unittest.TestCase):
         self.assertEqual(d._https('https://user@i.ytimg.com/x', d._IMAGES), '')
         self.assertEqual(d._https('https://i.ytimg.com:443/x', d._IMAGES), '')
 
+    def test_search_metadata_survives_cache_canonicalization_without_inventing_values(self):
+        value = d.normalize({'id': VIDEO, 'title': 'Piano', 'view_count': 12345,
+                             'upload_date': '20261101', 'description': 'A live session'})
+        restored = d.canonical_item(value)
+        for key in ('viewCount', 'publishedDate', 'description'):
+            self.assertEqual(restored[key], value[key])
+        for invalid in (True, -1, 'many', 10**16):
+            bare = d.normalize({'id': VIDEO, 'title': 'Piano', 'view_count': invalid})
+            self.assertNotIn('viewCount', bare)
+            self.assertNotIn('publishedDate', bare)
+            self.assertNotIn('description', bare)
+
     def test_catalogue_reopens_from_disk_without_running_provider_again(self):
         with patch.object(self.service, '_query', return_value=[recording()]) as query:
             first = self.wait(self.service.request({'action': 'search', 'query': 'cached music'}))
@@ -84,6 +97,55 @@ class DesktopDiscoveryTests(unittest.TestCase):
         identity = self.service._public(recording())['thumbnail'].split('id=')[1]
         with patch.object(d, 'build_opener', side_effect=AssertionError('Unexpected image fetch')):
             self.assertEqual(self.service.image(identity), (b'jpeg-fixture', 'image/jpeg'))
+        with patch.object(Path, 'open', side_effect=AssertionError('Disk cache was not promoted to memory')):
+            self.assertEqual(self.service.image(identity), (b'jpeg-fixture', 'image/jpeg'))
+
+    def test_mac_matching_image_requests_share_success_and_failure_without_holding_lock(self):
+        self.service.verify_playback = True
+        identity = self.service._public(recording())['thumbnail'].split('id=')[1]
+        for fails in (False, True):
+            with self.subTest(fails=fails):
+                entered, joined, release = threading.Event(), threading.Event(), threading.Event()
+                pending = d.Future()
+                wait = pending.result
+
+                def result(*args, **kwargs):
+                    joined.set()
+                    return wait(*args, **kwargs)
+
+                pending.result = result
+
+                def load(value):
+                    self.assertEqual(value, identity)
+                    entered.set()
+                    if not release.wait(3):
+                        raise TimeoutError('Image test did not release')
+                    if fails:
+                        raise ValueError('Unavailable artwork')
+                    return b'jpeg-fixture', 'image/jpeg'
+
+                with patch.object(d, 'Future', return_value=pending), \
+                        patch.object(self.service, '_load_image', side_effect=load) as fetch, \
+                        ThreadPoolExecutor(max_workers=2) as workers:
+                    first = workers.submit(self.service.image, identity)
+                    self.assertTrue(entered.wait(2))
+                    second = workers.submit(self.service.image, identity)
+                    try:
+                        self.assertTrue(joined.wait(2))
+                        self.assertTrue(self.service.lock.acquire(timeout=.5))
+                        self.service.lock.release()
+                    finally:
+                        release.set()
+                    for request in (first, second):
+                        if fails:
+                            with self.assertRaisesRegex(ValueError, 'Unavailable artwork'):
+                                request.result(timeout=2)
+                        else:
+                            self.assertEqual(request.result(timeout=2), (b'jpeg-fixture', 'image/jpeg'))
+                    self.assertEqual(fetch.call_count, 1)
+                self.assertEqual(self.service.image_requests, {})
+        with patch.object(self.service, '_load_image', return_value=(b'retry', 'image/jpeg')):
+            self.assertEqual(self.service.image(identity), (b'retry', 'image/jpeg'))
 
     def test_expired_video_artwork_uses_public_static_thumbnail(self):
         item = recording()
@@ -133,6 +195,66 @@ class DesktopDiscoveryTests(unittest.TestCase):
         with patch.object(self.service, '_query', return_value=[recording()]) as query:
             self.wait(self.service.request({'action': 'search', 'query': 'failure'}))
             query.assert_called_once()
+
+    def test_mac_warm_search_returns_ready_without_worker_or_poll(self):
+        self.service.verify_playback = True
+        body = {'action': 'search', 'query': 'Repeated song', 'filter': 'all', 'limit': 16}
+        with patch.object(self.service, '_query', return_value=[recording()]) as provider:
+            first = self.wait(self.service.request(body))
+            with patch.object(self.service, '_new', side_effect=AssertionError('Warm search queued a worker')):
+                again = self.service.request(body)
+        self.assertEqual(again['status'], 'ready')
+        self.assertNotIn('requestId', again)
+        self.assertEqual(again['items'][0]['id'], first['items'][0]['id'])
+        self.assertEqual(provider.call_count, 1)
+
+    def test_mac_status_wait_wakes_on_completion_and_cancel(self):
+        self.service.verify_playback = True
+        release = threading.Event()
+        answer = self.service._new('metadata', lambda _job: (release.wait(2) and {'items': []}))
+        self.assertTrue(answer['canWait'])
+        returned = threading.Event()
+        values = []
+        waiter = threading.Thread(target=lambda: (values.append(self.service.wait_status(answer['requestId'])), returned.set()))
+        waiter.start()
+        self.assertFalse(returned.wait(.02), 'Pending wait returned without waiting')
+        release.set()
+        self.assertTrue(returned.wait(1))
+        waiter.join(1)
+        self.assertEqual(values[0]['status'], 'ready')
+
+        release.clear()
+        second = self.service._new('metadata', lambda _job: (release.wait(2) and {'items': []}))
+        try:
+            self.service.cancel(second['requestId'])
+            self.assertEqual(self.service.wait_status(second['requestId'])['status'], 'cancelled')
+        finally:
+            release.set()
+
+    def test_mac_root_export_is_reused_and_explicit_ca_is_preserved(self):
+        self.service.verify_playback = True
+        pem = d.ssl.DER_cert_to_PEM_cert(d.ssl.create_default_context().get_ca_certs(binary_form=True)[0]).encode('ascii')
+        result = MagicMock(stdout=pem)
+        job = {'cancel': threading.Event()}
+        with patch.object(d.sys, 'platform', 'darwin'), patch.dict(d.os.environ, {'SSL_CERT_FILE': ''}), \
+                patch.object(d.subprocess, 'run', return_value=result) as export:
+            first = self.service._tls_environment(job)
+            again = self.service._tls_environment(job)
+            self.assertEqual(first['SSL_CERT_FILE'], again['SSL_CERT_FILE'])
+            self.assertEqual(Path(first['SSL_CERT_FILE']).read_bytes(), pem)
+            self.assertEqual(export.call_count, 1)
+            with patch.dict(d.os.environ, {'SSL_CERT_FILE': '/explicit/trust.pem'}):
+                self.assertIsNone(self.service._tls_environment(job))
+                self.assertEqual(export.call_count, 1)
+        self.service.close()
+        self.assertFalse(Path(first['SSL_CERT_FILE']).exists())
+
+    def test_mac_bad_root_export_is_not_cached(self):
+        self.service.verify_playback = True
+        with patch.object(d.sys, 'platform', 'darwin'), patch.dict(d.os.environ, {'SSL_CERT_FILE': ''}), \
+                patch.object(d.subprocess, 'run', return_value=MagicMock(stdout=b'not a certificate')):
+            self.assertRaises(d.ssl.SSLError, self.service._tls_environment, {'cancel': threading.Event()})
+        self.assertIsNone(self.service.tls_file)
 
     def test_recommendations_mix_seeds_filter_recent_and_diversify(self):
         public = self.service._public(recording())
@@ -259,6 +381,49 @@ class DesktopDiscoveryTests(unittest.TestCase):
         self.assertIn('--dump-single-json', args)
         self.assertEqual(rows[0]['id'], VIDEO)
 
+    def test_mac_rejects_result_with_conflicting_video_id_and_url(self):
+        self.service.verify_playback = True
+        job = {'cancel': threading.Event()}
+        payload = {'_type': 'playlist', 'entries': [
+            {'id': VIDEO, 'url': f'https://www.youtube.com/watch?v={OTHER}', 'title': 'Wrong pairing'},
+            {'id': OTHER, 'url': f'https://www.youtube.com/watch?v={OTHER}', 'title': 'Correct pairing'}]}
+        with patch.object(self.service, '_command', return_value=json.dumps(payload).encode()):
+            rows = self.service._query(job, 'ytsearch2:example', 'all', 2)
+        self.assertEqual([(row['id'], row['title']) for row in rows], [(OTHER, 'Correct pairing')])
+
+    def test_mac_verifies_download_identity_and_ignores_legacy_cache(self):
+        self.service.verify_playback = True
+        item = self.service._public(recording())
+        legacy = self.service.cache_directory / (VIDEO + '-audio.m4a')
+        legacy.write_bytes(b'unverified old media')
+
+        def wrong(_job, arguments, **kwargs):
+            self.assertIn('after_move:%(id)s', arguments)
+            self.assertIn('--no-simulate', arguments)
+            (kwargs['workspace'] / 'selected.m4a').write_bytes(b'wrong media')
+            return (OTHER + '\n').encode()
+
+        with patch.object(self.service, '_command', side_effect=wrong):
+            failed = self.wait(self.service.prepare({'item': item}))
+        self.assertEqual(failed['status'], 'failed')
+        self.assertFalse(any(self.service.cache_directory.glob('verified-v1-*')))
+
+        def correct(_job, arguments, **kwargs):
+            (kwargs['workspace'] / 'selected.m4a').write_bytes(b'correct media')
+            return (VIDEO + '\n').encode()
+
+        with patch.object(self.service, '_command', side_effect=correct):
+            first = self.service.prepare({'item': item})
+            self.assertEqual(self.wait(first)['status'], 'ready')
+        path, selected = self.service.select(first['requestId'])
+        self.assertEqual(path.read_bytes(), b'correct media')
+        self.assertEqual(selected['id'], VIDEO)
+        with patch.object(self.service, '_command', side_effect=AssertionError('Verified cache should be reused')):
+            second = self.service.prepare({'item': item})
+            self.assertEqual(self.wait(second)['status'], 'ready')
+        self.assertRaisesRegex(ValueError, 'newer recording', self.service.select, first['requestId'])
+        self.assertEqual(self.service.select(second['requestId'])[0], path)
+
     def test_requests_are_bounded_and_cache_history_not_arbitrary_payload(self):
         release = threading.Event()
         def block(job):
@@ -328,6 +493,19 @@ class DesktopDiscoveryHTTPTests(unittest.TestCase):
         self.assertEqual(self.request('/api/discovery-history', headers={'Origin': 'https://evil.test'})[0], 403)
         self.assertEqual(self.request('/api/discovery-history')[0], 200)
         self.assertEqual(self.request('/api/discovery', {'action': 'search', 'query': 'x'}, token=False)[0], 403)
+
+    def test_mac_late_selection_cannot_replace_a_new_recording(self):
+        self.studio.presentation = 'mac'
+        identity = self.ready()
+        original = self.root / 'New import.wav'
+        original.write_bytes(b'user chose a different recording')
+        self.studio.select_source(original, original.name)
+        self.assertEqual(self.request('/api/discovery-select', {'requestId': identity, 'sourceRevision': 0})[0], 400)
+        self.assertEqual(self.studio.source, original)
+        self.assertEqual(self.studio.name, 'New import.wav')
+        status, _, raw = self.request('/api/discovery-select', {'requestId': identity, 'sourceRevision': 1})
+        self.assertEqual(status, 200)
+        self.assertEqual(json.loads(raw)['sourceRevision'], 2)
 
     def test_selection_uses_single_media_trusted_kind_revision_mime_and_range(self):
         identity = self.ready()

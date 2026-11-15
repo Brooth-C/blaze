@@ -83,19 +83,25 @@ def grouped_candidates(probabilities, labels: Sequence[str], bass_probabilities=
         mass, -2, axis=1)[:, -2]
     margin = confidence - second
 
-    result = []
     roots = np.asarray(roots, dtype=np.int8)
-    for frame, winner in enumerate(winning):
-        group = indices[winner]
-        probabilities_in_group = posterior[frame, group]
-        highest = float(np.max(probabilities_in_group))
-        choice = int(group[np.argmax(probabilities_in_group)])
-        if bass is not None:
-            bass_index = int(np.argmax(bass[frame]))
-            if bass_index > 0 and bass[frame, bass_index] >= .6:
-                eligible = group[(roots[group] == bass_index - 1) &
-                                 (probabilities_in_group >= max(.03, highest * .1))]
-                if len(eligible):
-                    choice = int(eligible[np.argmax(posterior[frame, eligible])])
-        result.append(original[choice])
+    choices = np.empty(len(posterior), dtype=np.intp)
+    for winner, group in enumerate(indices):
+        members = np.flatnonzero(winning == winner)
+        for start in range(0, len(members), 2048):
+            frames = members[start:start + 2048]
+            probabilities_in_group = posterior[frames[:, None], group]
+            selected = group[np.argmax(probabilities_in_group, axis=1)]
+            if bass is not None:
+                bass_index = np.argmax(bass[frames], axis=1)
+                strong = (bass_index > 0) & (bass[frames, bass_index] >= .6)
+                highest = np.max(probabilities_in_group, axis=1)
+                threshold = np.maximum(.03, highest * .1)
+                eligible = ((roots[group][None] == bass_index[:, None] - 1) &
+                            (probabilities_in_group >= threshold[:, None]))
+                supported = strong & np.any(eligible, axis=1)
+                if np.any(supported):
+                    supported_values = np.where(eligible[supported], probabilities_in_group[supported], -np.inf)
+                    selected[supported] = group[np.argmax(supported_values, axis=1)]
+            choices[frames] = selected
+    result = [original[index] for index in choices]
     return result, confidence.astype(np.float32), margin.astype(np.float32)

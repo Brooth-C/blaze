@@ -39,6 +39,44 @@ class Controlled(RoformerSeparator):
 
 
 class RoformerTests(unittest.TestCase):
+    def test_borrowed_source_chunks_match_reflection_at_every_stream_boundary(self):
+        from music_studio.roformer import source_chunk
+        rng=np.random.default_rng(180)
+        for segment in (485100,882000):
+            for count in (137,segment+137,segment*2+137):
+                pcm=rng.normal(0,.1,(count,2)).astype(np.float32)
+                pcm.setflags(write=False)
+                stride=segment//2;border=stride if count>2*stride else 0
+                total=count+2*border
+                for offset in range(0,min(total,border+count),stride):
+                    length=min(segment,total-offset)
+                    indices=np.arange(offset,offset+length)-border
+                    indices=np.where(indices<0,-indices,indices)
+                    indices=np.where(indices>=count,2*count-2-indices,indices)
+                    expected=np.asarray(pcm[indices].T,dtype=np.float32)
+                    actual=source_chunk(pcm,offset,length,border,count)
+                    self.assertEqual(actual.tobytes(),expected.tobytes())
+                    if 0<=offset-border and offset-border+length<=count:
+                        self.assertTrue(np.shares_memory(actual,pcm))
+                        self.assertFalse(actual.flags.writeable)
+        pcm=np.arange(128,dtype=np.float64).reshape(64,2)
+        self.assertEqual(source_chunk(pcm,4,31,0,64).tobytes(),pcm[4:35].T.astype(np.float32).tobytes())
+
+    def test_reflection_slices_match_index_folding_on_small_and_extreme_edges(self):
+        from music_studio.roformer import source_chunk
+        for count in range(2,18):
+            pcm=np.arange(count*2,dtype=np.float32).reshape(count,2)
+            for first in (1-count,-1,0,count-2,count-1):
+                for last in (first+1,0,1,count,2*count-2,2*count-1):
+                    if last<=first:continue
+                    border=count//2;offset=first+border;length=last-first
+                    indices=np.arange(offset,offset+length)-border
+                    indices=np.where(indices<0,-indices,indices)
+                    indices=np.where(indices>=count,2*count-2-indices,indices)
+                    expected=np.asarray(pcm[indices].T,dtype=np.float32)
+                    actual=source_chunk(pcm,offset,length,border,count)
+                    self.assertEqual(actual.tobytes(),expected.tobytes())
+
     def test_missing_model_and_tampered_block_fail_before_inference(self):
         from music_studio.roformer_assets import MODELS
         with tempfile.TemporaryDirectory() as d:
@@ -64,6 +102,7 @@ class RoformerTests(unittest.TestCase):
         for channels, length, fft, hop in ((2, 882000, 2048, 512), (2, 44100, 2048, 441), (1, 4096, 1024, 256)):
             audio = rng.normal(size=(channels, length)).astype(np.float32)
             spectrum = stft(audio, fft, hop)
+            self.assertTrue(spectrum.flags.c_contiguous)
             original = np.stack([spectrum.real, spectrum.imag], axis=-1).transpose(1, 0, 2, 3)
             original = np.ascontiguousarray(original.reshape(-1, spectrum.shape[2], 2)[None].astype(np.float32))
             packed = stft_bands_last(audio, fft, hop)
@@ -97,6 +136,25 @@ class RoformerTests(unittest.TestCase):
                     np.testing.assert_allclose(decoded[name], original * fraction, atol=1e-7)
                 np.testing.assert_allclose(sum(decoded.values()), original, atol=1e-7)
                 self.assertEqual(source.read_bytes(), source_bytes)
+
+    @unittest.skipUnless(shutil.which('ffmpeg'), 'FFmpeg required')
+    def test_overlap_add_keeps_shared_readonly_and_float64_predictions_unchanged(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory);source=root/'source.wav';recording(source,137)
+            expected=Controlled().separate(source,root/'baseline')
+            for kind in ('shared','readonly','float64'):
+                class Borrowed(Controlled):
+                    def _chunk(self,audio,event):
+                        values=super()._chunk(audio,event)
+                        if kind=='shared':values=values.view()
+                        elif kind=='readonly':values.setflags(write=False)
+                        else:values=values.astype(np.float64)
+                        self.borrowed=values;self.before=values.tobytes()
+                        return values
+                engine=Borrowed();actual=engine.separate(source,root/kind)
+                self.assertEqual(engine.borrowed.tobytes(),engine.before)
+                for stem in expected:
+                    self.assertEqual(actual[stem].read_bytes(),expected[stem].read_bytes())
 
     @unittest.skipUnless(shutil.which('ffmpeg'), 'FFmpeg required')
     def test_padding_only_tail_does_not_run_an_extra_model_pass(self):

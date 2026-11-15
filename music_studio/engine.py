@@ -199,6 +199,28 @@ def waveform_peaks(blocks):
     return np.max(np.abs(blocks), axis=1).tolist() if len(blocks) else []
 
 
+def context_silence_mask(pcm):
+    """Match each 8192-sample BTC context using shared 2048-sample peaks."""
+    if not len(pcm):
+        return np.empty(0,dtype=bool)
+    peaks=np.maximum.reduceat(np.abs(pcm),np.arange(0,len(pcm),2048))
+    padded=np.pad(peaks,(2,1))
+    contexts=np.lib.stride_tricks.sliding_window_view(padded,4)
+    # The scalar reference explicitly converts each peak to a Python float.
+    return np.max(contexts,axis=1,initial=0).astype(np.float64)<1e-5
+
+
+def _consume_onset_spectrum(spectrum, previous):
+    """Compute unchanged flux while reusing the private magnitude buffer."""
+    totals=spectrum.sum(axis=1)
+    last=spectrum[-1].copy()
+    # NumPy preserves the inputs of overlapping subtraction before writing.
+    np.subtract(spectrum[1:],spectrum[:-1],out=spectrum[1:])
+    np.subtract(spectrum[0],previous,out=spectrum[0])
+    np.maximum(0,spectrum,out=spectrum)
+    return spectrum.sum(axis=1)/np.maximum(1e-8,totals),last
+
+
 class Analyzer:
     def __init__(self, bundle, ffmpeg):
         self.bundle = bundle
@@ -314,17 +336,16 @@ class Analyzer:
                     spectral_signal = np.concatenate((spectral_tail, blocks.reshape(-1)))
                     windows = np.lib.stride_tricks.sliding_window_view(spectral_signal, 2048)[::256]
                     spectrum = np.abs(np.fft.rfft(windows * onset_window, axis=1))
-                    preceding = np.vstack((previous_spectrum, spectrum[:-1]))
-                    flux = np.maximum(0, spectrum - preceding).sum(axis=1) / np.maximum(1e-8, spectrum.sum(axis=1))
+                    flux, previous_spectrum = _consume_onset_spectrum(spectrum, previous_spectrum)
                     onsets.extend(np.maximum(0, flux - .05).tolist())
                     spectral_tail = spectral_signal[-1792:].copy()
-                    previous_spectrum = spectrum[-1]
                 waveform.extend(waveform_peaks(blocks))
                 if len(pcm) < 128:
                     probabilities = None
                 else:
                     probabilities = self.bundle.predict(pcm)
                 frame_count = len(probabilities) if probabilities is not None else math.ceil(len(pcm)/2048)
+                silent_contexts=context_silence_mask(pcm)
                 for index in range(frame_count):
                     global_index = start_sample // 2048 + index
                     start = global_index * 2048 / RATE
@@ -335,8 +356,7 @@ class Analyzer:
                         frames.append({'start': start, 'end': end, 'chord': 'X', 'model_score': 0., 'edited': False, '_prob': np.zeros(self.bundle.metadata['classes'],dtype=np.float32), '_weight': 0., '_silent': True})
                     frame = frames[global_index]
                     frame['end'] = end
-                    left, right = max(0,index*2048-4096), min(len(pcm),index*2048+4096)
-                    frame['_silent'] &= float(np.max(np.abs(pcm[left:right]),initial=0)) < 1e-5
+                    frame['_silent'] &= bool(silent_contexts[index])
                     if probabilities is not None:
                         weight = max(.05,min(index+1,frame_count-index,27)/27)
                         frame['_prob'] += probabilities[index] * weight
