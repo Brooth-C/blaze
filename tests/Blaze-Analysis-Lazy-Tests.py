@@ -163,6 +163,42 @@ class LazyTests(unittest.TestCase):
 
     def test_sparse_feature_rows_are_reused_without_changing_response_values(self):
         from music_studio import lv_frontend as lv
+        def reference_spectral_blocks(y: object, nfft: int, hop: int, window: object,
+                             block_frames: int = 256):
+            """STFT blocks without constructing an audio-size padded copy."""
+            count = 1 + len(y) // hop
+            half = nfft // 2
+            for frame in range(0, count, block_frames):
+                last = min(count, frame + block_frames)
+                left, right = frame * hop - half, (last - 1) * hop + half
+                signal = y[max(0, left):min(len(y), right)]
+                signal = np.pad(signal, (max(0, -left), max(0, right - len(y))))
+                frames = np.lib.stride_tricks.sliding_window_view(signal, nfft)[::hop]
+                yield frame, np.fft.rfft(frames * window, axis=-1).T.astype(np.complex64)
+        def reference_project(filters: object, spectrum: object) -> object:
+            # Sparse rows are typically only tens of frequency bins, so this avoids
+            # a large dense GEMM and any SciPy dependency.
+            output = np.empty((len(filters), spectrum.shape[1]), np.complex64)
+            for row, coefficients in enumerate(filters):
+                indices = np.flatnonzero(coefficients)
+                for start in range(0, spectrum.shape[1], 512):
+                    output[row, start:start + 512] = np.sum(
+                        coefficients[indices, None] * spectrum[indices, start:start + 512],
+                        axis=0, dtype=np.complex64)
+            return output
+        def reference_response(y: object, filters: object, nfft: int, hop: int,
+                      window: object, magnitude_only: bool = False,
+                      destination=None, check=lambda: None) -> object:
+            result = np.empty((len(filters), 1 + len(y) // hop), np.float32) if destination is None else destination
+            for start, spectrum in reference_spectral_blocks(y, nfft, hop, window):
+                check()
+                if magnitude_only:
+                    spectrum = np.abs(spectrum)
+                projected = np.abs(reference_project(filters, spectrum))
+                count = min(projected.shape[1], result.shape[1] - start)
+                if count > 0:
+                    result[:, start:start + count] = projected[:, :count]
+            return result
         rng=np.random.default_rng(173)
         filters=np.zeros((7,257),np.complex64)
         for row in filters[1:]:
@@ -170,18 +206,7 @@ class LazyTests(unittest.TestCase):
             row[indices]=(rng.normal(size=8)+1j*rng.normal(size=8)).astype(np.complex64)
         audio=rng.normal(size=20003).astype(np.float32);window=np.hanning(513)[:-1]
         for magnitude in (False,True):
-            expected=np.empty((7,1+len(audio)//16),np.float32)
-            for start,spectrum in lv._spectral_blocks(audio,512,16,window):
-                if magnitude:spectrum=np.abs(spectrum)
-                # The pre-optimization runtime takes magnitude over the complete
-                # projected matrix. Keep that SIMD batch shape in this oracle;
-                # per-row hypot may round differently on Apple Silicon.
-                projected=np.empty((len(filters),spectrum.shape[1]),np.complex64)
-                for row,coefficients in enumerate(filters):
-                    indices=np.flatnonzero(coefficients)
-                    projected[row]=np.sum(coefficients[indices,None]*spectrum[indices],axis=0,dtype=np.complex64)
-                values=np.abs(projected)
-                expected[:,start:start+values.shape[1]]=values
+            expected=reference_response(audio,filters,512,16,window,magnitude)
             with patch.object(np,'flatnonzero',wraps=np.flatnonzero) as prepare:
                 actual=lv._response(audio,filters,512,16,window,magnitude)
             self.assertEqual(prepare.call_count,len(filters))
