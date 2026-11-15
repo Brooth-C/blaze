@@ -207,17 +207,25 @@ class LazyTests(unittest.TestCase):
         audio=rng.normal(size=20003).astype(np.float32);window=np.hanning(513)[:-1]
         for magnitude in (False,True):
             expected=reference_response(audio,filters,512,16,window,magnitude)
+            # A relative bound on the final magnitude is invalid near complex
+            # cancellation. Bound roundoff by the sum of input term magnitudes.
+            # Each of the two FP32 paths has at most 4 product, 8 reduction and
+            # 2 magnitude rounding steps; 32 eps conservatively covers both.
+            bounds=np.empty_like(expected,dtype=np.float64)
+            epsilon=np.finfo(np.float32).eps
+            gamma=32*epsilon/(1-32*epsilon)
+            for start,spectrum in reference_spectral_blocks(audio,512,16,window):
+                terms=np.abs(filters.astype(np.complex128))@np.abs(spectrum.astype(np.complex128))
+                bounds[:,start:start+terms.shape[1]]=gamma*terms
             with patch.object(np,'flatnonzero',wraps=np.flatnonzero) as prepare:
                 actual=lv._response(audio,filters,512,16,window,magnitude)
             self.assertEqual(prepare.call_count,len(filters))
-            # The unchanged complex64 reference is not byte-stable across
-            # Apple Silicon SIMD allocation/tail paths. Eight FP32 epsilons
-            # bound this eight-term projection without changing its precision.
-            tolerance=8*np.finfo(np.float32).eps
-            np.testing.assert_allclose(actual,expected,rtol=tolerance,atol=tolerance)
+            self.assertTrue(np.all(np.abs(actual.astype(np.float64)-expected)<=bounds))
             destination=np.empty((7,expected.shape[1]*2),np.float32)[:,::2]
             self.assertIs(lv._response(audio,filters,512,16,window,magnitude,destination),destination)
-            np.testing.assert_allclose(destination,expected,rtol=tolerance,atol=tolerance)
+            self.assertTrue(np.all(np.abs(destination.astype(np.float64)-expected)<=bounds))
+            # The precision bound must still reject a substantive gain error.
+            self.assertFalse(np.all(np.abs(expected.astype(np.float64)*1.001-expected)<=bounds))
         with self.assertRaises(AnalysisCancelled):
             lv._response(audio,filters,512,16,window,check=lambda:(_ for _ in ()).throw(AnalysisCancelled()))
 
