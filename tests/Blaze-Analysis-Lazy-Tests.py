@@ -173,10 +173,15 @@ class LazyTests(unittest.TestCase):
             expected=np.empty((7,1+len(audio)//16),np.float32)
             for start,spectrum in lv._spectral_blocks(audio,512,16,window):
                 if magnitude:spectrum=np.abs(spectrum)
+                # The pre-optimization runtime takes magnitude over the complete
+                # projected matrix. Keep that SIMD batch shape in this oracle;
+                # per-row hypot may round differently on Apple Silicon.
+                projected=np.empty((len(filters),spectrum.shape[1]),np.complex64)
                 for row,coefficients in enumerate(filters):
                     indices=np.flatnonzero(coefficients)
-                    values=np.abs(np.sum(coefficients[indices,None]*spectrum[indices],axis=0,dtype=np.complex64))
-                    expected[row,start:start+len(values)]=values
+                    projected[row]=np.sum(coefficients[indices,None]*spectrum[indices],axis=0,dtype=np.complex64)
+                values=np.abs(projected)
+                expected[:,start:start+values.shape[1]]=values
             with patch.object(np,'flatnonzero',wraps=np.flatnonzero) as prepare:
                 actual=lv._response(audio,filters,512,16,window,magnitude)
             self.assertEqual(prepare.call_count,len(filters))
