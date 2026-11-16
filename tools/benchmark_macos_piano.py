@@ -16,13 +16,15 @@ sys.path.insert(0, str(ROOT))
 from music_studio.mlx_piano_assets import WEIGHTS
 from music_studio.mlx_piano_model import PianoModel
 
-BASELINE = '7b4fd9dab1e1b1ab31a90eb7ca76b2ae98fa9c79'
+BASELINE = '7b02980295a94fd797d83e126a42b641400539fe'  # Stable 0.19.5.
 
 
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--assets', type=Path, required=True)
     parser.add_argument('--output', type=Path, required=True)
+    parser.add_argument('--batch-tokens', type=int, choices=(0,16384,32768,65536),
+                        help='Candidate only: compare full batching (0) with bounded independent batches.')
     args = parser.parse_args()
     if (sys.platform != 'darwin' or platform.machine().lower() != 'arm64'
             or platform.mac_ver()[0].split('.')[0] != '26'):
@@ -40,12 +42,13 @@ def main():
     exec(compile(original, '<released-piano-evaluator>', 'exec'), namespace)
     implementations = {'released': namespace['PianoModel'], 'candidate': PianoModel}
     spectrum = np.random.default_rng(5333).normal(0, .02, (1, 2050, 1723, 2)).astype('float32')
-    report = {'baseline_commit': BASELINE, 'chip': subprocess.check_output(
+    report = {'baseline_commit': BASELINE, 'candidate_batch_tokens': args.batch_tokens,
+        'chip': subprocess.check_output(
         ['sysctl', '-n', 'machdep.cpu.brand_string'], text=True).strip(),
         'macos': platform.mac_ver()[0], 'device': mx.metal.device_info(),
         'weights_sha256': WEIGHTS['sha256'], 'input_shape': list(spectrum.shape),
         'notes': ['Model inference only, not file-to-WAV time or a musical quality test.',
-                  'Full-context warm-up for each evaluator, then two ABBA rounds; no CPU fallback.',
+                  'Every fresh model is warmed before its timed sample; two ABBA rounds; no CPU fallback.',
                   'A virtual Metal device is not evidence of physical M3 performance.'], 'runs': []}
     reference = None
     try:
@@ -53,25 +56,42 @@ def main():
         for index, name in enumerate(order):
             model = implementations[name](path)
             try:
+                if name == 'candidate' and args.batch_tokens is not None:
+                    model.batch_tokens = args.batch_tokens
+                # Compilation/cache state belongs to this model instance.
+                # Warming a discarded instance does not warm the next one.
+                warm_start = time.monotonic()
+                warm = model.predict(spectrum)
+                if not np.isfinite(warm).all():
+                    raise ValueError('The GPU warm-up returned invalid samples.')
+                del warm
+                mx.synchronize(model.stream)
+                warm_seconds = time.monotonic()-warm_start
+                swap_before = subprocess.check_output(['sysctl','-n','vm.swapusage'],text=True).strip()
                 mx.reset_peak_memory()
                 start = time.monotonic()
                 actual = model.predict(spectrum)
                 elapsed = time.monotonic()-start
                 peak = mx.get_peak_memory()
+                batch_tokens = getattr(model,'batch_tokens',0)
+                swap_after = subprocess.check_output(['sysctl','-n','vm.swapusage'],text=True).strip()
             finally:
                 model.close()
             if not np.isfinite(actual).all():
                 raise ValueError('The model returned non-finite samples.')
             if reference is None:
-                reference = actual
+                reference = np.array(actual,copy=True)
             delta = actual.astype('float64')-reference
             error = {'rms': float(np.sqrt(np.mean(delta*delta))), 'max_abs': float(np.abs(delta).max())}
             run = {'evaluator': name, 'warmup': index < 2, 'seconds': elapsed,
+                   'instance_warmup_seconds': warm_seconds, 'sequence_batch_tokens': batch_tokens,
+                   'swap_before': swap_before, 'swap_after': swap_after,
                    'peak_mlx_allocated_bytes': peak, 'baseline_mask_error': error}
             report['runs'].append(run)
             print(json.dumps(run), flush=True)
             if error['rms'] >= 1e-5 or error['max_abs'] >= 1e-3:
                 raise ValueError('The candidate failed full-context numerical parity.')
+            del actual, delta
         report['median_seconds'] = {name: statistics.median(r['seconds'] for r in report['runs']
             if r['evaluator'] == name and not r['warmup']) for name in implementations}
         report['speedup'] = report['median_seconds']['released']/report['median_seconds']['candidate']

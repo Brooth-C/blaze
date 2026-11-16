@@ -288,6 +288,7 @@ class Analyzer:
                    '-threads', '2', '-i', str(path), '-map', '0:a:0', '-vn', '-sn', '-dn',
                    '-af', 'aresample=async=1:first_pts=0', '-ac', '1', '-ar', str(RATE), '-c:a', 'pcm_s16le', '-f', 'wav', 'pipe:1']
         started = time.perf_counter()
+        timings = {}
         process = subprocess.Popen(command, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
                                    creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
         self.process = process
@@ -390,16 +391,33 @@ class Analyzer:
             if frame.pop('_silent'):
                 label, score = 'N', 0.
             frame['chord'], frame['model_score'] = label, score
-        rhythm_result = rhythm.finish(sample_count / RATE, self.check, progress) if rhythm else {}
+        # Baseline inference is finished. Keep only its probabilities while the
+        # rhythm/ensemble stages run, rather than retaining their model arenas.
+        self.bundle.frontend.close()
+        self.bundle.network.close()
+        timings['baseline_seconds'] = round(time.perf_counter()-started, 3)
+        stage_started = time.perf_counter()
+        try:
+            rhythm_result = rhythm.finish(sample_count / RATE, self.check, progress) if rhythm else {}
+        finally:
+            if rhythm:
+                rhythm.close()
+        timings['rhythm_seconds'] = round(time.perf_counter()-stage_started, 3)
         if self.bundle.structured:
             recognizer = self.bundle.structured
             try:
                 self.check();progress('Reading harmony and tuning locally…')
+                stage_started = time.perf_counter()
                 features, decoded_audio = recognizer.features()
+                timings['harmony_features_seconds'] = round(time.perf_counter()-stage_started, 3)
                 try:
+                    stage_started = time.perf_counter()
                     heads = recognizer.predict_features(features, self.check, progress)
+                    timings['ensemble_seconds'] = round(time.perf_counter()-stage_started, 3)
+                    stage_started = time.perf_counter()
                     frames = recognizer.decode(heads, np.asarray(baseline_probabilities), self.bundle.manifest['models']['extended']['labels'],
                                                sample_count / RATE, rhythm_result.get('beats', []), decoded_audio, self.check)
+                    timings['chord_decode_seconds'] = round(time.perf_counter()-stage_started, 3)
                 finally:
                     del decoded_audio
             finally:
@@ -433,6 +451,8 @@ class Analyzer:
         if rhythm:
             bpm, beats = rhythm_result['tempo_bpm'], rhythm_result['beats']
         metadata = self.bundle.metadata
+        print('BLAZE_ANALYSIS_TIMING ' + json.dumps(dict(timings,
+              total_seconds=round(time.perf_counter()-started, 3), duration_seconds=sample_count/RATE)), flush=True)
         return {'schema_version': 1, 'engine_version': 'structured1' if self.bundle.structured else 'overlap1', 'audio_file': path.name, 'source_sha256': source_sha256,
                 'duration': sample_count / RATE, 'key': estimate_key(events), 'tempo_bpm': bpm, 'beats': beats,
                 'waveform': peaks, 'model': {'name': metadata['name'], 'version': metadata['version'],

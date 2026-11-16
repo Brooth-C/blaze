@@ -39,6 +39,34 @@ class Controlled(RoformerSeparator):
 
 
 class RoformerTests(unittest.TestCase):
+    def test_batched_inverse_preserves_original_overlap_order_and_padding(self):
+        from music_studio.roformer_transform import istft, hann_periodic
+        rng=np.random.default_rng(188)
+        for fft,hop,count in ((2048,512,255),(2048,512,256),(2048,512,257),(2048,512,1723),(2048,441,1101)):
+            backing=(rng.normal(size=(fft//2+1,count*2))+1j*rng.normal(size=(fft//2+1,count*2))).astype(np.complex64)
+            spec=backing[:,::2];spec.setflags(write=False)
+            window=hann_periodic(fft)
+            frames=np.fft.irfft(spec,n=fft,axis=0)*window[:,None]
+            signal=np.zeros(fft+hop*(count-1))
+            for i in range(count):signal[i*hop:i*hop+fft]+=frames[:,i]
+            envelope=overlap_envelope(fft,hop,count)
+            for length in (hop*(count-1),len(signal)+11):
+                start=fft//2;stop=min(start+length,len(signal))
+                expected=signal[start:stop]/envelope[start:stop]
+                if len(expected)<length:expected=np.pad(expected,(0,length-len(expected)))
+                self.assertEqual(istft(spec,fft,hop,length).tobytes(),expected.tobytes())
+
+    def test_blocked_spectral_packing_preserves_chunk_boundaries_and_stereo_values(self):
+        rng = np.random.default_rng(185)
+        for length, hop in ((255*512,512),(256*512,512),(257*512,512),(882000,512),(485100,441)):
+            audio = rng.normal(size=(2,length)).astype(np.float32)
+            audio.setflags(write=False)
+            spectrum = stft(audio,2048,hop)
+            expected = np.stack((spectrum.real,spectrum.imag),axis=-1).transpose(1,0,2,3)
+            expected = np.ascontiguousarray(expected.reshape(1,2050,spectrum.shape[-1],2),dtype=np.float32)
+            actual = stft_bands_last(audio,2048,hop)
+            self.assertEqual(actual.tobytes(),expected.tobytes())
+
     def test_borrowed_source_chunks_match_reflection_at_every_stream_boundary(self):
         from music_studio.roformer import source_chunk
         rng=np.random.default_rng(180)

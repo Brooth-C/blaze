@@ -22,7 +22,7 @@ html[data-presentation=mac] body.practice-workspace-active.mac-player-expanded #
 #practice-workspace button:hover:not(:disabled) { background:color-mix(in srgb,var(--practice-input) 84%,var(--practice-ink)); }
 #practice-workspace button:active:not(:disabled) { background:color-mix(in srgb,var(--practice-input) 72%,var(--practice-ink)); }
 #practice-workspace button:disabled { opacity:.45; }
-#practice-workspace :is(button,input,canvas):focus-visible { outline:2px solid var(--practice-focus);outline-offset:3px; }
+#practice-workspace :is(button,input,select,summary,canvas):focus-visible { outline:2px solid var(--practice-focus);outline-offset:3px; }
 #practice-workspace button.practice-quiet { border-color:transparent;background:transparent;color:var(--practice-muted); }
 .practice-tools { display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;margin:12px 0 16px; }
 .practice-transpose { display:flex;align-items:center;gap:7px;flex-wrap:wrap; }
@@ -30,6 +30,10 @@ html[data-presentation=mac] body.practice-workspace-active.mac-player-expanded #
 .practice-transpose small,.practice-download small { color:var(--practice-muted); }
 #practice-workspace .practice-download { position:relative;border:0;padding:0;margin:0; }
 .practice-download summary { cursor:pointer;padding:7px 12px;border:1px solid var(--practice-line);border-radius:6px;background:var(--practice-input); }
+#practice-workspace :is(.practice-download,.practice-audio-pitch)>summary { min-height:34px;display:flex;align-items:center;gap:8px;list-style:none; }
+#practice-workspace :is(.practice-download,.practice-audio-pitch)>summary::-webkit-details-marker { display:none; }
+#practice-workspace :is(.practice-download,.practice-audio-pitch)>summary::before { content:"";width:6px;height:6px;flex:none;border-right:1.5px solid currentColor;border-bottom:1.5px solid currentColor;transform:rotate(-45deg);transition:transform 160ms ease; }
+#practice-workspace :is(.practice-download,.practice-audio-pitch)[open]>summary::before { transform:rotate(45deg); }
 .practice-download>div { position:absolute;right:0;top:38px;z-index:5;min-width:185px;display:grid;gap:5px;padding:8px;background:var(--practice-panel);border:1px solid var(--practice-line);border-radius:8px;box-shadow:0 8px 24px #0003; }
 .practice-download label { color:var(--practice-muted);font-size:11px;padding:2px 4px; }
 .practice-download select { width:100%;min-height:32px;padding:4px 8px;border:1px solid var(--practice-line);border-radius:6px;background:var(--practice-input);color:var(--practice-ink);font:inherit;margin-bottom:5px; }
