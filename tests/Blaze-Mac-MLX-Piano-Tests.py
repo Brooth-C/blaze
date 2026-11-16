@@ -120,7 +120,11 @@ class MlxTests(unittest.TestCase):
                         with patch.object(model,'_transformer_block',wraps=model._transformer_block) as block:
                             actual=np.array(model.transformer(value,'layer',lambda:None))
                         self.assertEqual(actual.dtype,np.float32)
-                        np.testing.assert_allclose(actual,expected,atol=1e-7,rtol=1e-6)
+                        # Different Metal GEMM batch shapes may change FP32
+                        # accumulation rounding, especially near cancellation.
+                        # Keep this below 1e-6 absolute; the full checkpoint
+                        # comparison independently gates model output parity.
+                        np.testing.assert_allclose(actual,expected,atol=8*np.finfo(np.float32).eps,rtol=1e-6)
                         np.testing.assert_array_equal(np.array(value),original)
                         self.assertTrue(all(call.args[0].shape[0]<=3 and call.args[0].shape[1]==context for call in block.call_args_list))
 
