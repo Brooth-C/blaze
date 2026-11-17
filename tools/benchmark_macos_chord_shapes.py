@@ -62,13 +62,13 @@ def comparison(actual, expected):
     return {'all_heads_exact': all(head['exact_bytes'] for head in heads), 'heads': heads}
 
 
-def run_variant(kind, metadata, data, lengths, exact, repeats, artifacts, reference=None, report=None):
+def run_variant(kind, metadata, data, lengths, exact, repeats, artifacts, reference=None, report=None, backend='coreml'):
     import numpy as np
     import onnxruntime as ort
     from music_studio.stem_runtime import StemRuntime
     from tools.benchmark_macos_stems import provider_summary
-    label = 'exact' if exact else 'dynamic'
-    runtime = StemRuntime(backend='coreml', cache=artifacts / 'cache' / (kind + '-' + label),
+    label = 'cpu' if backend == 'cpu' else 'exact' if exact else 'dynamic'
+    runtime = StemRuntime(backend=backend, cache=artifacts / 'cache' / (kind + '-' + label),
                           profile=artifacts / 'profiles' / (kind + '-' + label))
     input_name, dimension = ('pcm', 'samples') if kind == 'cqt' else ('features', 'frames')
     outputs, session = {}, None
@@ -170,12 +170,18 @@ def main():
                                               report=entry['dynamic'])
             _, candidate = run_variant(kind, metadata, data, lengths, True, args.repeats, artifacts, reference,
                                         report=entry['exact'])
+            if kind == 'cqt':
+                entry['cpu'] = {}
+                run_variant(kind, metadata, data, lengths, False, args.repeats, artifacts, reference,
+                            report=entry['cpu'], backend='cpu')
             entry['all_outputs_exact'] = all(case['comparison']['all_heads_exact'] and case['all_repeats_exact']
                                              for variant in (baseline, candidate) for case in variant['cases'])
             args.output.write_text(json.dumps(report, indent=2))
             print(json.dumps({'model': kind, 'all_outputs_exact': entry['all_outputs_exact'],
                               'dynamic_seconds': [case['median_seconds'] for case in baseline['cases']],
-                              'exact_seconds': [case['median_seconds'] for case in candidate['cases']]}), flush=True)
+                              'exact_seconds': [case['median_seconds'] for case in candidate['cases']],
+                              'dynamic_sessions': baseline['sessions'], 'exact_sessions': candidate['sessions'],
+                              'cpu_sessions': entry.get('cpu', {}).get('sessions', [])}), flush=True)
     except BaseException as error:
         report['error'] = type(error).__name__ + ': ' + str(error)
         raise
