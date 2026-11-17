@@ -14,7 +14,8 @@ analysis cache identities remain valid.
 ## Evidence and limits
 
 The native macOS 26 experiment in [run 44133598511](https://github.com/Brooth-C/blaze/actions/runs/44133598511)
-compared checksum-pinned production assets. CQT outputs were byte-identical
+compared checksum-pinned production assets with diagnostic profiling enabled.
+CQT outputs were byte-identical
 between CPU and the original dynamic Core ML path for normal, quiet and silent
 inputs at 221184 and 110593 samples. Cold session creation measured about
 4.156 seconds through Core ML and 0.0167 seconds on CPU. Warm execution varied
