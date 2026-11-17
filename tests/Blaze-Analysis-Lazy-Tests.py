@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 import sys
 import tempfile
+from types import SimpleNamespace
 import unittest
 from unittest.mock import Mock, patch
 
@@ -16,6 +17,36 @@ from music_studio.verified_session import VerifiedSession
 
 
 class LazyTests(unittest.TestCase):
+    def test_tuning_peak_interpolation_matches_full_spectrum_reference(self):
+        from music_studio import lv_frontend as lv
+        rng=np.random.default_rng(186)
+        for count in (1,255,256):
+            spectrum=rng.uniform(0,1,(1025,count)).astype(np.float32)
+            spectrum[:,0]=0
+            if count>1:
+                spectrum[30:33,1]=.8  # Plateau and threshold ties.
+            avg=np.gradient(spectrum,axis=0)
+            shift=np.zeros_like(spectrum)
+            left,middle,right=spectrum[:-2],spectrum[1:-1],spectrum[2:]
+            denominator=left-2*middle+right
+            np.divide(.5*(left-right),denominator,out=shift[1:-1],where=denominator!=0)
+            shift[np.abs(shift)>1]=0
+            gated=spectrum*(spectrum>.1*np.max(spectrum,axis=0,keepdims=True))
+            maxima=np.zeros_like(gated,dtype=bool)
+            maxima[1:-1]=(gated[1:-1]>gated[:-2])&(gated[1:-1]>=gated[2:])
+            maxima[-1]=gated[-1]>gated[-2]
+            frequencies=np.arange(1025)*22050/2048
+            maxima&=((frequencies>=150)&(frequencies<4000))[:,None]
+            bins,columns=np.nonzero(maxima)
+            pitches=(bins+shift[bins,columns])*22050/2048
+            magnitudes=spectrum[bins,columns]+.5*avg[bins,columns]*shift[bins,columns]
+            with tempfile.TemporaryDirectory() as directory, \
+                 patch.object(lv,'_spectral_blocks',return_value=[(0,spectrum.astype(np.complex64))]):
+                lv.estimate_tuning(np.zeros(1,np.float32),directory)
+                for name,expected in [('pitches',pitches),('magnitudes',magnitudes)]:
+                    actual=(Path(directory)/('tuning-'+name+'.f64')).read_bytes()
+                    self.assertEqual(actual,expected.astype('<f8').tobytes())
+
     def test_spectral_blocks_skip_zero_padding_without_changing_fft_values(self):
         from music_studio import lv_frontend as lv
         rng=np.random.default_rng(181);fft,hop=512,64;window=np.hanning(513)[:-1]
@@ -329,7 +360,7 @@ class LazyTests(unittest.TestCase):
         saved=[[head.copy() for head in fold] for fold in logits]
         engine=StructuredRecognizer.__new__(StructuredRecognizer)
         engine.networks=[Mock(run=Mock(side_effect=lambda _,feed,fold=fold:[head[:feed['features'].shape[1]] for head in fold])) for fold in logits]
-        for count in (31,1292,1293,2600):
+        for count in (31,1292,1293,2600,6460):
             features=np.zeros((count,252),np.float32)
             expected=reference_predict_features(engine,features)
             actual=engine.predict_features(features)
@@ -361,6 +392,88 @@ class LazyTests(unittest.TestCase):
             weighted = np.asarray(want * weight[:,None], dtype=np.float32)
             weighted /= weight.astype(np.float32)[:,None]
             np.testing.assert_array_equal(got, weighted)
+
+    def test_ensemble_keeps_only_one_inference_session_live_and_closes_on_failure(self):
+        from music_studio.structured import StructuredRecognizer
+        active=set();peak=0;calls=[]
+        class Network:
+            def __init__(self,index):self.index=index
+            def run(self,_,feed):
+                nonlocal peak
+                active.add(self.index);peak=max(peak,len(active));calls.append(self.index)
+                count=feed['features'].shape[1]
+                return [np.zeros((count,3),np.float32)]
+            def close(self):active.discard(self.index)
+        engine=StructuredRecognizer.__new__(StructuredRecognizer)
+        engine.networks=[Network(i) for i in range(5)]
+        engine.predict_features(np.zeros((2600,252),np.float32))
+        self.assertEqual(peak,1)
+        self.assertEqual(active,set())
+        self.assertEqual(calls,[i for i in range(5) for _ in range(3)])
+        for failure in (AnalysisCancelled(),ValueError('inference failed')):
+            calls.clear()
+            def fail(_,feed):
+                active.add(0)
+                raise failure
+            engine.networks[0].run=fail
+            with self.assertRaises(type(failure)):
+                engine.predict_features(np.zeros((2600,252),np.float32))
+            self.assertEqual(active,set())
+
+    def test_ensemble_reuses_packed_cropped_features_across_models(self):
+        from music_studio.structured import StructuredRecognizer
+        rng=np.random.default_rng(187)
+        original=rng.normal(size=(6460,288)).astype(np.float32)
+        cropped=original[:,18:270];saved=cropped.copy();feeds=[]
+        def infer(_,feed):
+            value=feed['features'];feeds.append(value)
+            self.assertTrue(value.flags.c_contiguous)
+            return [value[0,:,:3].copy()]
+        engine=StructuredRecognizer.__new__(StructuredRecognizer)
+        engine.networks=[Mock(run=infer) for _ in range(5)]
+        expected=engine.predict_features(saved)
+        feeds.clear()
+        actual=engine.predict_features(cropped)
+        self.assertEqual(actual[0].tobytes(),expected[0].tobytes())
+        np.testing.assert_array_equal(cropped,saved)
+        contexts=len(feeds)//5
+        for index in range(contexts):
+            for model in range(1,5):
+                self.assertTrue(np.shares_memory(feeds[index],feeds[index+model*contexts]))
+
+    def test_analysis_releases_baseline_and_rhythm_before_the_ensemble(self):
+        import wave
+        events=[]
+        pcm=(np.sin(np.arange(22050)*.1)*1000).astype('<i2')
+        payload=io.BytesIO()
+        with wave.open(payload,'wb') as stream:
+            stream.setnchannels(1);stream.setsampwidth(2);stream.setframerate(22050)
+            stream.writeframes(pcm.tobytes())
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory);source=root/'song.wav';source.write_bytes(payload.getvalue())
+            (root/'rhythm_manifest.json').write_text('{}')
+            frontend=Mock(close=lambda:events.append('baseline-frontend-closed'))
+            network=Mock(close=lambda:events.append('baseline-network-closed'))
+            def finish_rhythm(*args):
+                self.assertEqual(events[:2],['baseline-frontend-closed','baseline-network-closed'])
+                return {'tempo_bpm':None,'beats':[]}
+            rhythm=Mock(finish=finish_rhythm,close=lambda:events.append('rhythm-closed'))
+            def features():
+                self.assertEqual(events[-1],'rhythm-closed')
+                return np.zeros((44,252),np.float32),pcm.astype(np.float32)
+            recognizer=Mock(features=features,predict_features=Mock(return_value=[]),
+                decode=lambda *args:[{'start':0.,'end':1.,'chord':'C:maj','model_score':1.}])
+            bundle=SimpleNamespace(directory=root,structured=recognizer,frontend=frontend,network=network,
+                metadata={'classes':2,'labels':['C:maj','N'],'name':'test','version':'1','sha256':'fixture'},
+                manifest={'models':{'extended':{'labels':['C:maj','N']}},'frontend':{'sha256':'fixture'}},
+                predict=lambda value:np.tile(np.array([[1.,0.]],np.float32),((len(value)+2047)//2048,1)),
+                close=lambda:None)
+            process=Mock(stdout=io.BytesIO(payload.getvalue()),wait=Mock(return_value=0),poll=Mock(return_value=0))
+            with patch('music_studio.engine.subprocess.Popen',return_value=process), \
+                 patch('music_studio.engine.RhythmDetector',return_value=rhythm):
+                result=Analyzer(bundle,'ffmpeg').analyze(source)
+            self.assertEqual(result['chords'][0]['chord'],'C:maj')
+            recognizer.predict_features.assert_called_once()
 
     def test_verified_session_defers_load_reuses_and_rejects_replacement(self):
         with tempfile.TemporaryDirectory() as directory:

@@ -79,6 +79,10 @@ class NativePianoSeparator(InstrumentSeparator):
         if mask.shape != (1, 1, 2050, 1723, 2) or not np.isfinite(mask).all():
             raise ValueError('The piano model returned an invalid complex mask.')
         masked = apply_complex_mask(features[0], mask[0, 0])
+        # Reconstruction only needs the owned masked spectrum. Release both
+        # input spectra before allocating inverse-FFT/work/output buffers;
+        # the borrowed MLX mask otherwise keeps its GPU allocation alive too.
+        del features, mask
         masked[:2] = 0
         piano = istft_bands_last(masked, 2, FFT, HOP, SEGMENT)
         return piano_and_backing(audio, piano)

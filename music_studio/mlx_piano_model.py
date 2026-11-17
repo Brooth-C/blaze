@@ -56,6 +56,11 @@ class PianoModel:
         if require_gpu and not mx.metal.is_available():
             raise ValueError('A Metal GPU is required for the MLX piano backend.')
         self.stream = mx.new_stream(mx.gpu if require_gpu else mx.cpu)
+        memory = mx.device_info(mx.gpu).get('memory_size', 0) if require_gpu else 0
+        # Batch independent sequences, never their attention/context dimension.
+        # Avoid >600 MiB QKV buffers competing with macOS/chord inference on
+        # 8 GB Macs. Larger devices retain the original whole-batch execution.
+        self.batch_tokens = 32768 if 0 < memory <= 8*1024**3 else 0
         # Cached free buffers are bounded; this is not a hard process-RSS cap.
         self.old_cache_limit = mx.set_cache_limit(256*1024**2)
         try:
@@ -133,6 +138,17 @@ class PianoModel:
         return x+(y @ down.T+down_bias)
 
     def transformer(self, x, prefix, check):
+        budget = getattr(self, 'batch_tokens', 0)
+        batch = max(1, budget//x.shape[1]) if budget else x.shape[0]
+        if x.shape[0] <= batch:
+            return self._transformer_block(x, prefix, check)
+        pieces = []
+        for start in range(0, x.shape[0], batch):
+            check()
+            pieces.append(self._transformer_block(x[start:start+batch], prefix, check))
+        return self.mx.concatenate(pieces, axis=0)
+
+    def _transformer_block(self, x, prefix, check):
         mx = self.mx
         x = x+self.attention(x, prefix+'.0')
         # Submit attention without blocking Python before the feed-forward work.

@@ -56,8 +56,14 @@ def istft(spec: np.ndarray, n_fft: int, hop_length: int, length: int) -> np.ndar
     window = hann_periodic(n_fft)
     n_frames = spec.shape[1]
     expected = n_fft + hop_length * (n_frames - 1)
-    frames = np.fft.irfft(spec, n=n_fft, axis=0) * window[:, None]
-    signal = _overlap_add(frames, hop_length, expected)
+    signal = np.zeros(expected)
+    # Keep FFT temporaries bounded, while adding frames in the exact original
+    # order. Summing groups first would change floating-point overlap results.
+    for first in range(0, n_frames, 256):
+        frames = np.fft.irfft(spec[:, first:first+256], n=n_fft, axis=0) * window[:, None]
+        for index in range(frames.shape[1]):
+            offset = (first+index)*hop_length
+            signal[offset:offset+n_fft] += frames[:, index]
     envelope = overlap_envelope(n_fft, hop_length, n_frames)
     # Slice BEFORE dividing: the first and last n_fft/2 samples have partial
     # window coverage (the envelope is exactly 0 at sample 0 for a periodic
@@ -78,13 +84,20 @@ def stft_bands_last(audio: np.ndarray, n_fft: int, hop_length: int) -> np.ndarra
     """
     # Pack directly from FFT layout; copying a complex128 frequency-first
     # spectrogram would create a full-size temporary just before this packing.
-    spec = _stft_frames(audio, n_fft, hop_length)  # [C, T, F]
+    window = hann_periodic(n_fft)
+    padded = np.pad(audio, ((0, 0), (n_fft // 2, n_fft // 2)), mode="reflect")
+    windows = np.lib.stride_tricks.sliding_window_view(padded, n_fft, axis=1)[:, ::hop_length, :]
     # A complex64 view casts real and imaginary parts together into the final
     # float32 buffer, preserving the graph's interleaved component layout.
-    channels, frames, frequencies = spec.shape
+    channels, frames, _ = windows.shape
+    frequencies = n_fft // 2 + 1
     packed = np.empty((1, frequencies * channels, frames, 2), dtype=np.float32)
     view = packed.view(np.complex64).reshape(frequencies, channels, frames)
-    view[:] = spec.transpose(2, 0, 1)
+    # Bound windowed audio and complex128 FFT temporaries independently of
+    # chunk duration. Each frame keeps the original FFT and rounding path.
+    for start in range(0, frames, 256):
+        spec = np.fft.rfft(windows[:, start:start+256] * window, axis=2)
+        view[:, :, start:start+256] = spec.transpose(2, 0, 1)
     return packed
 
 

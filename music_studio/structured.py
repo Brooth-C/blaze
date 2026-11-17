@@ -156,28 +156,46 @@ class StructuredRecognizer:
         except BaseException:del pcm;raise
 
     def predict_features(self,features,check=lambda:None,progress=lambda message:None):
-        """Overlapping contexts keep memory bounded and retain every frame."""
+        """Run one ensemble model at a time, preserving per-context sums."""
         size=len(features);outputs=None;weights=np.zeros(size,dtype=np.float32)
+        check()
+        # The frontend crops 252 columns from a 288-column matrix. Pack a
+        # normal song once instead of recopying overlapping windows for each
+        # of five models. Long recordings retain bounded window-at-a-time I/O.
+        if features.size*np.dtype(np.float32).itemsize <= 16*1024**2:
+            features=np.ascontiguousarray(features,dtype=np.float32)
         context=1292;stride=1034
+        contexts=[]
         for start in range(0,size,stride):
-            check();end=min(size,start+context)
-            value=np.ascontiguousarray(features[start:end][None],dtype=np.float32)
-            average=None
-            for net in self.networks:
-                check();raw=net.run(None,{'features':value})
-                probs=[]
-                for head in raw:
-                    head=head-head.max(axis=1,keepdims=True);np.exp(head,out=head);head/=head.sum(axis=1,keepdims=True);probs.append(head)
-                if average is None:average=probs
-                else:
-                    for total,head in zip(average,probs):total+=head
+            end=min(size,start+context)
+            contexts.append((start,end))
+            if end==size:break
+        averages=[None]*len(contexts)
+        for model_index,net in enumerate(self.networks):
+            try:
+                for index,(start,end) in enumerate(contexts):
+                    check()
+                    value=np.ascontiguousarray(features[start:end][None],dtype=np.float32)
+                    raw=net.run(None,{'features':value})
+                    probs=[]
+                    for head in raw:
+                        head=head-head.max(axis=1,keepdims=True);np.exp(head,out=head);head/=head.sum(axis=1,keepdims=True);probs.append(head)
+                    if averages[index] is None:averages[index]=probs
+                    else:
+                        for total,head in zip(averages[index],probs):total+=head
+                    progress(f'Advanced chord ensemble · model {model_index+1} / {len(self.networks)} · {end*512/22050:.1f} seconds analysed')
+            finally:
+                # Release this model's GPU/CPU arena before loading the next.
+                # Retaining all five sessions competes with MLX separation on
+                # Macs with shared memory, although only one session is active.
+                net.close()
+        for (start,end),average in zip(contexts,averages):
+            check()
             for head in average:head/=len(self.networks)
             if outputs is None:outputs=[np.zeros((size,a.shape[1]),dtype=np.float32) for a in average]
             weight=np.minimum(np.minimum(np.arange(end-start)+1,np.arange(end-start,0,-1)),129)/129
             for dest,head in zip(outputs,average):dest[start:end]+=head*weight[:,None]
             weights[start:end]+=weight
-            progress(f'Advanced chord ensemble · {end*512/22050:.1f} seconds analysed')
-            if end==size:break
         # These are private accumulation buffers; normalize them without
         # allocating another full recording's worth of ensemble outputs.
         for head in outputs:np.divide(head,weights[:,None],out=head)

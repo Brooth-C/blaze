@@ -73,13 +73,6 @@ def estimate_tuning(y: np.ndarray, work_directory=None, check=lambda: None) -> f
     for _, spectrum in _spectral_blocks(y, 2048, 512, _hann(2048)):
         check()
         spectrum = np.abs(spectrum)
-        avg = np.gradient(spectrum, axis=0)
-        shift = np.zeros_like(spectrum)
-        left, middle, right = spectrum[:-2], spectrum[1:-1], spectrum[2:]
-        denominator = left - 2 * middle + right
-        numerator = .5 * (left - right)
-        np.divide(numerator, denominator, out=shift[1:-1], where=denominator != 0)
-        shift[np.abs(shift) > 1] = 0
         # Strict on the left, inclusive on the right: librosa.localmax tie rule.
         gated = spectrum * (spectrum > .1 * np.max(spectrum, axis=0, keepdims=True))
         maxima = np.zeros_like(gated, dtype=bool)
@@ -88,8 +81,19 @@ def estimate_tuning(y: np.ndarray, work_directory=None, check=lambda: None) -> f
         frequencies = np.arange(spectrum.shape[0]) * 22050 / 2048
         maxima &= ((frequencies >= 150) & (frequencies < 4000))[:, None]
         bins, columns = np.nonzero(maxima)
-        pitches = (bins + shift[bins, columns]) * 22050 / 2048
-        magnitudes = spectrum[bins, columns] + .5 * avg[bins, columns] * shift[bins, columns]
+        # Only accepted interior peaks contribute to tuning. Interpolate those
+        # points with the original FP32 arithmetic, rather than every FFT bin.
+        # The 150–4000 Hz gate excludes both gradient boundary cases.
+        left = spectrum[bins-1, columns]
+        middle = spectrum[bins, columns]
+        right = spectrum[bins+1, columns]
+        denominator = left - 2 * middle + right
+        shift = np.zeros_like(middle)
+        np.divide(.5 * (left-right), denominator, out=shift, where=denominator != 0)
+        shift[np.abs(shift) > 1] = 0
+        avg = (right-left) / 2
+        pitches = (bins + shift) * 22050 / 2048
+        magnitudes = middle + .5 * avg * shift
         if pitch_file is not None:
             pitch_file.write(pitches.astype('<f8').tobytes())
             magnitude_file.write(magnitudes.astype('<f8').tobytes())

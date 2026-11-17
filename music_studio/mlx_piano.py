@@ -16,8 +16,10 @@ class MlxPianoSeparator(NativePianoSeparator):
         self.mlx_directory = self.directory.parent/'mlx-piano'
         self.model = None
         self.mlx_records = []
+        self.load_seconds = 0.
 
     def _load(self, event):
+        started = time.monotonic()
         check_cancel(event)
         try:
             path = self.mlx_directory/WEIGHTS['file']
@@ -31,6 +33,7 @@ class MlxPianoSeparator(NativePianoSeparator):
         check_cancel(event)
         from .mlx_piano_model import PianoModel
         self.model = PianoModel(path)
+        self.load_seconds = time.monotonic()-started
         check_cancel(event)
 
     def _mask(self, features, event):
@@ -38,14 +41,31 @@ class MlxPianoSeparator(NativePianoSeparator):
         result = self.model.predict(features, check=lambda: check_cancel(event), progress=self.block_progress)
         self.mlx_records.append({'seconds': time.monotonic()-start,
                                  'process_lifetime_peak_allocated_bytes': self.model.mx.get_peak_memory(),
+                                 'sequence_batch_tokens': self.model.batch_tokens,
                                  'metal_fused_attention_required': True,
                                  'weights_sha256': WEIGHTS['sha256']})
         return result
 
     def separate(self, *args, **kwargs):
+        started = time.monotonic()
+        first_record = len(self.mlx_records)
+        self.load_seconds = 0.
+        completed = False
         try:
-            return super().separate(*args, **kwargs)
+            result = super().separate(*args, **kwargs)
+            completed = True
+            return result
         finally:
             if self.model is not None:
                 self.model.close()
                 self.model = None
+            records = self.mlx_records[first_record:]
+            print('BLAZE_SEPARATION_TIMING ' + json.dumps({
+                'backend': 'mlx-metal', 'completed': completed,
+                'total_seconds': round(time.monotonic()-started, 3),
+                'model_load_seconds': round(self.load_seconds, 3),
+                'inference_seconds': round(sum(row['seconds'] for row in records), 3),
+                'completed_chunks': len(records),
+                'sequence_batch_tokens': max((row['sequence_batch_tokens'] for row in records), default=0),
+                'process_lifetime_peak_allocated_bytes': max((row['process_lifetime_peak_allocated_bytes'] for row in records), default=0),
+            }), flush=True)

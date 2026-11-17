@@ -10,6 +10,7 @@ import tempfile
 import threading
 import unittest
 import wave
+import weakref
 from unittest.mock import patch
 
 import numpy as np
@@ -47,6 +48,30 @@ def read_output(path):
 
 
 class NativePianoTests(unittest.TestCase):
+    def test_reconstruction_releases_input_and_model_mask_before_inverse_fft(self):
+        refs={}
+        def transform(*args):
+            value=np.zeros((1,2050,1723,2),np.float32)
+            refs['features']=weakref.ref(value)
+            return value
+        def mask(*args):
+            value=np.ones((1,1,2050,1723,2),np.float32)
+            refs['mask']=weakref.ref(value)
+            return value
+        def inverse(spectrum,*args):
+            self.assertIsNone(refs['features']())
+            self.assertIsNone(refs['mask']())
+            self.assertTrue(spectrum.flags.owndata)
+            self.assertFalse(np.any(spectrum))
+            return np.zeros((2,SEGMENT),np.float64)
+        engine=Controlled()
+        with patch('music_studio.native_piano.stft_bands_last',side_effect=transform), \
+             patch.object(engine,'_mask',new=mask), \
+             patch('music_studio.native_piano.istft_bands_last',side_effect=inverse):
+            audio=np.zeros((2,SEGMENT),np.float32)
+            output=engine._chunk(audio,threading.Event())
+        np.testing.assert_array_equal(output,np.zeros((2,2,SEGMENT),np.float32))
+
     def test_direct_piano_stems_preserve_residual_precision_and_owned_output(self):
         rng=np.random.default_rng(179)
         for left,right in ((np.float32,np.float64),(np.float32,np.float32),(np.float64,np.float64)):

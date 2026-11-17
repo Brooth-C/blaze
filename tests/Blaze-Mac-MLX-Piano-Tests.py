@@ -65,6 +65,69 @@ class MlxTests(unittest.TestCase):
         model.mx.eval.assert_not_called()
         model.norm.assert_not_called()
 
+    def test_independent_batches_stop_before_submitting_more_work_when_cancelled(self):
+        model=PianoModel.__new__(PianoModel);model.mx=Mock();model.batch_tokens=12
+        model._transformer_block=Mock(return_value=np.zeros((3,4,256)))
+        check=Mock(side_effect=[None,SeparationCancelled('cancelled')])
+        with self.assertRaises(SeparationCancelled):
+            model.transformer(np.zeros((8,4,256)),'layer',check)
+        model._transformer_block.assert_called_once()
+        model.mx.concatenate.assert_not_called()
+
+    def test_production_batches_bound_qkv_allocation_without_truncating_either_axis(self):
+        model=PianoModel.__new__(PianoModel);model.mx=Mock();model.batch_tokens=32768
+        model._transformer_block=Mock(side_effect=lambda value,*_:value)
+        for batch,context in ((62,1723),(1723,62)):
+            model._transformer_block.reset_mock()
+            value=np.broadcast_to(np.arange(batch)[:,None,None],(batch,context,256))
+            model.transformer(value,'layer',lambda:None)
+            pieces=[call.args[0] for call in model._transformer_block.call_args_list]
+            self.assertEqual(sum(piece.shape[0] for piece in pieces),batch)
+            self.assertTrue(all(piece.shape[1]==context for piece in pieces))
+            self.assertLessEqual(max(piece.shape[0]*context*1536*4 for piece in pieces),192*1024**2)
+            np.testing.assert_array_equal(np.concatenate([piece[:,0,0] for piece in pieces]),np.arange(batch))
+
+    @unittest.skipUnless(importlib.util.find_spec('mlx'), 'MLX numeric reference requested in its environment')
+    def test_independent_batches_preserve_full_attention_context_and_fp32_outputs(self):
+        import mlx.core as mx
+        rng=np.random.default_rng(184)
+        model=PianoModel.__new__(PianoModel);model.mx=mx;model.gpu=False;model.rotary_cache={}
+        arrays={
+            'layer.0.norm.gamma':np.ones(256,np.float32),
+            'layer.0.to_qkv.weight':rng.normal(0,.02,(1536,256)).astype(np.float32),
+            'layer.0.to_gates.weight':rng.normal(0,.02,(8,256)).astype(np.float32),
+            'layer.0.to_gates.bias':np.zeros(8,np.float32),
+            'layer.0.to_out.0.weight':rng.normal(0,.02,(256,512)).astype(np.float32),
+            'layer.0.rotary_embed.freqs':(10000**(-np.arange(0,64,2,dtype=np.float32)/64)).astype(np.float16).astype(np.float32),
+            'layer.1.net.0.gamma':np.ones(256,np.float32),
+            'layer.1.net.1.weight':rng.normal(0,.02,(1024,256)).astype(np.float32),
+            'layer.1.net.1.bias':np.zeros(1024,np.float32),
+            'layer.1.net.4.weight':rng.normal(0,.02,(256,1024)).astype(np.float32),
+            'layer.1.net.4.bias':np.zeros(256,np.float32),
+        }
+        devices=(mx.cpu,mx.gpu) if mx.metal.is_available() else (mx.cpu,)
+        for device in devices:
+            model.gpu=device==mx.gpu
+            with mx.stream(mx.new_stream(device)):
+                model.weights={key:mx.array(value) for key,value in arrays.items()}
+                model.feed_forward=mx.compile(model._feed_forward)
+                for batch,context in ((7,129),(17,62)):
+                    for scale in (1.,1e-15,0.):
+                        value=mx.array(rng.normal(0,scale,(batch,context,256)).astype(np.float32))
+                        original=np.array(value,copy=True)
+                        expected=np.array(model._transformer_block(value,'layer',lambda:None))
+                        model.batch_tokens=context*3
+                        with patch.object(model,'_transformer_block',wraps=model._transformer_block) as block:
+                            actual=np.array(model.transformer(value,'layer',lambda:None))
+                        self.assertEqual(actual.dtype,np.float32)
+                        # Different Metal GEMM batch shapes may change FP32
+                        # accumulation rounding, especially near cancellation.
+                        # Keep this below 1e-6 absolute; the full checkpoint
+                        # comparison independently gates model output parity.
+                        np.testing.assert_allclose(actual,expected,atol=8*np.finfo(np.float32).eps,rtol=1e-6)
+                        np.testing.assert_array_equal(np.array(value),original)
+                        self.assertTrue(all(call.args[0].shape[0]<=3 and call.args[0].shape[1]==context for call in block.call_args_list))
+
     @unittest.skipUnless(importlib.util.find_spec('mlx'), 'MLX numeric reference requested in its environment')
     def test_async_transformer_matches_synchronous_math_without_flushing_buffers(self):
         import mlx.core as mx
