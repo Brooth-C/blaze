@@ -1,0 +1,47 @@
+name: Mac chord execution profile
+on:
+  push:
+    branches: ['codex/mac-chord-shape-profile']
+    paths: ['tools/benchmark_macos_chord_shapes.py', '.github/workflows/macos-chord-profile.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  profile:
+    name: Original chord shape comparison / macOS 26
+    runs-on: macos-26
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-python@v7.0.0
+        with:
+          python-version: '3.12.10'
+      - name: Install the production numerical runtime
+        run: python -m pip install numpy==1.26.4 onnxruntime==1.31.0
+      - name: Fetch checksum-pinned production chord assets
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import zipfile
+          from tools.stage_macos_studio import fetch, MODEL_URL, MODEL_SHA
+          archive = fetch(MODEL_URL, Path('build/chord-profile/models.zip'), MODEL_SHA)
+          root = Path('build/chord-profile/models')
+          root.mkdir()
+          with zipfile.ZipFile(archive) as bundle:
+              prefix = 'Blaze/_internal/music_studio/models/'
+              for member in bundle.namelist():
+                  if member.startswith(prefix) and not member.endswith('/'):
+                      name = member.removeprefix(prefix)
+                      if Path(name).name != name:
+                          raise ValueError('Invalid model asset path')
+                      (root / name).write_bytes(bundle.read(member))
+          PY
+      - name: Compare original dynamic and exact-length Core ML execution
+        run: python tools/benchmark_macos_chord_shapes.py --models build/chord-profile/models --output build/chord-profile/results/report.json
+      - uses: actions/upload-artifact@v7.0.2
+        if: always()
+        with:
+          name: Blaze-chord-shape-profile
+          path: |
+            build/chord-profile/results/report.json
+            build/chord-profile/results/report-artifacts/profiles/
