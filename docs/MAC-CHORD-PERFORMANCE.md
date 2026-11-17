@@ -38,7 +38,10 @@ retaining the neural runtime. With `BLAZE_CHORD_MODEL_DIR` set on an Apple
 Silicon Mac, it compares the original Core ML frontend with the app frontend
 across 15 normal, quiet, silent, impulse and harmonic cases, including short
 and final partial windows. The production Mac workflow runs this checkpoint
-comparison after staging assets.
+comparison after staging assets. The expanded 15-case comparison passed on
+macOS 26 in [run 44136094207](https://github.com/Brooth-C/blaze/actions/runs/44136094207).
+That repeat measured cold setup at 5.536 seconds through Core ML and 0.0343
+seconds on CPU; all CQT comparison outputs were again byte-identical.
 
 `Blaze-Analysis-Lazy-Tests.py`, `Blaze-LV-Projection-Tests.py` and
 `Blaze-Sequence-Tests.py` cover numerical parity for feature extraction,
