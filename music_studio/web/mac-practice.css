@@ -5,7 +5,7 @@ html[data-presentation=mac] #practice-workspace {
  --practice-wave-bg:#141a20;--practice-wave-ink:#b4d3df;--practice-loop:#e5a755;--practice-focus:#9ec6ff;
  display:flex;flex-direction:column;flex:1;min-width:0;min-height:0;height:100%;overflow:hidden;
  background:var(--practice-bg);color:var(--practice-ink);font:13px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
- -webkit-font-smoothing:antialiased;isolation:isolate;
+ -webkit-font-smoothing:antialiased;isolation:isolate;container-type:inline-size;
 }
 html[data-presentation=mac] #practice-workspace[hidden] { display:none!important; }
 html[data-presentation=mac] body.practice-workspace-active #logic-preview { display:none!important; }
@@ -26,7 +26,8 @@ html[data-presentation=mac] body.practice-workspace-active.mac-player-expanded #
 #practice-workspace button.practice-quiet { border-color:transparent;background:transparent;color:var(--practice-muted); }
 .practice-tools { display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;margin:12px 0 16px; }
 .practice-transpose { display:flex;align-items:center;gap:7px;flex-wrap:wrap; }
-.practice-transpose select { min-height:32px;max-width:125px;border:1px solid var(--practice-line);border-radius:6px;background:var(--practice-input);color:var(--practice-ink);font:inherit;padding:4px 8px;font-variant-numeric:tabular-nums; }
+.practice-transpose select { min-height:32px;width:112px;max-width:125px;border:1px solid var(--practice-line);border-radius:6px;background:var(--practice-input);color:var(--practice-ink);font:inherit;padding:4px 8px;font-variant-numeric:tabular-nums; }
+#practice-workspace :is(#practice-pitch-down,#practice-pitch-up) { width:32px;min-width:32px;padding:0;display:grid;place-items:center; }
 .practice-transpose small,.practice-download small { color:var(--practice-muted); }
 #practice-workspace .practice-download { position:relative;border:0;padding:0;margin:0; }
 .practice-download summary { cursor:pointer;padding:7px 12px;border:1px solid var(--practice-line);border-radius:6px;background:var(--practice-input); }
@@ -106,6 +107,8 @@ html[data-presentation=mac] body.practice-workspace-active.mac-player-expanded #
 #practice-workspace .practice-play-controls { display:flex;justify-content:center;align-items:center;gap:14px;position:relative;padding-bottom:18px; }
 #practice-workspace button.practice-icon { display:grid;place-items:center;width:34px;height:34px;min-height:34px;padding:8px;background:transparent;border-color:transparent; }
 #practice-workspace .practice-icon svg { width:20px;height:20px;fill:var(--practice-ink);stroke:var(--practice-ink);stroke-width:1.2;stroke-linejoin:round; }
+#practice-workspace .practice-seek svg { width:24px;height:24px;fill:none;stroke-width:1.6;stroke-linecap:round; }
+#practice-workspace .practice-seek svg text { fill:var(--practice-ink);stroke:none;font:600 10px -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;text-anchor:middle; }
 #practice-workspace button.practice-play { display:grid;place-items:center;width:46px;height:46px;min-height:46px;padding:12px;border:0;border-radius:50%;background:var(--practice-accent);color:var(--practice-accent-ink); }
 #practice-workspace .practice-play svg { width:23px;height:23px;fill:currentColor; }
 #practice-workspace .practice-play[data-playing=false] svg { transform:translateX(1.5px); }
@@ -166,7 +169,7 @@ html[data-presentation=mac][data-appearance=light] #practice-workspace { --pract
 @media(max-width:620px) {
  #practice-workspace > .practice-chords { padding:6px 0 10px; }
  #practice-workspace > .practice-chords .practice-transpose { gap:5px;font-size:11px; }
- #practice-workspace > .practice-chords .practice-transpose select { max-width:94px; }
+ #practice-workspace > .practice-chords .practice-transpose select { max-width:112px; }
  #practice-workspace > .practice-chords .practice-transpose button { padding:4px 8px; }
  #practice-workspace > .practice-chords #practice-pitch-status { display:none; }
  #practice-workspace > .practice-chords #practice-chord-help { margin:2px 0 6px;font-size:10px; }
@@ -195,4 +198,9 @@ html[data-presentation=mac][data-appearance=light] #practice-workspace { --pract
 @media(prefers-reduced-motion:reduce) {
  #practice-workspace *,#practice-workspace *::before,#practice-workspace *::after { animation:none!important;transition:none!important; }
  #practice-workspace button:active:not(:disabled),#practice-workspace button.practice-play:hover:not(:disabled) { transform:none; }
+}
+
+/* Keep the transpose controls together when the sidebar narrows Practice. */
+@container (max-width:420px) {
+ #practice-workspace > .practice-chords .practice-transpose>label { flex-basis:100%; }
 }

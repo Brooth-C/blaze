@@ -2,7 +2,7 @@ name: Mac chord execution profile
 on:
   push:
     branches: ['codex/mac-chord-shape-profile']
-    paths: ['tools/benchmark_macos_chord_shapes.py', '.github/workflows/macos-chord-profile.yml']
+    paths: ['tools/benchmark_macos_chord_shapes.py', 'tests/Blaze-Mac-Chord-Frontend-Tests.py', '.github/workflows/macos-chord-profile.yml']
   workflow_dispatch:
 permissions:
   contents: read
@@ -38,6 +38,10 @@ jobs:
           PY
       - name: Compare original dynamic and exact-length Core ML execution
         run: python tools/benchmark_macos_chord_shapes.py --models build/chord-profile/models --output build/chord-profile/results/report.json
+      - name: Verify CPU preprocessing preserves the original Core ML tensors
+        env:
+          BLAZE_CHORD_MODEL_DIR: build/chord-profile/models
+        run: python tests/Blaze-Mac-Chord-Frontend-Tests.py
       - uses: actions/upload-artifact@v7.0.2
         if: always()
         with:

@@ -45,7 +45,11 @@ class ModelBundle:
         options.inter_op_num_threads = 1
         options.execution_mode = ort.ExecutionMode.ORT_SEQUENTIAL
         self.runtime = StemRuntime()
-        self.frontend = self._session(self.manifest['frontend'], options)
+        # This mixed FP32/FP64 CQT graph spends most arithmetic on CPU even
+        # through Core ML. Native parity tests preserve its exact output bytes;
+        # keeping preprocessing on CPU avoids Core ML compilation/transfers.
+        frontend_runtime = StemRuntime(backend='cpu') if self.runtime.backend == 'coreml' else self.runtime
+        self.frontend = self._session(self.manifest['frontend'], options, frontend_runtime)
         self.network = self._session(self.metadata, options)
         self.selected = selected
         self.structured = None
@@ -58,8 +62,8 @@ class ModelBundle:
             self.metadata['version'] = 'structured-1'
             self.metadata['sha256'] = hashlib.sha256(''.join(assets).encode()).hexdigest()
 
-    def _session(self, metadata, options):
-        return VerifiedSession(self.directory, metadata, self.runtime, options, 700 * 1024 ** 2)
+    def _session(self, metadata, options, runtime=None):
+        return VerifiedSession(self.directory, metadata, runtime if runtime is not None else self.runtime, options, 700 * 1024 ** 2)
 
     def close(self):
         self.frontend.close()
@@ -298,9 +302,12 @@ class Analyzer:
         sample_count = 0
         context_tail = np.empty(0, dtype=np.float32)
         envelope_tail = np.empty(0, dtype=np.float32)
-        spectral_tail = np.zeros(1792, dtype=np.float32)
-        previous_spectrum = np.zeros(1025, dtype=np.float64)
-        onset_window = np.hanning(2048)
+        # The neural rhythm result supplies all beats/tempo when available.
+        # Compute the separate DSP fallback only for bundles without that model.
+        if rhythm is None:
+            spectral_tail = np.zeros(1792, dtype=np.float32)
+            previous_spectrum = np.zeros(1025, dtype=np.float64)
+            onset_window = np.hanning(2048)
         try:
             wav_header(process.stdout)
             while True:
@@ -333,7 +340,7 @@ class Analyzer:
                 complete = len(envelope) // 256 * 256
                 envelope_tail = envelope[complete:].copy()
                 blocks = envelope[:complete].reshape(-1, 256)
-                if len(blocks):
+                if rhythm is None and len(blocks):
                     spectral_signal = np.concatenate((spectral_tail, blocks.reshape(-1)))
                     windows = np.lib.stride_tricks.sliding_window_view(spectral_signal, 2048)[::256]
                     spectrum = np.abs(np.fft.rfft(windows * onset_window, axis=1))
@@ -447,9 +454,10 @@ class Analyzer:
             peaks = [max(waveform[left:right]) for left, right in zip(boundaries, boundaries[1:])]
         else:
             peaks = [float(np.max(np.abs(envelope_tail), initial=0))]
-        bpm, beats = tempo_and_beats(onsets)
         if rhythm:
             bpm, beats = rhythm_result['tempo_bpm'], rhythm_result['beats']
+        else:
+            bpm, beats = tempo_and_beats(onsets)
         metadata = self.bundle.metadata
         print('BLAZE_ANALYSIS_TIMING ' + json.dumps(dict(timings,
               total_seconds=round(time.perf_counter()-started, 3), duration_seconds=sample_count/RATE)), flush=True)

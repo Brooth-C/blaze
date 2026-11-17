@@ -13,6 +13,7 @@ import shutil
 from contextlib import suppress, nullcontext
 from collections import OrderedDict
 import threading
+import time
 import uuid
 import webbrowser
 from .engine import ModelBundle, Analyzer, AnalysisCancelled, MAX_BYTES
@@ -175,26 +176,48 @@ class Studio:
                 error = None
                 cancelled = False
                 bundle = None
+                cache_hit = False
+                started = stage_started = time.perf_counter()
+                stage = 'preparation'
+                timings = dict.fromkeys(('preparation', 'model_verification', 'cache_lookup', 'inference', 'save'), 0.)
+
+                def next_stage(following):
+                    nonlocal stage, stage_started
+                    now = time.perf_counter()
+                    if stage is not None:
+                        timings[stage] += now - stage_started
+                    stage, stage_started = following, now
+
                 try:
                     check()
                     digest = hashlib.sha256()
                     progress('Preparing recording…')
                     with stream, (pinned.open('xb') if pinned else nullcontext(None)) as copied:
                         total = 0
+                        reserved_until = 0
                         while block := stream.read(1024 * 1024):
                             check()
                             total += len(block)
                             if total > MAX_BYTES:
                                 raise ValueError('Choose a media file smaller than 2 GB.')
                             if copied is not None:
-                                if shutil.disk_usage(self.incoming).free < 128 * 1024 ** 2:
-                                    raise ValueError('Free more storage before analysing this recording.')
+                                if total > reserved_until:
+                                    # Reserve the next bounded write batch, including
+                                    # bytes appended since opening the source. This
+                                    # avoids a filesystem query for every 1 MiB read.
+                                    written = total - len(block)
+                                    remaining = max(len(block), os.fstat(stream.fileno()).st_size - written)
+                                    planned = min(32 * 1024 ** 2, remaining)
+                                    if shutil.disk_usage(self.incoming).free < 128 * 1024 ** 2 + planned:
+                                        raise ValueError('Free more storage before analysing this recording.')
+                                    reserved_until = written + planned
                                 copied.write(block)
                             digest.update(block)
                         final_stat = os.fstat(stream.fileno())
                         if pinned and (input_stat.st_size, input_stat.st_mtime_ns) != (final_stat.st_size, final_stat.st_mtime_ns):
                             raise ValueError('The recording changed while it was being read. Try analysis again.')
                     check()
+                    next_stage('model_verification')
                     candidate = (os.environ.get('BLAZE_EXPERIMENTAL_CHORDMINI_DIR')
                                  if self.presentation == 'mac' and selected == 'powerful' else None)
                     if candidate:
@@ -203,6 +226,7 @@ class Studio:
                     else:
                         bundle = ModelBundle(self.model_directory, selected)
                     check()
+                    next_stage('cache_lookup')
                     progress('Checking saved analysis…')
                     identity = self.store.identity({
                         'source_sha256': digest.hexdigest(),
@@ -210,7 +234,9 @@ class Studio:
                         'model': {'sha256': bundle.metadata['sha256'],
                                   'frontend_sha256': bundle.manifest['frontend']['sha256']}})
                     result = self.store.load(identity)
+                    cache_hit = result is not None
                     if result is None:
+                        next_stage('inference')
                         analyzer = (ChordMiniAnalyzer if candidate else Analyzer)(bundle, self.ffmpeg)
                         if pinned:
                             # This private copy was hashed while being written above.
@@ -225,7 +251,9 @@ class Studio:
                         analyzer.check()
                         result = analyzer.analyze(pinned or source, progress)
                         check()
+                        next_stage('save')
                         result = self.store.save(result)
+                    next_stage(None)
                     check()
                     result['audio_file'] = name
                 except AnalysisCancelled:
@@ -233,6 +261,7 @@ class Studio:
                 except Exception as failure:
                     error = str(failure) or 'Could not analyse this file.'
                 finally:
+                    next_stage(None)
                     if bundle is not None:
                         close = getattr(bundle, 'close', None)
                         if close:
@@ -269,6 +298,10 @@ class Studio:
                     if not cancelled and not error and self.practice_sessions is not None:
                         with suppress(OSError, ValueError):
                             self.practice_sessions.remember_analysis(source_key, result)
+                    status = 'cancelled' if cancelled else 'failed' if error else 'cache_hit' if cache_hit else 'done'
+                    print('BLAZE_ANALYSIS_JOB_TIMING ' + json.dumps({
+                        'status': status, **{key + '_seconds': round(value, 6) for key, value in timings.items()},
+                        'total_seconds': round(time.perf_counter() - started, 6)}), flush=True)
             self.worker = threading.Thread(target=run, name='BlazeMusicStudio', daemon=True)
             try:
                 self.worker.start()

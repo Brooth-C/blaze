@@ -475,6 +475,44 @@ class LazyTests(unittest.TestCase):
             self.assertEqual(result['chords'][0]['chord'],'C:maj')
             recognizer.predict_features.assert_called_once()
 
+    def test_neural_rhythm_skips_discarded_dsp_but_preserves_fallback(self):
+        import wave
+        from music_studio import engine
+        pcm=(np.sin(np.arange(engine.CHUNK+12345)*.1)*1000).astype('<i2')
+        payload=io.BytesIO()
+        with wave.open(payload,'wb') as stream:
+            stream.setnchannels(1);stream.setsampwidth(2);stream.setframerate(22050)
+            stream.writeframes(pcm.tobytes())
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory);source=root/'song.wav';source.write_bytes(payload.getvalue())
+            bundle=SimpleNamespace(directory=root,structured=None,frontend=Mock(),network=Mock(),
+                metadata={'classes':2,'labels':['C:maj','N'],'name':'test','version':'1','sha256':'fixture'},
+                manifest={'frontend':{'sha256':'fixture'}},
+                predict=lambda value:np.tile(np.array([[1.,0.]],np.float32),((len(value)+2047)//2048,1)),
+                close=lambda:None)
+            outputs=[]
+            for neural in (False,True):
+                if neural:(root/'rhythm_manifest.json').write_text('{}')
+                rhythm=Mock(finish=Mock(return_value={'tempo_bpm':123.,'beats':[.2,.7,1.2]}))
+                process=Mock(stdout=io.BytesIO(payload.getvalue()),wait=Mock(return_value=0),poll=Mock(return_value=0))
+                with patch.object(engine.subprocess,'Popen',return_value=process), \
+                     patch.object(engine,'RhythmDetector',return_value=rhythm), \
+                     patch.object(engine,'_consume_onset_spectrum',wraps=engine._consume_onset_spectrum) as flux, \
+                     patch.object(engine,'tempo_and_beats',wraps=engine.tempo_and_beats) as tempo:
+                    outputs.append(Analyzer(bundle,'ffmpeg').analyze(source))
+                if neural:
+                    flux.assert_not_called();tempo.assert_not_called()
+                    self.assertEqual(outputs[-1]['tempo_bpm'],123.)
+                    self.assertEqual(outputs[-1]['beats'],[.2,.7,1.2])
+                    fed=np.concatenate([call.args[0] for call in rhythm.audio.feed.call_args_list])
+                    np.testing.assert_array_equal(fed,pcm.astype(np.float32)/32768)
+                else:
+                    self.assertGreater(flux.call_count,1)
+                    tempo.assert_called_once()
+                    self.assertGreater(len(tempo.call_args.args[0]),0)
+            for key in ('chords','waveform','key','duration','source_sha256'):
+                self.assertEqual(outputs[0][key],outputs[1][key])
+
     def test_verified_session_defers_load_reuses_and_rejects_replacement(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / 'test.onnx'

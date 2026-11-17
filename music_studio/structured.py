@@ -69,7 +69,8 @@ def sequence_decode(emissions,penalties,beam=20,check=lambda:None):
             parents=np.where(keep,stay,best).astype(np.int16)
             values=np.where(keep,stay_scores,changed)+row[ids]
         retained=np.argsort(values)[-beam:];previous=ids[retained];scores=values[retained]
-        scores-=scores.max();history.append((previous.copy(),parents[retained].copy()))
+        # Advanced indexing owns these arrays; later frames never mutate them.
+        scores-=scores.max();history.append((previous,parents[retained]))
     if not history:return np.empty(0,dtype=np.int32)
     cursor=int(np.argmax(scores));path=np.empty(len(history),dtype=np.int32)
     for t in range(len(history)-1,-1,-1):

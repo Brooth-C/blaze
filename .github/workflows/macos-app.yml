@@ -1,10 +1,10 @@
 name: Blaze macOS app
 on:
   pull_request:
-    paths: ['music_studio/**', 'tests/media/**', 'tools/*macos*', 'tools/macos_decoder/**', 'tools/roformer/**', 'tools/instruments/**', 'tools/benchmark_macos_stems.py', 'tests/Blaze-Mac-*-Tests.py', 'tests/Blaze-Analysis-Lazy-Tests.py', 'tests/Blaze-Chord-Evidence-Tests.py', 'tests/Blaze-Sequence-Tests.py', 'tests/Blaze-Desktop-Discovery-Tests.py', 'tests/Blaze-Mac-Glass-Native.py', 'tests/Blaze-Mac-Search-Live.py', '.github/workflows/macos-app.yml']
+    paths: ['music_studio/**', 'tests/media/**', 'tools/*macos*', 'tools/macos_decoder/**', 'tools/roformer/**', 'tools/instruments/**', 'tools/benchmark_macos_stems.py', 'tests/Blaze-Mac-*-Tests.py', 'tests/Blaze-Analysis-Lazy-Tests.py', 'tests/Blaze-LV-Projection-Tests.py', 'tests/Blaze-Chord-Evidence-Tests.py', 'tests/Blaze-Sequence-Tests.py', 'tests/Blaze-Desktop-Discovery-Tests.py', 'tests/Blaze-Mac-Glass-Native.py', 'tests/Blaze-Mac-Search-Live.py', '.github/workflows/macos-app.yml']
   push:
     branches: [main]
-    paths: ['music_studio/**', 'tests/media/**', 'tools/*macos*', 'tools/macos_decoder/**', 'tools/roformer/**', 'tools/instruments/**', 'tools/benchmark_macos_stems.py', 'tests/Blaze-Mac-*-Tests.py', 'tests/Blaze-Analysis-Lazy-Tests.py', 'tests/Blaze-Chord-Evidence-Tests.py', 'tests/Blaze-Sequence-Tests.py', 'tests/Blaze-Desktop-Discovery-Tests.py', 'tests/Blaze-Mac-Glass-Native.py', 'tests/Blaze-Mac-Search-Live.py', '.github/workflows/macos-app.yml']
+    paths: ['music_studio/**', 'tests/media/**', 'tools/*macos*', 'tools/macos_decoder/**', 'tools/roformer/**', 'tools/instruments/**', 'tools/benchmark_macos_stems.py', 'tests/Blaze-Mac-*-Tests.py', 'tests/Blaze-Analysis-Lazy-Tests.py', 'tests/Blaze-LV-Projection-Tests.py', 'tests/Blaze-Chord-Evidence-Tests.py', 'tests/Blaze-Sequence-Tests.py', 'tests/Blaze-Desktop-Discovery-Tests.py', 'tests/Blaze-Mac-Glass-Native.py', 'tests/Blaze-Mac-Search-Live.py', '.github/workflows/macos-app.yml']
   workflow_dispatch:
 permissions:
   contents: read
@@ -24,7 +24,9 @@ jobs:
       - name: Install the pinned numerical runtime
         run: python -m pip install numpy==1.26.4 onnxruntime==1.31.0 mlx==0.32.3 mlx-metal==0.32.3 pywebview==6.1 pyobjc-core==12.2.2 pyobjc-framework-Cocoa==12.2.2 pyobjc-framework-WebKit==12.2.2 pyinstaller==6.16.0 Pillow==11.3.0 rich==14.2.0 ruff==0.14.0 yt-dlp==2026.10.26 yt-dlp-ejs==0.8.0
       - name: Compare optimized processing with original reference outputs
-        run: python tests/Blaze-Analysis-Lazy-Tests.py
+        run: |
+          python tests/Blaze-Analysis-Lazy-Tests.py
+          python tests/Blaze-LV-Projection-Tests.py
   native-piano-model:
     needs: dsp-parity
     name: Native piano conversion / original checkpoint parity
@@ -261,9 +263,11 @@ jobs:
           python tests/Blaze-Mac-Practice-Audio-Tests.py
           python tests/Blaze-Mac-Analysis-Jobs-Tests.py
           python tests/Blaze-Analysis-Lazy-Tests.py
+          python tests/Blaze-LV-Projection-Tests.py
           python tests/Blaze-Model-Candidates-Tests.py
           python tests/Blaze-Mac-Stem-Runtime-Tests.py
           python tests/Blaze-Mac-Rhythm-Tests.py
+          python tests/Blaze-Mac-Chord-Frontend-Tests.py
           python tests/Blaze-Mac-Native-Piano-Tests.py
           python tests/Blaze-Mac-MLX-Piano-Tests.py
           python tests/Blaze-Mac-Piano-Tests.py
@@ -319,6 +323,10 @@ jobs:
         with:
           path: build/mac-assets
           key: ${{ steps.tools-cache.outputs.cache-primary-key }}
+      - name: Verify production CQT CPU and original Core ML parity
+        env:
+          BLAZE_CHORD_MODEL_DIR: music_studio/models
+        run: python tests/Blaze-Mac-Chord-Frontend-Tests.py
       - name: Verify actual rhythm checkpoint through Core ML with exact frame shapes
         env:
           BLAZE_RHYTHM_MODEL_DIR: music_studio/models
