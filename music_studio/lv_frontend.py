@@ -194,14 +194,15 @@ def _project(filters: np.ndarray, spectrum: np.ndarray, rows=None) -> np.ndarray
     # Keep those frame boundaries: one-frame reductions may use a different
     # NumPy summation path, so changing the final block could change rounding.
     output = np.empty((len(filters), spectrum.shape[1]), np.complex64)
-    # Preserve the original per-row complex reduction on Apple Silicon too.
-    # Grouping rows changes NumPy's reduction rounding on native macOS.
-    for row, coefficients in enumerate(filters):
-        indices = np.flatnonzero(coefficients)
-        for start in range(0, spectrum.shape[1], 512):
-            output[row, start:start + 512] = np.sum(
-                coefficients[indices, None] * spectrum[indices, start:start + 512],
-                axis=0, dtype=np.complex64)
+    # Reuse sparse rows while preserving each original complex reduction.
+    if rows is None:
+        rows = _projection_rows(filters)
+    for ids, indices, coefficients in rows:
+        for index, row in enumerate(ids):
+            for start in range(0, spectrum.shape[1], 512):
+                output[row, start:start + 512] = np.sum(
+                    coefficients[index] * spectrum[indices[index], start:start + 512],
+                    axis=0, dtype=np.complex64)
     return output
 
 
