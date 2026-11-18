@@ -204,3 +204,13 @@ html[data-presentation=mac][data-appearance=light] #practice-workspace { --pract
 @container (max-width:420px) {
  #practice-workspace > .practice-chords .practice-transpose>label { flex-basis:100%; }
 }
+
+/* The practice guide changes notation density without changing recognition. */
+#practice-workspace .practice-guide-modes { display:inline-flex;gap:2px;padding:2px;margin-right:8px;border:1px solid var(--practice-line);border-radius:7px;background:var(--practice-panel); }
+#practice-workspace .practice-guide-modes button { padding:4px 9px;min-height:27px;border-color:transparent;background:transparent;font-size:11px;white-space:nowrap; }
+#practice-workspace .practice-guide-modes button[aria-pressed="true"] { background:var(--practice-input);border-color:var(--practice-line);color:var(--practice-ink); }
+#practice-workspace #practice-next-chord { position:relative;overflow:hidden; }
+#practice-workspace #practice-next-chord::after { content:"";position:absolute;bottom:0;left:0;width:100%;height:3px;background:var(--practice-accent);transform-origin:left;transform:scaleX(var(--prepare-progress,0)); }
+#practice-workspace #practice-next-chord[data-preparing="true"] { border-color:color-mix(in srgb,var(--practice-accent) 45%,var(--practice-line));background:color-mix(in srgb,var(--practice-accent) 5%,var(--practice-panel)); }
+#practice-workspace #practice-next-chord[data-preparing="true"]>span { color:var(--practice-accent); }
+@media(prefers-reduced-motion:reduce) { #practice-workspace #practice-next-chord::after { display:none; } }

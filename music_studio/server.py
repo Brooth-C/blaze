@@ -17,7 +17,7 @@ import time
 import uuid
 import webbrowser
 from .engine import ModelBundle, Analyzer, AnalysisCancelled, MAX_BYTES
-from .store import Store, export_json, export_csv
+from .store import Store, export_json, export_csv, validate
 
 
 def media_kind(source):
@@ -159,7 +159,8 @@ class Studio:
                       if self.presentation == 'mac' else None)
             cancel = threading.Event()
             self.analysis_cancel = cancel
-            task = {'sourceName': name, 'sourceRevision': self.source_revision, 'status': 'running', 'error': None}
+            task = {'sourceName': name, 'sourceRevision': self.source_revision, 'status': 'running',
+                    'phase': 'chords', 'chordsReady': False, 'error': None}
             self.state.update(busy=True, progress='Opening the local recognition model…', error=None, analysisTask=task)
 
             def check():
@@ -177,6 +178,8 @@ class Studio:
                 cancelled = False
                 bundle = None
                 cache_hit = False
+                preview_result = None
+                first_chords_seconds = None
                 started = stage_started = time.perf_counter()
                 stage = 'preparation'
                 timings = dict.fromkeys(('preparation', 'model_verification', 'cache_lookup', 'inference', 'save'), 0.)
@@ -187,6 +190,31 @@ class Studio:
                     if stage is not None:
                         timings[stage] += now - stage_started
                     stage, stage_started = following, now
+
+                def publish_chords(value):
+                    """Expose a usable guide without treating unfinished rhythm as cached."""
+                    nonlocal preview_result, first_chords_seconds
+                    check()
+                    validate(value)
+                    if value.get('analysis_stage') != 'chords' or value.get('rhythm_status') != 'pending':
+                        raise ValueError('Invalid preliminary chord analysis.')
+                    preview = self.store.apply_corrections(value)
+                    preview['audio_file'] = name
+                    with self.lock:
+                        check()
+                        preview_result = preview
+                        first_chords_seconds = time.perf_counter() - started
+                        task.update(phase='rhythm', chordsReady=True,
+                                    firstChordsSeconds=round(first_chords_seconds, 3))
+                        self.remember_analysis(source_key, preview)
+                        current_key = None
+                        if self.source:
+                            with suppress(OSError):
+                                current_key = self.source_identity(self.source)
+                        if current_key == source_key:
+                            self.result_identity = source_key
+                            self.state.update(result=preview, error=None)
+                        self.state['progress'] = 'Chords ready · Finding rhythm: ' + name
 
                 try:
                     check()
@@ -233,11 +261,15 @@ class Studio:
                         'engine_version': getattr(bundle, 'engine_version', 'structured1' if bundle.structured else 'overlap1'),
                         'model': {'sha256': bundle.metadata['sha256'],
                                   'frontend_sha256': bundle.manifest['frontend']['sha256']}})
+                    with self.lock:
+                        task['analysisId'] = identity
                     result = self.store.load(identity)
                     cache_hit = result is not None
                     if result is None:
                         next_stage('inference')
                         analyzer = (ChordMiniAnalyzer if candidate else Analyzer)(bundle, self.ffmpeg)
+                        if self.presentation == 'mac' and not candidate:
+                            analyzer.chords_ready = publish_chords
                         if pinned:
                             # This private copy was hashed while being written above.
                             stamp = pinned.stat()
@@ -281,26 +313,43 @@ class Studio:
                             with suppress(OSError):
                                 current_key = self.source_identity(self.source)
                         if cancelled:
-                            task['status'] = 'cancelled'
-                            self.state['progress'] = 'Chord analysis cancelled: ' + name
+                            task.update(status='cancelled', phase='cancelled')
+                            self.state['progress'] = ('Chords ready · Rhythm stopped: ' if preview_result
+                                                      else 'Chord analysis cancelled: ') + name
                         elif error:
-                            task.update(status='failed', error=error)
-                            self.state['progress'] = 'Chord analysis could not finish: ' + name
+                            task.update(status='failed', phase='failed', error=error)
+                            self.state['progress'] = ('Chords ready · Rhythm could not finish: ' if preview_result
+                                                      else 'Chord analysis could not finish: ') + name
                             if current_key == source_key:
                                 self.state['error'] = error
                         else:
-                            task['status'] = 'done'
+                            task.update(status='done', phase='complete', chordsReady=True)
                             self.remember_analysis(source_key, result)
                             self.state['progress'] = 'Analysis ready: ' + name
                             if current_key == source_key:
                                 self.result_identity = source_key
                                 self.state.update(result=result, error=None)
+                        if preview_result is not None and (cancelled or error):
+                            # Rhythm corrections can replace the published copy
+                            # while inference runs. Retain that latest guide.
+                            retained = (self.state['result'] if current_key == source_key
+                                        else self.analysis_results.get(source_key))
+                            if (retained is not None and retained.get('analysis_stage') == 'chords'
+                                    and retained.get('analysis_id') == preview_result['analysis_id']):
+                                preview_result = retained
+                            preview_result = dict(preview_result, rhythm_status='cancelled' if cancelled else 'failed')
+                            self.remember_analysis(source_key, preview_result)
+                            if current_key == source_key:
+                                self.result_identity = source_key
+                                self.state['result'] = preview_result
                     if not cancelled and not error and self.practice_sessions is not None:
                         with suppress(OSError, ValueError):
                             self.practice_sessions.remember_analysis(source_key, result)
                     status = 'cancelled' if cancelled else 'failed' if error else 'cache_hit' if cache_hit else 'done'
                     print('BLAZE_ANALYSIS_JOB_TIMING ' + json.dumps({
                         'status': status, **{key + '_seconds': round(value, 6) for key, value in timings.items()},
+                        **({'first_chords_seconds': round(first_chords_seconds, 6)}
+                           if first_chords_seconds is not None else {}),
                         'total_seconds': round(time.perf_counter() - started, 6)}), flush=True)
             self.worker = threading.Thread(target=run, name='BlazeMusicStudio', daemon=True)
             try:
@@ -437,6 +486,7 @@ def create_server(studio, port=0):
                      '/studio.css': 'studio.css', '/blaze-logo.png': 'blaze-logo.png'}
             if mac:
                 names.update({'/mac-practice.js': 'mac-practice.js', '/mac-practice.css': 'mac-practice.css',
+                              '/practice-guide.js': 'practice-guide.js',
                               '/mac-practice-engine.js': 'mac-practice-engine.js',
                               '/mac.css': 'mac.css', '/mac.js': 'mac.js',
                               '/mac-stems.css': 'mac-stems.css', '/mac-stems.js': 'mac-stems.js'})
@@ -451,7 +501,8 @@ def create_server(studio, port=0):
                     if mac:
                         live = (b'<link rel="stylesheet" href="/mac-practice.css">'
                                 b'<script src="/mac.js"></script><script src="/mac-stems.js"></script>'
-                                b'<script src="/mac-practice-engine.js"></script><script src="/mac-practice.js"></script>')
+                                b'<script src="/mac-practice-engine.js"></script>'
+                                b'<script src="/practice-guide.js"></script><script src="/mac-practice.js"></script>')
                     else:
                         live = b''
                     data = data.replace(b'%%MAC_SCRIPT%%', live)
@@ -773,11 +824,14 @@ def create_server(studio, port=0):
                 elif path == '/api/edit':
                     if studio.state['result'] is None:
                         raise ValueError('Analyse a recording first.')
+                    if studio.state['result'].get('analysis_stage') == 'chords':
+                        raise ValueError('Chord timing is still preliminary. Finish rhythm analysis before editing chords.')
                     studio.state['result'] = studio.store.edit(studio.state['result'], body.get('index'), body.get('chord', ''))
                 elif path == '/api/rhythm':
-                    if studio.state['result'] is None:
-                        raise ValueError('Analyse a recording first.')
-                    studio.state['result'] = studio.store.edit_rhythm(studio.state['result'], body.get('correction'))
+                    with studio.lock:
+                        if studio.state['result'] is None:
+                            raise ValueError('Analyse a recording first.')
+                        studio.state['result'] = studio.store.edit_rhythm(studio.state['result'], body.get('correction'))
                 elif path == '/api/clear-cache':
                     studio.store.clear_cache()
                 else:

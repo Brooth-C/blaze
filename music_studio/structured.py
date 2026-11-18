@@ -48,15 +48,21 @@ def observation_scores(priors,columns,baseline_frames,heads,components,start,end
         weight=1.0 if k==0 else .65
         values=weight*np.log(np.maximum(head[start:end],1e-7))
         score+=values[:,components[:,k]]
-    return score
+    # Advanced indexing above creates column-major storage. Viterbi consumes
+    # one complete row at a time; pack only after all arithmetic so scores and
+    # their summation order remain exact, with a bounded 128-frame copy.
+    return np.ascontiguousarray(score)
 
 
-def sequence_decode(emissions,penalties,beam=20,check=lambda:None):
+def sequence_decode(emissions,penalties,beam=20,check=lambda:None,preselected=False):
     """Beam Viterbi with soft change costs; every frame may change chord."""
     history=[];previous=np.empty(0,dtype=np.int32);scores=np.empty(0,dtype=np.float64)
-    for t,row in enumerate(emissions):
+    for t,emission in enumerate(emissions):
         if t%256==0:check()
-        top=np.argpartition(row,-min(beam,len(row)))[-beam:]
+        if preselected:row,top=emission
+        else:
+            row=emission
+            top=np.argpartition(row,-min(beam,len(row)))[-beam:]
         ids=np.unique(np.concatenate((top,previous))).astype(np.int32)
         if not len(previous):
             values=row[ids].astype(np.float64);parents=np.full(len(ids),-1,dtype=np.int16)
@@ -234,15 +240,20 @@ class StructuredRecognizer:
             positions=np.searchsorted(beats,times)
             a=np.asarray(beats)[np.clip(positions,0,len(beats)-1)];b=np.asarray(beats)[np.clip(positions-1,0,len(beats)-1)]
             penalties[np.minimum(np.abs(times-a),np.abs(times-b))<.07]=1.8
+        beam=20
         def observations():
             for start in range(0,count,128):
                 end=min(count,start+128)
                 score=observation_scores(priors,prior_columns,baseline_frames,heads,self.components,start,end)
+                quiet=silent[start:end]
+                score[quiet]=-1000;score[quiet,0]=0
+                # Partition the same independent rows in one bounded call.
+                # Keep only the beam columns; do not retain full-song logits.
+                tops=np.argpartition(score,-min(beam,score.shape[1]),axis=1)[:,-beam:].copy()
                 for n in range(start,end):
                     row=score[n-start]
-                    if silent[n]:row[:]=-1000;row[0]=0
-                    yield row
-        chosen=sequence_decode(observations(),penalties,check=check)
+                    yield row,tops[n-start]
+        chosen=sequence_decode(observations(),penalties,beam=beam,check=check,preselected=True)
         bass_frames=np.minimum(np.arange(len(baseline))*4,len(heads[1])-1)
         base_names,base_confidence,base_margins=grouped_candidates(baseline,baseline_labels,heads[1][bass_frames])
         frames=[]

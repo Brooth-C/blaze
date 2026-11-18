@@ -203,6 +203,31 @@ def waveform_peaks(blocks):
     return np.max(np.abs(blocks), axis=1).tolist() if len(blocks) else []
 
 
+def chord_events(frames):
+    """Build a timeline without changing frames reused by a later decode."""
+    frames = [dict(frame) for frame in frames]
+    # Three-frame voting only removes isolated flips; extensions remain model labels.
+    labels = [frame['chord'] for frame in frames]
+    for i in range(1, len(frames) - 1):
+        if labels[i - 1] == labels[i + 1] and labels[i] != 'N':
+            frames[i]['chord'] = labels[i - 1]
+            if labels[i] != labels[i - 1]:
+                frames[i]['model_score'] = None
+    bridge_uncertain_frames(frames)
+    events = []
+    for frame in frames:
+        if events and events[-1]['chord'] == frame['chord']:
+            event = events[-1]
+            old_duration = event['end'] - event['start']
+            new_duration = frame['end'] - frame['start']
+            event['model_score'] = ((event['model_score'] * old_duration + frame['model_score'] * new_duration) / (old_duration + new_duration)
+                                    if event['model_score'] is not None and frame['model_score'] is not None else None)
+            event['end'] = frame['end']
+        else:
+            events.append(dict(frame))
+    return events
+
+
 def context_silence_mask(pcm):
     """Match each 8192-sample BTC context using shared 2048-sample peaks."""
     if not len(pcm):
@@ -233,6 +258,9 @@ class Analyzer:
         self.process = None
         self.rhythm = None
         self.verified_input = None
+        # Mac Practice can show the full ensemble's preliminary chords before
+        # rhythm-aware refinement. Other callers retain the original ordering.
+        self.chords_ready = None
 
     def cancel(self):
         self.cancelled.set()
@@ -403,13 +431,52 @@ class Analyzer:
         self.bundle.frontend.close()
         self.bundle.network.close()
         timings['baseline_seconds'] = round(time.perf_counter()-started, 3)
-        stage_started = time.perf_counter()
-        try:
-            rhythm_result = rhythm.finish(sample_count / RATE, self.check, progress) if rhythm else {}
-        finally:
-            if rhythm:
-                rhythm.close()
-        timings['rhythm_seconds'] = round(time.perf_counter()-stage_started, 3)
+        duration = sample_count / RATE
+        if waveform:
+            width = min(1024, len(waveform))
+            boundaries = np.linspace(0, len(waveform), width + 1, dtype=int)
+            peaks = [max(waveform[left:right]) for left, right in zip(boundaries, boundaries[1:])]
+        else:
+            peaks = [float(np.max(np.abs(envelope_tail), initial=0))]
+
+        def result_for(decoded_frames, rhythm_result, preliminary=False):
+            events = chord_events(decoded_frames)
+            if preliminary:
+                bpm, beats = None, []
+            elif rhythm:
+                bpm, beats = rhythm_result['tempo_bpm'], rhythm_result['beats']
+            else:
+                bpm, beats = tempo_and_beats(onsets)
+            metadata = self.bundle.metadata
+            value = {'schema_version': 1, 'engine_version': 'structured1' if self.bundle.structured else 'overlap1',
+                     'audio_file': path.name, 'source_sha256': source_sha256,
+                     'duration': duration, 'key': estimate_key(events), 'tempo_bpm': bpm, 'beats': beats,
+                     'waveform': list(peaks), 'model': {'name': metadata['name'], 'version': metadata['version'],
+                     'sha256': metadata['sha256'], 'frontend_sha256': self.bundle.manifest['frontend']['sha256']},
+                     'confidence_kind': 'uncalibrated_model_score', 'chords': events,
+                     'analysis_seconds': round(time.perf_counter() - started, 3), **rhythm_result}
+            if preliminary:
+                value.update(analysis_stage='chords', rhythm_status='pending')
+            return value
+
+        def find_rhythm():
+            stage_started = time.perf_counter()
+            try:
+                return rhythm.finish(duration, self.check, progress) if rhythm else {}
+            finally:
+                if rhythm:
+                    rhythm.close()
+                timings['rhythm_seconds'] = round(time.perf_counter()-stage_started, 3)
+
+        def publish_chords(decoded_frames):
+            self.check()
+            value = result_for(decoded_frames, {}, preliminary=True)
+            timings['chords_ready_seconds'] = round(time.perf_counter()-started, 3)
+            self.chords_ready(value)
+            self.check()
+
+        chords_first = rhythm is not None and callable(self.chords_ready)
+        rhythm_result = {} if chords_first else find_rhythm()
         if self.bundle.structured:
             recognizer = self.bundle.structured
             try:
@@ -421,49 +488,32 @@ class Analyzer:
                     stage_started = time.perf_counter()
                     heads = recognizer.predict_features(features, self.check, progress)
                     timings['ensemble_seconds'] = round(time.perf_counter()-stage_started, 3)
+                    # Each ensemble session has already been released by
+                    # predict_features. Keep its compact predictions and the
+                    # original mapped PCM, rather than rerunning any network.
+                    del features
+                    baseline = np.asarray(baseline_probabilities)
+                    if chords_first:
+                        stage_started = time.perf_counter()
+                        preliminary_frames = recognizer.decode(heads, baseline,
+                            self.bundle.manifest['models']['extended']['labels'], duration, [], decoded_audio, self.check)
+                        timings['initial_chord_decode_seconds'] = round(time.perf_counter()-stage_started, 3)
+                        publish_chords(preliminary_frames)
+                        del preliminary_frames
+                        rhythm_result = find_rhythm()
                     stage_started = time.perf_counter()
-                    frames = recognizer.decode(heads, np.asarray(baseline_probabilities), self.bundle.manifest['models']['extended']['labels'],
-                                               sample_count / RATE, rhythm_result.get('beats', []), decoded_audio, self.check)
+                    frames = recognizer.decode(heads, baseline, self.bundle.manifest['models']['extended']['labels'],
+                                               duration, rhythm_result.get('beats', []), decoded_audio, self.check)
                     timings['chord_decode_seconds'] = round(time.perf_counter()-stage_started, 3)
                 finally:
                     del decoded_audio
             finally:
                 recognizer.close()
-        # Three-frame voting only removes isolated flips; extensions remain model labels.
-        labels = [frame['chord'] for frame in frames]
-        for i in range(1, len(frames) - 1):
-            if labels[i - 1] == labels[i + 1] and labels[i] != 'N':
-                frames[i]['chord'] = labels[i - 1]
-                if labels[i] != labels[i - 1]:
-                    frames[i]['model_score'] = None
-        bridge_uncertain_frames(frames)
-        events = []
-        for frame in frames:
-            if events and events[-1]['chord'] == frame['chord']:
-                event = events[-1]
-                old_duration = event['end'] - event['start']
-                new_duration = frame['end'] - frame['start']
-                event['model_score'] = ((event['model_score'] * old_duration + frame['model_score'] * new_duration) / (old_duration + new_duration)
-                                        if event['model_score'] is not None and frame['model_score'] is not None else None)
-                event['end'] = frame['end']
-            else:
-                events.append(dict(frame))
-        if waveform:
-            width = min(1024, len(waveform))
-            boundaries = np.linspace(0, len(waveform), width + 1, dtype=int)
-            peaks = [max(waveform[left:right]) for left, right in zip(boundaries, boundaries[1:])]
-        else:
-            peaks = [float(np.max(np.abs(envelope_tail), initial=0))]
-        if rhythm:
-            bpm, beats = rhythm_result['tempo_bpm'], rhythm_result['beats']
-        else:
-            bpm, beats = tempo_and_beats(onsets)
-        metadata = self.bundle.metadata
+        elif chords_first:
+            publish_chords(frames)
+            rhythm_result = find_rhythm()
+        result = result_for(frames, rhythm_result)
         print('BLAZE_ANALYSIS_TIMING ' + json.dumps(dict(timings,
               total_seconds=round(time.perf_counter()-started, 3), duration_seconds=sample_count/RATE)), flush=True)
-        return {'schema_version': 1, 'engine_version': 'structured1' if self.bundle.structured else 'overlap1', 'audio_file': path.name, 'source_sha256': source_sha256,
-                'duration': sample_count / RATE, 'key': estimate_key(events), 'tempo_bpm': bpm, 'beats': beats,
-                'waveform': peaks, 'model': {'name': metadata['name'], 'version': metadata['version'],
-                'sha256': metadata['sha256'], 'frontend_sha256': self.bundle.manifest['frontend']['sha256']},
-                'confidence_kind': 'uncalibrated_model_score', 'chords': events,
-                'analysis_seconds': round(time.perf_counter() - started, 3), **rhythm_result}
+        result['analysis_seconds'] = round(time.perf_counter() - started, 3)
+        return result

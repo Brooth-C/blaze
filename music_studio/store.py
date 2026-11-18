@@ -91,6 +91,8 @@ class Store:
         return hashlib.sha256(data.encode()).hexdigest()
 
     def save(self, result):
+        if result.get('analysis_stage') == 'chords':
+            raise ValueError('Preliminary chords cannot replace a completed analysis.')
         validate(result)
         identity = self.identity(result)
         result['analysis_id'] = identity

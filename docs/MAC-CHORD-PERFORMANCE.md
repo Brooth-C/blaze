@@ -101,3 +101,86 @@ model behavior.
 `tools/verify_macos_chord_threads.py` checks raw neural outputs independently.
 The full benchmark workflow is manual so documentation/tooling edits do not
 schedule twelve expensive recognitions automatically.
+
+## Chords before rhythm — November 18
+
+Mac Practice now publishes a preliminary guide from the full chord ensemble
+before neural rhythm inference starts. It keeps the ensemble predictions and
+decoded PCM for the original final beat-aware decoder. No neural model runs
+twice and the original model weights, input precision and attention contexts
+remain unchanged. Other presentations retain the original stage ordering.
+
+The preliminary guide is explicitly marked while rhythm is pending. Playback,
+notation transpose and navigation remain available. Stopping rhythm retains
+that preliminary guide for the current process; it does not store an unfinished
+result as a completed analysis. Practice settings can still be saved. Once
+rhythm finishes, the final guide replaces the preliminary guide without
+reloading media or resetting playback. Manual chord edits wait for final
+timing because corrections are tied to exact event boundaries.
+
+A local full-model CPU comparison used the existing 150-second fixture:
+
+| Measurement | Time |
+| --- | ---: |
+| Original pipeline, first available final chords | 19.78 s |
+| New pipeline, preliminary full-ensemble chords | 9.56 s |
+| New pipeline, final rhythm-aware result | 19.29 s |
+
+All final result fields, including chord scores, labels, boundaries, beats,
+downbeats, tempo, key and waveform matched exactly, excluding elapsed time.
+This is one Linux CPU comparison, not a native Mac measurement or evidence of
+a statistically established reduction in total analysis time. It demonstrates
+earlier chord delivery; rhythm computation still takes place afterward.
+
+`Blaze-Chords-First-Tests.py` verifies stage order, final parity, prediction
+reuse and cleanup. `Blaze-Chords-First-Jobs-Tests.py` verifies early publication,
+source ownership, cancellation/retry and incomplete-cache protection.
+`Blaze-Mac-Chords-First-UI-Tests.cjs` uses authenticated loopback serving and
+real audio playback to check early chord display, transpose, browsing,
+same-ID final refinement and playback continuity during background rhythm.
+
+## Further exact-output decoder experiment — November 18
+
+The observation scorer's indexed projection produces column-major storage,
+while Viterbi consumes individual rows. The scorer now packs each completed
+128-frame block into row-major storage after all arithmetic. It does not
+reorder additions, change precision or retain a full-song emission matrix.
+
+Using saved production predictions for the same 150-second fixture, four
+timed samples per variant after warm-up measured the preliminary-plus-final
+decoder median at 0.79865 seconds before and 0.76569 seconds afterward
+(about 4.1%, or 33 milliseconds). Every candidate sample was faster in this
+comparison. This is a small Linux CPU decoder improvement, not a measured
+whole-app or physical M3 gain. Raw scores across actual, normal, quiet and
+tied FP32/FP64 inputs were exact; the complete recording's preliminary and
+final result fields also matched, excluding elapsed time.
+
+Packing before the arithmetic was slower and was rejected. Moving rhythm
+spectrogram preparation after chord delivery also preserved output, but an
+isolated ABBA comparison did not improve observed chord delivery and increased
+total time. That experiment was reverted. Existing model weights, contexts,
+precision and the chord-first scheduling remain intact.
+
+The complete-worker benchmark now reports first-chord delivery separately
+from final completion so future Mac comparisons measure both user-visible
+waiting and total processing.
+
+Candidate selection is also batched over the same 128-frame blocks. The
+Viterbi recurrence, beam of 20, silence decisions and tie handling stay
+unchanged. Only the selected columns survive each partition; memory remains
+bounded independently of recording length. The ordinary row-based decoder
+entry point remains available for existing callers and reference comparisons.
+
+A direct combined comparison against the original implementation measured
+the preliminary-plus-final decoder median at 0.99090 to 0.84631 seconds
+(about 14.6%, or 145 milliseconds), with four warmed ABBA samples per version.
+These measurements are from a separate run and are not added to the earlier
+percentage. Host variation remains; this is a modest decoder-only Linux CPU
+result. All production preview/final frames and input hashes matched.
+The whole 150-second recognition was then checked again: every preliminary
+and final result field matched the previous pipeline except elapsed time.
+
+`Blaze-Decoder-Layout-Tests.py` checks packed observation scores, bounded
+partitions and full sequence paths on FP32/FP64 normal, tied, silent and
+near-tied inputs, including small vocabularies and partial blocks. Native
+macOS 26 CI runs this alongside the existing recognition checks.

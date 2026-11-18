@@ -99,6 +99,7 @@ def worker(args):
                     stages[name] = json.loads(line[len(prefix):])
         records = [record for runtime in runtimes for record in runtime.records]
         entry = {'total_seconds': elapsed, 'duration_seconds': result['duration'],
+                 'first_chords_seconds': stages.get('worker', {}).get('first_chords_seconds', elapsed),
                  'result_sha256': hashlib.sha256(encoded).hexdigest(), 'stages': stages,
                  'session_creation_seconds': sum(r['session_creation_seconds'] for r in records),
                  'graphs': records, 'fallback_thread_override': args.threads or None}
@@ -186,7 +187,9 @@ def main():
         for name, *_ in variants:
             rows = [row for row in report['runs'] if row['variant'] == name]
             warm = [row['total_seconds'] for row in rows if row['repeat'] > 0]
+            first_chords = [row['first_chords_seconds'] for row in rows if row['repeat'] > 0]
             report['summary'][name] = {'median_warm_seconds': statistics.median(warm),
+                                       'median_first_chords_seconds': statistics.median(first_chords),
                                        'all_results_exact': all(row['output_exact'] for row in rows),
                                        'timeline_and_metadata_exact': all(row['result_comparison']['timeline_and_metadata_exact'] for row in rows),
                                        'score_availability_exact': all(row['result_comparison']['score_availability_exact'] for row in rows),
