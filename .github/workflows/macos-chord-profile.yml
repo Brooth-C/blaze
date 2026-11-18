@@ -2,7 +2,7 @@ name: Mac chord execution profile
 on:
   push:
     branches: ['codex/mac-chord-shape-profile']
-    paths: ['tools/benchmark_macos_chord_shapes.py', 'tests/Blaze-Mac-Chord-Frontend-Tests.py', '.github/workflows/macos-chord-profile.yml']
+    paths: ['tools/benchmark_macos_chord_shapes.py', 'tools/verify_macos_chord_threads.py', 'tests/Blaze-Mac-Chord-Frontend-Tests.py', '.github/workflows/macos-chord-profile.yml']
   workflow_dispatch:
 permissions:
   contents: read
@@ -42,10 +42,13 @@ jobs:
         env:
           BLAZE_CHORD_MODEL_DIR: build/chord-profile/models
         run: python tests/Blaze-Mac-Chord-Frontend-Tests.py
+      - name: Verify every neural output across fallback thread counts
+        run: python tools/verify_macos_chord_threads.py --models build/chord-profile/models --cache build/chord-profile/thread-cache --output build/chord-profile/thread-parity/report.json --threads 2 4
       - uses: actions/upload-artifact@v7.0.2
         if: always()
         with:
           name: Blaze-chord-shape-profile
           path: |
+            build/chord-profile/thread-parity/report.json
             build/chord-profile/results/report.json
             build/chord-profile/results/report-artifacts/profiles/
