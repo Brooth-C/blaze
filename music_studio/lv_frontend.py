@@ -201,7 +201,7 @@ def _project(filters: np.ndarray, spectrum: np.ndarray, rows=None) -> np.ndarray
         for index, row in enumerate(ids):
             for start in range(0, spectrum.shape[1], 512):
                 output[row, start:start + 512] = np.sum(
-                    coefficients[index] * spectrum[indices[index], start:start + 512],
+                    filters[row][indices[index], None] * spectrum[indices[index], start:start + 512],
                     axis=0, dtype=np.complex64)
     return output
 
