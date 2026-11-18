@@ -16,7 +16,7 @@ from unittest.mock import patch
 ROOT = Path(__file__).resolve().parents[1]
 REPOSITORY = 'Brooth-C/blaze'
 SOURCE = 'a' * 40
-TAG = 'macos-v0.19.6'
+TAG = 'macos-v0.19.7'
 ASSET = 'Blaze-Mac-arm64.zip'
 
 
@@ -38,8 +38,8 @@ class MacPublicationTests(unittest.TestCase):
         self.asset = self.directory / 'artifacts' / ASSET
         self.asset.write_bytes(self.payload)
         self.digest = hashlib.sha256(self.payload).hexdigest()
-        (self.directory / 'docs/RELEASE-0.19.6.md').write_text(
-            '# Blaze for Mac 0.19.6\n\nVerified Practice release.\n', encoding='utf-8')
+        (self.directory / 'docs/RELEASE-0.19.7.md').write_text(
+            '# Blaze for Mac 0.19.7\n\nVerified Practice release.\n', encoding='utf-8')
         self.metadata = {
             'id': 42, 'tag_name': TAG, 'target_commitish': SOURCE,
             'draft': False, 'prerelease': False,
