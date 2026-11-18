@@ -29,6 +29,25 @@ def canonical_result(result):
     return json.dumps(value, sort_keys=True, separators=(',', ':'), allow_nan=False).encode()
 
 
+def compare_results(actual, expected):
+    """Keep strict equality and expose GPU score drift separately from music."""
+    left, right = json.loads(actual), json.loads(expected)
+    availability = True
+    errors = []
+    for got, wanted in zip(left.get('chords', []), right.get('chords', [])):
+        a, b = got.get('model_score'), wanted.get('model_score')
+        availability &= ('model_score' in got) == ('model_score' in wanted) and (a is None) == (b is None)
+        if a is not None and b is not None:
+            errors.append(abs(a - b))
+    for result in (left, right):
+        for chord in result.get('chords', []):
+            chord.pop('model_score', None)
+    return {'exact_bytes': actual == expected,
+            'timeline_and_metadata_exact': left == right,
+            'score_availability_exact': availability,
+            'max_score_abs_error': max(errors, default=0.)}
+
+
 def worker(args):
     sys.path.insert(0, str(args.code_root))
     os.environ['BLAZE_STEM_BACKEND'] = args.backend
@@ -156,6 +175,7 @@ def main():
                 encoded = (out / 'result.json').read_bytes()
                 if reference is None:
                     reference = encoded
+                value['result_comparison'] = compare_results(encoded, reference)
                 value.update(variant=name, repeat=repeat, output_exact=encoded == reference,
                              cache_state=('cold' if repeat == 0 and name in ('released', 'current') else
                                           'first_with_reused_cache' if repeat == 0 else 'warm'))
@@ -167,7 +187,10 @@ def main():
             rows = [row for row in report['runs'] if row['variant'] == name]
             warm = [row['total_seconds'] for row in rows if row['repeat'] > 0]
             report['summary'][name] = {'median_warm_seconds': statistics.median(warm),
-                                       'all_results_exact': all(row['output_exact'] for row in rows)}
+                                       'all_results_exact': all(row['output_exact'] for row in rows),
+                                       'timeline_and_metadata_exact': all(row['result_comparison']['timeline_and_metadata_exact'] for row in rows),
+                                       'score_availability_exact': all(row['result_comparison']['score_availability_exact'] for row in rows),
+                                       'max_score_abs_error': max(row['result_comparison']['max_score_abs_error'] for row in rows)}
         print('BLAZE_FULL_CHORD_SUMMARY ' + json.dumps(report['summary']), flush=True)
     except BaseException as error:
         report['error'] = type(error).__name__ + ': ' + str(error)

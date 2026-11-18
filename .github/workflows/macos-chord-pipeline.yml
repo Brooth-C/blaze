@@ -1,8 +1,5 @@
 name: Mac complete chord recognition benchmark
 on:
-  push:
-    branches: ['codex/mac-chord-shape-profile']
-    paths: ['tools/benchmark_macos_chord_pipeline.py', 'tools/create_chord_benchmark_fixture.py', '.github/workflows/macos-chord-pipeline.yml']
   workflow_dispatch:
 permissions:
   contents: read
