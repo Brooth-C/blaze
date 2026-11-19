@@ -1,0 +1,64 @@
+name: Mac complete chord recognition benchmark
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  pipeline:
+    name: Full 150-second recognition / macOS 26
+    runs-on: macos-26
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v7.0.0
+        with:
+          python-version: '3.12.10'
+      - name: Install the production numerical runtime
+        run: python -m pip install numpy==1.26.4 onnxruntime==1.31.0
+      - name: Fetch checksum-pinned production chord assets
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import zipfile
+          from tools.stage_macos_studio import fetch, MODEL_URL, MODEL_SHA
+          archive = fetch(MODEL_URL, Path('build/chord-pipeline/models.zip'), MODEL_SHA)
+          root = Path('build/chord-pipeline/models')
+          root.mkdir()
+          with zipfile.ZipFile(archive) as bundle:
+              prefix = 'Blaze/_internal/music_studio/models/'
+              for member in bundle.namelist():
+                  if member.startswith(prefix) and not member.endswith('/'):
+                      name = member.removeprefix(prefix)
+                      if Path(name).name != name:
+                          raise ValueError('Invalid model asset path')
+                      (root / name).write_bytes(bundle.read(member))
+          PY
+      - uses: actions/cache/restore@v6.1.0
+        with:
+          path: |
+            tools/macos_decoder/downloads
+            tools/macos_decoder/output
+          key: blaze-mac-lgpl-arm64-${{ hashFiles('tools/macos_decoder/*.py', 'tools/macos_decoder/*.sh', 'tools/macos_decoder/*.json') }}
+      - name: Prepare the production LGPL decoder
+        run: |
+          if [ ! -f tools/macos_decoder/output/decoder-manifest.json ]; then
+            python tools/macos_decoder/fetch_sources.py
+            bash tools/macos_decoder/build.sh
+            python tools/macos_decoder/package_sources.py
+          fi
+      - name: Generate a 150-second stereo transition fixture
+        run: python tools/create_chord_benchmark_fixture.py --output 'build/chord-pipeline/Benchmark session.wav'
+      - name: Compare complete app workers and exact recognition results
+        run: python tools/benchmark_macos_chord_pipeline.py --source 'build/chord-pipeline/Benchmark session.wav' --models build/chord-pipeline/models --ffmpeg "$PWD/tools/macos_decoder/output/bin/ffmpeg" --output build/chord-pipeline/results --runs 2
+      - uses: actions/upload-artifact@v7.0.2
+        if: always()
+        with:
+          name: Blaze-complete-chord-benchmark
+          path: |
+            build/chord-pipeline/results/report.json
+            build/chord-pipeline/results/*/measurement.json
+            build/chord-pipeline/results/*/result.json
+            build/chord-pipeline/results/*.log
+            build/chord-pipeline/results/*/worker.log

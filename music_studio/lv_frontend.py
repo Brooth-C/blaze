@@ -170,23 +170,36 @@ def _basis(sr: float, frequencies: np.ndarray, alpha: np.ndarray,
 
 
 def _projection_rows(filters):
-    rows = []
-    for coefficients in filters:
+    # Equal-width sparse rows can share a NumPy reduction without padding or
+    # changing the order in which each row's complex coefficients are added.
+    groups = {}
+    for row, coefficients in enumerate(filters):
         indices = np.flatnonzero(coefficients)
-        rows.append((indices, coefficients[indices, None]))
-    return rows
+        groups.setdefault(len(indices), []).append((row, indices, coefficients[indices]))
+    batches = []
+    for width, group in groups.items():
+        batch_size = min(8, max(1, 131072 // max(1, width * 512)))
+        for start in range(0, len(group), batch_size):
+            batch = group[start:start + batch_size]
+            batches.append((np.asarray([a[0] for a in batch]),
+                            np.stack([a[1] for a in batch]),
+                            np.stack([a[2] for a in batch])[:, :, None]))
+    return batches
 
 
 def _project(filters: np.ndarray, spectrum: np.ndarray, rows=None) -> np.ndarray:
-    # Sparse rows are typically only tens of frequency bins, so this avoids
-    # a large dense GEMM and any SciPy dependency.
+    # Bound gathered/product intermediates independently of recording length.
+    # At most 131072 complex elements (1 MiB for the normal complex64 input)
+    # are processed together, except for a single original 512-frame row.
+    # Keep those frame boundaries: one-frame reductions may use a different
+    # NumPy summation path, so changing the final block could change rounding.
     output = np.empty((len(filters), spectrum.shape[1]), np.complex64)
-    if rows is None:
-        rows = _projection_rows(filters)
-    for row, (indices, coefficients) in enumerate(rows):
+    # Use the original row allocation and reduction layout on every platform.
+    for row, coefficients in enumerate(filters):
+        indices = np.flatnonzero(coefficients)
         for start in range(0, spectrum.shape[1], 512):
             output[row, start:start + 512] = np.sum(
-                coefficients * spectrum[indices, start:start + 512],
+                coefficients[indices, None] * spectrum[indices, start:start + 512],
                 axis=0, dtype=np.complex64)
     return output
 

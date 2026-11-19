@@ -1,10 +1,10 @@
 name: Windows Studio source checks
 on:
   pull_request:
-    paths: ['music_studio/**', 'tests/Blaze-Desktop*', 'tests/Blaze-Mac-Design-UI-Tests.cjs', 'tests/Blaze-Mac-Stems-UI-Tests.cjs', 'tests/Blaze-Mac-Studio-UI-Tests.cjs', 'tests/Blaze-Mac-Harmony-UI-Tests.cjs', 'tests/Blaze-Mac-Logic-*', 'tests/Blaze-Mac-Practice-*', 'tests/Blaze-*Rhythm*-Tests.cjs', 'tests/Blaze-*Flow*-Tests.cjs', 'tests/Blaze-Timeline-Cells-Tests.cjs', 'tests/Blaze-Meter-Tests.py', 'tests/Blaze-Sequence-Tests.py', 'tests/Blaze-Chord-Evidence-Tests.py', 'tools/build_*models.py', 'tools/build_lv_frontend.py', 'tools/build_windows_studio.py', '.github/workflows/windows-studio-tests.yml']
+    paths: ['music_studio/**', 'tests/Blaze-Desktop*', 'tests/Blaze-Mac-Design-UI-Tests.cjs', 'tests/Blaze-Mac-Stems-UI-Tests.cjs', 'tests/Blaze-Mac-Studio-UI-Tests.cjs', 'tests/Blaze-Mac-Harmony-UI-Tests.cjs', 'tests/Blaze-Mac-Logic-*', 'tests/Blaze-Mac-Practice-*', 'tests/Blaze-Mac-Chords-First-*', 'tests/Blaze-Chords-First*', 'tests/Blaze-Decoder-Layout-Tests.py', 'tests/Blaze-Practice-Guide-Tests.cjs', 'tests/Blaze-*Rhythm*-Tests.cjs', 'tests/Blaze-*Flow*-Tests.cjs', 'tests/Blaze-Timeline-Cells-Tests.cjs', 'tests/Blaze-Meter-Tests.py', 'tests/Blaze-Sequence-Tests.py', 'tests/Blaze-Chord-Evidence-Tests.py', 'tools/build_*models.py', 'tools/build_lv_frontend.py', 'tools/build_windows_studio.py', '.github/workflows/windows-studio-tests.yml']
   push:
     branches: [main]
-    paths: ['music_studio/**', 'tests/Blaze-Desktop*', 'tests/Blaze-Mac-Design-UI-Tests.cjs', 'tests/Blaze-Mac-Stems-UI-Tests.cjs', 'tests/Blaze-Mac-Studio-UI-Tests.cjs', 'tests/Blaze-Mac-Harmony-UI-Tests.cjs', 'tests/Blaze-Mac-Logic-*', 'tests/Blaze-Mac-Practice-*', '.github/workflows/windows-studio-tests.yml']
+    paths: ['music_studio/**', 'tests/Blaze-Desktop*', 'tests/Blaze-Mac-Design-UI-Tests.cjs', 'tests/Blaze-Mac-Stems-UI-Tests.cjs', 'tests/Blaze-Mac-Studio-UI-Tests.cjs', 'tests/Blaze-Mac-Harmony-UI-Tests.cjs', 'tests/Blaze-Mac-Logic-*', 'tests/Blaze-Mac-Practice-*', 'tests/Blaze-Mac-Chords-First-*', 'tests/Blaze-Chords-First*', 'tests/Blaze-Decoder-Layout-Tests.py', 'tests/Blaze-Practice-Guide-Tests.cjs', '.github/workflows/windows-studio-tests.yml']
 permissions:
   contents: read
 jobs:
@@ -24,11 +24,15 @@ jobs:
           python tests/Blaze-Meter-Tests.py
           python tests/Blaze-Chord-Evidence-Tests.py
           python tests/Blaze-Sequence-Tests.py
+          python tests/Blaze-Chords-First-Tests.py
+          python tests/Blaze-Chords-First-Jobs-Tests.py
+          python tests/Blaze-Decoder-Layout-Tests.py
           python tests/Blaze-Uncertainty-Tests.py
           python tests/Blaze-Desktop-Discovery-Tests.py
           node tests/Blaze-Automatic-Rhythm-Tests.cjs
           node tests/Blaze-Live-Flow-Tests.cjs
           node tests/Blaze-Timeline-Cells-Tests.cjs
+          node tests/Blaze-Practice-Guide-Tests.cjs
       - name: Install browser and local media test dependencies
         run: |
           # Keep Ubuntu package signature verification, using the official
@@ -42,6 +46,12 @@ jobs:
                   updated = original.replace('http://azure.archive.ubuntu.com/ubuntu', 'https://archive.ubuntu.com/ubuntu')
                   if updated != original:
                       path.write_text(updated)
+          # Hosted Ubuntu also routes packages through these mirror lists.
+          for name, origin in [('apt-mirrors.txt', 'https://archive.ubuntu.com/ubuntu'),
+                               ('apt-mirrors-security.txt', 'https://security.ubuntu.com/ubuntu')]:
+              mirror = Path('/etc/apt') / name
+              if mirror.is_file():
+                  mirror.write_text(origin + '\n')
           PYMIRROR
           sudo apt-get -o Acquire::Retries=2 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 update
           sudo apt-get -o Acquire::Retries=2 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 install -y --no-install-recommends ffmpeg
@@ -58,6 +68,7 @@ jobs:
           node tests/Blaze-Mac-Design-UI-Tests.cjs
           python tests/Blaze-Mac-Practice-Audio-Tests.py
           node tests/Blaze-Mac-Practice-UI-Tests.cjs
+          node tests/Blaze-Mac-Chords-First-UI-Tests.cjs
       - uses: actions/upload-artifact@v7.0.2
         if: always()
         with:

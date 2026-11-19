@@ -1,5 +1,6 @@
 """Real Studio worker/store lifecycle with deterministic controlled inference."""
 import hashlib
+import json
 from pathlib import Path
 import sys
 import tempfile
@@ -251,6 +252,105 @@ class AnalysisJobsTests(unittest.TestCase):
             usage.assert_not_called()
         self.assertEqual(self.studio.state['analysisTask']['status'], 'done')
         self.assertEqual(self.studio.state['result']['source_sha256'], hashlib.sha256(original.read_bytes()).hexdigest())
+
+    def test_large_copy_reserves_bounded_batches_and_preserves_bytes(self):
+        mib = 1024 ** 2
+        with self.source.open('wb') as stream:
+            stream.truncate(65 * mib + 17)
+        positions = []
+        def space(_):
+            copies = list(self.studio.incoming.glob('.analysis-*'))
+            positions.append(copies[0].stat().st_size)
+            return SimpleNamespace(free=1024 * mib)
+        with patch('music_studio.server.ModelBundle', return_value=BUNDLE), \
+                patch('music_studio.server.Analyzer', self.controlled()), \
+                patch('music_studio.server.shutil.disk_usage', side_effect=space):
+            self.start()
+            self.finish()
+        self.assertEqual(positions, [0, 32 * mib, 64 * mib])
+        with self.source.open('rb') as stream:
+            digest = hashlib.file_digest(stream, 'sha256').hexdigest()
+        self.assertEqual(self.studio.state['result']['source_sha256'], digest)
+
+    def test_copy_refuses_batch_that_would_consume_the_reserve(self):
+        mib = 1024 ** 2
+        with self.source.open('wb') as stream:
+            stream.truncate(33 * mib)
+        with patch('music_studio.server.ModelBundle') as factory, \
+                patch('music_studio.server.shutil.disk_usage', return_value=SimpleNamespace(free=160 * mib - 1)):
+            self.studio.analyze('powerful')
+            self.studio.worker.join(3)
+            factory.assert_not_called()
+        self.assertFalse(self.studio.state['busy'])
+        self.assertEqual(self.studio.state['analysisTask']['status'], 'failed')
+        self.assertIn('Free more storage', self.studio.state['analysisTask']['error'])
+        self.assertEqual(list(self.studio.incoming.glob('.analysis-*')), [])
+
+    def test_copy_rechecks_space_and_rejects_growth_during_preparation(self):
+        mib = 1024 ** 2
+        with self.source.open('wb') as stream:
+            stream.truncate(mib)
+        calls = []
+        def space(_):
+            calls.append(True)
+            if len(calls) == 1:
+                with self.source.open('ab') as stream:
+                    stream.write(b'x' * (2 * mib))
+            return SimpleNamespace(free=512 * mib)
+        with patch('music_studio.server.ModelBundle') as factory, \
+                patch('music_studio.server.shutil.disk_usage', side_effect=space):
+            self.studio.analyze('powerful')
+            self.studio.worker.join(3)
+            factory.assert_not_called()
+        self.assertEqual(len(calls), 2)
+        self.assertIn('changed while', self.studio.state['analysisTask']['error'])
+        self.assertEqual(list(self.studio.incoming.glob('.analysis-*')), [])
+
+    def test_job_timing_covers_cache_success_cancel_and_failure_without_identifiers(self):
+        fields = {'status', 'preparation_seconds', 'model_verification_seconds',
+                  'cache_lookup_seconds', 'inference_seconds', 'save_seconds', 'total_seconds'}
+        for outcome in ('done', 'cache_hit', 'cancelled', 'failed'):
+            with self.subTest(outcome=outcome):
+                studio = Studio(self.root / outcome, 'ffmpeg', self.source)
+                studio.presentation = 'mac'
+                self.addCleanup(studio.close)
+                if outcome == 'cache_hit':
+                    studio.store.save(result_for(self.source))
+                class Recognition:
+                    def __init__(self, *_): pass
+                    def check(self): pass
+                    def analyze(self, source, progress):
+                        if outcome == 'cancelled': raise AnalysisCancelled()
+                        if outcome == 'failed': raise ValueError('private failure detail')
+                        return result_for(source)
+                with patch('music_studio.server.ModelBundle', return_value=BUNDLE), \
+                        patch('music_studio.server.Analyzer', Recognition), \
+                        patch('music_studio.server.print', create=True) as logged:
+                    studio.analyze('powerful')
+                    studio.worker.join(3)
+                    self.assertFalse(studio.worker.is_alive())
+                logged.assert_called_once()
+                text = logged.call_args.args[0]
+                self.assertTrue(text.startswith('BLAZE_ANALYSIS_JOB_TIMING '))
+                timing = json.loads(text.split(' ', 1)[1])
+                self.assertEqual(set(timing), fields)
+                self.assertEqual(timing['status'], outcome)
+                for key in fields - {'status'}:
+                    self.assertGreaterEqual(timing[key], 0)
+                    self.assertLessEqual(timing[key], timing['total_seconds'])
+                self.assertGreater(timing['preparation_seconds'], 0)
+                self.assertGreater(timing['model_verification_seconds'], 0)
+                self.assertGreater(timing['cache_lookup_seconds'], 0)
+                if outcome == 'cache_hit':
+                    self.assertEqual(timing['inference_seconds'], 0)
+                else:
+                    self.assertGreater(timing['inference_seconds'], 0)
+                if outcome != 'done': self.assertEqual(timing['save_seconds'], 0)
+                self.assertNotIn(self.source.name, text)
+                self.assertNotIn(str(self.root), text)
+                self.assertNotIn('test-model', text)
+                self.assertNotIn('private failure detail', text)
+                self.assertEqual(list(studio.incoming.glob('.analysis-*')), [])
 
     def test_other_desktop_presentations_still_guard_file_selection(self):
         self.studio.presentation = 'desktop'

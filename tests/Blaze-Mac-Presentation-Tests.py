@@ -43,6 +43,7 @@ class PresentationTests(unittest.TestCase):
         self.assertNotIn('src="/mac.js"', html)
         self.assertNotIn('src="/mac-practice.js"', html)
         self.assertEqual(self.request('/mac-practice.js')[0], 404)
+        self.assertEqual(self.request('/practice-guide.js')[0], 404)
         self.assertNotIn('%%', html)
         self.assertEqual(self.request('/mac.css')[0], 404)
         self.studio.presentation = 'mac'
@@ -59,6 +60,8 @@ class PresentationTests(unittest.TestCase):
         self.assertEqual(self.request('/mac-logic-live.js')[0], 404)
         self.assertEqual(self.request('/mac-logic-live.css')[0], 404)
         self.assertLess(html.index('src="/mac-practice-engine.js"'), html.index('src="/mac-practice.js"'))
+        self.assertLess(html.index('src="/practice-guide.js"'), html.index('src="/mac-practice.js"'))
+        self.assertEqual(self.request('/practice-guide.js')[0], 200)
         self.assertEqual(self.request('/mac-practice-engine.js')[0], 200)
         self.assertEqual(self.request('/mac-practice.js')[0], 200)
         self.assertEqual(self.request('/mac-practice.css')[0], 200)

@@ -202,7 +202,10 @@ class PracticeSessions:
             return None
         return {'analysisId': result['analysis_id'], 'chords': result['chords'],
                 'key': result.get('key'), 'tempo_bpm': result.get('tempo_bpm'),
-                'duration': result.get('duration')}
+                'beats': result.get('beats', []),
+                'duration': result.get('duration'),
+                'analysis_stage': result.get('analysis_stage', 'complete'),
+                'rhythm_status': result.get('rhythm_status', 'complete')}
 
     def snapshot(self):
         with self.lock:
@@ -219,6 +222,8 @@ class PracticeSessions:
                     'guide': self._guide(key, current) if key else None}
 
     def remember_analysis(self, key, result):
+        if isinstance(result, dict) and result.get('analysis_stage') == 'chords':
+            return
         analysis = result.get('analysis_id') if isinstance(result, dict) else None
         if not isinstance(analysis, str) or not ANALYSIS_ID.fullmatch(analysis):
             return
@@ -261,6 +266,8 @@ class PracticeSessions:
                     if self.studio.analysis_aliases.get(original_stamp, original_stamp) != key:
                         raise ValueError('The recording changed. Try saving practice again.')
                 result = self._live_result(key)
+                if result is not None and result.get('analysis_stage') == 'chords':
+                    result = None
             pending = None
             try:
                 if stream:
