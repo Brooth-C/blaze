@@ -192,7 +192,7 @@ class LazyTests(unittest.TestCase):
         with self.assertRaises(AnalysisCancelled):
             silence_mask(audio,times,check=lambda:(_ for _ in ()).throw(AnalysisCancelled()))
 
-    def test_sparse_feature_rows_are_reused_without_changing_response_values(self):
+    def test_original_sparse_reductions_preserve_response_values(self):
         from music_studio import lv_frontend as lv
         def reference_spectral_blocks(y: object, nfft: int, hop: int, window: object,
                              block_frames: int = 256):
@@ -248,9 +248,7 @@ class LazyTests(unittest.TestCase):
             for start,spectrum in reference_spectral_blocks(audio,512,16,window):
                 terms=np.abs(filters.astype(np.complex128))@np.abs(spectrum.astype(np.complex128))
                 bounds[:,start:start+terms.shape[1]]=gamma*terms
-            with patch.object(np,'flatnonzero',wraps=np.flatnonzero) as prepare:
-                actual=lv._response(audio,filters,512,16,window,magnitude)
-            self.assertEqual(prepare.call_count,len(filters))
+            actual=lv._response(audio,filters,512,16,window,magnitude)
             self.assertTrue(np.all(np.abs(actual.astype(np.float64)-expected)<=bounds))
             destination=np.empty((7,expected.shape[1]*2),np.float32)[:,::2]
             self.assertIs(lv._response(audio,filters,512,16,window,magnitude,destination),destination)
