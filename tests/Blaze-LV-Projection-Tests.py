@@ -45,6 +45,8 @@ class ProjectionTests(unittest.TestCase):
                         spectrum = source.astype(dtype)[:, ::2]
                         expected = reference_project(filters, spectrum)
                         actual = lv._project(filters, spectrum, groups)
+                        if actual.tobytes() != expected.tobytes():
+                            diagnose_reference(filters, spectrum)
                         self.assertEqual(actual.tobytes(), expected.tobytes())
 
     def test_empty_dense_and_equal_width_rows_preserve_reduction_order(self):
@@ -53,6 +55,7 @@ class ProjectionTests(unittest.TestCase):
         filters[:2] = 0
         filters[2:10, 30:] = 0
         spectrum = (rng.normal(size=(513, 513)) + 1j * rng.normal(size=(513, 513))).astype(np.complex64)
+        diagnose_reference(filters, spectrum)
         self.assertEqual(lv._project(filters, spectrum).tobytes(), reference_project(filters, spectrum).tobytes())
 
     def test_response_honors_cancellation_at_block_boundary(self):
