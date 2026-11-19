@@ -19,6 +19,15 @@ def reference_project(filters, spectrum):
     return output
 
 
+def diagnose_reference(filters, spectrum):
+    import hashlib
+    values = [reference_project(filters, spectrum) for _ in range(8)]
+    hashes = {hashlib.sha256(value.tobytes()).hexdigest() for value in values}
+    error = max(float(np.max(np.abs(value-values[0]), initial=0)) for value in values)
+    print({'reference_repeat_hashes': len(hashes), 'reference_self_max_error': error,
+           'shape': spectrum.shape}, flush=True)
+
+
 class ProjectionTests(unittest.TestCase):
     def test_original_filters_and_partial_blocks_are_bit_identical(self):
         frontend = object.__new__(lv.PortableLVFrontend)
