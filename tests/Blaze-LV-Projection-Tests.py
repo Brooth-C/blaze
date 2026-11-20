@@ -29,17 +29,33 @@ def assert_reference_output(test, filters, spectrum, actual, expected):
     # preserve every input bit; the reduction itself is still NumPy's original.
     original_sum = np.sum
     for alignment in range(0, 64, 8):
-        def aligned_sum(value, *args, **kwargs):
-            test.assertTrue(value.flags.c_contiguous or value.flags.f_contiguous)
+        def controlled_copy(value):
             storage = np.empty(value.nbytes + 64, dtype=np.uint8)
             offset = (alignment - storage.ctypes.data) % 64
             controlled = np.ndarray(value.shape, dtype=value.dtype, buffer=storage,
                                     offset=offset, order='F' if value.flags.f_contiguous else 'C')
             controlled[...] = value
-            return original_sum(controlled, *args, **kwargs)
+            return controlled
+
+        class AlignedOperand(np.ndarray):
+            # Complex multiplication also has alignment-dependent SIMD paths.
+            # Normalize its *operands and output*, not only the later sum input.
+            def __array_ufunc__(self, ufunc, method, *inputs, **kwargs):
+                plain = [np.asarray(v) if isinstance(v, AlignedOperand) else v for v in inputs]
+                if ufunc is np.multiply and method == '__call__':
+                    plain = [controlled_copy(v) if isinstance(v, np.ndarray) else v for v in plain]
+                    shape = np.broadcast_shapes(*(np.shape(v) for v in plain))
+                    result = controlled_copy(np.empty(shape, dtype=np.result_type(*plain)))
+                    return ufunc(*plain, out=result, **kwargs)
+                return getattr(ufunc, method)(*plain, **kwargs)
+
+        def aligned_sum(value, *args, **kwargs):
+            test.assertTrue(value.flags.c_contiguous or value.flags.f_contiguous)
+            return original_sum(controlled_copy(value), *args, **kwargs)
+        operands = filters.view(AlignedOperand), spectrum.view(AlignedOperand)
         with patch.object(np, 'sum', side_effect=aligned_sum):
-            reference = reference_project(filters, spectrum)
-            candidate = lv._project(filters, spectrum)
+            reference = reference_project(*operands)
+            candidate = lv._project(*operands)
         test.assertEqual(candidate.tobytes(), reference.tobytes(),
                          f'Projection differs with controlled {alignment}-byte alignment')
     print({'controlled_reference_alignments': 8, 'exact_match': True,
