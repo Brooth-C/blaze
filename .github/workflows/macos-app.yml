@@ -12,6 +12,20 @@ concurrency:
   group: blaze-mac-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 jobs:
+  updater:
+    name: Mac updater ABI / macOS 26
+    runs-on: macos-26
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-python@v7.0.0
+        with:
+          python-version: '3.12.10'
+      - run: python -m pip install pyobjc-core==12.2.2 pyobjc-framework-Cocoa==12.2.2
+      - name: Verify actual Sparkle delegate and retained install block
+        run: |
+          python tools/macos_sparkle.py --output build/mac-sparkle
+          python tests/Blaze-Mac-Updater-Native.py --framework build/mac-sparkle/Sparkle.framework
   dsp-parity:
     name: Mac DSP reference parity / macOS 26
     runs-on: macos-26
@@ -234,7 +248,7 @@ jobs:
             build/stem-profile/mlx-metal-unavailable.json
   app:
     name: Mac app / ${{ matrix.arch }}
-    needs: [search, native-piano-model]
+    needs: [search, native-piano-model, updater]
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 45
     strategy:
@@ -250,10 +264,8 @@ jobs:
           python-version: '3.12.10'
       - name: Install pinned desktop dependencies
         run: python -m pip install numpy==1.26.4 onnxruntime==1.31.0 mlx==0.32.3 mlx-metal==0.32.3 pywebview==6.1 pyobjc-core==12.2.2 pyobjc-framework-Cocoa==12.2.2 pyobjc-framework-WebKit==12.2.2 pyinstaller==6.16.0 Pillow==11.3.0 rich==14.2.0 ruff==0.14.0 cryptography==46.0.3 yt-dlp==2026.10.26 yt-dlp-ejs==0.8.0
-      - name: Stage verified Sparkle and test its native delegate
-        run: |
-          python tools/macos_sparkle.py --output build/mac-sparkle
-          python tests/Blaze-Mac-Updater-Native.py --framework build/mac-sparkle/Sparkle.framework
+      - name: Stage verified Sparkle
+        run: python tools/macos_sparkle.py --output build/mac-sparkle
       - name: Source and platform checks
         run: |
           python -m ruff check --select F,E9 music_studio tools/build_macos_studio.py tools/build_macos_downloader.py tools/stage_macos_studio.py tools/macos_sparkle.py tools/macos_update_feed.py tools/macos_decoder/*.py tests/Blaze-Mac-*-Tests.py tests/Blaze-Mac-Updater-Native.py
