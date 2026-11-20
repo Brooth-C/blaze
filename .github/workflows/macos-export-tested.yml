@@ -1,0 +1,86 @@
+name: Export checked Mac archive for operator signing
+on:
+  workflow_dispatch:
+    inputs:
+      source_run_id:
+        description: Completed main Mac workflow run
+        required: true
+        type: string
+      source_sha:
+        description: Exact tested main commit
+        required: true
+        type: string
+permissions:
+  contents: read
+  actions: read
+jobs:
+  export:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Verify the source and export byte-identical archive chunks
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          SOURCE_RUN: ${{ inputs.source_run_id }}
+          SOURCE_SHA: ${{ inputs.source_sha }}
+        run: |
+          python - <<'PY'
+          import hashlib,json,os,re,subprocess
+          from pathlib import Path
+          repo=os.environ['GH_REPO'];run=os.environ['SOURCE_RUN'];sha=os.environ['SOURCE_SHA']
+          assert repo=='Brooth-C/blaze' and run.isdigit() and re.fullmatch('[a-f0-9]{40}',sha)
+          def api(path):
+              return json.loads(subprocess.check_output(['gh','api','repos/'+repo+'/'+path],text=True))
+          source=api('actions/runs/'+run)
+          assert source['head_branch']=='main' and source['head_sha']==sha and source['event']=='push'
+          assert source['status']=='completed' and source['conclusion']=='success'
+          assert api('actions/workflows/'+str(source['workflow_id']))['path']=='.github/workflows/macos-app.yml'
+          required=['Mac updater ABI / macOS 26','Mac DSP reference parity / macOS 26','Mac YouTube search / macOS 26','Native piano conversion / original checkpoint parity','Mac app / arm64','Mac native glass / macOS 26']
+          jobs={j['name']:j['conclusion'] for j in api('actions/runs/'+run+'/jobs?per_page=100')['jobs']}
+          assert all(jobs.get(name)=='success' for name in required),jobs
+          subprocess.run(['gh','run','download',run,'--repo',repo,'--name','Blaze-Mac-arm64','--dir','input'],check=True)
+          archive=Path('input/Blaze-Mac-arm64.zip');out=Path('export');out.mkdir()
+          total=hashlib.sha256();parts=[];count=0;size=0
+          with archive.open('rb') as incoming:
+              while True:
+                  first=incoming.read(8*1024**2)
+                  if not first:break
+                  assert count<4,'Archive exceeds this export workflow capacity'
+                  name=f'part-{count:02d}';part_hash=hashlib.sha256();part_size=0
+                  with (out/name).open('wb') as target:
+                      block=first
+                      while block:
+                          target.write(block);total.update(block);part_hash.update(block)
+                          size+=len(block);part_size+=len(block)
+                          if part_size==384*1024**2:break
+                          block=incoming.read(min(8*1024**2,384*1024**2-part_size))
+                  parts.append({'name':name,'bytes':part_size,'sha256':part_hash.hexdigest()});count+=1
+          manifest={'source_run_id':int(run),'source_sha':sha,'bytes':size,'sha256':total.hexdigest(),'parts':parts}
+          (out/'manifest.json').write_text(json.dumps(manifest,indent=2)+'\n')
+          print(json.dumps(manifest))
+          PY
+      - uses: actions/upload-artifact@v7.0.2
+        with:
+          name: Blaze-operator-part-00
+          compression-level: 0
+          path: |
+            export/part-00
+            export/manifest.json
+      - uses: actions/upload-artifact@v7.0.2
+        with:
+          name: Blaze-operator-part-01
+          compression-level: 0
+          path: export/part-01
+      - uses: actions/upload-artifact@v7.0.2
+        with:
+          name: Blaze-operator-part-02
+          compression-level: 0
+          path: export/part-02
+      - uses: actions/upload-artifact@v7.0.2
+        if: hashFiles('export/part-03') != ''
+        with:
+          name: Blaze-operator-part-03
+          compression-level: 0
+          path: export/part-03

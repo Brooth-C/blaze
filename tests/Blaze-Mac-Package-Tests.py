@@ -103,6 +103,9 @@ def main():
         if log.is_file(): print(log.read_text(encoding='utf-8')[-6000:], flush=True)
     assert process.returncode == 0, receipt
     assert receipt['ok'], receipt
+    assert receipt['updates']['installed'] and receipt['updates']['signed_updates'], receipt
+    assert receipt['chords_first']['visible_while_rhythm_running'] and receipt['chords_first']['playback_available'], receipt
+    assert receipt['chords_first']['first_visible_seconds'] < receipt['chords_first']['complete_seconds'], receipt
     navigation = receipt['native_navigation']
     assert navigation['installed'] and navigation['web_navigation'] and navigation['roundtrip'], receipt
     assert all(receipt['layout'].values()), receipt

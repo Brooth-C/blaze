@@ -14,7 +14,7 @@
     <section class="practice-passage" aria-label="Song passage"><div class="practice-wave-heading"><span id="practice-mode-label">Original recording</span><span id="practice-wave-status"></span></div><div id="practice-wave-area" class="practice-wave-area"><canvas id="practice-wave" role="slider" tabindex="0" aria-label="Song waveform. Click to seek; shift-drag to loop a passage." aria-valuemin="0" aria-valuemax="100"></canvas><div id="practice-loop-range" class="practice-loop-range" hidden></div><div id="practice-playhead" class="practice-playhead" aria-hidden="true"></div><span id="practice-wave-empty">Reading waveform…</span></div><div class="practice-wave-times"><span>0:00</span><span id="practice-song-duration">0:00</span></div>
      <div class="practice-loop-tools"><div class="practice-loop-points"><button id="practice-set-a">Set A <span id="practice-a-value">—</span></button><button id="practice-set-b">Set B <span id="practice-b-value">—</span></button></div><button id="practice-loop-toggle" aria-pressed="false">Loop passage</button><button id="practice-clear-loop" class="practice-quiet">Clear</button><span id="practice-loop-hint" title="Set A and B at the playback position, or hold Shift and drag on the waveform.">Shift-drag to loop</span></div>
     </section>
-    <section class="practice-chords" aria-labelledby="practice-chords-heading"><div class="practice-section-heading"><h2 id="practice-chords-heading">Chord guide</h2><span id="practice-key-tempo"></span><button id="practice-analyze" class="practice-quiet">Analyse chords</button></div><p id="practice-chord-help" role="status">Analyse this song to follow its chords while you play.</p><div class="practice-chord-pair"><button id="practice-current-chord" class="practice-chord"><span>Current</span><strong aria-live="polite">—</strong><small>Not analysed</small></button><button id="practice-next-chord" class="practice-chord"><span>Up next</span><strong>—</strong><small>Not analysed</small></button></div></section>
+    <section class="practice-chords" aria-labelledby="practice-chords-heading"><div class="practice-section-heading"><h2 id="practice-chords-heading">Chord guide</h2><span id="practice-key-tempo"></span><button id="practice-analyze" class="practice-quiet">Analyse chords</button></div><p id="practice-chord-help" role="status">Analyse this song to follow its chords while you play.</p><div id="practice-analysis-progress" class="practice-analysis-progress" role="progressbar" aria-label="Analysing chords" aria-describedby="practice-chord-help" hidden><span aria-hidden="true"></span></div><div class="practice-chord-pair"><button id="practice-current-chord" class="practice-chord"><span>Current</span><strong aria-live="polite">—</strong><small>Not analysed</small></button><button id="practice-next-chord" class="practice-chord"><span>Up next</span><strong>—</strong><small>Not analysed</small></button></div></section>
    </div>
    <section class="practice-saved" aria-labelledby="practice-saved-heading"><div class="practice-section-heading"><h2 id="practice-saved-heading">Saved practices</h2><button id="practice-save" class="practice-quiet" disabled>Save practice</button></div><p id="practice-save-status" role="status"></p><div id="practice-sessions" role="group" aria-label="Saved practices"></div></section>
   </div>
@@ -31,6 +31,13 @@
  const attr=(node,key,value)=>{value=String(value);if(node.getAttribute(key)!==value)node.setAttribute(key,value);};
  const style=(node,key,value)=>{let values=styles.get(node);if(!values){values={};styles.set(node,values);}if(values[key]!==value){values[key]=value;node.style.setProperty(key,value);}};
  const transport=root.querySelector('.practice-transport'),headerActions=root.querySelector('.practice-header-actions'),savedSection=root.querySelector('.practice-saved');
+ const savedMenu=document.createElement('details');savedMenu.className='practice-saved-menu';
+ savedMenu.innerHTML='<summary aria-label="Saved practices" title="Saved practices">Saved</summary>';
+ headerActions.append($('save'));savedMenu.append(savedSection);headerActions.append(savedMenu);
+ const closeSaved=()=>{savedMenu.open=false;};
+ const dismissSaved=event=>{if(savedMenu.open&&!savedMenu.contains(event.target))closeSaved();};
+ const escapeSaved=event=>{if(event.key==='Escape'&&savedMenu.open){closeSaved();savedMenu.querySelector('summary').focus();event.preventDefault();event.stopPropagation();}};
+ document.addEventListener('pointerdown',dismissSaved);root.addEventListener('keydown',escapeSaved);
  const chordViews=['current-chord','next-chord'].map(id=>{const button=$(id);return{id,button,label:button.querySelector('strong'),heading:button.querySelector('span'),detail:button.querySelector('small'),event:undefined};});
  const entryActions=document.createElement('div');entryActions.className='practice-entry-actions';$('empty').append(entryActions);
  const downloadMenu=root.querySelector('.practice-download'),downloadSummary=downloadMenu.querySelector('summary');
@@ -55,7 +62,7 @@
  const fingerprint=value=>JSON.stringify([value.rate,value.loopStart,value.loopEnd,value.loopEnabled,value.mode,value.transpose||0,value.audioPitch||0]);
  function report(failure){error=failure?.message||String(failure);update();}
  const run=action=>async()=>{error='';try{await action();}catch(failure){report(failure);}finally{update();}};
- function visibility(){if(document.body.classList.contains('practice-workspace-active')===host.hidden)document.body.classList.toggle('practice-workspace-active',!host.hidden);prop(root,'hidden',false);if(host.hidden||document.hidden){downloadMenu.open=false;cancelAnimationFrame(playFrame);playFrame=0;}}
+ function visibility(){if(document.body.classList.contains('practice-workspace-active')===host.hidden)document.body.classList.toggle('practice-workspace-active',!host.hidden);prop(root,'hidden',false);if(host.hidden||document.hidden){downloadMenu.open=false;closeSaved();cancelAnimationFrame(playFrame);playFrame=0;}}
  function showPractice(){active=true;if(amount!==transposeValue)shift(transposeValue-amount);visibility();void refreshMetadata();update();}
  $('open').onclick=run(()=>cmd.import());$('find').onclick=run(()=>cmd.browse());
  $('play').onclick=run(()=>cmd.play());$('back').onclick=run(()=>cmd.seek((Number(player.currentTime)||0)-5));$('forward').onclick=run(()=>cmd.seek((Number(player.currentTime)||0)+5));
@@ -232,7 +239,7 @@
   for(const row of rows){const button=document.createElement('button');button.className='practice-saved-row';button.dataset.practiceId=row.id;attr(button,'aria-label','Resume '+row.title);prop(button,'disabled',row.available===false);
    const name=document.createElement('strong');name.textContent=row.title;const details=document.createElement('span'),value=row.settings;
    details.textContent=row.available===false?'Recording unavailable':[(value.rate||1)+'×',value.loopEnabled&&value.loopStart!==null?'Loop '+stamp(value.loopStart)+'–'+stamp(value.loopEnd):'From '+stamp(value.position),({original:'Original',piano:'Piano',backing:'Backing'})[value.mode]||'Original',value.transpose?'Chords '+(value.transpose>0?'+':'')+value.transpose:'',value.audioPitch?'Audio '+(value.audioPitch>0?'+':'')+value.audioPitch:''].filter(Boolean).join(' · ');
-   button.append(name,details);button.onclick=()=>void openSaved(row.id);$('sessions').append(button);}
+   button.append(name,details);button.onclick=()=>{closeSaved();void openSaved(row.id);};$('sessions').append(button);}
  }
  function chordLabel(chord){if(!chord||chord==='X')return 'Uncertain';if(chord==='N')return 'No chord';return pretty(chord);}
  function renderChords(){
@@ -255,6 +262,10 @@
   const readyMessage=provisional?(guide.rhythm_status==='failed'?'Chords ready · Rhythm unavailable':guide.rhythm_status==='cancelled'?'Chords ready · Rhythm stopped':'Chords ready · Timing not refined'):'';
   text($('chord-help'),findingRhythm?'Chords ready · Finding rhythm…':state.analysisBusy?'Analysing '+(task?.sourceName||'your recording')+'…':events.length?readyMessage:'Analyse to see the chords.');
   prop($('chord-help'),'title',provisional?'Chord timing will be refined when rhythm analysis finishes.':'');
+  const analysingThisSong=!!state.analysisBusy&&task?.sourceRevision===sourceRevision;
+  prop($('analysis-progress'),'hidden',!analysingThisSong);
+  attr($('analysis-progress'),'aria-label',findingRhythm?'Finding rhythm. Chords are ready.':'Analysing chords');
+  attr($('analysis-progress'),'data-phase',findingRhythm?'rhythm':'chords');
   attr(chordSection,'data-analysis-stage',provisional?'chords':'complete');
   text($('analyze'),findingRhythm?'Stop rhythm':state.analysisBusy?'Cancel analysis':events.length?'Analyse again':'Analyse chords');prop($('analyze'),'disabled',!hasSong());
  }
@@ -283,8 +294,8 @@
   prop($('empty'),'hidden',song);prop($('song-controls'),'hidden',!song);prop(transport,'hidden',!song);
   const actionHost=song?headerActions:entryActions;
   if($('open').parentElement!==actionHost)actionHost.append($('open'),$('find'));
-  prop(headerActions,'hidden',!song);
-  prop(savedSection,'hidden',!song&&!meta.sessions?.length);
+  prop(headerActions,'hidden',!song&&!meta.sessions?.length);prop($('save'),'hidden',!song);
+  prop(savedMenu,'hidden',!meta.sessions?.length);if(!meta.sessions?.length)closeSaved();
   for(const value of ['original','piano','backing']){attr($(value),'aria-pressed',String(mode===value));prop($(value),'disabled',!song||restoring||pitchBusy||(modeBusy&&value!=='original'));attr($(value),'aria-busy',String(modeBusy||pitchBusy||pendingMode?.mode===value));}
   style(root.querySelector('.practice-mode'),'--mode-index',String(['original','piano','backing'].indexOf(mode)));
   const isPreparing=task.status==='running';text($('preparation'),isPreparing?'Preparing piano · '+Math.round((task.progress||0)*100)+'%':'');prop($('preparation-details'),'hidden',!isPreparing&&task.status!=='failed');
@@ -334,5 +345,5 @@
  for(const [id,label]of [['tab-studio','Practice'],['now-studio','Practise']]){const node=document.getElementById(id);if(node)node.textContent=label;}
  window.BlazeMac.navigate('studio');
  window.BlazeMacPractice={showPractice,refresh:refreshMetadata,snapshot:()=>({visible:active&&!host.hidden,mode:actualMode(),guideMode,requestedMode:pendingMode?.mode||null,transpose:transposeValue,audioPitch:audioPitchValue,pitchBusy,downloadBusy,recordingId:meta.recordingId,sessionId:meta.current?.id||null,pianoJobId:meta.pianoJobId,preparing:window.BlazeMacStems?.snapshot().status==='running',loopStart:a,loopEnd:b,loopEnabled:!!(state.loop&&a!==null&&b!==null),rate:player.playbackRate,pitchPreserved:player.preservesPitch,position:Number(player.currentTime)||0,savedSessions:meta.sessions?.length||0,saving,error})};
- window.addEventListener('pagehide',()=>{stopped=true;clearTimeout(timer);clearTimeout(saveTimer);cancelAnimationFrame(playFrame);cancelAnimationFrame(updateFrame);document.removeEventListener('visibilitychange',visibilityChanged);reducedMotion.removeEventListener('change',motionChanged);systemAppearance.removeEventListener('change',refreshPalette);appearanceObserver.disconnect();for(const view of chordViews)view.animation?.cancel();cancelRestore();resize.disconnect();observer.disconnect();document.removeEventListener('pointerdown',dismissDownload);root.removeEventListener('keydown',escapeDownload);for(const event of mediaEvents)player.removeEventListener(event,requestUpdate);player.removeEventListener('timeupdate',timeUpdated);player.removeEventListener('pause',saveOnPause);player.removeEventListener('seeked',saveOnPause);window.removeEventListener('blaze-mac-media-changed',requestUpdate);window.removeEventListener('blaze-mac-practice-state-changed',requestUpdate);},{once:true});
+ window.addEventListener('pagehide',()=>{stopped=true;clearTimeout(timer);clearTimeout(saveTimer);cancelAnimationFrame(playFrame);cancelAnimationFrame(updateFrame);document.removeEventListener('visibilitychange',visibilityChanged);reducedMotion.removeEventListener('change',motionChanged);systemAppearance.removeEventListener('change',refreshPalette);appearanceObserver.disconnect();for(const view of chordViews)view.animation?.cancel();cancelRestore();resize.disconnect();observer.disconnect();document.removeEventListener('pointerdown',dismissSaved);root.removeEventListener('keydown',escapeSaved);document.removeEventListener('pointerdown',dismissDownload);root.removeEventListener('keydown',escapeDownload);for(const event of mediaEvents)player.removeEventListener(event,requestUpdate);player.removeEventListener('timeupdate',timeUpdated);player.removeEventListener('pause',saveOnPause);player.removeEventListener('seeked',saveOnPause);window.removeEventListener('blaze-mac-media-changed',requestUpdate);window.removeEventListener('blaze-mac-practice-state-changed',requestUpdate);},{once:true});
 })();

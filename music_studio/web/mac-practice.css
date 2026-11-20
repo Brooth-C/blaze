@@ -214,3 +214,39 @@ html[data-presentation=mac][data-appearance=light] #practice-workspace { --pract
 #practice-workspace #practice-next-chord[data-preparing="true"] { border-color:color-mix(in srgb,var(--practice-accent) 45%,var(--practice-line));background:color-mix(in srgb,var(--practice-accent) 5%,var(--practice-panel)); }
 #practice-workspace #practice-next-chord[data-preparing="true"]>span { color:var(--practice-accent); }
 @media(prefers-reduced-motion:reduce) { #practice-workspace #practice-next-chord::after { display:none; } }
+
+/* Native-style indeterminate progress: the engine has no honest overall percentage. */
+#practice-workspace .practice-analysis-progress {
+ height:4px;margin:-2px 0 12px;overflow:hidden;border-radius:999px;
+ background:var(--practice-line);position:relative;isolation:isolate;
+}
+#practice-workspace .practice-analysis-progress[hidden] { display:none; }
+#practice-workspace .practice-analysis-progress span {
+ display:block;width:32%;height:100%;border-radius:inherit;background:var(--practice-accent);
+ animation:practice-analysis-sweep 1.6s cubic-bezier(.45,0,.55,1) infinite;
+}
+#practice-workspace .practice-analysis-progress[data-phase="rhythm"] span { opacity:.65; }
+@keyframes practice-analysis-sweep { from { transform:translateX(-110%); } to { transform:translateX(325%); } }
+@media(prefers-reduced-motion:reduce) {
+ #practice-workspace .practice-analysis-progress span { animation:none;transform:none;width:100%;opacity:.55; }
+}
+
+/* Saved sessions are an on-demand library, never part of the song's scroll area. */
+#practice-workspace .practice-header { position:relative;z-index:5; }
+#practice-workspace .practice-saved-menu { border:0;padding:0;margin:0; }
+#practice-workspace .practice-saved-menu > summary {
+ list-style:none;cursor:default;white-space:nowrap;font-size:12px;
+ padding:6px 10px;border:1px solid var(--practice-line);border-radius:6px;
+ background:var(--practice-input);color:var(--practice-ink);
+}
+#practice-workspace .practice-saved-menu > summary::-webkit-details-marker { display:none; }
+#practice-workspace .practice-saved-menu[open] > summary { background:var(--practice-panel); }
+#practice-workspace .practice-saved-menu .practice-saved {
+ position:absolute;right:16px;top:calc(100% - 4px);z-index:10;
+ width:min(420px,calc(100% - 32px));max-height:min(420px,55vh);overflow:auto;
+ padding:16px;border:1px solid var(--practice-line);border-radius:10px;
+ background:var(--practice-panel);box-shadow:0 12px 32px #0003;
+}
+#practice-workspace .practice-saved-menu .practice-section-heading { margin-bottom:8px; }
+
+@media(max-width:680px) { #practice-workspace .practice-header-actions { flex-wrap:wrap; } }

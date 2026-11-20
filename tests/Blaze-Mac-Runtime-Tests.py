@@ -136,8 +136,10 @@ class MacRuntimeTests(unittest.TestCase):
         server_module = SimpleNamespace(Studio=Mock(return_value=studio), create_server=Mock(return_value=server))
         downloader_module = SimpleNamespace(Downloads=Mock())
         chrome_module = SimpleNamespace(attach_navigation=Mock())
+        updates_module = SimpleNamespace(attach_updates=Mock())
         modules = {'webview': webview, 'music_studio.server': server_module,
-                   'music_studio.downloads': downloader_module, 'music_studio.mac_chrome': chrome_module}
+                   'music_studio.downloads': downloader_module, 'music_studio.mac_chrome': chrome_module,
+                   'music_studio.mac_updates': updates_module}
         return studio, server, window, webview, server_module, downloader_module, modules
 
     def test_native_window_and_model_paths_match_the_package(self):
@@ -151,6 +153,9 @@ class MacRuntimeTests(unittest.TestCase):
         self.assertEqual(webview.create_window.call_args.args, ('Blaze', 'http://127.0.0.1:12345/'))
         modules['music_studio.mac_chrome'].attach_navigation.assert_called_once_with(
             webview.create_window.return_value, {}, on_import=studio.open_local_file)
+        modules['music_studio.mac_updates'].attach_updates.assert_called_once_with(
+            webview.create_window.return_value, studio, {}, start=True)
+        modules['music_studio.mac_updates'].attach_updates.return_value.stop.assert_called_once()
         self.assertEqual(studio.presentation, 'mac')
         self.assertEqual(webview.create_window.call_args.kwargs['min_size'], (780, 600))
         self.assertEqual(webview.start.call_args.kwargs['gui'], 'cocoa')
@@ -166,6 +171,7 @@ class MacRuntimeTests(unittest.TestCase):
         args = SimpleNamespace(file=None, downloads_dir=None, ui_smoke=None)
         with patch.dict(sys.modules, modules), patch.object(mac_app.threading, 'Thread'), self.assertRaisesRegex(RuntimeError, 'Cocoa failed'):
             mac_app.launch(args, self.root, self.root / 'data', {})
+        modules['music_studio.mac_updates'].attach_updates.return_value.stop.assert_called_once()
         server.shutdown.assert_called_once()
         server.server_close.assert_called_once()
         studio.close.assert_called_once()
