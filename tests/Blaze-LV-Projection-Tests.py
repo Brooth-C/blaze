@@ -24,7 +24,8 @@ def assert_reference_output(test, filters, spectrum, actual, expected):
     if actual.tobytes() == expected.tobytes():
         return
     # NumPy's reduction kernel may depend on the temporary's address. Compare
-    # both original computations at each identical alignment instead of drawing
+    # both original computations (including reduction output) at each identical
+    # alignment instead of drawing
     # a probabilistic min/max envelope from unrelated allocator samples. Copies
     # preserve every input bit; the reduction itself is still NumPy's original.
     original_sum = np.sum
@@ -51,7 +52,9 @@ def assert_reference_output(test, filters, spectrum, actual, expected):
 
         def aligned_sum(value, *args, **kwargs):
             test.assertTrue(value.flags.c_contiguous or value.flags.f_contiguous)
-            return original_sum(controlled_copy(value), *args, **kwargs)
+            test.assertEqual(kwargs.get('axis'), 0)
+            output = controlled_copy(np.empty(value.shape[1:], dtype=kwargs.get('dtype', value.dtype)))
+            return original_sum(controlled_copy(value), *args, out=output, **kwargs)
         operands = filters.view(AlignedOperand), spectrum.view(AlignedOperand)
         with patch.object(np, 'sum', side_effect=aligned_sum):
             reference = reference_project(*operands)
