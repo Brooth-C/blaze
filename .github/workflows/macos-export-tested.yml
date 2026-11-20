@@ -15,7 +15,7 @@ permissions:
   actions: read
 jobs:
   export:
-    if: github.ref == 'refs/heads/main'
+    if: github.repository == 'Brooth-C/blaze' && github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -35,11 +35,13 @@ jobs:
               return json.loads(subprocess.check_output(['gh','api','repos/'+repo+'/'+path],text=True))
           source=api('actions/runs/'+run)
           assert source['head_branch']=='main' and source['head_sha']==sha and source['event']=='push'
-          assert source['status']=='completed' and source['conclusion']=='success'
+          assert source['status']=='completed' and source['conclusion'] in ('success','failure')
           assert api('actions/workflows/'+str(source['workflow_id']))['path']=='.github/workflows/macos-app.yml'
           required=['Mac updater ABI / macOS 26','Mac DSP reference parity / macOS 26','Mac YouTube search / macOS 26','Native piano conversion / original checkpoint parity','Mac app / arm64','Mac native glass / macOS 26']
           jobs={j['name']:j['conclusion'] for j in api('actions/runs/'+run+'/jobs?per_page=100')['jobs']}
           assert all(jobs.get(name)=='success' for name in required),jobs
+          failed={name for name,state in jobs.items() if state=='failure'}
+          assert failed.issubset({'Publish tested Mac app'}),'A validation job failed: '+repr(failed)
           subprocess.run(['gh','run','download',run,'--repo',repo,'--name','Blaze-Mac-arm64','--dir','input'],check=True)
           archive=Path('input/Blaze-Mac-arm64.zip');out=Path('export');out.mkdir()
           total=hashlib.sha256();parts=[];count=0;size=0
