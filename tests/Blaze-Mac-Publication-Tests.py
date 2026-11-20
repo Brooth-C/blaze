@@ -16,7 +16,7 @@ from unittest.mock import patch
 ROOT = Path(__file__).resolve().parents[1]
 REPOSITORY = 'Brooth-C/blaze'
 SOURCE = 'a' * 40
-TAG = 'macos-v0.19.7'
+TAG = 'macos-v0.19.8'
 ASSET = 'Blaze-Mac-arm64.zip'
 
 
@@ -38,14 +38,18 @@ class MacPublicationTests(unittest.TestCase):
         self.asset = self.directory / 'artifacts' / ASSET
         self.asset.write_bytes(self.payload)
         self.digest = hashlib.sha256(self.payload).hexdigest()
-        (self.directory / 'docs/RELEASE-0.19.7.md').write_text(
-            '# Blaze for Mac 0.19.7\n\nVerified Practice release.\n', encoding='utf-8')
+        feed = self.directory / 'artifacts/mac-appcast.xml'
+        feed.write_bytes(b'signed stable Mac appcast fixture')
+        self.feed_metadata = {'name': feed.name, 'size': feed.stat().st_size, 'digest': 'sha256:' + hashlib.sha256(feed.read_bytes()).hexdigest(), 'state': 'uploaded'}
+        (self.directory / 'docs/RELEASE-0.19.8.md').write_text(
+            '# Blaze for Mac 0.19.8\n\nVerified Practice release.\n', encoding='utf-8')
         self.metadata = {
             'id': 42, 'tag_name': TAG, 'target_commitish': SOURCE,
             'draft': False, 'prerelease': False,
             'assets': [{'name': ASSET, 'size': len(self.payload),
                         'digest': 'sha256:' + self.digest, 'state': 'uploaded'}],
         }
+        self.metadata['assets'].append(self.feed_metadata)
         self.existing = None
         self.lookup_error = None
         self.calls = []

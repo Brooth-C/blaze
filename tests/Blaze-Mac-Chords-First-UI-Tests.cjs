@@ -66,6 +66,9 @@ async function api(route,body){return page.evaluate(async({route,body})=>{
 async function preview(){
  await page.waitForFunction(()=>window.BlazeMacStudio.viewState().analysisBusy&&window.BlazeMacStudio.viewState().analysisTask?.phase==='rhythm'&&document.getElementById('practice-chord-help').textContent==='Chords ready · Finding rhythm…');
  assert.equal(await page.locator('#practice-analyze').textContent(),'Stop rhythm');
+ assert.equal(await page.locator('#practice-analysis-progress').isVisible(),true);
+ assert.equal(await page.locator('#practice-analysis-progress').getAttribute('aria-label'),'Finding rhythm. Chords are ready.');
+ assert.equal(await page.locator('#practice-analysis-progress').getAttribute('aria-valuenow'),null,'Indeterminate progress must not invent a percentage');
  assert.equal((await api('/api/state')).result.rhythm_status,'pending');
 }
 (async()=>{try{
@@ -111,6 +114,7 @@ async function preview(){
  assert(finished.position>=playing.position,'Final rhythm reset playback');assert.equal(await page.locator('#practice-pitch-value').inputValue(),'1');
  assert.equal((await api('/api/state')).result.analysis_stage,undefined);
  assert.equal(await page.locator('#practice-chord-help').textContent(),'');
+ assert.equal(await page.locator('#practice-analysis-progress').isVisible(),false);
  // Final rhythm supplies beat-count preparation, including the loop wrap.
  await page.evaluate(()=>{document.getElementById('media').pause();window.BlazeMacStudio.commands.seek(11.3);});
  await page.waitForFunction(()=>document.querySelector('#practice-next-chord small').textContent==='In 2 beats'&&document.querySelector('#practice-next-chord span').textContent==='Prepare');
@@ -130,9 +134,13 @@ async function preview(){
  // Stop just the remaining rhythm stage while keeping the early chord guide.
  await api('/api/clear-cache',{});fs.unlinkSync(path.join(data,'finish-rhythm'));
  await page.locator('#practice-analyze').click();await preview();
+ await page.emulateMedia({reducedMotion:'reduce'});
+ assert.equal(await page.locator('#practice-analysis-progress span').evaluate(e=>getComputedStyle(e).animationName),'none');
+ await page.emulateMedia({reducedMotion:'no-preference'});
  await page.locator('#practice-analyze').click();
  await page.waitForFunction(()=>!window.BlazeMacStudio.viewState().analysisBusy&&document.getElementById('practice-chord-help').textContent==='Chords ready · Rhythm stopped');
  assert.equal(await page.locator('#practice-current-chord strong').textContent(),'C#');
+ assert.equal(await page.locator('#practice-analysis-progress').isVisible(),false,'Cancelled analysis left progress active');
  assert.equal(await page.locator('#media').evaluate(media=>media.paused),false);
  assert.equal(fs.readdirSync(path.join(data,'state','analyses')).filter(name=>name.endsWith('.json')).length,0);
 
@@ -142,6 +150,7 @@ async function preview(){
  await page.locator('#import').setInputFiles(other);
  await page.waitForFunction(()=>window.BlazeMacStudio.viewState().analysisBusy&&document.getElementById('practice-title').textContent==='Other recording');
  assert.doesNotMatch(await page.locator('#practice-chord-help').textContent(),/Chords ready|Finding rhythm/);
+ assert.equal(await page.locator('#practice-analysis-progress').isVisible(),false,'Another song’s task leaked into this progress bar');
  assert.equal(await page.locator('#practice-current-chord strong').textContent(),'—','Old preview leaked into a different recording');
  await page.locator('#practice-analyze').click();await page.waitForFunction(()=>!window.BlazeMacStudio.viewState().analysisBusy);
  assert.equal(errors.length,0,errors.join('\n'));console.log('PASS: early chords, background rhythm, piano phrasing/detected, preparation cues, looping, live controls, final refinement, cancellation and source guards.');

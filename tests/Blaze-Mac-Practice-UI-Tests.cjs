@@ -265,6 +265,15 @@ with zipfile.ZipFile(root/'pitched-both.zip') as archive:
  for(let step=1;step<=2;step++){await page.locator('#practice-pitch-up').click();await page.waitForFunction(step=>window.BlazeMacPractice.snapshot().transpose===step&&!window.BlazeMacPractice.snapshot().pitchBusy,step);}
  await page.locator('#practice-save').click();await page.waitForFunction(()=>window.BlazeMacPractice.snapshot().sessionId&&!window.BlazeMacPractice.snapshot().saving);
  const saved=(await snapshot(page)).sessionId;assert(saved);
+ await page.waitForFunction(()=>!document.querySelector('.practice-saved-menu').hidden);
+ assert.equal(await page.locator('#practice-sessions').isVisible(),false,'Saved library should not occupy the workspace');
+ assert.equal(await page.locator('#practice-save').evaluate(e=>!!e.closest('.practice-header-actions')),true);
+ await page.locator('.practice-saved-menu > summary').click();
+ await page.locator('.practice-saved-row').first().waitFor({state:'visible'});
+ await page.keyboard.press('Escape');
+ assert.equal(await page.locator('#practice-sessions').isVisible(),false);
+ assert.equal(await page.locator('.practice-saved-menu > summary').evaluate(e=>e===document.activeElement),true);
+
  await page.locator('.practice-audio-pitch summary').click();await page.locator('#practice-audio-pitch-value').selectOption('1');await page.waitForFunction(()=>window.BlazeMacPractice.snapshot().audioPitch===1&&!window.BlazeMacPractice.snapshot().pitchBusy);await page.locator('.practice-audio-pitch summary').click();await page.locator('#practice-save').click();await page.waitForFunction(()=>!window.BlazeMacPractice.snapshot().saving);
  for(const [width,height]of [[1440,900],[1024,700],[570,540]])for(const colorScheme of ['light','dark']){
   await page.setViewportSize({width,height});await page.emulateMedia({colorScheme});
@@ -284,6 +293,7 @@ with zipfile.ZipFile(root/'pitched-both.zip') as archive:
  assert(await page.locator('.practice-entry-actions #practice-open').isVisible());
  assert(await page.locator('.practice-entry-actions #practice-find').isVisible());
  assert.equal(await page.locator('.practice-transport').isVisible(),false,'Empty Practice shows inert playback controls');
+ await page.locator('.practice-saved-menu > summary').click();
  if(evidence){await page.locator('[data-practice-id="'+saved+'"]').waitFor();await page.screenshot({path:path.join(evidence,'practice-choose-song.png')});}
  await page.locator('[data-practice-id="'+saved+'"]').click();
  await page.waitForFunction(()=>window.BlazeMacPractice.snapshot().mode==='backing'&&window.BlazeMacPractice.snapshot().loopEnabled&&window.BlazeMacPractice.snapshot().rate===.75);

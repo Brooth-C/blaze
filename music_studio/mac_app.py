@@ -245,6 +245,9 @@ def ui_smoke(window, studio, destination, receipt, probe, timeout=900):
             from PyObjCTools import AppHelper
             from Foundation import NSIndexSet
             wait_for("document.body.dataset.nativeSidebar === 'true' && !!window.BlazeMac")
+            wait_for('true', lambda _: 'installed' in receipt.get('updates', {}))
+            if not receipt['updates']['installed']:
+                raise RuntimeError('Native updater failed: ' + receipt['updates'].get('error', 'unknown error'))
             chrome = studio.native_navigation
             if not chrome.receipt.get('installed'):
                 raise RuntimeError('The native Mac navigation was not installed.')
@@ -343,8 +346,14 @@ def ui_smoke(window, studio, destination, receipt, probe, timeout=900):
             raise RuntimeError('The native check missed concurrent preparation and analysis.')
         with studio.lock:
             analysis_key = studio.source_identity(studio.source)
+        analysis_started = time.monotonic()
         probe.run(window, "document.getElementById('practice-analyze').click()")
-        wait_for("!busy && window.BlazePracticeEngine.viewState().analysisTask?.status==='done'")
+        wait_for("window.BlazePracticeEngine.viewState().analysisBusy && window.BlazePracticeEngine.viewState().analysisTask?.phase==='rhythm' && window.BlazePracticeEngine.viewState().practiceChords.length>0 && document.getElementById('practice-chord-help').textContent==='Chords ready · Finding rhythm…' && !document.getElementById('practice-analysis-progress').hidden && !document.getElementById('practice-play').disabled")
+        preview_seconds = time.monotonic() - analysis_started
+        receipt['chords_first'] = {'visible_while_rhythm_running': True, 'playback_available': True,
+                                  'first_visible_seconds': round(preview_seconds, 3)}
+        wait_for("!busy && window.BlazePracticeEngine.viewState().analysisTask?.status==='done' && document.getElementById('practice-analysis-progress').hidden")
+        receipt['chords_first']['complete_seconds'] = round(time.monotonic() - analysis_started, 3)
         with studio.lock:
             recognition = studio.analysis_results.get(analysis_key)
         if not recognition or not recognition.get('chords'):
@@ -442,7 +451,7 @@ def launch(args, root, data, smoke_receipt):
     ffmpeg = root / 'bin' / 'ffmpeg'
     if not ffmpeg.is_file():
         raise RuntimeError('The local decoder is missing. Reinstall the complete Blaze app.')
-    server = studio = native_navigation = None
+    server = studio = native_navigation = native_updates = None
     try:
         studio = Studio(data, str(ffmpeg), args.file, root / 'music_studio' / 'models')
         studio.presentation = 'mac'
@@ -467,6 +476,11 @@ def launch(args, root, data, smoke_receipt):
             # The underlying web navigation remains usable if a bridge package
             # is unavailable; native package checks still report this failure.
             smoke_receipt['native_navigation'] = {'installed': False, 'error': str(error)}
+        try:
+            from music_studio.mac_updates import attach_updates
+            native_updates = attach_updates(window, studio, smoke_receipt.setdefault('updates', {}), start=not args.ui_smoke)
+        except ImportError as error:
+            smoke_receipt['updates'] = {'installed': False, 'error': str(error)}
         if args.ui_smoke:
             webview.start(ui_smoke, (window, studio, args.ui_smoke, smoke_receipt, CocoaProbe()),
                           gui='cocoa', private_mode=False, storage_path=str(data / 'webview'))
@@ -475,6 +489,8 @@ def launch(args, root, data, smoke_receipt):
         else:
             webview.start(gui='cocoa', private_mode=False, storage_path=str(data / 'webview'))
     finally:
+        if native_updates is not None:
+            native_updates.stop()
         if native_navigation is not None:
             native_navigation.stop()
         if server:
