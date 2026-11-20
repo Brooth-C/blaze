@@ -2,6 +2,7 @@
 from pathlib import Path
 import sys
 import unittest
+from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import numpy as np
@@ -22,21 +23,28 @@ def reference_project(filters, spectrum):
 def assert_reference_output(test, filters, spectrum, actual, expected):
     if actual.tobytes() == expected.tobytes():
         return
-    # Native NumPy can select different SIMD paths with allocation alignment.
-    # Only accept values already produced by the unchanged reference itself;
-    # no widened epsilon or implementation-derived tolerance is used.
-    values = [expected] + [reference_project(filters, spectrum) for _ in range(16)]
-    distinct = len({value.tobytes() for value in values})
-    test.assertGreater(distinct, 1, 'Reference is stable; candidate must match exactly')
-    for part in ('real', 'imag'):
-        reference = np.stack([getattr(value, part) for value in values])
-        observed = getattr(actual, part)
-        test.assertTrue(np.all((observed >= reference.min(axis=0)) &
-                               (observed <= reference.max(axis=0))),
-                        'Projection differs beyond unchanged-reference variation')
-    print({'reference_variants': distinct,
-           'reference_self_max_error': max(float(np.max(np.abs(value-expected), initial=0)) for value in values),
+    # NumPy's reduction kernel may depend on the temporary's address. Compare
+    # both original computations at each identical alignment instead of drawing
+    # a probabilistic min/max envelope from unrelated allocator samples. Copies
+    # preserve every input bit; the reduction itself is still NumPy's original.
+    original_sum = np.sum
+    for alignment in range(0, 64, 8):
+        def aligned_sum(value, *args, **kwargs):
+            test.assertTrue(value.flags.c_contiguous or value.flags.f_contiguous)
+            storage = np.empty(value.nbytes + 64, dtype=np.uint8)
+            offset = (alignment - storage.ctypes.data) % 64
+            controlled = np.ndarray(value.shape, dtype=value.dtype, buffer=storage,
+                                    offset=offset, order='F' if value.flags.f_contiguous else 'C')
+            controlled[...] = value
+            return original_sum(controlled, *args, **kwargs)
+        with patch.object(np, 'sum', side_effect=aligned_sum):
+            reference = reference_project(filters, spectrum)
+            candidate = lv._project(filters, spectrum)
+        test.assertEqual(candidate.tobytes(), reference.tobytes(),
+                         f'Projection differs with controlled {alignment}-byte alignment')
+    print({'controlled_reference_alignments': 8, 'exact_match': True,
            'shape': spectrum.shape}, flush=True)
+
 
 
 class ProjectionTests(unittest.TestCase):
