@@ -429,13 +429,22 @@ jobs:
         with:
           python-version: '3.12.10'
       - name: Sign the tested update archive
+        id: update-signing
         env:
           BLAZE_UPDATE_PRIVATE_KEY: ${{ secrets.BLAZE_UPDATE_PRIVATE_KEY }}
         run: |
+          if [ -z "$BLAZE_UPDATE_PRIVATE_KEY" ]; then
+            echo 'ready=false' >> "$GITHUB_OUTPUT"
+            echo '::notice::Signing secret unavailable. Tested artifacts are retained; an operator must sign and publish them. No unsigned update will be published.'
+            echo 'Automatic publication awaits BLAZE_UPDATE_PRIVATE_KEY. An operator can sign the exact tested Mac artifact locally.' >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
           python -m pip install cryptography==46.0.3
           export SOURCE_DATE_EPOCH="$(git log -1 --format=%ct)"
           python tools/macos_update_feed.py --archive artifacts/Blaze-Mac-arm64.zip --version 0.19.8 --output artifacts/mac-appcast.xml
+          echo 'ready=true' >> "$GITHUB_OUTPUT"
       - name: Publish immutable Apple Silicon Mac build
+        if: steps.update-signing.outputs.ready == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}

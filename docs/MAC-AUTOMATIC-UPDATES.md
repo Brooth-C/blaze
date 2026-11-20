@@ -17,7 +17,7 @@ When the user chooses installation, the relaunch block is retained until playbac
 
 ## One-time owner setup
 
-The current GitHub integration returned HTTP 403 when attempting to set repository Actions secrets. A repository owner must set `BLAZE_UPDATE_PRIVATE_KEY` using the generated seed retained outside this checkout at `/workspace/blaze-update-signing/private-key`:
+The current GitHub integration returned HTTP 403 when attempting to set repository Actions secrets. If the secret is absent, CI retains the checked artifact and skips publication; an operator can sign the exact archive locally with this same key and publish it after all checks pass. No unsigned update is published. A repository owner must set `BLAZE_UPDATE_PRIVATE_KEY` using the generated seed retained outside this checkout at `/workspace/blaze-update-signing/private-key`:
 
 ```sh
 gh secret set BLAZE_UPDATE_PRIVATE_KEY --repo Brooth-C/blaze < /workspace/blaze-update-signing/private-key
