@@ -84,3 +84,51 @@ jobs:
           name: Blaze-operator-part-03
           compression-level: 0
           path: export/part-03
+  stage-signed-0198:
+    name: Stage verified 0.19.8 files on the existing release draft
+    if: github.repository == 'Brooth-C/blaze' && github.ref == 'refs/heads/codex/stage-signed-macos-0198' && inputs.source_run_id == '44738372624' && inputs.source_sha == 'd0134508371e0957ad09d47325e75e1e9c15881d'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      actions: read
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: Brooth-C/blaze
+      SOURCE_SHA: d0134508371e0957ad09d47325e75e1e9c15881d
+    steps:
+      - name: Verify the main build, its native checks, and the existing draft
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh api "repos/$GH_REPO/branches/main" | jq -e '.commit.sha == env.SOURCE_SHA'
+          gh api "repos/$GH_REPO/actions/runs/44738372624" | jq -e '.head_sha == env.SOURCE_SHA and .head_branch == "main" and .event == "push" and .status == "completed" and .path == ".github/workflows/macos-app.yml"'
+          gh api "repos/$GH_REPO/actions/runs/44738372624/jobs?per_page=100" > jobs.json
+          python3 - <<'PY'
+          import json
+          required = {"Mac updater ABI / macOS 26", "Mac DSP reference parity / macOS 26", "Mac YouTube search / macOS 26", "Native piano conversion / original checkpoint parity", "Mac app / arm64", "Mac native glass / macOS 26"}
+          passed = {job["name"] for job in json.load(open("jobs.json"))["jobs"] if job["conclusion"] == "success"}
+          assert required <= passed, required - passed
+          PY
+          gh api "repos/$GH_REPO/releases/456671565" | jq -e '.tag_name == "macos-v0.19.8" and .target_commitish == env.SOURCE_SHA and .draft and (.prerelease | not)'
+      - name: Upload the two signed-release files without replacing existing assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh run download 44738372624 --repo "$GH_REPO" --name Blaze-Mac-arm64 --dir .
+          echo 'PD94bWwgdmVyc2lvbj0nMS4wJyBlbmNvZGluZz0ndXRmLTgnPz4KPHJzcyB4bWxuczpzcGFya2xlPSJodHRwOi8vd3d3LmFuZHltYXR1c2NoYWsub3JnL3htbC1uYW1lc3BhY2VzL3NwYXJrbGUiIHZlcnNpb249IjIuMCI+CiAgPGNoYW5uZWw+CiAgICA8dGl0bGU+QmxhemUgZm9yIE1hYzwvdGl0bGU+CiAgICA8aXRlbT4KICAgICAgPHRpdGxlPkJsYXplIDAuMTkuODwvdGl0bGU+CiAgICAgIDxwdWJEYXRlPkZyaSwgMjAgTm92IDIwMjYgMTI6NDQ6NTUgKzAwMDA8L3B1YkRhdGU+CiAgICAgIDxzcGFya2xlOnZlcnNpb24+MC4xOS44PC9zcGFya2xlOnZlcnNpb24+CiAgICAgIDxzcGFya2xlOnNob3J0VmVyc2lvblN0cmluZz4wLjE5Ljg8L3NwYXJrbGU6c2hvcnRWZXJzaW9uU3RyaW5nPgogICAgICA8c3BhcmtsZTptaW5pbXVtU3lzdGVtVmVyc2lvbj4xMy4wPC9zcGFya2xlOm1pbmltdW1TeXN0ZW1WZXJzaW9uPgogICAgICA8bGluaz5odHRwczovL2dpdGh1Yi5jb20vQnJvb3RoLUMvYmxhemUvcmVsZWFzZXMvdGFnL21hY29zLXYwLjE5Ljg8L2xpbms+CiAgICAgIDxlbmNsb3N1cmUgdXJsPSJodHRwczovL2dpdGh1Yi5jb20vQnJvb3RoLUMvYmxhemUvcmVsZWFzZXMvZG93bmxvYWQvbWFjb3MtdjAuMTkuOC9CbGF6ZS1NYWMtYXJtNjQuemlwIiBsZW5ndGg9IjEyMDQyMjAyMzAiIHR5cGU9ImFwcGxpY2F0aW9uL29jdGV0LXN0cmVhbSIgc3BhcmtsZTplZFNpZ25hdHVyZT0iUlphb1F1UDYwZnNYRlVDbGl4MFpHTzJJMXQ0VHpROVNxYWhOWWRiSlp0UkRkYU81UFQvV1ZBQUhUWjlRYmJCVVdGSHlqcjB5ZVJpdW5meVBVTTNYQ2c9PSIgLz4KICAgIDwvaXRlbT4KICA8L2NoYW5uZWw+CjwvcnNzPg==' | base64 --decode > mac-appcast.xml
+          cat > SHA256SUMS <<'SUMS'
+          ad4c597e6bc179be4ce6d4be369d10ccf3214be00519255b6cad8c95ffa13386  Blaze-Mac-arm64.zip
+          c5fece029bbf901b9a1903d9daec97e952b161c3ba2ad2d01e137705a2a155ae  mac-appcast.xml
+          SUMS
+          sha256sum --check SHA256SUMS
+          for asset in Blaze-Mac-arm64.zip mac-appcast.xml; do
+            digest="sha256:$(sha256sum "$asset" | cut -d' ' -f1)"
+            size="$(stat -c %s "$asset")"
+            gh api "repos/$GH_REPO/releases/456671565" > release.json
+            jq -e '.draft and .target_commitish == env.SOURCE_SHA and .tag_name == "macos-v0.19.8"' release.json
+            if ! jq -e --arg asset "$asset" 'any(.assets[]; .name == $asset)' release.json > /dev/null; then
+              gh release upload macos-v0.19.8 "$asset" --repo "$GH_REPO"
+            fi
+            gh api "repos/$GH_REPO/releases/456671565" | jq -e --arg asset "$asset" --arg digest "$digest" --argjson bytes "$size" 'any(.assets[]; .name == $asset and .digest == $digest and .size == $bytes and .state == "uploaded")'
+          done
